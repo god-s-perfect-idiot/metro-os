@@ -23,9 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileSize
 import kotlin.math.min
-import com.metro.ui.MetroCircleIconButton
 import com.metro.ui.MetroColors
-import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import kotlin.math.max
@@ -117,13 +115,21 @@ fun TileGrid(
         val unit = (maxWidth - TILE_GRID_PADDING * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) / TILE_GRID_COLUMNS
         val contentHeight = gridContentHeight(unit, placed)
 
+        if (editMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(onClick = onDismissEdit),
+            )
+        }
+
         Box(
             modifier = Modifier
                 .padding(
                     start = TILE_GRID_PADDING,
                     end = TILE_GRID_PADDING,
                     top = 8.dp,
-                    bottom = 72.dp,
                 )
                 .size(width = maxWidth, height = contentHeight + 16.dp),
         ) {
@@ -147,22 +153,15 @@ fun TileGrid(
                     height = tileHeight,
                     editMode = editMode,
                     isActive = false,
-                    onClick = { if (!editMode) onTileClick(tile) },
+                    onClick = {
+                        if (editMode) onDismissEdit() else onTileClick(tile)
+                    },
                     onLongClick = { if (!editMode) onTileLongPress(tile) },
                     onResize = onResize,
                     onUnpin = onUnpin,
                     modifier = Modifier.offset(x = x, y = y),
                 )
             }
-        }
-
-        if (editMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable(onClick = onDismissEdit),
-            )
         }
 
         if (editMode && activeTile != null) {
@@ -184,7 +183,6 @@ fun TileGrid(
                             start = TILE_GRID_PADDING,
                             end = TILE_GRID_PADDING,
                             top = 8.dp,
-                            bottom = 72.dp,
                         )
                         .size(width = maxWidth, height = contentHeight + 16.dp),
                 ) {
@@ -300,27 +298,22 @@ private fun LauncherTileCell(
             }
         }
         if (isActive) {
-            MetroCircleIconButton(
-                type = MetroSystemIconType.Close,
+            val cornerOffset = TileCornerButtonSize / 2
+            TileEditCornerButton(
                 onClick = onUnpin,
-                size = 36.dp,
-                backgroundColor = Color.White.copy(alpha = 0.92f),
-                color = MetroColors.DarkBackground,
+                contentDescription = "unpin",
+                unpin = true,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = 6.dp, y = (-6).dp),
-                contentDescription = "unpin",
+                    .offset(x = cornerOffset, y = -cornerOffset),
             )
-            MetroCircleIconButton(
-                type = MetroSystemIconType.Resize,
+            TileEditCornerButton(
                 onClick = onResize,
-                size = 36.dp,
-                backgroundColor = Color.White.copy(alpha = 0.92f),
-                color = MetroColors.DarkBackground,
+                contentDescription = "resize",
+                resizeGlyph = resizeGlyphForTileSize(tile.entry.size),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = 6.dp, y = 6.dp),
-                contentDescription = "resize",
+                    .offset(x = cornerOffset, y = cornerOffset),
             )
         }
     }

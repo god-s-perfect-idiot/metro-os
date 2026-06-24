@@ -1,5 +1,6 @@
 package com.metro.launcher.data
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -46,12 +47,13 @@ class LauncherRepository(private val context: Context) {
     fun refreshTileContent(packageName: String, tileId: String): MetroTileData? =
         MetroTileContract.readTile(context.contentResolver, packageName, tileId)
 
-    fun requestUninstall(packageName: String) {
-        if (packageName == context.packageName) return
-        val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun requestUninstall(hostContext: Context, packageName: String) {
+        if (packageName == hostContext.packageName) return
+        val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
+        if (hostContext !is Activity) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(intent)
+        hostContext.startActivity(intent)
     }
 
     fun launchApp(packageName: String, deepLinkUri: String?) {
@@ -87,7 +89,7 @@ class LauncherRepository(private val context: Context) {
             packageManager.getApplicationInfo(packageName, 0),
         ).toString()
     } catch (_: PackageManager.NameNotFoundException) {
-        null
+        SystemAppPlaceholders.label(packageName)
     }
 
     private fun fallbackTileColor(packageName: String): Color =

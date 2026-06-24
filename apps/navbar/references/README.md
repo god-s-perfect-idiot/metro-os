@@ -19,7 +19,8 @@ references/
 
 | Screen | Image | Notes |
 |--------|-------|-------|
-| _(add rows — match AGENTS.md screen table)_ | `images/` | |
+| Default navigation bar | `images/navbar.png` | Back / Start / Search on black theme bar |
+| Hidden bar | `images/hidden_dark.png` | Swipe-up reveal strip |
 
 ## Image naming
 

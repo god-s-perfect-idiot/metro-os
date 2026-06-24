@@ -34,6 +34,7 @@ enum class MetroSystemIconType {
     Back,
     Search,
     Close,
+    Unpin,
     Resize,
     Add,
     More,
@@ -68,6 +69,7 @@ fun MetroSystemIcon(
             MetroSystemIconType.Back -> drawBackGlyph(color, glyphStroke)
             MetroSystemIconType.Search -> drawSearchGlyph(color, glyphStroke)
             MetroSystemIconType.Close -> drawCloseGlyph(color, glyphStroke)
+            MetroSystemIconType.Unpin -> drawUnpinGlyph(color, glyphStroke)
             MetroSystemIconType.Resize -> drawResizeGlyph(color, glyphStroke)
             MetroSystemIconType.Add -> drawAddGlyph(color, glyphStroke)
             MetroSystemIconType.More -> drawMoreGlyph(color, glyphStroke)
@@ -168,17 +170,39 @@ private fun DrawScope.drawCloseGlyph(color: Color, stroke: Stroke) {
     drawLine(color, Offset(cx + arm, cy - arm), Offset(cx - arm, cy + arm), stroke.width, StrokeCap.Round)
 }
 
-private fun DrawScope.drawResizeGlyph(color: Color, stroke: Stroke) {
-    val arm = size.minDimension * 0.13f
+private fun DrawScope.drawUnpinGlyph(color: Color, stroke: Stroke) {
+    val arm = size.minDimension * 0.12f
     val cx = size.width / 2f
     val cy = size.height / 2f
+    drawCircle(color, arm * 0.42f, Offset(cx + arm * 0.1f, cy - arm * 0.55f), style = stroke)
+    drawLine(
+        color,
+        Offset(cx + arm * 0.1f, cy - arm * 0.15f),
+        Offset(cx - arm * 0.55f, cy + arm * 0.55f),
+        stroke.width,
+        StrokeCap.Round,
+    )
+    drawLine(
+        color,
+        Offset(cx - arm * 0.75f, cy - arm * 0.75f),
+        Offset(cx + arm * 0.75f, cy + arm * 0.75f),
+        stroke.width,
+        StrokeCap.Round,
+    )
+}
+
+/** Diagonal arrow toward tile interior (WP8.1 resize affordance). */
+private fun DrawScope.drawResizeGlyph(color: Color, stroke: Stroke) {
+    val arm = size.minDimension * 0.14f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val start = Offset(cx + arm * 0.55f, cy - arm * 0.75f)
+    val end = Offset(cx - arm * 0.75f, cy + arm * 0.55f)
+    drawLine(color, start, end, stroke.width, StrokeCap.Round)
     val path = Path().apply {
-        moveTo(cx + arm * 0.3f, cy - arm)
-        lineTo(cx + arm, cy - arm)
-        lineTo(cx + arm, cy - arm * 0.3f)
-        moveTo(cx - arm * 0.3f, cy + arm)
-        lineTo(cx - arm, cy + arm)
-        lineTo(cx - arm, cy + arm * 0.3f)
+        moveTo(end.x + arm * 0.38f, end.y)
+        lineTo(end.x, end.y)
+        lineTo(end.x, end.y - arm * 0.38f)
     }
     drawPath(path, color, style = stroke)
 }

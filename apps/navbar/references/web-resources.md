@@ -8,7 +8,7 @@ Add one `##` section per screen or feature. Keep URLs stable; use archive.org mi
 
 | Resource | URL | Notes |
 |----------|-----|-------|
-| WP8.1 UI Design and Interaction Guide | _(add PDF link or path under `guides/`)_ | Global Metro patterns |
+| WP8.1 UI Design and Interaction Guide | https://learn.microsoft.com/en-us/previous-versions/windows/apps/hh202915(v=win.10) | System chrome and soft keys |
 | scope.md — this app | [`scope.md`](../../../scope.md) | Repo source of truth |
 
 ## _(Screen name)_

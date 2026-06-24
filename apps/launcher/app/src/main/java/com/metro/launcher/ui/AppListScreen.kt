@@ -6,10 +6,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -32,13 +34,16 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.core.graphics.drawable.toBitmap
+import com.metro.launcher.data.SystemAppPlaceholders
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
 import com.metro.ui.MetroCircleIconButton
@@ -58,6 +63,8 @@ private val ContextMenuGapBelowIcon = 4.dp
 private val ContextMenuHorizontalPadding = 16.dp
 private val ContextMenuVerticalPadding = 12.dp
 private val ContextMenuMinWidth = 160.dp
+private val SearchFieldRowHeight = 36.dp
+private val AppListHorizontalStartPadding = 12.dp
 
 /**
  * App menu — alphabetical list of installed apps.
@@ -85,6 +92,10 @@ fun AppListScreen(
     val grouped = remember(apps) {
         apps.groupBy { it.label.first().lowercaseChar() }.toSortedMap()
     }
+    val dismissSearch = {
+        searchActive = false
+        onSearchQueryChange("")
+    }
 
     Box(
         modifier = modifier
@@ -102,6 +113,7 @@ fun AppListScreen(
             Column(
                 modifier = Modifier
                     .width(AppListIconSize)
+                    .fillMaxHeight()
                     .padding(vertical = ListRowVerticalPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -111,6 +123,18 @@ fun AppListScreen(
                     size = AppListIconSize,
                     contentDescription = "search",
                 )
+                if (searchActive) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = dismissSearch,
+                            ),
+                    )
+                }
             }
 
             LazyColumn(
@@ -167,6 +191,23 @@ fun AppListScreen(
             }
         }
 
+        if (searchActive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(1f)
+                    .padding(
+                        start = AppListHorizontalStartPadding + AppListIconSize + SearchColumnGap,
+                        top = 4.dp + SearchFieldRowHeight,
+                    )
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = dismissSearch,
+                    ),
+            )
+        }
+
         contextMenuApp?.let { app ->
             val menuOffset = IntOffset(
                 x = (contextMenuIconBounds.left - popupRootBounds.left).toInt(),
@@ -179,6 +220,7 @@ fun AppListScreen(
                 properties = PopupProperties(focusable = true),
             ) {
                 AppListContextMenu(
+                    uninstallEnabled = !app.isSystemApp,
                     onPinToStart = {
                         onPinToStart(app)
                         contextMenuApp = null
@@ -195,6 +237,7 @@ fun AppListScreen(
 
 @Composable
 private fun AppListContextMenu(
+    uninstallEnabled: Boolean,
     onPinToStart: () -> Unit,
     onUninstall: () -> Unit,
 ) {
@@ -214,6 +257,7 @@ private fun AppListContextMenu(
         AppListContextMenuItem(
             text = "uninstall",
             onClick = onUninstall,
+            enabled = uninstallEnabled,
         )
     }
 }
@@ -222,18 +266,29 @@ private fun AppListContextMenu(
 private fun AppListContextMenuItem(
     text: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(
+                if (enabled) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(vertical = ContextMenuVerticalPadding),
         contentAlignment = Alignment.CenterStart,
     ) {
         MetroText(
             text = text,
             style = MetroTextStyle.ListItemTitle,
-            color = MetroColors.LightPrimaryText,
+            color = if (enabled) {
+                MetroColors.LightPrimaryText
+            } else {
+                MetroColors.LightSecondaryText
+            },
         )
     }
 }
@@ -326,6 +381,7 @@ private fun AppListSquareIcon(
     val density = LocalDensity.current
     val pixelSize = with(density) { AppListIconSize.roundToPx() }.coerceAtLeast(1)
     val asset = remember(packageName) { MetroAppBranding.loadAppIconAsset(context, packageName) }
+    val placeholderResId = remember(packageName) { SystemAppPlaceholders.iconResId(packageName) }
     val bitmap = remember(packageName, pixelSize) {
         asset.drawable?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
     }
@@ -342,6 +398,14 @@ private fun AppListSquareIcon(
         if (bitmap != null) {
             Image(
                 bitmap = bitmap,
+                contentDescription = label,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(IconInnerPadding),
+            )
+        } else if (placeholderResId != null) {
+            Image(
+                painter = painterResource(placeholderResId),
                 contentDescription = label,
                 modifier = Modifier
                     .fillMaxSize()

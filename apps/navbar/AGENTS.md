@@ -17,7 +17,7 @@ WP8.1 **soft key bar** — Back, Start, Search. Theme-colored 48dp bar; swipe-to
 
 | Surface | Reference |
 |---------|-----------|
-| Standard bar (3 keys) | `references/images/bar_dark_blue.png` |
+| Standard bar (3 keys) | `references/images/navbar.png` |
 | Hidden bar (swipe reveal) | `references/images/hidden_dark.png` |
 
 ## WP8.1 rules
@@ -25,9 +25,9 @@ WP8.1 **soft key bar** — Back, Start, Search. Theme-colored 48dp bar; swipe-to
 - Keys: Back (chevron), Start (Windows logo), Search (magnifier)
 - Height **48dp**; icons white on dark bar, black on light
 - Background from `MetroPreferences.nav_bar_color` or theme
-- **Back**: page stack → exit app → previous app (never backspace in `TextField`)
+- **Back**: page stack → exit app; long-press → recent apps (never backspace in `TextField`)
 - **Start**: `MetroIntents` → launcher Start screen
-- **Search**: `MetroIntents.SEARCH` (stub OK v1)
+- **Search**: tap → Google Search; long-press → Gemini
 - Swipe up from bottom: hide bar; swipe up again: show
 - No Material navigation bar
 

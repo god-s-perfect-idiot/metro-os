@@ -5,7 +5,7 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the detailed implementation brief for the future shell overlay.
+**Scaffolded** — overlay service, collapsed/expanded tray UI, clock minute ticks, 8s auto-collapse, stub indicators, progress spinner state. Requires overlay permission on device.
 
 ## App role
 

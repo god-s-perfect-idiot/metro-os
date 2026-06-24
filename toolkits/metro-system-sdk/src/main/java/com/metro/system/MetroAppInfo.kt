@@ -7,4 +7,5 @@ data class MetroAppInfo(
     val packageName: String,
     val label: String,
     val isPinned: Boolean = false,
+    val isSystemApp: Boolean = false,
 )

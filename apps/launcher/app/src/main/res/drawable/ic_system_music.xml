@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- WP8-style headphones -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,58v-14c0,-12 10,-20 22,-20s22,8 22,20v14h-10v-12c0,-7 -5,-12 -12,-12s-12,5 -12,12v12z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M26,58v12c0,6 5,10 11,10h3v-22z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82,58v22h3c6,0 11,-4 11,-10v-12z" />
+</vector>

@@ -21,20 +21,28 @@ The app should feel like a Metro hub, not a generic Android contacts manager. Th
 
 ## Screen inventory
 
-### 1. People hub
+Authoritative spec: [`references/guides/blueprint.md`](references/guides/blueprint.md)
 
-- Landing surface with high-level sections such as all contacts and what’s new
-- Expected reference: `references/images/hub_dark_blue.png`
+### 1. People hub · all (default)
 
-### 2. Contacts pivot / filter surface
+- Panorama landing pane: Me row, add account, contact list, jump list
+- Reference: `references/images/hub_dark_blue.jpg` (not yet sourced — see `references/known-gaps.md`)
 
-- Filter or segmented browsing view for contacts
-- Expected reference: `references/images/pivot_dark_blue.png`
+### 2. People hub · what's new
 
-### 3. Contact detail
+- Aggregated social feed pane; read-only in v1 with external deep-link stubs
+- Supplementary: `references/guides/people-hub.md`
 
-- Detail page for a selected person
-- Expected reference: `references/images/detail_dark_blue.png`
+### 3. Filter contacts
+
+- Full-page filter (hide no-phone, per-account checkboxes)
+- Reference: `references/images/pivot_dark_blue.jpg`
+
+### 4. Contact detail (pivot)
+
+- Pivots: profile, connect, what's new, history
+- Reference: `references/images/detail_dark_blue.jpg`
+- Supplementary: `references/guides/contact-detail.md`
 
 ## System functions and contracts
 
@@ -45,8 +53,9 @@ The app should feel like a Metro hub, not a generic Android contacts manager. Th
 
 ## UI and interaction guardrails
 
-- `MetroHub` for landing organization
-- `MetroPivot` only where reference supports filter/category switching
+- `MetroPanorama` for hub landing (`all` + `what's new` panes)
+- `MetroPivot` on contact detail only
+- WP 8.1: tap contact name → call; profile icon → detail
 - No Material contact chips, floating add buttons, or rounded avatar card grids
 - Large names and left-aligned layout should dominate
 
@@ -72,9 +81,13 @@ The app should feel like a Metro hub, not a generic Android contacts manager. Th
 
 ## Reference and golden expectations
 
-- `references/images/hub_dark_blue.png`
-- `references/images/pivot_dark_blue.png`
-- `references/images/detail_dark_blue.png`
+- `references/guides/blueprint.md` — read first
+- `references/images/pivot_dark_blue.jpg`
+- `references/images/detail_dark_blue.jpg`
+- `references/images/detail_connect_dark_blue.jpg`
+- `references/images/detail_whatsnew_dark_blue.jpg`
+- `references/images/accounts_dark_blue.jpg`
+- `references/known-gaps.md` — hub contact-list screenshot still needed
 
 ## Commands
 

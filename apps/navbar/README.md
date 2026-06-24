@@ -5,7 +5,7 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the implementation guide for the WP8.1 soft-key shell surface.
+**Scaffolded** — overlay service, WP8.1 three-key navigation bar UI, theme/back/start/search wiring, swipe hide/reveal. Requires overlay + accessibility permissions on device.
 
 ## App role
 
@@ -27,7 +27,7 @@ The navbar must feel like Windows Phone navigation chrome, not Android gesture n
 - Three keys: Back, Start, Search
 - Theme-colored or preference-driven background
 - White icons on dark backgrounds, black icons on light backgrounds
-- Expected reference: `references/images/bar_dark_blue.png`
+- Expected reference: `references/images/navbar.png`
 
 ### 2. Hidden bar state
 
@@ -37,22 +37,22 @@ The navbar must feel like Windows Phone navigation chrome, not Android gesture n
 
 ## System functions and contracts
 
+### Search behavior
+
+- Search (tap) opens Google Search on the device
+- Search (long press) launches Google Gemini when installed
+- Falls back to web search / assist intent when Google apps are absent
+
 ### Back behavior
 
-- Back navigates within current app page stack first
-- Then exits app if stack is exhausted
+- Back (tap) navigates within current app page stack first, then exits app
+- Back (long press) opens recent apps via accessibility global action
 - Must never turn into a text-field backspace affordance
-- Cross-app dispatch logic should live in shared contracts, not per-app hacks
 
 ### Start behavior
 
 - Start always returns to `com.metro.launcher`
 - This should work as a shell action rather than merely launching a random activity
-
-### Search behavior
-
-- Search dispatches `MetroIntents.SEARCH`
-- Cortana/global search behavior may be a stub in v1, but the key contract must exist
 
 ### Theme behavior
 
@@ -96,9 +96,10 @@ The navbar must feel like Windows Phone navigation chrome, not Android gesture n
 
 1. Tap Start returns to launcher
 2. Tap Back navigates correctly within an app and exits when stack ends
-3. Tap Search dispatches the shared search contract
-4. Theme/nav color changes update the bar immediately
-5. Swipe hide/reveal works or gracefully no-ops on unsupported profiles with documented exception
+3. Tap Search opens Google Search
+4. Long-press Back opens recent apps; long-press Search opens Gemini
+5. Theme/nav color changes update the bar immediately
+6. Swipe hide/reveal works or gracefully no-ops on unsupported profiles with documented exception
 
 ## Reference and golden expectations
 
@@ -132,6 +133,7 @@ cd apps/navbar
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | System-level navbar injection behaves like OS chrome everywhere | Android implementations vary by OEM, permissions, and overlay capability | Ship the closest consistent shell overlay/accessibility implementation and document unsupported device classes |
+| Cortana / Bing search | No Cortana on Android | Tap Search opens Google Search; long press opens Gemini |
 
 ## Agent postmortem
 

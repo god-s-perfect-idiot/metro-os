@@ -1,54 +1,60 @@
 # People — reference materials
 
-Visual and behavioral source material for implementing this app to WP8.1 fidelity.
+**Start with [`guides/blueprint.md`](guides/blueprint.md)** — authoritative page spec. Images are visual aids only.
 
-Agents must read this folder **before** changing UI in `apps/people/`.
+## Pages (from blueprint)
+
+| Page | Blueprint | Image | Supplementary |
+|------|-----------|-------|---------------|
+| Hub · all (contacts) | [blueprint § Page 1](guides/blueprint.md) | _missing_ — [`known-gaps.md`](known-gaps.md) | [`guides/people-hub.md`](guides/people-hub.md) |
+| Hub · what's new | [blueprint § Page 2](guides/blueprint.md) | _missing_ — [`known-gaps.md`](known-gaps.md) | [`guides/people-hub.md`](guides/people-hub.md) |
+| Filter contacts | [blueprint § Page 3](guides/blueprint.md) | `images/pivot_dark_blue.jpg` | [`web-resources.md#filter-contacts`](web-resources.md) |
+| Jump list | [blueprint § Page 4](guides/blueprint.md) | — | [`guides/people-hub.md`](guides/people-hub.md) |
+| Contact detail · profile | [blueprint § Page 6](guides/blueprint.md) | `images/detail_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |
+| Contact detail · connect | [blueprint § Page 7](guides/blueprint.md) | `images/detail_connect_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |
+| Contact detail · what's new | [blueprint § Page 8](guides/blueprint.md) | `images/detail_whatsnew_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |
+| Contact detail · history | [blueprint § Page 9](guides/blueprint.md) | — | [`guides/contact-detail.md`](guides/contact-detail.md) |
+| Add account | [blueprint § Page 10](guides/blueprint.md) | `images/accounts_dark_blue.jpg` | [`web-resources.md#accounts`](web-resources.md) |
 
 ## Folder layout
 
 ```
 references/
-├── README.md           # This file — screen index and usage rules
-├── web-resources.md    # Curated web guides, docs, and video links
-├── images/             # WP8.1 screenshots for this app
-│   └── <screen>_<theme>_<accent>.png
-└── guides/             # Offline PDFs, saved articles, measurement notes
+├── README.md              # This file
+├── known-gaps.md          # Missing reference screenshots
+├── web-resources.md       # Curated links
+├── guides/
+│   ├── blueprint.md       # Authoritative — read first
+│   ├── people-hub.md      # Panorama panes (all, what's new)
+│   └── contact-detail.md  # Profile / connect / feeds / history
+└── images/                # WP 8.1 screenshots (visual aid only)
 ```
 
-## Screens
+## Image catalog
 
-| Screen | Image | Notes |
-|--------|-------|-------|
-| _(add rows — match AGENTS.md screen table)_ | `images/` | |
+Screenshots from [All About Windows Phone](https://allaboutwindowsphone.com/features/item/20748_Proving_theres_still_full_Face.php) (Lumia 640, WP 8.1, 720×1280). Blueprint wins on conflict.
+
+| File | Illustrates |
+|------|-------------|
+| `pivot_dark_blue.jpg` | Filter contacts — toggle + account checkboxes |
+| `detail_dark_blue.jpg` | Contact profile pivot — photo, actions, app bar |
+| `detail_connect_dark_blue.jpg` | Connect pivot — linked app tiles |
+| `detail_whatsnew_dark_blue.jpg` | Per-contact what's new feed |
+| `accounts_dark_blue.jpg` | Add an account provider list |
+| `hub_dark_blue.jpg` | _Not yet added_ — all-pane contact list |
 
 ## Image naming
 
-- Pattern: `<screen>_<theme>_<accent>.png`
-- Examples: `start_dark_blue.png`, `applist_light_teal.png`
+- Pattern: `<screen>_dark_blue.jpg` (or `.png`)
 - Primary device profile: **768×1280** (Lumia 925 / xhdpi) — see `scope.md`
-- Capture from WP8.1 GDR2+ device or use licensed marketing assets
-
-## Web resources
-
-Add links in [`web-resources.md`](web-resources.md). One section per screen or feature area.
-
-Agents should open linked guides when implementing or reviewing a screen. Prefer official Microsoft / Windows Phone design documentation; add community captures only when official material is unavailable.
+- Reference captures may be 720×1280 from community sources; scale proportionally
 
 ## Agent workflow
 
-1. Identify the screen you are building (see `AGENTS.md` and app `README.md`).
-2. Open the matching row in **Screens** above.
-3. Read `web-resources.md` for behavior and interaction rules.
-4. Compare implementation against `images/<screen>_<theme>_<accent>.png`.
-5. Cite paths in commits/PRs:
+1. Read `guides/blueprint.md`
+2. Read supplementary guides for the page you are building
+3. Use `images/` for visual polish only
+4. Check `known-gaps.md` before assuming a screenshot exists
+5. Cite: `apps/people/references/guides/blueprint.md`
 
-```
-Reference: apps/people/references/images/start_dark_blue.png
-Guide: apps/people/references/web-resources.md#start-screen
-```
-
-Golden screenshots for verify live in `screenshots/golden/` (captured from emulator, not WP8.1 source).
-
-## Large binaries
-
-Raw dumps > 5MB or video captures may live outside git. Document the storage location in this file if omitted.
+Golden emulator captures: `screenshots/golden/` (not yet scaffolded).

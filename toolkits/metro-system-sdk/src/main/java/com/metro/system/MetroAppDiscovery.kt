@@ -2,6 +2,7 @@ package com.metro.system
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 
 object MetroAppDiscovery {
@@ -30,10 +31,20 @@ object MetroAppDiscovery {
                     packageName = packageName,
                     label = resolveAppLabel(packageManager, packageName),
                     isPinned = packageName in pinnedPackages,
+                    isSystemApp = isSystemApp(packageManager, packageName),
                 )
             }
             .sortedBy { it.label.lowercase() }
     }
+
+    fun isSystemApp(packageManager: PackageManager, packageName: String): Boolean =
+        try {
+            val flags = packageManager.getApplicationInfo(packageName, 0).flags
+            (flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                (flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        } catch (_: PackageManager.NameNotFoundException) {
+            MetroAppRegistry.isKnown(packageName)
+        }
 
     private fun resolveAppLabel(packageManager: PackageManager, packageName: String): String =
         try {

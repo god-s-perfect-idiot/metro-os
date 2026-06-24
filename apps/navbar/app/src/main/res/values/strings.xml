@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Navigation Bar</string>
+    <string name="accessibility_service_description">Enables the Metro navigation bar to cover the system navigation bar and powers Back and recent-apps keys.</string>
+    <string name="overlay_notification_title">Metro navigation bar</string>
+    <string name="overlay_notification_body">WP8.1 soft keys are active</string>
+    <string name="permission_overlay_title">Display over other apps</string>
+    <string name="permission_overlay_body">Required to draw the Metro navigation bar above other apps.</string>
+    <string name="permission_accessibility_title">Accessibility service</string>
+    <string name="permission_accessibility_body">Required to draw above the system navigation bar and for Back key navigation.</string>
+    <string name="start_overlay">Start navigation bar</string>
+    <string name="grant_overlay">Grant overlay permission</string>
+    <string name="grant_accessibility">Enable Back key service</string>
+    <string name="key_back">Back</string>
+    <string name="key_start">Start</string>
+    <string name="key_search">Search</string>
+</resources>

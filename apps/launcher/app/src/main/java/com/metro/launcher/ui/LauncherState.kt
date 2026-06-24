@@ -23,6 +23,7 @@ import com.metro.system.MetroThemeMode
 
 class LauncherState(context: Context) {
     private val appContext = context.applicationContext
+    private val hostContext: Context = context
     private val repository = LauncherRepository(appContext)
     private val metroPrefs = MetroPreferences(appContext)
 
@@ -162,10 +163,11 @@ class LauncherState(context: Context) {
     }
 
     fun uninstallApp(app: MetroAppInfo) {
+        if (app.isSystemApp) return
         pinnedEntries
             .filter { it.packageName == app.packageName }
             .forEach { unpinTile(it) }
-        repository.requestUninstall(app.packageName)
+        repository.requestUninstall(hostContext, app.packageName)
     }
 
     fun onSearchQueryChange(query: String) {

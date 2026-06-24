@@ -2,7 +2,9 @@ package com.metro.launcher.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.DisplayTile
 import com.metro.ui.MetroCircleIconButton
 import com.metro.ui.MetroSystemIconType
+
+private val StartBottomScrollPadding = 120.dp
 
 /**
  * Start menu — 4-column tile grid on black.
@@ -32,38 +36,42 @@ fun StartScreen(
     onResize: () -> Unit = {},
     onUnpin: () -> Unit = {},
 ) {
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Color.Black)
+            .verticalScroll(rememberScrollState()),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-        ) {
-            TileGrid(
-                tiles = tiles,
-                onTileClick = onTileClick,
-                onTileLongPress = onTileLongPress,
-                editMode = editMode,
-                activeTile = editingTile,
-                onDismissEdit = onDismissEdit,
-                onResize = onResize,
-                onUnpin = onUnpin,
-            )
-        }
+        TileGrid(
+            tiles = tiles,
+            onTileClick = onTileClick,
+            onTileLongPress = onTileLongPress,
+            editMode = editMode,
+            activeTile = editingTile,
+            onDismissEdit = onDismissEdit,
+            onResize = onResize,
+            onUnpin = onUnpin,
+        )
 
         if (!editMode) {
-            MetroCircleIconButton(
-                type = MetroSystemIconType.Forward,
-                onClick = onOpenAppList,
-                size = 64.dp,
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = 20.dp),
-                contentDescription = "app list",
-            )
+                    .fillMaxWidth()
+                    .padding(
+                        start = TILE_GRID_PADDING,
+                        end = TILE_GRID_PADDING,
+                        top = TILE_GRID_GAP,
+                        bottom = StartBottomScrollPadding,
+                    ),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                MetroCircleIconButton(
+                    type = MetroSystemIconType.Forward,
+                    onClick = onOpenAppList,
+                    size = 64.dp,
+                    contentDescription = "app list",
+                )
+            }
         }
     }
 }

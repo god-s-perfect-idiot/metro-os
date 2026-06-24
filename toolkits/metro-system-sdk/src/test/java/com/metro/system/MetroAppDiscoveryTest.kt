@@ -31,13 +31,21 @@ class MetroAppDiscoveryTest {
     }
 
     @Test
-    fun discoverInstalledApps_includesPinnedPackagesNotYetInstalled() {
+    fun isSystemApp_knownPlaceholderTreatedAsSystem() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val packageManager = context.packageManager
+        assertTrue(MetroAppDiscovery.isSystemApp(packageManager, "com.metro.settings"))
+    }
+
+    @Test
+    fun discoverInstalledApps_includesPinnedPackagesAndMarksSystemApps() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val pinned = setOf("com.metro.settings", "com.metro.store")
         val discovered = MetroAppDiscovery.discoverInstalledApps(context, pinned)
         assertTrue(discovered.any { it.packageName == "com.metro.settings" })
         assertTrue(discovered.any { it.packageName == "com.metro.store" })
-        assertEquals("settings", discovered.first { it.packageName == "com.metro.settings" }.label)
+        assertEquals("Settings", discovered.first { it.packageName == "com.metro.settings" }.label)
+        assertTrue(discovered.first { it.packageName == "com.metro.settings" }.isSystemApp)
     }
 
     @Test

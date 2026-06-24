@@ -19,7 +19,9 @@ references/
 
 | Screen | Image | Notes |
 |--------|-------|-------|
-| _(add rows — match AGENTS.md screen table)_ | `images/` | |
+| Collapsed tray | `images/collapsed_dark.png` | Clock right-aligned |
+| Expanded tray | `images/expanded_dark.png` | Indicators visible 8s |
+| Progress tray | `images/progress_dark.png` | Accent spinner in tray |
 
 ## Image naming
 

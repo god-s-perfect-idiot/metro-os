@@ -1,7 +1,7 @@
 # Agent instructions — People (`com.metro.people`)
 
-**Tier 2** | Contact hub. Reference: `references/images/`.
+**Tier 2** | Contact hub. Reference: `references/guides/blueprint.md`.
 
-`MetroHub` with what's new / all contacts sections. Pivot for filtering. Read contacts via `ContactsContract`.
+`MetroPanorama` (`all` + `what's new`). `MetroPivot` on contact detail. Filter is a separate page. Read contacts via `ContactsContract`. WP 8.1: tap name → call.
 
 Verify: `../../scripts/verify-app.sh people`

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Status Bar</string>
+    <string name="overlay_notification_title">Metro status tray</string>
+    <string name="overlay_notification_body">WP8.1 system tray is active</string>
+    <string name="permission_overlay_title">Display over other apps</string>
+    <string name="permission_overlay_body">Required to draw the Metro status tray above other apps.</string>
+    <string name="start_overlay">Start status tray</string>
+    <string name="grant_overlay">Grant overlay permission</string>
+    <string name="tray_clock">Clock</string>
+</resources>

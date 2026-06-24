@@ -4,7 +4,9 @@ import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.PinnedTileStore
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.launcher.ui.TILE_GRID_COLUMNS
+import com.metro.launcher.ui.TileResizeGlyph
 import com.metro.launcher.ui.layoutTilesOnGrid
+import com.metro.launcher.ui.resizeGlyphForTileSize
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileEntry
 import com.metro.ui.MetroColors
@@ -52,6 +54,13 @@ class TileGridTest {
         assertEquals(3, placed.size)
         val positions = placed.map { it.col to it.row }.toSet()
         assertEquals(3, positions.size)
+    }
+
+    @Test
+    fun resizeGlyph_matchesSizeCycle() {
+        assertEquals(TileResizeGlyph.DiagonalDownRight, resizeGlyphForTileSize(PinnedTileSize.OneByOne))
+        assertEquals(TileResizeGlyph.Right, resizeGlyphForTileSize(PinnedTileSize.TwoByTwo))
+        assertEquals(TileResizeGlyph.DiagonalUpLeft, resizeGlyphForTileSize(PinnedTileSize.FourByTwo))
     }
 
     private fun displayTile(packageName: String, size: PinnedTileSize) = DisplayTile(
