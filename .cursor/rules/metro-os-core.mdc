@@ -1,0 +1,31 @@
+---
+description: Core metro-os agent rules — WP8.1 1:1 Android suite
+alwaysApply: true
+---
+
+# metro-os core rules
+
+Read before any code change:
+1. `scope.md` — design system and app inventory
+2. `toolkits/metro-ui-android/METRO-UX-LANGUAGE.md` — per-control WP8.1 UX (UI work)
+3. `AGENTS.md` — workflow and hard rules
+4. Target `apps/<name>/AGENTS.md` or `toolkits/<name>/AGENTS.md`
+5. Target `apps/<name>/README.md` when working in an app — app README files are the detailed implementation brief, page inventory, system contract guide, and guardrail checklist
+
+## Non-negotiable
+
+- **1:1 WP8.1 Metro UI** — not Material, not "inspired by"
+- **No Material** in app UI (`com.google.android.material`, Material3 components, FAB, snackbars, bottom sheets, drawer nav)
+- **Toolkit first** — use `toolkits/metro-ui-android` before custom controls
+- **Verify before done** — `./scripts/verify-app.sh <name>` or `verify-toolkit.sh`
+- **Self-correct** up to 5 verify iterations; then postmortem and stop
+
+## Build order
+
+toolkits → launcher → statusbar → navbar → Tier 1 apps → Tier 2 apps
+
+## Commit format
+
+`<app-or-toolkit>: <imperative summary>`
+
+Do not commit unless the user asks.

@@ -1,0 +1,54 @@
+---
+description: WP8.1 Metro UI rules for Kotlin and Compose files
+globs: apps/**/*.kt,toolkits/**/*.kt
+alwaysApply: false
+---
+
+# Metro Android UI
+
+**Full per-control spec:** [`toolkits/metro-ui-android/METRO-UX-LANGUAGE.md`](../../toolkits/metro-ui-android/METRO-UX-LANGUAGE.md)
+
+## Shape language (summary)
+
+- **Squares (0dp corners):** tiles, border text buttons, lists, dialogs
+- **Circles / pills (exceptions):** app bar icon press, toggle track, slider thumb, radio
+- **Never:** Material cards, FAB, rounded-corner photo frames
+
+## Theme
+
+```kotlin
+MetroTheme(darkTheme = MetroPreferences.isDark, accent = MetroPreferences.accent) {
+    // content
+}
+```
+
+## Typography
+
+- Noto Sans only for Metro chrome (never Roboto in system UI)
+- Min 15sp interactive text; page titles 64sp flush-left
+
+## Layout
+
+- 24dp horizontal list margins; 44dp min touch targets
+- App bar at **bottom**; minimized (ellipsis) on panorama pages
+- Page transitions: 300ms horizontal slide, ease-out
+
+## Controls
+
+Import from `metro-ui-android`: `MetroAppBar`, `MetroBorderButton`, `MetroIconButton`, `MetroPivot`, `MetroPanorama`, `MetroListItem`, `MetroToggleSwitch`, etc.
+
+| Need | Use |
+|------|-----|
+| Primary action with icon | App bar icon (circular press) |
+| Dialog / settings commit | Border text button (square outline) |
+| In-page icon-only | `MetroIconButton` |
+
+## Navigation
+
+- Pivot = filter/categorize (max 7 items)
+- Panorama = hub/overview only
+- No drawer, no bottom nav, no FAB
+
+## Checklist
+
+Run through `docs/DESIGN-CHECKLIST.md` and `toolkits/metro-ui-android/METRO-UX-LANGUAGE.md` before marking UI tasks complete.

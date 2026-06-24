@@ -1,0 +1,36 @@
+---
+description: Harness engineering — verify loop and self-correction
+globs: scripts/**,docs/**,**/AGENTS.md
+alwaysApply: false
+---
+
+# Harness engineering
+
+## Verify commands
+
+```bash
+./scripts/verify-env.sh              # environment
+./scripts/verify-toolkit.sh <name>   # toolkits
+./scripts/verify-app.sh <name>       # apps
+./scripts/run-app.sh <name> --verify # build + install + AVD checks
+./scripts/agent-overseer.sh <name> "<task>"  # Cursor agent orchestration
+./scripts/verify-all.sh              # full suite
+```
+
+## Self-correction loop
+
+implement → verify → read `deploy/verify-report.json` → fix ONE failure → re-verify (max 5×)
+
+## Golden screenshots
+
+- Path: `apps/<name>/screenshots/golden/`
+- Source WP8.1 captures: `apps/<name>/references/images/`
+- Agents must NOT update golden files to pass diff
+- Primary device profile: `lumia-925` (768×1280 xhdpi)
+
+## Reports
+
+- App: `apps/<name>/deploy/verify-report.json`
+- Suite: `deploy/verify-suite.json`
+
+See `docs/HARNESS.md` and `docs/TROUBLESHOOTING.md`.

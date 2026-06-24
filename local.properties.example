@@ -1,0 +1,2 @@
+# Copy to local.properties in each app (gitignored)
+sdk.dir=/Users/YOUR_USER/Library/Android/sdk

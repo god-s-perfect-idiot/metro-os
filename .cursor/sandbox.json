@@ -1,0 +1,6 @@
+{
+  "type": "insecure_none",
+  "networkPolicy": {
+    "default": "allow"
+  }
+}

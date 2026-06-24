@@ -1,0 +1,42 @@
+# Build outputs
+**/build/
+**/.gradle/
+**/deploy/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.local.properties
+.cxx/
+
+# Local SDK path (use local.properties.example as template)
+local.properties
+
+# Verify reports (regenerated each run)
+**/deploy/verify-report.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+
+# Emulator screenshots (captured during test runs)
+**/screenshots/captured/
+!**/screenshots/golden/
+
+# Secrets
+*.keystore
+*.jks
+signing.properties
