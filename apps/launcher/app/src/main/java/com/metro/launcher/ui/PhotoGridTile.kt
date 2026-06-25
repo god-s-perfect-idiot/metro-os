@@ -1,0 +1,115 @@
+package com.metro.launcher.ui
+
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.metro.system.MetroPreferences
+import com.metro.system.MetroTileGridCell
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+@Composable
+fun PhotoGridTileContent(
+    cells: List<MetroTileGridCell>,
+    columns: Int,
+    rows: Int,
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    val displayCells = if (cells.size >= columns * rows) {
+        cells.take(columns * rows)
+    } else {
+        cells + List(columns * rows - cells.size) { MetroTileGridCell() }
+    }
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        for (row in 0 until rows) {
+            for (col in 0 until columns) {
+                val left = maxWidth * col / columns
+                val top = maxHeight * row / rows
+                val right = maxWidth * (col + 1) / columns
+                val bottom = maxHeight * (row + 1) / rows
+                PhotoGridCell(
+                    cell = displayCells[row * columns + col],
+                    modifier = Modifier
+                        .offset(x = left, y = top)
+                        .size(width = right - left, height = bottom - top),
+                )
+            }
+        }
+        MetroText(
+            text = title,
+            style = MetroTextStyle.Body,
+            color = Color.White,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun PhotoGridCell(
+    cell: MetroTileGridCell,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val background = cell.colorHex?.let { MetroPreferences.parseAccentHex(it) }
+        ?: MetroPreferences(context).accentColor
+    var bitmap by remember(cell.imageUri) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(cell.imageUri) {
+        val uri = cell.imageUri
+        bitmap = if (uri.isNullOrBlank()) {
+            null
+        } else {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
+                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                    }
+                }.getOrNull()
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier.background(background),
+        contentAlignment = Alignment.Center,
+    ) {
+        bitmap?.let { image ->
+            Image(
+                bitmap = image,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}

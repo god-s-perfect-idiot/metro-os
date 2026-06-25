@@ -12,6 +12,7 @@ import com.metro.system.MetroIntents
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
+import com.metro.system.MetroTilePhotoGrid
 import com.metro.system.MetroAppBranding
 
 data class DisplayTile(
@@ -21,6 +22,7 @@ data class DisplayTile(
     val counter: Int?,
     val deepLinkUri: String?,
     val hasFlipFace: Boolean,
+    val photoGrid: MetroTilePhotoGrid? = null,
 )
 
 class LauncherRepository(private val context: Context) {
@@ -81,6 +83,7 @@ class LauncherRepository(private val context: Context) {
             counter = providerData?.counter,
             deepLinkUri = providerData?.deepLinkUri,
             hasFlipFace = providerData?.hasFlipFace == true,
+            photoGrid = providerData?.photoGrid,
         )
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -16,6 +17,29 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun MetroText(
     text: String,
+    modifier: Modifier = Modifier,
+    style: MetroTextStyle = MetroTextStyle.Body,
+    color: Color = MetroTheme.colors.primaryText,
+    textAlign: TextAlign? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+) {
+    val textStyle = style.toTextStyle().copy(
+        color = color,
+        textAlign = textAlign ?: style.toTextStyle().textAlign,
+    )
+    BasicText(
+        text = text,
+        modifier = modifier,
+        style = textStyle,
+        maxLines = maxLines,
+        overflow = overflow,
+    )
+}
+
+@Composable
+fun MetroText(
+    text: AnnotatedString,
     modifier: Modifier = Modifier,
     style: MetroTextStyle = MetroTextStyle.Body,
     color: Color = MetroTheme.colors.primaryText,

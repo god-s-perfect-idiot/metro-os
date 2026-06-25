@@ -25,6 +25,16 @@ object MetroTileContract {
         const val BACK_FACE_TITLE = "back_face_title"
         const val BACK_FACE_IMAGE_URI = "back_face_image_uri"
         const val DEEP_LINK_URI = "deep_link_uri"
+        const val PHOTO_GRID = "photo_grid"
+    }
+
+    /** Max cells exported for wide (4×2 → 6×3) People-style photo grids. */
+    const val MAX_PHOTO_GRID_CELLS = 18
+
+    fun photoGridDimensions(colSpan: Int, rowSpan: Int): Pair<Int, Int>? = when {
+        colSpan >= 4 && rowSpan >= 2 -> 6 to 3
+        colSpan >= 2 && rowSpan >= 2 -> 3 to 3
+        else -> null
     }
 
     fun authorityFor(packageName: String): String = "$packageName.tiles"
@@ -50,12 +60,13 @@ object MetroTileContract {
         packageName: String,
         tileId: String = DEFAULT_TILE_ID,
     ): MetroTileData? {
+        val uri = tileUri(packageName, tileId)
+        val extras = Bundle().apply { putString("tile_id", tileId) }
         return try {
-            val uri = tileUri(packageName, tileId)
-            resolver.call(uri, "getTile", null, Bundle.EMPTY)?.toTileData()
+            resolver.call(uri, "getTile", tileId, extras)?.toTileData()
         } catch (_: Exception) {
             try {
-                resolver.query(tileUri(packageName, tileId), null, null, null, null)?.use { cursor ->
+                resolver.query(uri, null, null, null, null)?.use { cursor ->
                     if (!cursor.moveToFirst()) return null
                     cursor.toTileData()
                 }
@@ -77,6 +88,7 @@ object MetroTileContract {
             backFaceTitle = getString(Columns.BACK_FACE_TITLE),
             backFaceImageUri = getString(Columns.BACK_FACE_IMAGE_URI),
             deepLinkUri = getString(Columns.DEEP_LINK_URI),
+            photoGrid = MetroTilePhotoGridCodec.decode(getString(Columns.PHOTO_GRID)),
         )
     }
 
@@ -88,6 +100,7 @@ object MetroTileContract {
         val bgIdx = col(Columns.BACKGROUND_COLOR)
         val background = if (bgIdx >= 0) getString(bgIdx) else null
         val counterIdx = col(Columns.COUNTER)
+        val gridIdx = col(Columns.PHOTO_GRID)
         return MetroTileData(
             title = title,
             backgroundColorHex = background ?: MetroPreferences.DEFAULT_ACCENT_HEX,
@@ -97,6 +110,7 @@ object MetroTileContract {
             backFaceTitle = col(Columns.BACK_FACE_TITLE).let { if (it >= 0) getString(it) else null },
             backFaceImageUri = col(Columns.BACK_FACE_IMAGE_URI).let { if (it >= 0) getString(it) else null },
             deepLinkUri = col(Columns.DEEP_LINK_URI).let { if (it >= 0) getString(it) else null },
+            photoGrid = if (gridIdx >= 0) MetroTilePhotoGridCodec.decode(getString(gridIdx)) else null,
         )
     }
 }

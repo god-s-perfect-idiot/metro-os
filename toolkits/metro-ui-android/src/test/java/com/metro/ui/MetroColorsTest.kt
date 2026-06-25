@@ -46,8 +46,8 @@ class MetroTextStyleTest {
     }
 
     @Test
-    fun listItemSubtitle_is16sp() {
-        assertEquals(16f, MetroTextStyle.ListItemSubtitle.toTextStyle().fontSize.value, 0.01f)
+    fun hubTitle_is56sp() {
+        assertEquals(56f, MetroTextStyle.HubTitle.toTextStyle().fontSize.value, 0.01f)
     }
 }
 

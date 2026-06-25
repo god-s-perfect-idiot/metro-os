@@ -7,6 +7,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.metro.launcher.ui.LauncherShell
 import com.metro.launcher.ui.LauncherState
 import com.metro.ui.MetroTheme
@@ -21,7 +23,16 @@ class MainActivity : ComponentActivity() {
             DisposableEffect(state) {
                 state.registerReceivers(context)
                 state.refreshAll()
-                onDispose { state.unregisterReceivers(context) }
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        state.refreshAll()
+                    }
+                }
+                lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycle.removeObserver(observer)
+                    state.unregisterReceivers(context)
+                }
             }
             MetroTheme(
                 darkTheme = state.darkTheme,

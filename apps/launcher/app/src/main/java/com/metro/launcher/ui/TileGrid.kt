@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileSize
+import com.metro.system.MetroTileContract
 import kotlin.math.min
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroText
@@ -221,6 +222,12 @@ private fun LauncherTileCell(
     val dimmed = editMode && !isActive
     val iconSize = tileIconSize(width, height, tile.entry.size)
     val contentColor = MetroColors.tileContentColor(tile.backgroundColor)
+    val photoGrid = tile.photoGrid
+    val gridDimensions = MetroTileContract.photoGridDimensions(
+        tile.entry.size.colSpan,
+        tile.entry.size.rowSpan,
+    )
+    val showPhotoGrid = photoGrid != null && gridDimensions != null
 
     Box(
         modifier = modifier
@@ -246,46 +253,62 @@ private fun LauncherTileCell(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(tile.backgroundColor)
-                .padding(TILE_CONTENT_INSET),
+                .then(
+                    if (showPhotoGrid) Modifier else Modifier
+                        .background(tile.backgroundColor)
+                        .padding(TILE_CONTENT_INSET),
+                ),
         ) {
             val isSmall = tile.entry.size == PinnedTileSize.OneByOne
-            if (isSmall) {
-                MetroAppIcon(
-                    packageName = tile.entry.packageName,
-                    size = iconSize,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(TILE_SMALL_ICON_INSET),
-                    contentDescription = tile.title,
-                    fallbackLabel = tile.title,
-                    fallbackColor = contentColor,
-                )
-            } else {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Box(
+            when {
+                showPhotoGrid -> {
+                    val (columns, rows) = gridDimensions!!
+                    PhotoGridTileContent(
+                        cells = photoGrid!!.cells,
+                        columns = columns,
+                        rows = rows,
+                        title = tile.title,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                isSmall -> {
+                    MetroAppIcon(
+                        packageName = tile.entry.packageName,
+                        size = iconSize,
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        MetroAppIcon(
-                            packageName = tile.entry.packageName,
-                            size = iconSize,
-                            modifier = Modifier.size(iconSize),
-                            contentDescription = tile.title,
-                            fallbackLabel = tile.title,
-                            fallbackColor = contentColor,
+                            .fillMaxSize()
+                            .padding(TILE_SMALL_ICON_INSET),
+                        contentDescription = tile.title,
+                        fallbackLabel = tile.title,
+                        fallbackColor = contentColor,
+                    )
+                }
+                else -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            MetroAppIcon(
+                                packageName = tile.entry.packageName,
+                                size = iconSize,
+                                modifier = Modifier.size(iconSize),
+                                contentDescription = tile.title,
+                                fallbackLabel = tile.title,
+                                fallbackColor = contentColor,
+                            )
+                        }
+                        MetroText(
+                            text = tile.title,
+                            style = MetroTextStyle.Body,
+                            color = contentColor,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                    MetroText(
-                        text = tile.title,
-                        style = MetroTextStyle.Body,
-                        color = contentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
                 }
             }
             tile.counter?.takeIf { it > 0 }?.let { count ->

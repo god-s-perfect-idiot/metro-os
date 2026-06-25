@@ -21,6 +21,8 @@ val MetroFontFamily = FontFamily(
 
 enum class MetroTextStyle {
     PageTitle,
+    /** Panorama / pivot hub titles — thinner than [PageTitle]. */
+    HubTitle,
     SectionHeader,
     ListItemTitle,
     ListItemSubtitle,
@@ -35,6 +37,13 @@ enum class MetroTextStyle {
             fontWeight = FontWeight.Light,
             fontSize = 64.sp,
             lineHeight = 72.sp,
+        )
+        HubTitle -> TextStyle(
+            fontFamily = MetroFontFamily,
+            fontWeight = FontWeight.Thin,
+            fontSize = 56.sp,
+            lineHeight = 64.sp,
+            letterSpacing = (-0.5).sp,
         )
         SectionHeader -> TextStyle(
             fontFamily = MetroFontFamily,

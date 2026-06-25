@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">People</string>
+    <string name="permission_contacts_title">Contacts access</string>
+    <string name="permission_contacts_body">People needs access to your contacts to show your address book.</string>
+    <string name="grant_contacts">allow access</string>
+    <string name="add_account">add an account</string>
+    <string name="import_sim">import SIM contacts</string>
+    <string name="me_label">me</string>
+    <string name="showing_phone_only">showing only contacts with phone numbers</string>
+    <string name="showing_all">showing all contacts</string>
+    <string name="filter_contacts">filter contacts</string>
+    <string name="hide_no_phone">hide contacts without phone numbers</string>
+    <string name="hide_no_phone_hint">Shows only the contacts that you can call or text. You can still find the rest by searching.</string>
+    <string name="show_contacts_from">show contacts from my</string>
+    <string name="open_external_stub">Would open in external app</string>
+    <string name="call">call</string>
+    <string name="call_mobile">call mobile</string>
+    <string name="text">text</string>
+    <string name="post_timeline">post to timeline</string>
+    <string name="send_email">send email</string>
+    <string name="add_apps">add apps</string>
+    <string name="history_empty">No communication history yet.</string>
+    <string name="search_contacts">search contacts</string>
+    <string name="account_device">Device</string>
+</resources>

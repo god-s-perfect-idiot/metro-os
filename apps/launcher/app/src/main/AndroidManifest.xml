@@ -12,11 +12,21 @@
             <action android:name="android.intent.action.DELETE" />
             <data android:scheme="package" />
         </intent>
+        <!-- Metro suite packages — required for cross-app live tile ContentProviders (API 30+). -->
         <package android:name="com.metro.browser" />
         <package android:name="com.metro.notes" />
         <package android:name="com.metro.music" />
         <package android:name="com.metro.settings" />
         <package android:name="com.metro.store" />
+        <package android:name="com.metro.photos" />
+        <package android:name="com.metro.calendar" />
+        <package android:name="com.metro.mail" />
+        <package android:name="com.metro.messaging" />
+        <package android:name="com.metro.people" />
+        <package android:name="com.metro.calculator" />
+        <package android:name="com.metro.clock" />
+        <package android:name="com.metro.files" />
+        <provider android:authorities="com.metro.people.tiles" />
     </queries>
 
     <application

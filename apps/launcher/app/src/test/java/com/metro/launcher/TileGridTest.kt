@@ -9,6 +9,7 @@ import com.metro.launcher.ui.layoutTilesOnGrid
 import com.metro.launcher.ui.resizeGlyphForTileSize
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileEntry
+import com.metro.system.MetroTileContract
 import com.metro.ui.MetroColors
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -61,6 +62,12 @@ class TileGridTest {
         assertEquals(TileResizeGlyph.DiagonalDownRight, resizeGlyphForTileSize(PinnedTileSize.OneByOne))
         assertEquals(TileResizeGlyph.Right, resizeGlyphForTileSize(PinnedTileSize.TwoByTwo))
         assertEquals(TileResizeGlyph.DiagonalUpLeft, resizeGlyphForTileSize(PinnedTileSize.FourByTwo))
+    }
+
+    @Test
+    fun photoGridDimensions_matchesTileSizes() {
+        assertEquals(3 to 3, MetroTileContract.photoGridDimensions(2, 2))
+        assertEquals(6 to 3, MetroTileContract.photoGridDimensions(4, 2))
     }
 
     private fun displayTile(packageName: String, size: PinnedTileSize) = DisplayTile(

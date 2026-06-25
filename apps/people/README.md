@@ -5,7 +5,7 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the implementation guide for the WP8.1 people hub.
+Android project scaffolded. Implements WP8.1 People hub v1 per `references/guides/blueprint.md`.
 
 ## App role
 

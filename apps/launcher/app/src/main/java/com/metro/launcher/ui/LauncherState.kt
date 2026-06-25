@@ -78,7 +78,7 @@ class LauncherState(context: Context) {
     fun registerReceivers(context: Context) {
         val tileFilter = IntentFilter(MetroBroadcasts.ACTION_TILE_UPDATE)
         val themeFilter = IntentFilter(MetroBroadcasts.ACTION_THEME_CHANGED)
-        context.registerReceiver(tileUpdateReceiver, tileFilter, Context.RECEIVER_NOT_EXPORTED)
+        context.registerReceiver(tileUpdateReceiver, tileFilter, Context.RECEIVER_EXPORTED)
         context.registerReceiver(themeReceiver, themeFilter, Context.RECEIVER_NOT_EXPORTED)
     }
 

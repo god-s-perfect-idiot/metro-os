@@ -12,7 +12,11 @@ data class MetroTileData(
     val backFaceTitle: String? = null,
     val backFaceImageUri: String? = null,
     val deepLinkUri: String? = null,
+    val photoGrid: MetroTilePhotoGrid? = null,
 ) {
     val hasFlipFace: Boolean
         get() = !backFaceTitle.isNullOrBlank() || !backFaceImageUri.isNullOrBlank()
+
+    val hasPhotoGrid: Boolean
+        get() = photoGrid?.hasContent == true
 }
