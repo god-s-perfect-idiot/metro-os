@@ -21,7 +21,9 @@ fun MetroPivot(
     pagerState: PagerState,
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {},
+    belowTitleRow: @Composable () -> Unit = {},
     onTitleClick: ((Int) -> Unit)? = null,
+    userScrollEnabled: Boolean = true,
     pageContent: @Composable (Int) -> Unit,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -33,12 +35,14 @@ fun MetroPivot(
             onTitleClick = onTitleClick,
             modifier = Modifier.padding(vertical = 8.dp),
         )
+        belowTitleRow()
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
             beyondViewportPageCount = 1,
+            userScrollEnabled = userScrollEnabled,
         ) { page ->
             pageContent(page)
         }

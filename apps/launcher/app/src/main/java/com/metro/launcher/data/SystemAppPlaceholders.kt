@@ -20,6 +20,7 @@ object SystemAppPlaceholders {
         "com.metro.mail" to R.drawable.ic_system_mail,
         "com.metro.messaging" to R.drawable.ic_system_messaging,
         "com.metro.people" to R.drawable.ic_system_people,
+        "com.metro.dialer" to R.drawable.ic_system_phone,
         "com.metro.calculator" to R.drawable.ic_system_calculator,
         "com.metro.clock" to R.drawable.ic_system_clock,
         "com.metro.files" to R.drawable.ic_system_files,

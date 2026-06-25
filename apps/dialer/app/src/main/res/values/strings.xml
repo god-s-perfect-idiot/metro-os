@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Phone</string>
+    <string name="permission_call_log_title">Call history access</string>
+    <string name="permission_call_log_body">Phone needs access to your call history to show recent calls.</string>
+    <string name="permission_call_phone_body">Phone also needs permission to place and manage calls.</string>
+    <string name="grant_call_log">allow access</string>
+    <string name="grant_permissions">allow access</string>
+    <string name="setup_title">phone setup</string>
+    <string name="default_dialer_body">Set Phone as your default dialer to place calls and show the in-call screen.</string>
+    <string name="set_default_dialer">set as default phone app</string>
+    <string name="continue_without_default">continue without setting default</string>
+    <string name="history_empty">No recent calls.</string>
+    <string name="history_permission_denied">Call history unavailable without permission.</string>
+    <string name="speed_dial_empty">Pin contacts from call history to speed dial.</string>
+    <string name="search_history">search call history</string>
+    <string name="calling">calling…</string>
+    <string name="dialling">dialling…</string>
+    <string name="carrier_unknown">carrier</string>
+    <string name="mobile_label">Mobile: %1$s</string>
+    <string name="speaker">speaker</string>
+    <string name="mute">mute</string>
+    <string name="bluetooth">bluetooth</string>
+    <string name="hold">hold</string>
+    <string name="video">video</string>
+    <string name="add_call">add call</string>
+    <string name="keypad">keypad</string>
+    <string name="call">call</string>
+    <string name="save">save</string>
+    <string name="end_call">end call</string>
+    <string name="incoming">incoming</string>
+    <string name="outgoing">outgoing</string>
+    <string name="missed">missed</string>
+    <string name="declined">declined</string>
+    <string name="add_speed_dial">added to speed dial</string>
+    <string name="people_unavailable">People app is not installed</string>
+    <string name="save_contact_empty">Enter a number to save</string>
+    <string name="settings_stub">Settings not available in v1</string>
+    <string name="block_stub">Block number not available in v1</string>
+</resources>

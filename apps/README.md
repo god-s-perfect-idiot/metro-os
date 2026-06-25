@@ -44,6 +44,7 @@ apps/<name>/references/
 | [mail](mail/) | `com.metro.mail` | [AGENTS.md](mail/AGENTS.md) |
 | [messaging](messaging/) | `com.metro.messaging` | [AGENTS.md](messaging/AGENTS.md) |
 | [people](people/) | `com.metro.people` | [AGENTS.md](people/AGENTS.md) |
+| [dialer](dialer/) | `com.metro.dialer` | [AGENTS.md](dialer/AGENTS.md) |
 | [store](store/) | `com.metro.store` | [AGENTS.md](store/AGENTS.md) |
 | [settings](settings/) | `com.metro.settings` | [AGENTS.md](settings/AGENTS.md) |
 | [calculator](calculator/) | `com.metro.calculator` | [AGENTS.md](calculator/AGENTS.md) |

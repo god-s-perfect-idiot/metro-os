@@ -48,6 +48,7 @@ These three apps form the **Metro Shell**. Consumer apps assume the shell is ins
 | **Mail** | `com.metro.mail` | Linked inboxes, conversation view |
 | **Messaging** | `com.metro.messaging` | SMS/MMS thread list |
 | **People** | `com.metro.people` | Contact hub, social integration surface |
+| **Phone** | `com.metro.dialer` | Call history, speed dial, dial pad, in-call UI |
 | **Store** | `com.metro.store` | App discovery shell (stub acceptable in v1) |
 | **Settings** | `com.metro.settings` | System settings mirroring WP8.1 settings hierarchy |
 | **Calculator** | `com.metro.calculator` | Portrait scientific calculator |

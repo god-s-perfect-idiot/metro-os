@@ -1,22 +1,30 @@
 package com.metro.ui
 
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
+private val PivotTabSpacing = 20.dp
+
 enum class MetroHubTitleMode {
-    /** All titles visible; active tab gets accent underline. */
+    /** Active tab flush-left; earlier tabs scroll off to the left. */
     Pivot,
     /** Active title flush-left; next pane title peeks from the right edge. */
     Panorama,
@@ -44,20 +52,69 @@ fun MetroHubTitleRow(
         return
     }
 
-    Row(
+    PivotTitleRow(
+        titles = titles,
+        selectedIndex = selectedIndex,
+        modifier = modifier,
+        onTitleClick = onTitleClick,
+    )
+}
+
+@Composable
+private fun PivotTitleRow(
+    titles: List<String>,
+    selectedIndex: Int,
+    modifier: Modifier = Modifier,
+    onTitleClick: ((Int) -> Unit)? = null,
+) {
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val textStyle = MetroTextStyle.PivotTab.toTextStyle()
+    val spacingPx = remember(density) { with(density) { PivotTabSpacing.roundToPx() } }
+    val tabContentWidthsPx = remember(titles, textStyle, textMeasurer) {
+        titles.map { title ->
+            textMeasurer.measure(title, style = textStyle).size.width
+        }
+    }
+    val targetOffsetPx = remember(tabContentWidthsPx, selectedIndex, spacingPx) {
+        if (selectedIndex <= 0) {
+            0
+        } else {
+            var offset = 0
+            for (index in 0 until selectedIndex) {
+                offset += tabContentWidthsPx[index] + spacingPx
+            }
+            offset
+        }
+    }
+    val animatedOffsetPx by animateIntAsState(
+        targetValue = targetOffsetPx,
+        animationSpec = MetroTransitions.pivotTween(),
+        label = "pivotTitleOffset",
+    )
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 24.dp)
+            .clipToBounds(),
     ) {
-        titles.forEachIndexed { index, title ->
-            PivotTitle(
-                title = title,
-                active = index == selectedIndex,
-                onClick = onTitleClick?.let { { it(index) } },
-                modifier = Modifier
-                    .alignByBaseline()
-                    .padding(end = 12.dp),
-            )
+        Row(
+            modifier = Modifier
+                .wrapContentWidth(unbounded = true, align = Alignment.Start)
+                .offset { IntOffset(-animatedOffsetPx, 0) },
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            titles.forEachIndexed { index, title ->
+                PivotTitle(
+                    title = title,
+                    active = index == selectedIndex,
+                    onClick = onTitleClick?.let { { it(index) } },
+                    modifier = Modifier.padding(
+                        end = if (index < titles.lastIndex) PivotTabSpacing else 0.dp,
+                    ),
+                )
+            }
         }
     }
 }
@@ -106,27 +163,14 @@ private fun PivotTitle(
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val accent = MetroTheme.colors.accent
-    val underlineModifier = if (active) {
-        Modifier.drawBehind {
-            val strokeHeight = 3.dp.toPx()
-            drawRect(
-                color = accent,
-                topLeft = Offset(0f, size.height - strokeHeight),
-                size = Size(size.width, strokeHeight),
-            )
-        }
-    } else {
-        Modifier
-    }
     val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
 
     MetroText(
         text = title,
-        style = MetroTextStyle.HubTitle,
+        style = MetroTextStyle.PivotTab,
         color = if (active) MetroTheme.colors.primaryText else MetroTheme.colors.secondaryText,
         maxLines = 1,
-        modifier = modifier.then(clickModifier).then(underlineModifier),
+        modifier = modifier.then(clickModifier),
     )
 }
 

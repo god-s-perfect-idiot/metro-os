@@ -23,6 +23,8 @@ enum class MetroTextStyle {
     PageTitle,
     /** Panorama / pivot hub titles — thinner than [PageTitle]. */
     HubTitle,
+    /** Pivot tab headers — light weight, slightly smaller than [HubTitle]. */
+    PivotTab,
     SectionHeader,
     ListItemTitle,
     ListItemSubtitle,
@@ -40,9 +42,16 @@ enum class MetroTextStyle {
         )
         HubTitle -> TextStyle(
             fontFamily = MetroFontFamily,
-            fontWeight = FontWeight.Thin,
+            fontWeight = FontWeight.Light,
             fontSize = 56.sp,
             lineHeight = 64.sp,
+            letterSpacing = (-0.5).sp,
+        )
+        PivotTab -> TextStyle(
+            fontFamily = MetroFontFamily,
+            fontWeight = FontWeight.Light,
+            fontSize = 48.sp,
+            lineHeight = 56.sp,
             letterSpacing = (-0.5).sp,
         )
         SectionHeader -> TextStyle(

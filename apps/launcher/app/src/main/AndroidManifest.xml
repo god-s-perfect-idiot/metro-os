@@ -23,6 +23,7 @@
         <package android:name="com.metro.mail" />
         <package android:name="com.metro.messaging" />
         <package android:name="com.metro.people" />
+        <package android:name="com.metro.dialer" />
         <package android:name="com.metro.calculator" />
         <package android:name="com.metro.clock" />
         <package android:name="com.metro.files" />
