@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import com.metro.ui.metroNavBarPadding
 
 /**
  * Two-page shell: Start tiles (page 0) and app menu (page 1).
@@ -45,6 +46,7 @@ fun LauncherShell(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
+            .metroNavBarPadding()
             .semantics { testTagsAsResourceId = true }
             .background(Color.Black),
     ) {

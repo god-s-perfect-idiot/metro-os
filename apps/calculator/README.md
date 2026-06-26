@@ -5,7 +5,7 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the implementation brief for the WP8.1 calculator.
+Implemented — standard and scientific pivot panes with WP8.1 evaluation rules (left-to-right vs precedence).
 
 ## App role
 
@@ -93,6 +93,8 @@ cd apps/calculator
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | Exact OS calculator feature parity | Feature scope may exceed v1 utility goals | Prioritize standard and core scientific functions with exact Metro presentation before expanding feature set |
+| Standard ↔ scientific via device rotation | `scope.md` §portrait-only would forbid landscape | Landscape is enabled **only** to surface the scientific keypad (the authentic WP8.1 rotation behavior); portrait standard remains the primary orientation. State is preserved across rotation via `configChanges`. |
+| Landscape system bar supplies no bottom inset | Metro nav bar overlay still occupies the bottom edge | Keypad reserves a 48dp bottom clearance in landscape so no key is occluded. |
 
 ## Agent postmortem
 

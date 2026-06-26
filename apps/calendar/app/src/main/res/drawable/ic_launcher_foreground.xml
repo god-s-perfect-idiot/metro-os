@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple calendar grid icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,32 L80,32 L80,80 L28,80 Z"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFF"
+        android:fillAlpha="0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,32 L80,32 L80,44 L28,44 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,28 L36,36 M72,28 L72,36"
+        android:strokeWidth="3"
+        android:strokeColor="#FFFFFF"
+        android:fillAlpha="0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,52 L46,52 L46,60 L38,60 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,52 L58,52 L58,60 L50,60 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,52 L70,52 L70,60 L62,60 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,64 L46,64 L46,72 L38,72 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,64 L58,64 L58,72 L50,72 Z" />
+</vector>

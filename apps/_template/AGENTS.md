@@ -32,6 +32,8 @@
 - Use `MetroTheme` and system accent from `MetroPreferences`
 - App bar at bottom; no FAB
 - Register `ThemeChangeReceiver` for live theme updates
+- Apply `Modifier.metroNavBarPadding()` to every screen's root container so content clears the
+  navigation bar overlay when it is enabled (see root `AGENTS.md` / metro-android-ui rule)
 
 ## Primary user flows (instrumented tests required)
 

@@ -66,5 +66,13 @@
                 <action android:name="com.metro.system.THEME_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".NavbarStateRequestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.metro.system.NAVBAR_QUERY" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

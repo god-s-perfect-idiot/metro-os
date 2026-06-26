@@ -26,12 +26,21 @@ MetroTheme(darkTheme = MetroPreferences.isDark, accent = MetroPreferences.accent
 
 - Noto Sans only for Metro chrome (never Roboto in system UI)
 - Min 15sp interactive text; page titles 64sp flush-left
+- **App title is ALL CAPS:** the small app-name overline above a hub/pivot/panorama title must be
+  uppercase. Always render it with `MetroAppTitle(...)` (from `metro-ui-android`), never a raw
+  `MetroText`, so casing/style stay consistent across apps.
 
 ## Layout
 
 - 24dp horizontal list margins; 44dp min touch targets
 - App bar at **bottom**; minimized (ellipsis) on panorama pages
 - Page transitions: 300ms horizontal slide, ease-out
+- **Respect the navigation bar (mandatory):** the navbar is a separate overlay window, so it is
+  never reported as a system inset. Every screen's root content container MUST call
+  `Modifier.metroNavBarPadding()` (from `metro-ui-android`) so content, app bars, and action
+  buttons clear the soft keys whenever the navbar is enabled. Keep existing
+  `statusBarsPadding()` / `navigationBarsPadding()`; apply `metroNavBarPadding()` after them and
+  before `background(...)`. Never hard-code the 48dp navbar height — use the modifier.
 
 ## Controls
 

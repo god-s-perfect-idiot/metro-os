@@ -53,18 +53,18 @@ fun StartScreen(
             onUnpin = onUnpin,
         )
 
-        if (!editMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = TILE_GRID_PADDING,
-                        end = TILE_GRID_PADDING,
-                        top = TILE_GRID_GAP,
-                        bottom = StartBottomScrollPadding,
-                    ),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = TILE_GRID_PADDING,
+                    end = TILE_GRID_PADDING,
+                    top = TILE_GRID_GAP,
+                    bottom = StartBottomScrollPadding,
+                ),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            if (!editMode) {
                 MetroCircleIconButton(
                     type = MetroSystemIconType.Forward,
                     onClick = onOpenAppList,

@@ -56,6 +56,7 @@ import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 import kotlinx.coroutines.delay
 
 /** WP8.1 dial-pad tile accent flash — hold at least 150ms so quick taps stay visible. */
@@ -101,6 +102,7 @@ fun CallDetailScreen(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
+            .metroNavBarPadding()
             .background(Color.Black),
     ) {
         Column(

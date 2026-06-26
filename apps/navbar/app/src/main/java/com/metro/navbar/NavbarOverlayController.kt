@@ -23,6 +23,9 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import android.content.Intent
+import com.metro.system.MetroBroadcasts
+import com.metro.system.MetroPreferences
 import com.metro.ui.MetroTheme
 
 /**
@@ -54,6 +57,7 @@ object NavbarOverlayController {
     } else {
       show(context.applicationContext, applicationOverlayWindowType())
     }
+    publishEnabledState(context.applicationContext, enabled = true)
   }
 
   fun deactivate() {
@@ -65,7 +69,20 @@ object NavbarOverlayController {
     hide()
     navbarState = null
     receiversRegistered = false
+    context?.let { publishEnabledState(it, enabled = false) }
     appContext = null
+  }
+
+  /**
+   * Persists the current state and announces it to every app so they can reserve (or release)
+   * the bottom space the overlay occupies. Also answers [MetroBroadcasts.ACTION_NAVBAR_QUERY].
+   */
+  fun publishEnabledState(context: Context, enabled: Boolean = isActive) {
+    MetroPreferences(context.applicationContext).navBarEnabled = enabled
+    val intent = Intent(MetroBroadcasts.ACTION_NAVBAR_CHANGED).apply {
+      putExtra(MetroBroadcasts.EXTRA_NAVBAR_ENABLED, enabled)
+    }
+    context.applicationContext.sendBroadcast(intent)
   }
 
   fun onAccessibilityServiceConnected(service: NavbarAccessibilityService) {

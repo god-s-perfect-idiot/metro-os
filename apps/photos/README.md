@@ -5,7 +5,7 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the implementation brief for the WP8.1 photos hub.
+Android project implemented — pivot collection, album detail, full-screen viewer, MediaStore repository, favorites, and live tile provider.
 
 ## App role
 

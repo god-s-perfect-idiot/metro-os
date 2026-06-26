@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Calendar</string>
+    <string name="permission_calendar_title">calendar access</string>
+    <string name="permission_calendar_body">Calendar needs access to your events to show your schedule.</string>
+    <string name="grant_calendar">allow access</string>
+    <string name="continue_with_demo">continue with demo data</string>
+    <string name="demo_data_banner">Showing demo events — grant calendar access for your real schedule.</string>
+    <string name="no_events">No upcoming events</string>
+    <string name="no_events_day">No events</string>
+    <string name="all_day">All day</string>
+    <string name="today">today</string>
+    <string name="new_event">new</string>
+    <string name="view_type">view</string>
+    <string name="view_type_day">day</string>
+    <string name="view_type_week">week</string>
+    <string name="view_type_month">month</string>
+    <string name="view_type_year">year</string>
+    <string name="create_event_stub">Event creation not available in v1</string>
+    <string name="sync_calendars">sync calendars</string>
+    <string name="sync_done">Syncing your calendars…</string>
+    <string name="tile_footer">Calendar</string>
+</resources>

@@ -41,13 +41,14 @@ Use before marking any UI task complete. Every item must pass or be documented a
 - [ ] Panorama pages use **minimized** app bar (ellipsis only)
 - [ ] No FAB
 - [ ] Status bar 32dp — no Material status styling
+- [ ] Screen root applies `Modifier.metroNavBarPadding()` so content clears the navigation bar overlay when enabled (no hard-coded 48dp)
 - [ ] Page transitions 300ms horizontal slide
 
 ## Controls
 
 - [ ] All controls from `metro-ui-android` toolkit (not reimplemented)
 - [ ] Border text buttons: 3dp stroke, square corners, transparent rest (see `METRO-UX-LANGUAGE.md` §6.3)
-- [ ] App bar: icon-only row (max 4), text menu above (max 5), bottom only
+- [ ] App bar: use `MetroAppBar` — icon-only row (max 4), `…` reveals labels + text menu list below the icon row (max 5), bottom only
 - [ ] List items use tilt-on-press (3°, 150ms)
 - [ ] ToggleSwitch pill shape with accent fill when on
 - [ ] No Material buttons, chips, cards, bottom sheets, snackbars

@@ -6,6 +6,7 @@ object MetroPreferenceKeys {
     const val ACCENT_COLOR = "accent_color"
     const val FONT_SCALE = "font_scale"
     const val NAV_BAR_COLOR = "nav_bar_color"
+    const val NAV_BAR_ENABLED = "nav_bar_enabled"
 }
 
 enum class MetroThemeMode(val storageValue: String) {

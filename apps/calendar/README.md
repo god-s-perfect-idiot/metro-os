@@ -5,7 +5,7 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the implementation guide for the WP8.1 calendar app.
+Implemented — agenda / day / month pivot views with local calendar provider data, demo fallback, and live tile provider.
 
 ## App role
 

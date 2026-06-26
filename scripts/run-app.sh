@@ -54,6 +54,7 @@ APK_DEPLOY="$APP_DIR/deploy/app-debug.apk"
 
 echo "==> run-app: $APP ($PKG)"
 metro_ensure_avd
+metro_ensure_user_unlocked
 
 if [[ "$DO_BUILD" -eq 1 ]]; then
   echo "==> build"

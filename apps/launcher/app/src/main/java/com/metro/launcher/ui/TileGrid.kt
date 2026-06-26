@@ -7,24 +7,32 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileSize
+import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import kotlin.math.min
 import com.metro.ui.MetroColors
+import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import kotlin.math.max
@@ -227,7 +235,13 @@ private fun LauncherTileCell(
         tile.entry.size.colSpan,
         tile.entry.size.rowSpan,
     )
-    val showPhotoGrid = photoGrid != null && gridDimensions != null
+    val showCyclePhoto = photoGrid != null && photoGrid.cycle && photoGrid.hasContent &&
+        gridDimensions != null
+    val showPhotoGrid = photoGrid != null && !photoGrid.cycle && gridDimensions != null
+    val showPhotoContent = showCyclePhoto || showPhotoGrid
+    val agenda = tile.agenda?.takeIf { it.hasContent }
+    val showAgenda = agenda != null && !showPhotoContent &&
+        tile.entry.size != PinnedTileSize.OneByOne
 
     Box(
         modifier = modifier
@@ -254,13 +268,20 @@ private fun LauncherTileCell(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
-                    if (showPhotoGrid) Modifier else Modifier
+                    if (showPhotoContent) Modifier else Modifier
                         .background(tile.backgroundColor)
                         .padding(TILE_CONTENT_INSET),
                 ),
         ) {
             val isSmall = tile.entry.size == PinnedTileSize.OneByOne
             when {
+                showCyclePhoto -> {
+                    CyclingPhotoTileContent(
+                        cells = photoGrid!!.cells,
+                        title = tile.title,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
                 showPhotoGrid -> {
                     val (columns, rows) = gridDimensions!!
                     PhotoGridTileContent(
@@ -268,6 +289,14 @@ private fun LauncherTileCell(
                         columns = columns,
                         rows = rows,
                         title = tile.title,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                showAgenda -> {
+                    AgendaTileContent(
+                        agenda = agenda!!,
+                        wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                        contentColor = contentColor,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -311,13 +340,15 @@ private fun LauncherTileCell(
                     }
                 }
             }
-            tile.counter?.takeIf { it > 0 }?.let { count ->
-                MetroText(
-                    text = count.toString(),
-                    style = MetroTextStyle.Body,
-                    color = contentColor,
-                    modifier = Modifier.align(Alignment.TopEnd),
-                )
+            if (!showAgenda) {
+                tile.counter?.takeIf { it > 0 }?.let { count ->
+                    MetroText(
+                        text = count.toString(),
+                        style = MetroTextStyle.Body,
+                        color = contentColor,
+                        modifier = Modifier.align(Alignment.TopEnd),
+                    )
+                }
             }
         }
         if (isActive) {
@@ -338,6 +369,88 @@ private fun LauncherTileCell(
                     .align(Alignment.BottomEnd)
                     .offset(x = cornerOffset, y = cornerOffset),
             )
+        }
+    }
+}
+
+/**
+ * WP8.1 Calendar-style live tile face: event lines stacked from the top, an optional footer label
+ * (app name) flush bottom-left, and a large bottom-right date badge (`Thu 15`).
+ *
+ * Wide (4×2) tiles show up to three lines (title, location, time); medium (2×2) tiles drop the
+ * middle line and keep the title plus the trailing time/all-day line so the badge stays legible.
+ */
+@Composable
+private fun AgendaTileContent(
+    agenda: MetroTileAgenda,
+    wide: Boolean,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val lines = agenda.lines.filter { it.isNotBlank() }
+    val shown = when {
+        wide -> lines.take(3)
+        lines.size <= 2 -> lines.take(2)
+        else -> listOf(lines.first(), lines.last())
+    }
+    val footer = agenda.footer?.takeIf { it.isNotBlank() }
+    val dayLabel = agenda.dayLabel?.takeIf { it.isNotBlank() }
+    val dayNumber = agenda.dayNumber?.takeIf { it.isNotBlank() }
+
+    Column(modifier = modifier) {
+        shown.forEachIndexed { index, line ->
+            MetroText(
+                text = line,
+                style = if (index == 0) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            if (footer != null) {
+                MetroText(
+                    text = footer,
+                    style = MetroTextStyle.Body,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            if (dayLabel != null) {
+                BasicText(
+                    text = dayLabel,
+                    style = TextStyle(
+                        fontFamily = MetroFontFamily,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 15.sp,
+                        color = contentColor,
+                    ),
+                    modifier = Modifier.padding(end = 4.dp, bottom = if (wide) 6.dp else 4.dp),
+                )
+            }
+            if (dayNumber != null) {
+                BasicText(
+                    text = dayNumber,
+                    style = TextStyle(
+                        fontFamily = MetroFontFamily,
+                        fontWeight = FontWeight.Light,
+                        fontSize = if (wide) 44.sp else 34.sp,
+                        color = contentColor,
+                    ),
+                )
+            }
         }
     }
 }

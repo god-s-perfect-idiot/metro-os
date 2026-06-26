@@ -8,7 +8,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 
 ## Status
 
-**Scaffolded** — P0 components (`MetroTheme`, `MetroText`, `MetroPageHeader`, `MetroTile`, `MetroTransitions`, `MetroColors`).
+**Scaffolded** — P0 components (`MetroTheme`, `MetroText`, `MetroPageHeader`, `MetroTile`, `MetroTransitions`, `MetroColors`) plus `MetroAppBar` (§6.2 bottom application bar).
 
 ## Public API (planned)
 
@@ -27,16 +27,28 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 
 ```kotlin
 MetroTheme {
-    MetroPageHeader(title = "settings")
-    MetroPivot(titles = listOf("system", "applications")) { index ->
-        when (index) { /* ... */ }
+    Box(Modifier.fillMaxSize()) {
+        Column {
+            MetroPageHeader(title = "settings")
+            MetroPivot(titles = listOf("system", "applications")) { index ->
+                when (index) { /* ... */ }
+            }
+        }
+        // Bottom application bar. Collapsed: icon row + `…`. Expanded: labels + text menu.
+        MetroAppBar(
+            icons = listOf(
+                MetroAppBarIcon(MetroSystemIconType.Add, label = "new", onClick = {}),
+                MetroAppBarIcon(MetroSystemIconType.Search, label = "search", onClick = {}),
+            ),
+            menuItems = listOf(MetroAppBarMenuItem("about this app") { }),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
-    MetroAppBar(
-        buttons = listOf(MetroAppBarIcon(Icons.Add, onClick = {})),
-        menuItems = listOf(MetroAppBarMenuItem("about") { }),
-    )
 }
 ```
+
+`MetroAppBarIcon` also accepts a custom `icon: @Composable (Color) -> Unit` glyph for app-specific
+artwork (e.g. a phone or envelope), so every app routes its overflow actions through the same bar.
 
 ## Build
 

@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
+import com.metro.ui.metroNavBarPadding
 
 @Composable
 fun PeopleShell(
@@ -32,6 +33,7 @@ fun PeopleShell(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
+            .metroNavBarPadding()
             .background(Color.Black),
     ) {
         when (state.route) {

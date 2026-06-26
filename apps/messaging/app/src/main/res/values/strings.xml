@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Messaging</string>
+    <string name="permission_sms_title">SMS access</string>
+    <string name="permission_sms_body">Messaging can read and send SMS on your device. You can continue with demo conversations instead.</string>
+    <string name="grant_sms">allow access</string>
+    <string name="continue_demo">continue with demo data</string>
+    <string name="threads_empty">No conversations yet.</string>
+    <string name="demo_data_banner">Showing demo conversations — grant SMS access for real messages.</string>
+    <string name="composer_hint">type a message</string>
+    <string name="send">send</string>
+</resources>

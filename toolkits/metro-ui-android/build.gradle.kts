@@ -36,11 +36,14 @@ android {
 }
 
 dependencies {
+    implementation("com.metro.system:metro-system-sdk:1.0.0")
+
     val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.runtime:runtime")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

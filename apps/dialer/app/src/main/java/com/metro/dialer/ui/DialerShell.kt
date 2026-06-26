@@ -24,6 +24,7 @@ import com.metro.ui.MetroHubTitleRow
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -65,6 +66,7 @@ fun DialerShell(
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
+                    .metroNavBarPadding()
                     .background(Color.Black),
             ) {
                 if (state.searchVisible) {

@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "metro-ui-android"
+
+includeBuild("../metro-system-sdk")

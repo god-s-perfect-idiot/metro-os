@@ -60,6 +60,29 @@ fun MetroText(
     )
 }
 
+/**
+ * WP8.1 app-title overline — the small app name shown above a hub/pivot/panorama title.
+ *
+ * Always rendered ALL CAPS so every app presents its name consistently. Use this instead of a
+ * raw [MetroText] whenever you need the app-title line.
+ */
+@Composable
+fun MetroAppTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+    color: Color = MetroTheme.colors.primaryText,
+) {
+    MetroText(
+        text = title.uppercase(),
+        style = MetroTextStyle.ListItemSubtitle,
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .padding(start = 24.dp, top = 8.dp),
+    )
+}
+
 /** WP8.1 page header — 64sp title, flush left, 98dp region. */
 @Composable
 fun MetroPageHeader(

@@ -11,44 +11,33 @@ references/
 ├── README.md           # This file — screen index and usage rules
 ├── web-resources.md    # Curated web guides, docs, and video links
 ├── images/             # WP8.1 screenshots for this app
-│   └── <screen>_<theme>_<accent>.png
-└── guides/             # Offline PDFs, saved articles, measurement notes
+│   └── <screen>_<theme>_<accent>.<ext>
+└── guides/
+    └── blueprint.md    # Authoritative page and interaction spec
 ```
 
 ## Screens
 
 | Screen | Image | Notes |
 |--------|-------|-------|
-| _(add rows — match AGENTS.md screen table)_ | `images/` | |
+| Standard calculator | `images/standard_dark_blue.jpg` | Portrait 6×4 keypad, memory row, red equals |
+| Scientific calculator | `images/scientific_dark_blue.jpg` | Landscape 5×8 scientific (adapted to portrait pivot in v1) |
 
 ## Image naming
 
-- Pattern: `<screen>_<theme>_<accent>.png`
-- Examples: `start_dark_blue.png`, `applist_light_teal.png`
+- Pattern: `<screen>_<theme>_<accent>.<ext>`
 - Primary device profile: **768×1280** (Lumia 925 / xhdpi) — see `scope.md`
-- Capture from WP8.1 GDR2+ device or use licensed marketing assets
-
-## Web resources
-
-Add links in [`web-resources.md`](web-resources.md). One section per screen or feature area.
-
-Agents should open linked guides when implementing or reviewing a screen. Prefer official Microsoft / Windows Phone design documentation; add community captures only when official material is unavailable.
+- Captures from Windows Central forum (Lumia WP8.1, August 2013)
 
 ## Agent workflow
 
-1. Identify the screen you are building (see `AGENTS.md` and app `README.md`).
-2. Open the matching row in **Screens** above.
-3. Read `web-resources.md` for behavior and interaction rules.
-4. Compare implementation against `images/<screen>_<theme>_<accent>.png`.
-5. Cite paths in commits/PRs:
+1. Read `guides/blueprint.md` for layout and evaluation rules.
+2. Compare implementation against `images/standard_dark_blue.jpg` and `images/scientific_dark_blue.jpg`.
+3. Cite paths in commits/PRs:
 
 ```
-Reference: apps/calculator/references/images/start_dark_blue.png
-Guide: apps/calculator/references/web-resources.md#start-screen
+Reference: apps/calculator/references/images/standard_dark_blue.jpg
+Guide: apps/calculator/references/guides/blueprint.md
 ```
 
 Golden screenshots for verify live in `screenshots/golden/` (captured from emulator, not WP8.1 source).
-
-## Large binaries
-
-Raw dumps > 5MB or video captures may live outside git. Document the storage location in this file if omitted.

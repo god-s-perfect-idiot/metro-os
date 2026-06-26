@@ -216,9 +216,9 @@ private fun DrawScope.drawAddGlyph(color: Color, stroke: Stroke) {
 }
 
 private fun DrawScope.drawMoreGlyph(color: Color, stroke: Stroke) {
-    val r = stroke.width * 0.9f
+    val r = stroke.width * 1.15f
     val cy = size.height / 2f
-    val spacing = size.minDimension * 0.14f
+    val spacing = size.minDimension * 0.16f
     val cx = size.width / 2f
     drawCircle(color, r, Offset(cx - spacing, cy))
     drawCircle(color, r, Offset(cx, cy))

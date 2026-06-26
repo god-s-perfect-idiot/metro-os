@@ -10,45 +10,43 @@ Agents must read this folder **before** changing UI in `apps/photos/`.
 references/
 ├── README.md           # This file — screen index and usage rules
 ├── web-resources.md    # Curated web guides, docs, and video links
+├── known-gaps.md       # Missing reference captures + workarounds
 ├── images/             # WP8.1 screenshots for this app
-│   └── <screen>_<theme>_<accent>.png
-└── guides/             # Offline PDFs, saved articles, measurement notes
+│   └── <screen>_<theme>_<accent>.<ext>
+└── guides/
+    └── blueprint.md    # Authoritative page spec
 ```
 
 ## Screens
 
 | Screen | Image | Notes |
 |--------|-------|-------|
-| _(add rows — match AGENTS.md screen table)_ | `images/` | |
+| Collection — all pictures | `images/hub_dark_blue.jpg` | 4-column thumbnail grid |
+| Collection — albums pivot | `images/pivot_albums_dark_blue.jpg` | WP8.1 albums + online tiles |
+| Collection — date grouping | `images/pivot_date_dark_blue.jpg` | Month header + grid |
+| Collection — month jump | `images/pivot_date_grouped_dark_blue.jpg` | Grouped month list |
+| Photo viewer | _(gap)_ | See `known-gaps.md` |
 
-## Image naming
+## Image catalog
 
-- Pattern: `<screen>_<theme>_<accent>.png`
-- Examples: `start_dark_blue.png`, `applist_light_teal.png`
-- Primary device profile: **768×1280** (Lumia 925 / xhdpi) — see `scope.md`
-- Capture from WP8.1 GDR2+ device or use licensed marketing assets
-
-## Web resources
-
-Add links in [`web-resources.md`](web-resources.md). One section per screen or feature area.
-
-Agents should open linked guides when implementing or reviewing a screen. Prefer official Microsoft / Windows Phone design documentation; add community captures only when official material is unavailable.
+| File | Source | License / attribution |
+|------|--------|----------------------|
+| `hub_dark_blue.jpg` | [AAWP camera roll](http://allaboutwindowsphone.com/features/item/19292_How_to_Navigate_your_Camera_Ro.php) | Community reference capture |
+| `pivot_albums_dark_blue.jpg` | [AAWP WP8.1 SDK leak](https://allaboutwindowsphone.com/news/item/19291_Windows_Phone_81_details_emerg.php) | Community reference capture |
+| `pivot_date_dark_blue.jpg` | AAWP camera roll article | Community reference capture |
+| `pivot_date_grouped_dark_blue.jpg` | AAWP camera roll article | Community reference capture |
 
 ## Agent workflow
 
-1. Identify the screen you are building (see `AGENTS.md` and app `README.md`).
-2. Open the matching row in **Screens** above.
-3. Read `web-resources.md` for behavior and interaction rules.
-4. Compare implementation against `images/<screen>_<theme>_<accent>.png`.
+1. Identify the screen (see `AGENTS.md` and app `README.md`).
+2. Read `guides/blueprint.md` for the authoritative spec.
+3. Open matching row in **Screens** above.
+4. Compare implementation against `images/`.
 5. Cite paths in commits/PRs:
 
 ```
-Reference: apps/photos/references/images/start_dark_blue.png
-Guide: apps/photos/references/web-resources.md#start-screen
+Reference: apps/photos/references/images/pivot_albums_dark_blue.jpg
+Guide: apps/photos/references/web-resources.md#collection-pivot-all--albums--favorites
 ```
 
 Golden screenshots for verify live in `screenshots/golden/` (captured from emulator, not WP8.1 source).
-
-## Large binaries
-
-Raw dumps > 5MB or video captures may live outside git. Document the storage location in this file if omitted.

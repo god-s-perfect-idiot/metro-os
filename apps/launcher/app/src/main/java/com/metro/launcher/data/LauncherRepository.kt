@@ -10,6 +10,7 @@ import com.metro.system.MetroAppDiscovery
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroIntents
 import com.metro.system.MetroPreferences
+import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
 import com.metro.system.MetroTilePhotoGrid
@@ -23,6 +24,7 @@ data class DisplayTile(
     val deepLinkUri: String?,
     val hasFlipFace: Boolean,
     val photoGrid: MetroTilePhotoGrid? = null,
+    val agenda: MetroTileAgenda? = null,
 )
 
 class LauncherRepository(private val context: Context) {
@@ -84,6 +86,7 @@ class LauncherRepository(private val context: Context) {
             deepLinkUri = providerData?.deepLinkUri,
             hasFlipFace = providerData?.hasFlipFace == true,
             photoGrid = providerData?.photoGrid,
+            agenda = providerData?.agenda?.takeIf { it.hasContent },
         )
     }
 

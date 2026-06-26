@@ -319,7 +319,7 @@ private fun EndCallTile(
     ) {
         MetroText(
             text = stringResource(R.string.end_call),
-            style = MetroTextStyle.ListItemTitle,
+            style = MetroTextStyle.ListItemSubtitle,
             color = Color.White,
         )
     }

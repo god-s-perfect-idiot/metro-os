@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Photos</string>
+    <string name="permission_media_title">photos</string>
+    <string name="permission_media_body">Allow access to your photos so this app can show your camera roll, albums, and favorites.</string>
+    <string name="grant_media">allow access</string>
+    <string name="continue_without">continue without photos</string>
+    <string name="empty_all">no photos found</string>
+    <string name="empty_albums">no albums found</string>
+    <string name="empty_favorites">no favorite photos yet</string>
+    <string name="empty_favorites_hint">open a photo and add it to favorites</string>
+    <string name="photos_label">photos</string>
+    <string name="pivot_all">all</string>
+    <string name="pivot_albums">albums</string>
+    <string name="pivot_favorites">favorites</string>
+    <string name="add_favorite">add to favorites</string>
+    <string name="remove_favorite">remove from favorites</string>
+</resources>

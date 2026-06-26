@@ -2,6 +2,8 @@ package com.metro.launcher.ui
 
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,7 +33,11 @@ import com.metro.system.MetroTileGridCell
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+
+private const val CYCLE_INTERVAL_MS = 3000L
+private const val CYCLE_FADE_MS = 600
 
 @Composable
 fun PhotoGridTileContent(
@@ -59,6 +66,51 @@ fun PhotoGridTileContent(
                         .offset(x = left, y = top)
                         .size(width = right - left, height = bottom - top),
                 )
+            }
+        }
+        MetroText(
+            text = title,
+            style = MetroTextStyle.Body,
+            color = Color.White,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        )
+    }
+}
+
+/**
+ * WP8.1 Photos-tile style: a single photo that cross-fades to the next image cell every
+ * [CYCLE_INTERVAL_MS]. Color-only fallback cells are ignored so only real photos rotate.
+ */
+@Composable
+fun CyclingPhotoTileContent(
+    cells: List<MetroTileGridCell>,
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val accent = MetroPreferences(context).accentColor
+    val photoCells = remember(cells) { cells.filter { !it.imageUri.isNullOrBlank() } }
+
+    Box(modifier = modifier.fillMaxSize().background(accent)) {
+        if (photoCells.isNotEmpty()) {
+            var index by remember(photoCells) { mutableIntStateOf(0) }
+            LaunchedEffect(photoCells) {
+                if (photoCells.size <= 1) return@LaunchedEffect
+                while (true) {
+                    delay(CYCLE_INTERVAL_MS)
+                    index = (index + 1) % photoCells.size
+                }
+            }
+            Crossfade(
+                targetState = photoCells[index.coerceIn(0, photoCells.lastIndex)],
+                animationSpec = tween(durationMillis = CYCLE_FADE_MS),
+                label = "photoTileCycle",
+            ) { cell ->
+                PhotoGridCell(cell = cell, modifier = Modifier.fillMaxSize())
             }
         }
         MetroText(

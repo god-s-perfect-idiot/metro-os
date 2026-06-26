@@ -30,6 +30,27 @@ class MetroTilePhotoGridCodecTest {
     }
 
     @Test
+    fun encodeDecode_roundTripsCycleFlag() {
+        val grid = MetroTilePhotoGrid(
+            cells = listOf(MetroTileGridCell(imageUri = "content://example/1")),
+            cycle = true,
+        )
+        val decoded = MetroTilePhotoGridCodec.decode(MetroTilePhotoGridCodec.encode(grid))
+        assertNotNull(decoded)
+        assertTrue(decoded!!.cycle)
+        assertEquals(1, decoded.cells.size)
+    }
+
+    @Test
+    fun decode_legacyArrayFormDefaultsToNonCycle() {
+        val legacy = "[{\"color\":\"#E86B4A\"},{\"image\":\"content://example/1\"}]"
+        val decoded = MetroTilePhotoGridCodec.decode(legacy)
+        assertNotNull(decoded)
+        assertEquals(2, decoded!!.cells.size)
+        assertEquals(false, decoded.cycle)
+    }
+
+    @Test
     fun decode_invalidJsonReturnsNull() {
         assertNull(MetroTilePhotoGridCodec.decode("not-json"))
     }

@@ -26,6 +26,7 @@ object MetroTileContract {
         const val BACK_FACE_IMAGE_URI = "back_face_image_uri"
         const val DEEP_LINK_URI = "deep_link_uri"
         const val PHOTO_GRID = "photo_grid"
+        const val AGENDA = "agenda"
     }
 
     /** Max cells exported for wide (4×2 → 6×3) People-style photo grids. */
@@ -89,6 +90,7 @@ object MetroTileContract {
             backFaceImageUri = getString(Columns.BACK_FACE_IMAGE_URI),
             deepLinkUri = getString(Columns.DEEP_LINK_URI),
             photoGrid = MetroTilePhotoGridCodec.decode(getString(Columns.PHOTO_GRID)),
+            agenda = MetroTileAgendaCodec.decode(getString(Columns.AGENDA)),
         )
     }
 
@@ -111,6 +113,9 @@ object MetroTileContract {
             backFaceImageUri = col(Columns.BACK_FACE_IMAGE_URI).let { if (it >= 0) getString(it) else null },
             deepLinkUri = col(Columns.DEEP_LINK_URI).let { if (it >= 0) getString(it) else null },
             photoGrid = if (gridIdx >= 0) MetroTilePhotoGridCodec.decode(getString(gridIdx)) else null,
+            agenda = col(Columns.AGENDA).let {
+                if (it >= 0) MetroTileAgendaCodec.decode(getString(it)) else null
+            },
         )
     }
 }

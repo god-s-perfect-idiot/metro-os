@@ -5,7 +5,7 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the implementation brief for the WP8.1 messaging app.
+Android app with thread list, conversation view, new-message compose, bottom `MetroAppBar`, SMS repository seam, default-SMS-app role request, and demo-data fallback.
 
 ## App role
 
@@ -24,12 +24,12 @@ It should prioritize clarity, thread continuity, and Metro styling. Avoid chat-a
 ### 1. Thread list
 
 - Primary list of conversations
-- Expected reference: `references/images/threads_dark_blue.png`
+- Reference: `references/images/threads_dark_yellow.jpg` (official WP8 capture)
 
 ### 2. Conversation page
 
 - Individual thread view with sent/received message styling
-- Expected reference: `references/images/conversation_dark_blue.png`
+- Reference: `references/images/conversation_schematic.png` (official layout schematic)
 
 ## System functions and contracts
 
@@ -68,8 +68,10 @@ It should prioritize clarity, thread continuity, and Metro styling. Avoid chat-a
 
 ## Reference and golden expectations
 
-- `references/images/threads_dark_blue.png`
-- `references/images/conversation_dark_blue.png`
+- `references/images/threads_dark_yellow.jpg` (thread list)
+- `references/images/conversation_schematic.png` (conversation layout)
+- Supplementary: `references/images/settings_dark_yellow.jpg`, `references/images/tile_yellow.jpg`
+- Open reference gaps: `references/known-gaps.md`
 
 ## Commands
 

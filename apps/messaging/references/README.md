@@ -19,14 +19,30 @@ references/
 
 | Screen | Image | Notes |
 |--------|-------|-------|
-| _(add rows — match AGENTS.md screen table)_ | `images/` | |
+| Thread list | `images/threads_dark_yellow.jpg` | Landing page — conversation list + bottom app bar (official) |
+| Conversation | `images/conversation_schematic.png` | Message thread layout — bubble alignment + MMS (official schematic) |
+| Settings (ref only) | `images/settings_dark_yellow.jpg` | Toggle-list styling; settings page is out of v1 scope |
+| Live tile (ref only) | `images/tile_yellow.jpg` | Tile glyph + unread count |
 
 ## Image naming
 
-- Pattern: `<screen>_<theme>_<accent>.png`
-- Examples: `start_dark_blue.png`, `applist_light_teal.png`
+- Pattern: `<screen>_<theme>_<accent>.<ext>` (use the real theme/accent of the capture, not an assumed one).
+- Examples: `threads_dark_yellow.jpg`, `start_dark_blue.png`, `applist_light_teal.png`
 - Primary device profile: **768×1280** (Lumia 925 / xhdpi) — see `scope.md`
-- Capture from WP8.1 GDR2+ device or use licensed marketing assets
+- Capture from WP8.1 GDR2+ device or use licensed/official marketing assets
+
+## Image catalog (attribution)
+
+Current `images/` are community/official references (visual aids only — `guides/blueprint.md` wins on conflict). The shipped captures use the WP8 **dark** theme with the **yellow** accent; the blueprint's accent guidance still applies.
+
+| File | Illustrates | Source |
+|------|-------------|--------|
+| `threads_dark_yellow.jpg` | Threads landing list + bottom app bar | Microsoft Devices Blog — [WP8 Messaging deep dive](https://blogs.windows.com/devices/2014/03/06/windows-phone-8-messaging-deep-dive/) (2014) |
+| `settings_dark_yellow.jpg` | Messaging settings toggle list | Microsoft Devices Blog — WP8 Messaging deep dive (2014) |
+| `tile_yellow.jpg` | Messaging live tile glyph + unread count | Microsoft Devices Blog — WP8 Messaging deep dive (2014) |
+| `conversation_schematic.png` | Conversation bubble layout (sent/received + MMS) | Nokia/Microsoft Lumia user guide ([helpdoc.net](https://nokia-lumia-521.helpdoc.net/en-us/people-messaging/messages/read-a-message/)) |
+
+Open gaps (e.g. a real dark-theme conversation capture at 768×1280) are tracked in [`known-gaps.md`](known-gaps.md).
 
 ## Web resources
 
@@ -43,8 +59,8 @@ Agents should open linked guides when implementing or reviewing a screen. Prefer
 5. Cite paths in commits/PRs:
 
 ```
-Reference: apps/messaging/references/images/start_dark_blue.png
-Guide: apps/messaging/references/web-resources.md#start-screen
+Reference: apps/messaging/references/images/threads_dark_yellow.jpg
+Guide: apps/messaging/references/web-resources.md#thread-list
 ```
 
 Golden screenshots for verify live in `screenshots/golden/` (captured from emulator, not WP8.1 source).

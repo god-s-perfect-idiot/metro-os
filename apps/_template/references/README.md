@@ -23,6 +23,17 @@ references/
 3. `images/` — visual polish and inspiration
 4. `web-resources.md` — external docs when needed
 
+## Reference research (do this first — see root `AGENTS.md` § Phase 0)
+
+Before writing any UI code for {{DISPLAY_NAME}}, prefill this folder:
+
+- [ ] Every page in `guides/blueprint.md` is listed here with a reference image path.
+- [ ] `web-resources.md` cites a real WP8.1 source per screen (official MS / Lumia docs first).
+- [ ] `images/` holds a capture per blueprint page, named `<screen>_<theme>_<accent>.<ext>` and attributed below.
+- [ ] Any page without a capture is logged in `known-gaps.md` with a workaround.
+
+`images/` must not be empty when development starts.
+
 ## Agent workflow
 
 ```

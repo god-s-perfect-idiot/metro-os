@@ -109,6 +109,51 @@ metro_ensure_avd() {
   echo "OK  AVD ready: $avd"
 }
 
+# Returns RUNNING_UNLOCKED, RUNNING_LOCKED, or unknown.
+metro_user_state() {
+  metro_path_android_tools
+  adb shell dumpsys user 2>/dev/null | tr -d '\r' | grep -oE '0=RUNNING_[A-Z]+' | head -1 | cut -d= -f2
+}
+
+metro_try_dismiss_keyguard() {
+  metro_path_android_tools
+  adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+  adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
+  adb shell input swipe 540 1800 540 600 250 >/dev/null 2>&1 || true
+}
+
+# Fresh installs need an unlocked user so Android can create app data dirs.
+# When user 0 is locked, am start fails with "Activity class ... does not exist".
+metro_ensure_user_unlocked() {
+  metro_path_android_tools
+  local state
+  state="$(metro_user_state)"
+  if [[ "$state" == "RUNNING_UNLOCKED" ]]; then
+    echo "OK  user unlocked"
+    return 0
+  fi
+
+  echo "WARN  emulator user is locked ($state) — attempting keyguard dismiss"
+  metro_try_dismiss_keyguard
+
+  local i
+  for i in $(seq 1 15); do
+    state="$(metro_user_state)"
+    if [[ "$state" == "RUNNING_UNLOCKED" ]]; then
+      echo "OK  user unlocked"
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "ERROR: emulator is locked — unlock it before installing/launching apps." >&2
+  echo "  Symptom: 'Activity class ... does not exist' even though the APK installed." >&2
+  echo "  Fix: on the emulator, swipe up and enter your PIN/pattern, then re-run." >&2
+  echo "  Tip: remove the AVD screen lock (Settings → Security → Screen lock → None)" >&2
+  echo "       so cold boots from run-app.sh work without manual unlock." >&2
+  return 1
+}
+
 metro_app_dir() {
   local app="$1"
   local root
@@ -165,7 +210,7 @@ PY
     activity=".MainActivity"
   fi
   if [[ "$activity" == .* ]]; then
-    echo "${pkg}/${pkg}${activity}"
+    echo "${pkg}/${activity}"
   elif [[ "$activity" == *.* ]]; then
     echo "${activity}"
   else

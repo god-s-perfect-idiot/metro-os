@@ -195,17 +195,19 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Icon buttons | **Icon only** in the bar — **no text-only bar buttons** |
 | Icon asset | 48×48dp canvas; **26×26dp** white glyph centered; transparent PNG |
 | Icon color | White on dark theme, black on light — monochrome only |
-| Press state | System draws **white/black circle** behind icon — **do not bake circle into asset** |
+| Press state | `MetroAppBar` fills a **white/black circle** behind the icon and inverts the glyph — **do not bake the press circle into the asset** |
 | Disabled icon | 40% opacity |
-| Menu | Up to **5** text-only items; flyout above bar |
-| Menu item text | 15sp, lowercase, 14–20 char recommended |
+| Collapsed reveal | Icon row only (no labels); `…` ellipsis pinned top-right |
+| Expanded reveal | Tapping `…` fades in a **text label beneath every icon** and slides a **text-only menu list in below the icon row** — the bar grows upward from the bottom edge |
+| Menu | Up to **5** text-only items, listed beneath the icon row when expanded |
+| Menu item text | lowercase, 14–20 char recommended |
 | Menu item height | 48dp minimum touch row |
-| Expand gesture | Tap `…` or flick bar upward |
-| Dismiss | Tap outside, Back, or select item |
+| Expand gesture | Tap `…` (or any icon's dots) to toggle |
+| Dismiss | Tap outside (scrim), system Back, or select a menu item |
 
 **Don't:** FAB, top toolbar, text buttons in icon row, colored multi-hue icons, more than 4 icons "because slots exist".
 
-**Toolkit:** `MetroAppBar`, `MetroAppBarIcon`, `MetroAppBarMenuItem`.
+**Toolkit:** `MetroAppBar` (uncontrolled or `expanded`/`onExpandedChange` controlled), `MetroAppBarIcon` (icon-type or custom-glyph), `MetroAppBarMenuItem`, `MetroAppBarDefaults`. Place it last in a bottom-aligned `Box` so the expanded panel overlays page content.
 
 ---
 
@@ -274,6 +276,24 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Margins | 24dp horizontal |
 
 **Don't:** Card elevation, rounded corners, swipe actions (WP8.1 uses app bar for row actions).
+
+---
+
+### 6.6.1 Empty / support text (`MetroEmptyState`)
+
+Shown when a list or page has no content yet (e.g. "No recent calls.", "No conversations yet.").
+
+| Property | Spec |
+|----------|------|
+| Alignment | **Top-left** (`Alignment.TopStart`) — never centered |
+| Type style | **`ListItemTitle`** (24sp) — large, not body-sized |
+| Color | Secondary foreground (60% opacity) |
+| Margins | 24dp horizontal + 24dp top |
+| Background | Theme background |
+
+**Standard across all apps.** Empty-state text must be big, left- and top-aligned (matches the WP8.1 Phone app's "no recent calls" treatment). Use `MetroEmptyState` from the toolkit; do not center, shrink, or restyle empty text per-app.
+
+**Don't:** Centered text, `Body` (15sp) size, illustrations, or Material empty-state graphics.
 
 ---
 
@@ -504,7 +524,7 @@ Need a container shape?
 | UX spec section | Composable | Status |
 |-----------------|------------|--------|
 | §6.1 Tile | `MetroTile` | Implemented |
-| §6.2 App bar | `MetroAppBar` | Planned |
+| §6.2 App bar | `MetroAppBar` | Implemented |
 | §6.3 Border button | `MetroBorderButton` | Planned |
 | §6.4 Icon button | `MetroIconButton` | Planned |
 | §6.5 Hyperlink | `MetroHyperlink` | Planned |

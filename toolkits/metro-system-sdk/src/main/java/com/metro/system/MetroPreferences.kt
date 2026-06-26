@@ -34,6 +34,15 @@ class MetroPreferences(context: Context) {
         get() = prefs.getString(MetroPreferenceKeys.NAV_BAR_COLOR, null)
         set(value) = prefs.edit().putString(MetroPreferenceKeys.NAV_BAR_COLOR, value).apply()
 
+    /**
+     * Whether the Metro navigation bar overlay is currently active. The navbar app owns this flag;
+     * other apps read it (and observe [MetroBroadcasts.ACTION_NAVBAR_CHANGED]) to reserve bottom
+     * space for the overlay. Defaults to `false` until the navbar reports its state.
+     */
+    var navBarEnabled: Boolean
+        get() = prefs.getBoolean(MetroPreferenceKeys.NAV_BAR_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(MetroPreferenceKeys.NAV_BAR_ENABLED, value).apply()
+
     companion object {
         const val DEFAULT_ACCENT_HEX = "#1BA1E2"
 
