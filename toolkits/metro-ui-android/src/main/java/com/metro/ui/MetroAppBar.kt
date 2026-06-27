@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -71,13 +72,17 @@ class MetroAppBarIcon(
     val onClick: () -> Unit,
     val contentDescription: String = label,
     val enabled: Boolean = true,
-    /** Draws the 26×26dp monochrome glyph using the supplied tint. Do not bake a press circle in. */
+    /**
+     * Draws the monochrome glyph using the supplied tint. Do not bake a circle in — the app bar
+     * draws the standard rest outline and filled press circle around every icon.
+     */
     val icon: @Composable (color: Color) -> Unit,
 )
 
 /**
- * Convenience builder backed by a [MetroSystemIconType] glyph. The glyph keeps its thin circle
- * outline at rest; the filled press circle is drawn by the app bar itself.
+ * Convenience builder backed by a [MetroSystemIconType] glyph. The standard circular outline
+ * (rest) and filled press circle are both drawn by the app bar, so the glyph itself is rendered
+ * without its own circle.
  */
 @Suppress("FunctionName")
 fun MetroAppBarIcon(
@@ -92,7 +97,12 @@ fun MetroAppBarIcon(
     contentDescription = contentDescription,
     enabled = enabled,
     icon = { color ->
-        MetroSystemIcon(type = type, iconSize = MetroAppBarDefaults.GlyphSize, color = color)
+        MetroSystemIcon(
+            type = type,
+            iconSize = MetroAppBarDefaults.GlyphSize,
+            color = color,
+            showCircle = false,
+        )
     },
 )
 
@@ -107,6 +117,10 @@ object MetroAppBarDefaults {
     val BarHeight: Dp = 52.dp
     val GlyphSize: Dp = 42.dp
     val TouchTarget: Dp = 48.dp
+    /** Diameter of the standard circular outline drawn around every app-bar icon glyph. */
+    val IconCircleSize: Dp = 40.dp
+    /** Stroke width of the rest-state circular outline. */
+    val IconCircleBorder: Dp = 1.5.dp
     /** Neutral gray chrome behind the bar. */
     val ChromeBackground: Color = Color(0xFF4C4C4C)
     const val MaxIcons = 4
@@ -232,8 +246,10 @@ private fun AppBarIconButton(
     val baseColor = MetroTheme.colors.primaryText.let {
         if (item.enabled) it else it.copy(alpha = 0.4f)
     }
-    // Press affordance: a filled circle behind the glyph; the glyph inverts to the chrome color.
-    val glyphColor = if (pressed && item.enabled) MetroTheme.colors.background else baseColor
+    val active = pressed && item.enabled
+    // Standard affordance: a circular outline at rest that fills on press; the glyph then inverts
+    // to the chrome color so it reads on the filled circle.
+    val glyphColor = if (active) MetroTheme.colors.background else baseColor
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -242,10 +258,6 @@ private fun AppBarIconButton(
         Box(
             modifier = Modifier
                 .size(MetroAppBarDefaults.TouchTarget)
-                .background(
-                    color = if (pressed && item.enabled) baseColor else Color.Transparent,
-                    shape = CircleShape,
-                )
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
@@ -254,7 +266,20 @@ private fun AppBarIconButton(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            item.icon(glyphColor)
+            Box(
+                modifier = Modifier
+                    .size(MetroAppBarDefaults.IconCircleSize)
+                    .then(
+                        if (active) {
+                            Modifier.background(baseColor, CircleShape)
+                        } else {
+                            Modifier.border(MetroAppBarDefaults.IconCircleBorder, baseColor, CircleShape)
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                item.icon(glyphColor)
+            }
         }
         AnimatedVisibility(visible = showLabel) {
             BasicText(
