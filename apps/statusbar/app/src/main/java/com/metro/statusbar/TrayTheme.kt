@@ -1,5 +1,9 @@
 package com.metro.statusbar
 
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import androidx.compose.ui.graphics.Color
 import com.metro.system.MetroPreferences
 import com.metro.ui.MetroColors
@@ -33,4 +37,30 @@ object TrayClockFormatter {
     private val formatter = DateTimeFormatter.ofPattern("h:mm", Locale.getDefault())
 
     fun format(now: ZonedDateTime = ZonedDateTime.now()): String = formatter.format(now)
+}
+
+/**
+ * Real battery telemetry from the sticky `ACTION_BATTERY_CHANGED` intent. This is genuine device
+ * data (not a stub), kept decoupled from rendering so the indicator glyph just reads a
+ * [BatteryStatus].
+ */
+object BatterySource {
+    fun parse(intent: Intent?): BatteryStatus {
+        if (intent == null) return BatteryStatus.Unknown
+        val present = intent.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true)
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+        return BatteryStatus.fromLevel(level, scale, charging).copy(present = present)
+    }
+
+    fun current(context: Context): BatteryStatus {
+        val sticky = context.applicationContext.registerReceiver(
+            null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+        )
+        return parse(sticky)
+    }
 }

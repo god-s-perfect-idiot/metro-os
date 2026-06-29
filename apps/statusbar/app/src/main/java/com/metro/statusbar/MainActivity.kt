@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val overlayGranted = remember(permissionTick) { Settings.canDrawOverlays(context) }
+            val accessibilityEnabled = remember(permissionTick) { StatusBarAccessibilityService.isEnabled() }
 
             MetroTheme(
                 darkTheme = state.theme.darkTheme,
@@ -91,8 +92,20 @@ class MainActivity : ComponentActivity() {
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     ShellActionButton(
+                        label = stringResource(R.string.grant_accessibility),
+                        enabled = !accessibilityEnabled,
+                        onClick = {
+                            startActivity(
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                },
+                            )
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ShellActionButton(
                         label = stringResource(R.string.start_overlay),
-                        enabled = overlayGranted,
+                        enabled = overlayGranted && accessibilityEnabled,
                         onClick = { StatusBarOverlayService.start(context) },
                     )
                     Spacer(modifier = Modifier.height(32.dp))

@@ -31,7 +31,10 @@ WP8.1 **System Tray** overlay — clock, expandable status indicators, optional 
 
 ## Primary flows
 
-1. Overlay draws above all apps with `SYSTEM_ALERT_WINDOW`
+1. Overlay draws **above the system status bar** via `TYPE_ACCESSIBILITY_OVERLAY`
+   (`StatusBarAccessibilityService`); falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the
+   system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —
+   it is layered below the system status bar.
 2. Clock updates every minute
 3. Tap expands/collapses indicators
 4. `ThemeChangeReceiver` updates foreground colors
@@ -45,8 +48,9 @@ screenshots/golden/expanded_dark_blue.png
 
 ## Permissions
 
-- `SYSTEM_ALERT_WINDOW`
-- Foreground service type: `specialUse` or overlay
+- `SYSTEM_ALERT_WINDOW` (overlay)
+- Accessibility service (`BIND_ACCESSIBILITY_SERVICE`) — required to draw over the system status bar
+- Foreground service type: `specialUse`
 
 ## Verify
 

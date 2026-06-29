@@ -32,6 +32,9 @@ class TrayState(context: Context) {
     var clockText by mutableStateOf(TrayClockFormatter.format())
         private set
 
+    var battery by mutableStateOf(BatteryStatus.Unknown)
+        private set
+
     var lastExpandedAtMs by mutableLongStateOf(0L)
         private set
 
@@ -40,7 +43,8 @@ class TrayState(context: Context) {
             clockText = clockText,
             expanded = expanded,
             showProgress = showProgress,
-            indicators = if (expanded) TrayIndicatorOrder.default else emptyList(),
+            indicators = if (expanded) TrayIndicatorOrder.expanded else TrayIndicatorOrder.collapsed,
+            battery = battery,
             theme = theme,
         )
 
@@ -52,12 +56,24 @@ class TrayState(context: Context) {
         }
     }
 
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                battery = BatterySource.parse(intent)
+            }
+        }
+    }
+
     fun refreshTheme() {
         theme = TrayThemeResolver.resolve(preferences, visibilityMode)
     }
 
     fun refreshClock(now: ZonedDateTime = ZonedDateTime.now()) {
         clockText = TrayClockFormatter.format(now)
+    }
+
+    fun refreshBattery() {
+        battery = BatterySource.current(appContext)
     }
 
     fun expand(nowMs: Long = System.currentTimeMillis()) {
@@ -100,9 +116,16 @@ class TrayState(context: Context) {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             context.registerReceiver(themeReceiver, filter)
         }
+        // Sticky broadcast; the registration call also returns the current battery state.
+        val sticky = context.registerReceiver(
+            batteryReceiver,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+        )
+        battery = BatterySource.parse(sticky)
     }
 
     fun unregisterReceivers(context: Context) {
         runCatching { context.unregisterReceiver(themeReceiver) }
+        runCatching { context.unregisterReceiver(batteryReceiver) }
     }
 }

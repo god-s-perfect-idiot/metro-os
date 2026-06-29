@@ -5,7 +5,39 @@
 
 ## Status
 
-**Scaffolded** — overlay service, collapsed/expanded tray UI, clock minute ticks, 8s auto-collapse, stub indicators, progress spinner state. Requires overlay permission on device.
+**Implemented** — renders the WP8.1 system tray on top of the Android status bar: collapsed clock,
+tap-to-expand indicator row, minute-boundary clock ticks, 8s auto-collapse, indeterminate progress
+affordance, and per-app opaque/translucent/hidden modes. Battery is real device telemetry
+(`ACTION_BATTERY_CHANGED`) with proportional fill + charging bolt; the remaining radio indicators are
+static v1 glyphs. The tray auto-starts on boot once permissions are granted, and exposes its per-app
+contract via `MetroStatusBar` in `metro-system-sdk`.
+
+### Permissions required (both)
+
+1. **Display over other apps** (`SYSTEM_ALERT_WINDOW`) — granted from `MainActivity`.
+2. **Accessibility service** (`StatusBarAccessibilityService`) — enabled from `MainActivity` →
+   Accessibility settings.
+
+The accessibility service is **mandatory for visibility**: a plain `TYPE_APPLICATION_OVERLAY` window
+is always layered *below* the system status bar (window layer ~111000 vs the system bar's ~151000),
+so the tray would be painted behind it and stay invisible. The tray is therefore hosted as a
+`TYPE_ACCESSIBILITY_OVERLAY` (layer ~311000) when the accessibility service is connected, which is
+the only non-root way to draw the Metro tray *over* the Android status bar. This mirrors how the
+navbar covers the system navigation bar. Without the accessibility service the overlay falls back to
+the app-overlay layer and is hidden behind the system status bar (the historical "Start does
+nothing" symptom).
+
+### Inter-app contract (`metro-system-sdk`)
+
+Other Metro apps drive the tray through `com.metro.system.MetroStatusBar` — no classpath dependency
+on this app. Requests are broadcasts targeted at the tray's exported `StatusBarRequestReceiver`:
+
+```kotlin
+MetroStatusBar.requestProgress(context, visible = true)        // show the indeterminate affordance
+MetroStatusBar.requestVisibility(context, MetroStatusBar.MODE_TRANSLUCENT) // 0.5 opacity
+MetroStatusBar.requestVisibility(context, MetroStatusBar.MODE_HIDDEN)
+MetroStatusBar.requestRefresh(context)                          // re-read theme/accent
+```
 
 ## App role
 
@@ -25,14 +57,14 @@ It is not a generic Android notification shade replacement. The goal is the narr
 ### 1. Collapsed tray
 
 - Default resting state
-- Clock visible on the right
-- Other indicators hidden unless tray is expanded or a reference state requires visibility
+- Battery glyph + clock always visible on the right; base connection indicators (cellular, Wi-Fi) on the left
+- Overlay window is sized to the full system status-bar inset (incl. notch/cutout) so the Android bar is fully covered
 - Expected reference: `references/images/collapsed_dark.png`
 
 ### 2. Expanded tray
 
 - Triggered by tap on tray area
-- Reveals cellular, Wi-Fi, Bluetooth, alarm, location, and battery indicators
+- Reveals the full WP8.1 indicator row (per `references/images/image.png`): cellular, data connection (`4G`), call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving mode, ringer, location — with battery + clock remaining on the right
 - Auto-collapses after 8 seconds
 - Expected reference: `references/images/expanded_dark.png`
 
@@ -54,8 +86,8 @@ It is not a generic Android notification shade replacement. The goal is the narr
 ### Time and indicator state
 
 - Clock updates every minute with zero visible layout jump
-- Indicator order must remain: cellular, Wi-Fi, Bluetooth, alarm, location, battery
-- v1 may use static or stubbed data for radio indicators if device telemetry is impractical
+- Indicator order (left group, per `references/images/image.png`): cellular, data connection, call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving mode, ringer, location; battery + clock are the right group
+- v1 may use static or stubbed data for radio indicators if device telemetry is impractical; battery is real telemetry
 
 ### Theme and app integration
 
@@ -135,7 +167,8 @@ cd apps/statusbar
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
-| Real carrier/radio/battery signal behavior mirrors system internals | Android app-level access to all shell telemetry can be restricted or OEM-specific | Allow static/stub indicators in v1 while preserving exact tray layout and timing |
+| Real carrier/radio signal behavior mirrors system internals | Android app-level access to all shell telemetry can be restricted or OEM-specific | Radio indicators (cellular, data, call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving, ringer, location) use static v1 glyphs; battery uses real `ACTION_BATTERY_CHANGED` telemetry. Tray layout and timing are exact. |
+| Status bar is a true system-reserved region | An installed app can only overlay via `SYSTEM_ALERT_WINDOW`, which is layered below the system status bar | The tray is hosted as a `TYPE_ACCESSIBILITY_OVERLAY` (via `StatusBarAccessibilityService`) so it draws above the system status bar; requires enabling the accessibility service. Falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the system bar) when not enabled. |
 
 ## Agent postmortem
 

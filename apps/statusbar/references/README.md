@@ -19,9 +19,16 @@ references/
 
 | Screen | Image | Notes |
 |--------|-------|-------|
-| Collapsed tray | `images/collapsed_dark.png` | Clock right-aligned |
-| Expanded tray | `images/expanded_dark.png` | Indicators visible 8s |
-| Progress tray | `images/progress_dark.png` | Accent spinner in tray |
+| Collapsed tray | `images/collapsed_dark.png` | Clock right-aligned; dark WP8.1 page (Settings) resting tray |
+| Expanded tray | `images/expanded_dark.png` | Full indicator row + battery glyph/clock/% (Action Center) |
+| Progress tray | _missing — see [`known-gaps.md`](known-gaps.md)_ | Accent indeterminate progress in tray |
+
+## Image catalog (attribution)
+
+| File | Source | License | Page |
+|------|--------|---------|------|
+| `images/expanded_dark.png` | [Wikimedia Commons — Windows Phone 8.1 Benachrichtigungszentrale.png](https://commons.wikimedia.org/wiki/File:Windows_Phone_8.1_Benachrichtigungszentrale.png) (Armin2208) | Public domain | Expanded tray |
+| `images/collapsed_dark.png` | [Wikimedia Commons — Windows Phone 8.1 Update 2 Einstellungen.png](https://commons.wikimedia.org/wiki/File:Windows_Phone_8.1_Update_2_Einstellungen.png) (Armin2208) | Public domain | Collapsed tray |
 
 ## Image naming
 

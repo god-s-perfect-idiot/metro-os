@@ -8,16 +8,17 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ### Page 1 — Collapsed tray
 
-- Layout: **32dp** strip across top; clock right-aligned; indicators hidden
+- Layout: WP **32dp** content band across the top; **right group always visible** = battery glyph + clock; **left group** shows the base connection indicators (cellular, Wi-Fi)
+- Coverage: the overlay window is sized to the **full system status-bar inset height** (status bar / notch / hole-punch), so no part of the Android bar peeks through below the WP band. Content is vertically centered within that height; the WP band is never shorter than 32dp.
 - Background: opaque theme color (or translucent/hidden per app request)
-- Interactions: tap anywhere on tray expands indicators
+- Interactions: tap anywhere on tray expands the full indicator row
 
 ### Page 2 — Expanded tray
 
-- Layout: same 32dp height; indicator row left-aligned in WP order; clock remains right
-- Indicator order L→R: cellular, Wi-Fi, Bluetooth, alarm, location, battery
-- Interactions: expand animation **200ms**; auto-collapse after **8000ms**; collapse animation **200ms**
-- v1 may use static/stub indicator glyphs
+- Layout: same height; full indicator row left-aligned in WP order; battery + clock remain right
+- Indicator order L→R (per `images/image.png`): cellular, data connection (`4G`), call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving mode, ringer, location — then **battery + clock on the right**
+- Interactions: expand/collapse crossfade **200ms**; auto-collapse after **8000ms**
+- v1 may use static/stub indicator glyphs (radio state is not yet wired); battery is real telemetry
 
 ### Page 3 — Progress tray state
 
@@ -31,7 +32,9 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | Clock | Updates on minute boundary without layout jump |
 | Theme | Observe `com.metro.system.THEME_CHANGED` |
 | Visibility | Apps request opaque / translucent (0.5) / hidden modes via future `metro-system-sdk` API |
-| Overlay | `SYSTEM_ALERT_WINDOW` foreground service |
+| Overlay | `SYSTEM_ALERT_WINDOW` foreground service, hosted as a `TYPE_ACCESSIBILITY_OVERLAY` so it draws above the native status bar |
+| Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally and shows a bolt while charging |
+| Coverage | Window height = system status-bar inset (incl. cutout), so the Android bar is fully covered |
 
 ## Images
 

@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Status Bar</string>
+    <string name="accessibility_service_description">Enables the Metro status tray to cover the system status bar so the WP8.1 clock and indicators appear on top.</string>
     <string name="overlay_notification_title">Metro status tray</string>
     <string name="overlay_notification_body">WP8.1 system tray is active</string>
     <string name="permission_overlay_title">Display over other apps</string>
-    <string name="permission_overlay_body">Required to draw the Metro status tray above other apps.</string>
+    <string name="permission_overlay_body">Grant overlay permission, then enable the accessibility service so the Metro tray draws over the system status bar.</string>
+    <string name="permission_accessibility_title">Accessibility service</string>
+    <string name="permission_accessibility_body">Required to draw above the system status bar.</string>
     <string name="start_overlay">Start status tray</string>
     <string name="grant_overlay">Grant overlay permission</string>
+    <string name="grant_accessibility">Enable status tray service</string>
     <string name="tray_clock">Clock</string>
 </resources>

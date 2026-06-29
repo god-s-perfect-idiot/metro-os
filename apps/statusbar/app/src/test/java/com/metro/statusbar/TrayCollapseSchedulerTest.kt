@@ -29,17 +29,36 @@ class TrayCollapseSchedulerTest {
     }
 
     @Test
-    fun indicatorOrder_matchesWp81Spec() {
+    fun expandedIndicatorOrder_matchesWp81Breakdown() {
         assertEquals(
             listOf(
                 TrayIndicator.Cellular,
+                TrayIndicator.DataConnection,
+                TrayIndicator.CallForwarding,
+                TrayIndicator.Roaming,
                 TrayIndicator.Wifi,
                 TrayIndicator.Bluetooth,
-                TrayIndicator.Alarm,
+                TrayIndicator.QuietHours,
+                TrayIndicator.DrivingMode,
+                TrayIndicator.Ringer,
                 TrayIndicator.Location,
-                TrayIndicator.Battery,
             ),
-            TrayIndicatorOrder.default,
+            TrayIndicatorOrder.expanded,
         )
+    }
+
+    @Test
+    fun collapsedTray_showsBaseConnectionIndicators() {
+        assertEquals(
+            listOf(TrayIndicator.Cellular, TrayIndicator.Wifi),
+            TrayIndicatorOrder.collapsed,
+        )
+    }
+
+    @Test
+    fun battery_isNotInTheLeftIndicatorRow() {
+        // Battery is drawn on the right next to the clock, not in either left row.
+        assertFalse(TrayIndicatorOrder.expanded.contains(TrayIndicator.Battery))
+        assertFalse(TrayIndicatorOrder.collapsed.contains(TrayIndicator.Battery))
     }
 }
