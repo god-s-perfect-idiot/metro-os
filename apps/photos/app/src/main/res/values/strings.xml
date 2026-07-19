@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Photos</string>
+    <string name="setup_title">setup</string>
     <string name="permission_media_title">photos</string>
     <string name="permission_media_body">Allow access to your photos so this app can show your camera roll, albums, and favorites.</string>
     <string name="grant_media">allow access</string>

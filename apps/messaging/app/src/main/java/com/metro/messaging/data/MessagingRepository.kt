@@ -25,6 +25,16 @@ class MessagingRepository(
     val isDefaultSmsApp: Boolean
         get() = DefaultSmsApp.isDefault(appContext)
 
+    /**
+     * System SMS/MMS provider access: either the runtime READ_SMS grant, or holding the default
+     * SMS role (which can read/write the Telephony provider even when the runtime flag lags).
+     */
+    val canAccessSystemSms: Boolean
+        get() = hasReadSmsPermission || isDefaultSmsApp
+
+    private val canSendSms: Boolean
+        get() = hasSendSmsPermission || isDefaultSmsApp
+
     fun refreshPermissions(context: Context = appContext) {
         hasReadSmsPermission = ContextCompat.checkSelfPermission(
             context,
@@ -41,18 +51,18 @@ class MessagingRepository(
     }
 
     fun loadThreads(): List<ConversationThread> {
-        val smsThreads = if (hasReadSmsPermission) {
+        val smsThreads = if (canAccessSystemSms) {
             runCatching { smsSource.loadThreads() }.getOrElse { emptyList() }
         } else {
             emptyList()
         }
         val localThreads = localStore.localThreads()
-        val demoThreads = if (hasReadSmsPermission) emptyList() else StubMessagingDataSource.demoThreads()
+        val demoThreads = if (canAccessSystemSms) emptyList() else StubMessagingDataSource.demoThreads()
         return MessagingLogic.mergeThreads(smsThreads, localThreads, demoThreads)
     }
 
     fun loadMessages(threadId: Long): List<MessageItem> {
-        val smsMessages = if (hasReadSmsPermission) {
+        val smsMessages = if (canAccessSystemSms) {
             runCatching { smsSource.loadMessages(threadId) }.getOrElse { emptyList() }
         } else {
             StubMessagingDataSource.demoMessages(threadId)
@@ -63,16 +73,22 @@ class MessagingRepository(
 
     fun threadForAddress(address: String): ConversationThread {
         val normalized = MessagingLogic.normalizeAddress(address)
-        if (hasReadSmsPermission) {
+        if (canAccessSystemSms) {
             smsSource.threadForAddress(normalized)?.let { return it }
+            val systemThreadId = smsSource.threadIdForAddress(normalized)
+            return ConversationThread(
+                id = systemThreadId,
+                address = normalized,
+                displayName = null,
+                preview = "",
+                timestamp = System.currentTimeMillis(),
+                unreadCount = 0,
+            )
         }
         val stubId = MessagingLogic.threadIdForAddress(normalized)
         loadThreads().firstOrNull { it.id == stubId || MessagingLogic.normalizeAddress(it.address) == normalized }
             ?.let { return it }
-        return StubMessagingDataSource.threadForAddress(
-            normalized,
-            if (hasContactsPermission) smsSource.threadForAddress(normalized)?.displayName else null,
-        )
+        return StubMessagingDataSource.threadForAddress(normalized, null)
     }
 
     fun loadDraft(threadId: Long): DraftState? = draftStore.load(threadId)
@@ -100,7 +116,7 @@ class MessagingRepository(
         localStore.append(pending, thread.address)
         clearDraft(thread.id)
 
-        if (hasSendSmsPermission) {
+        if (canSendSms) {
             return try {
                 obtainSmsManager(appContext).sendText(thread.address, trimmed)
                 // The default SMS app is responsible for persisting outgoing messages to the
@@ -125,6 +141,7 @@ class MessagingRepository(
 
     private fun persistSentToProvider(address: String, body: String, timestamp: Long) {
         runCatching {
+            val threadId = smsSource.threadIdForAddress(address)
             val values = ContentValues().apply {
                 put(Telephony.Sms.ADDRESS, address)
                 put(Telephony.Sms.BODY, body)
@@ -132,6 +149,7 @@ class MessagingRepository(
                 put(Telephony.Sms.READ, 1)
                 put(Telephony.Sms.SEEN, 1)
                 put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_SENT)
+                put(Telephony.Sms.THREAD_ID, threadId)
             }
             appContext.contentResolver.insert(Telephony.Sms.Sent.CONTENT_URI, values)
         }

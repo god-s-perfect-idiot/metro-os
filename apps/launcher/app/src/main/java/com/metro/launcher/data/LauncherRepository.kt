@@ -23,6 +23,8 @@ data class DisplayTile(
     val counter: Int?,
     val deepLinkUri: String?,
     val hasFlipFace: Boolean,
+    val backFaceTitle: String? = null,
+    val backFaceBody: String? = null,
     val photoGrid: MetroTilePhotoGrid? = null,
     val agenda: MetroTileAgenda? = null,
 )
@@ -88,15 +90,26 @@ class LauncherRepository(private val context: Context) {
         val title = providerData?.title ?: label ?: packageName.substringAfterLast('.')
         val background = providerData?.backgroundColorHex?.let { MetroPreferences.parseAccentHex(it) }
             ?: fallbackTileColor(packageName)
+        val photoGrid = providerData?.photoGrid
+        val agenda = providerData?.agenda?.takeIf { it.hasContent }
+        val hasRichFrontFace = photoGrid?.hasContent == true || agenda != null
+        val merged = TileNotificationStore.mergeIntoDisplay(
+            packageName = packageName,
+            providerCounter = providerData?.counter,
+            providerBackFaceTitle = providerData?.backFaceTitle,
+            hasRichFrontFace = hasRichFrontFace,
+        )
         return DisplayTile(
             entry = this,
             title = title,
             backgroundColor = background,
-            counter = providerData?.counter,
+            counter = merged.counter,
             deepLinkUri = providerData?.deepLinkUri,
-            hasFlipFace = providerData?.hasFlipFace == true,
-            photoGrid = providerData?.photoGrid,
-            agenda = providerData?.agenda?.takeIf { it.hasContent },
+            hasFlipFace = merged.hasFlipFace,
+            backFaceTitle = merged.backFaceTitle,
+            backFaceBody = merged.backFaceBody,
+            photoGrid = photoGrid,
+            agenda = agenda,
         )
     }
 

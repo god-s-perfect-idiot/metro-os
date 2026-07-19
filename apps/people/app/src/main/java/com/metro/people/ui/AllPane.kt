@@ -1,9 +1,11 @@
 package com.metro.people.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.people.data.PersonSummary
 import com.metro.ui.MetroJumpListLogic
@@ -31,7 +34,9 @@ import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.metroStickyLetterHeader
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AllPane(
     filterLabel: String,
@@ -81,12 +86,19 @@ fun AllPane(
             )
         }
         grouped.forEach { (letter, people) ->
-            item(key = "header-$letter") {
-                MetroLetterTile(
-                    letter = letter,
-                    onClick = onJumpClick,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
+            metroStickyLetterHeader(letter = letter) {
+                // Opaque bg so contact rows do not show through while pinned.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black)
+                        .padding(vertical = 8.dp),
+                ) {
+                    MetroLetterTile(
+                        letter = letter,
+                        onClick = onJumpClick,
+                    )
+                }
             }
             items(people, key = { it.id }) { person ->
                 ContactRow(
@@ -125,7 +137,12 @@ private fun ContactRow(
                 .weight(1f)
                 .padding(horizontal = 12.dp),
         ) {
-            MetroText(text = person.displayName, style = MetroTextStyle.ListItemTitle)
+            MetroText(
+                text = person.displayName,
+                style = MetroTextStyle.ListItemTitle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Row(
             modifier = Modifier.size(48.dp),

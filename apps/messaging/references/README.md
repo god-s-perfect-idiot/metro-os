@@ -20,7 +20,8 @@ references/
 | Screen | Image | Notes |
 |--------|-------|-------|
 | Thread list | `images/threads_dark_yellow.jpg` | Landing page — conversation list + bottom app bar (official) |
-| Conversation | `images/conversation_schematic.png` | Message thread layout — bubble alignment + MMS (official schematic) |
+| Conversation | `images/conversation_dark_orange.png` | Real WP dark-theme thread — bubble tails, accent/darkened fills, gray composer |
+| Conversation (schematic) | `images/conversation_schematic.png` | Message thread layout — bubble alignment + MMS (official schematic) |
 | Settings (ref only) | `images/settings_dark_yellow.jpg` | Toggle-list styling; settings page is out of v1 scope |
 | Live tile (ref only) | `images/tile_yellow.jpg` | Tile glyph + unread count |
 
@@ -40,6 +41,7 @@ Current `images/` are community/official references (visual aids only — `guide
 | `threads_dark_yellow.jpg` | Threads landing list + bottom app bar | Microsoft Devices Blog — [WP8 Messaging deep dive](https://blogs.windows.com/devices/2014/03/06/windows-phone-8-messaging-deep-dive/) (2014) |
 | `settings_dark_yellow.jpg` | Messaging settings toggle list | Microsoft Devices Blog — WP8 Messaging deep dive (2014) |
 | `tile_yellow.jpg` | Messaging live tile glyph + unread count | Microsoft Devices Blog — WP8 Messaging deep dive (2014) |
+| `conversation_dark_orange.png` | Conversation bubbles (accent received / darkened sent) + gray composer | WP dark-theme capture (orange accent); used for bubble geometry and composer chrome |
 | `conversation_schematic.png` | Conversation bubble layout (sent/received + MMS) | Nokia/Microsoft Lumia user guide ([helpdoc.net](https://nokia-lumia-521.helpdoc.net/en-us/people-messaging/messages/read-a-message/)) |
 
 Open gaps (e.g. a real dark-theme conversation capture at 768×1280) are tracked in [`known-gaps.md`](known-gaps.md).

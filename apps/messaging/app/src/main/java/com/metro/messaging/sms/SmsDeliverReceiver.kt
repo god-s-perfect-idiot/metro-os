@@ -33,6 +33,9 @@ class SmsDeliverReceiver : BroadcastReceiver() {
             put(Telephony.Sms.READ, 0)
             put(Telephony.Sms.SEEN, 0)
             put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_INBOX)
+            runCatching {
+                put(Telephony.Sms.THREAD_ID, Telephony.Threads.getOrCreateThreadId(context, address))
+            }
         }
 
         runCatching {

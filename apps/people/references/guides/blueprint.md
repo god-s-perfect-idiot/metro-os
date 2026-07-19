@@ -37,7 +37,7 @@ Target: **Windows Phone 8.1 GDR2+** People hub on a portrait phone (768×1280 / 
     2. **Add an account** row — launches account picker (`accounts_dark_blue.jpg`).
     3. **Import SIM contacts** row — shown when SIM present; may stub in v1.
     4. **Showing filter chip** — accent-colored label (e.g. `showing only contacts with phone numbers`). Tap opens filter contacts page.
-    5. **Alphabet jump tile** — small square accent tile with current letter or `#`. Tap opens jump list overlay.
+    5. **Alphabet jump tile** — small square accent tile with current letter or `#`. The active letter **sticks** at the top while that section's contacts scroll; the next letter pushes it up (`metroStickyLetterHeader`). Tap opens jump list overlay.
     6. **Contact list** — grouped by first letter (or last name per settings). Each row:
        - Square avatar (48dp), left.
        - Display name, large (20sp SemiBold), left-aligned.

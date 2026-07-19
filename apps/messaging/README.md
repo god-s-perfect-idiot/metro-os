@@ -5,7 +5,7 @@
 
 ## Status
 
-Android app with thread list, conversation view, new-message compose, bottom `MetroAppBar`, SMS repository seam, default-SMS-app role request, and demo-data fallback.
+Android app with thread list, conversation view, new-message compose, bottom `MetroAppBar`, SMS repository seam, default-SMS-app role request (reads system SMS once default), and demo-data fallback.
 
 ## App role
 

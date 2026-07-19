@@ -21,7 +21,7 @@ references/
 | Screen | Image | Notes |
 |--------|-------|-------|
 | Standard calculator | `images/standard_dark_blue.jpg` | Portrait 6×4 keypad, memory row, red equals |
-| Scientific calculator | `images/scientific_dark_blue.jpg` | Landscape 5×8 scientific (adapted to portrait pivot in v1) |
+| Scientific calculator | `images/scientific_dark_blue.jpg` | Landscape 5×8 scientific (shown when device is rotated) |
 
 ## Image naming
 

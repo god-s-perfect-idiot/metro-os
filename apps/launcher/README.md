@@ -29,6 +29,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Long-press tile edit overlay: resize (cycles small/medium/wide when `BuildConfig.WIDE_TILES`) and unpin
 - `TILE_UPDATE` and `THEME_CHANGED` broadcasts refresh tile content and shell theme
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
+- System notifications (via `NotificationListenerService`) drive tile badges and WP8.1 flip/peek faces for pinned apps
 - Wallpaper/parallax not yet implemented
 
 ## Screen inventory
@@ -75,6 +76,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Read tile widget payloads through `MetroTileContract`
 - Respond to `com.metro.system.TILE_UPDATE`
 - Fall back to static icon and title when an app has no live tile provider yet
+- With notification-listener access granted, merge active Android notifications into badges and flip/peek faces for any pinned package (shell FGS packages excluded)
 
 ### Theme and accent propagation
 

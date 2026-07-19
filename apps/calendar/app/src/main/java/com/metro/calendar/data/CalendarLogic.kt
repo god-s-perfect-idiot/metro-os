@@ -253,10 +253,12 @@ object CalendarLogic {
         viewType: CalendarViewType,
         tabCount: Int = tabCountForViewType(viewType),
         zoneId: ZoneId = ZoneId.systemDefault(),
+        dayPivotStartEpochDay: Long? = null,
     ): List<String> {
         val today = LocalDate.now(zoneId)
+        val dayStart = dayPivotStartEpochDay?.let(LocalDate::ofEpochDay) ?: today
         return (0 until tabCount).map { index ->
-            tabTitle(viewType, index, today, zoneId)
+            tabTitle(viewType, index, today, dayStart, zoneId)
         }
     }
 
@@ -264,10 +266,12 @@ object CalendarLogic {
         viewType: CalendarViewType,
         tabIndex: Int,
         zoneId: ZoneId = ZoneId.systemDefault(),
+        dayPivotStartEpochDay: Long? = null,
     ): Long {
         val today = LocalDate.now(zoneId)
+        val dayStart = dayPivotStartEpochDay?.let(LocalDate::ofEpochDay) ?: today
         return when (viewType) {
-            CalendarViewType.Day -> today.plusDays(tabIndex.toLong()).toEpochDay()
+            CalendarViewType.Day -> dayStart.plusDays(tabIndex.toLong()).toEpochDay()
             CalendarViewType.Week -> {
                 val thisWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 thisWeekStart.plusWeeks(tabIndex.toLong()).toEpochDay()
@@ -285,13 +289,14 @@ object CalendarLogic {
         viewType: CalendarViewType,
         epochDay: Long,
         zoneId: ZoneId = ZoneId.systemDefault(),
+        dayPivotStartEpochDay: Long? = null,
     ): Int {
         val today = LocalDate.now(zoneId)
         val date = LocalDate.ofEpochDay(epochDay)
+        val dayStart = dayPivotStartEpochDay?.let(LocalDate::ofEpochDay) ?: today
         return when (viewType) {
             CalendarViewType.Day -> {
-                val days = ChronoUnit.DAYS.between(today, date).toInt()
-                days.coerceAtLeast(0)
+                ChronoUnit.DAYS.between(dayStart, date).toInt().coerceAtLeast(0)
             }
             CalendarViewType.Week -> {
                 val thisWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -317,14 +322,15 @@ object CalendarLogic {
         viewType: CalendarViewType,
         tabIndex: Int,
         today: LocalDate,
+        dayStart: LocalDate,
         zoneId: ZoneId,
     ): String = when (viewType) {
-        CalendarViewType.Day -> when (tabIndex) {
-            0 -> "today"
-            1 -> "tomorrow"
-            else -> {
-                val date = today.plusDays(tabIndex.toLong())
-                "${dayNameLower(date.toEpochDay(), zoneId)} ${date.dayOfMonth}"
+        CalendarViewType.Day -> {
+            val date = dayStart.plusDays(tabIndex.toLong())
+            when (date) {
+                today -> "today"
+                today.plusDays(1) -> "tomorrow"
+                else -> "${dayNameLower(date.toEpochDay(), zoneId)} ${date.dayOfMonth}"
             }
         }
         CalendarViewType.Week -> when (tabIndex) {

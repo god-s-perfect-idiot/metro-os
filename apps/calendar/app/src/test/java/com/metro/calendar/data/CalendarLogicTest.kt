@@ -114,6 +114,40 @@ class CalendarLogicTest {
     }
 
     @Test
+    fun epochDayForTab_dayRespectsPivotStart() {
+        val pivot = LocalDate.of(2026, 3, 10).toEpochDay()
+        val day0 = CalendarLogic.epochDayForTab(
+            CalendarViewType.Day,
+            0,
+            zoneId,
+            dayPivotStartEpochDay = pivot,
+        )
+        val day2 = CalendarLogic.epochDayForTab(
+            CalendarViewType.Day,
+            2,
+            zoneId,
+            dayPivotStartEpochDay = pivot,
+        )
+        assertEquals(pivot, day0)
+        assertEquals(pivot + 2, day2)
+    }
+
+    @Test
+    fun buildTabTitles_dayLabelsRelativeToToday() {
+        val today = LocalDate.now(zoneId)
+        val pivot = today.minusDays(2).toEpochDay()
+        val titles = CalendarLogic.buildTabTitles(
+            CalendarViewType.Day,
+            tabCount = 4,
+            zoneId = zoneId,
+            dayPivotStartEpochDay = pivot,
+        )
+        assertEquals(CalendarLogic.dayNameLower(pivot, zoneId) + " " + today.minusDays(2).dayOfMonth, titles[0])
+        assertEquals("today", titles[2])
+        assertEquals("tomorrow", titles[3])
+    }
+
+    @Test
     fun buildTabTitles_monthStartsWithCurrentMonth() {
         val today = LocalDate.now(zoneId)
         val titles = CalendarLogic.buildTabTitles(CalendarViewType.Month, tabCount = 2, zoneId = zoneId)

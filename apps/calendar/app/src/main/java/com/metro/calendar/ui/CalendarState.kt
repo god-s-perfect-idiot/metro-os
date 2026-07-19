@@ -57,12 +57,27 @@ class CalendarState(context: Context) {
     var events: List<CalendarEvent> = emptyList()
         private set
 
+    /** First day-tab date; re-anchored when drilling into a day from month view. */
+    private var dayPivotStartEpochDay: Long = CalendarLogic.todayEpochDay(zoneId)
+
     private var loadedStartEpochDay: Long = 0L
     private var loadedEndEpochDay: Long = 0L
     private var rangeLoaded: Boolean = false
 
     val tabTitles: List<String>
-        get() = CalendarLogic.buildTabTitles(viewType, zoneId = zoneId)
+        get() = CalendarLogic.buildTabTitles(
+            viewType = viewType,
+            zoneId = zoneId,
+            dayPivotStartEpochDay = dayPivotStartEpochDay,
+        )
+
+    fun epochDayForPage(page: Int): Long =
+        CalendarLogic.epochDayForTab(
+            viewType = viewType,
+            tabIndex = page,
+            zoneId = zoneId,
+            dayPivotStartEpochDay = dayPivotStartEpochDay,
+        )
 
     val tabCount: Int
         get() = CalendarLogic.tabCountForViewType(viewType)
@@ -177,8 +192,11 @@ class CalendarState(context: Context) {
 
     fun selectViewType(type: CalendarViewType) {
         viewType = type
+        if (type == CalendarViewType.Day) {
+            dayPivotStartEpochDay = CalendarLogic.todayEpochDay(zoneId)
+        }
         tabIndex = 0
-        selectedEpochDay = CalendarLogic.epochDayForTab(type, 0, zoneId)
+        selectedEpochDay = epochDayForPage(0)
         showTypePicker = false
         ensureRangeLoaded(selectedEpochDay)
         notifyChanged()
@@ -186,7 +204,7 @@ class CalendarState(context: Context) {
 
     fun selectTab(index: Int) {
         tabIndex = index.coerceIn(0, tabCount - 1)
-        selectedEpochDay = CalendarLogic.epochDayForTab(viewType, tabIndex, zoneId)
+        selectedEpochDay = epochDayForPage(tabIndex)
         ensureRangeLoaded(selectedEpochDay)
         notifyChanged()
     }
@@ -203,16 +221,21 @@ class CalendarState(context: Context) {
         }
     }
 
+    /** Opens day view for [epochDay] (month-grid drill-down, same pattern as [selectMonth]). */
     fun selectDay(epochDay: Long) {
+        viewType = CalendarViewType.Day
+        dayPivotStartEpochDay = epochDay
         selectedEpochDay = epochDay
-        tabIndex = CalendarLogic.tabIndexForEpochDay(viewType, epochDay, zoneId)
-            .coerceIn(0, tabCount - 1)
+        tabIndex = 0
         ensureRangeLoaded(selectedEpochDay)
         notifyChanged()
     }
 
     fun goToToday() {
         selectedEpochDay = CalendarLogic.todayEpochDay(zoneId)
+        if (viewType == CalendarViewType.Day) {
+            dayPivotStartEpochDay = selectedEpochDay
+        }
         tabIndex = 0
         ensureRangeLoaded(selectedEpochDay)
         notifyChanged()

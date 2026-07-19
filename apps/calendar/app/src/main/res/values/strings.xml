@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Calendar</string>
+    <string name="setup_title">setup</string>
     <string name="permission_calendar_title">calendar access</string>
     <string name="permission_calendar_body">Calendar needs access to your events to show your schedule.</string>
     <string name="grant_calendar">allow access</string>

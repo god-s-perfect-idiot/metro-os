@@ -14,6 +14,7 @@ import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.PinnedTileSize
+import com.metro.launcher.data.TileNotificationAccess
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroBroadcasts
@@ -26,6 +27,8 @@ class LauncherState(context: Context) {
     private val hostContext: Context = context
     private val repository = LauncherRepository(appContext)
     private val metroPrefs = MetroPreferences(appContext)
+    private val launcherPrefs =
+        appContext.getSharedPreferences(PREFS_LAUNCHER, Context.MODE_PRIVATE)
 
     var darkTheme by mutableStateOf(metroPrefs.isDark)
     var accent by mutableStateOf(metroPrefs.accentColor)
@@ -33,6 +36,7 @@ class LauncherState(context: Context) {
     var searchActive by mutableStateOf(false)
     var searchQuery by mutableStateOf("")
     var editingTile by mutableStateOf<DisplayTile?>(null)
+    var showNotificationAccessPrompt by mutableStateOf(false)
 
     private var pinnedEntries by mutableStateOf(repository.loadPinnedTiles())
     var displayTiles by mutableStateOf(repository.resolveDisplayTiles(pinnedEntries))
@@ -96,6 +100,22 @@ class LauncherState(context: Context) {
         apps = repository.discoverApps(pinnedEntries)
         darkTheme = metroPrefs.isDark
         accent = metroPrefs.accentColor
+        refreshNotificationAccessPrompt()
+    }
+
+    fun refreshNotificationAccessPrompt() {
+        val dismissed = launcherPrefs.getBoolean(KEY_NOTIF_PROMPT_DISMISSED, false)
+        showNotificationAccessPrompt =
+            !dismissed && !TileNotificationAccess.isEnabled(appContext)
+    }
+
+    fun openNotificationAccessSettings() {
+        TileNotificationAccess.openSettings(appContext)
+    }
+
+    fun dismissNotificationAccessPrompt() {
+        launcherPrefs.edit().putBoolean(KEY_NOTIF_PROMPT_DISMISSED, true).apply()
+        showNotificationAccessPrompt = false
     }
 
     fun refreshTile(packageName: String) {
@@ -188,5 +208,10 @@ class LauncherState(context: Context) {
         repository.savePinnedTiles(pinnedEntries)
         displayTiles = repository.resolveDisplayTiles(pinnedEntries)
         apps = repository.discoverApps(pinnedEntries)
+    }
+
+    companion object {
+        private const val PREFS_LAUNCHER = "metro_launcher"
+        private const val KEY_NOTIF_PROMPT_DISMISSED = "notification_access_prompt_dismissed"
     }
 }

@@ -10,14 +10,14 @@ Target: **Windows Phone 8.1 GDR2+** Calculator on a portrait phone (768×1280 / 
 
 WP8.1 switches between standard and scientific layouts via **device rotation** — this app reproduces that exactly:
 
-- **Portrait → standard calculator** (the primary orientation).
-- **Landscape (right-edge-up) → scientific calculator.**
+- **Portrait → standard calculator** (the primary orientation / default).
+- **Landscape → scientific calculator** (full landscape layout, not a portrait-squeezed keypad).
 
-There are **no on-screen mode tabs**; rotating the device is the mode switch, matching the WP8.1 calculator. The displayed value is preserved across rotation; only a half-entered operation chain is reset (the two modes evaluate differently).
+There are **no on-screen mode tabs**. Rotating the device is the mode switch. The displayed value is preserved across rotation; only a half-entered operation chain is reset (the two modes evaluate differently).
 
 Binary/programmer mode (landscape left-edge-up on WP8.1) is **out of v1 scope**.
 
-> **Platform note:** Portrait remains the primary orientation per `scope.md` §portrait-only. Landscape is enabled solely to surface the scientific keypad, which is the authentic WP8.1 interaction — not a landscape-primary layout.
+> **Platform note:** Portrait remains the primary orientation per `scope.md`. Landscape is enabled **only** so the scientific keypad can appear as a true landscape layout (authentic WP8.1). Mode is driven by window shape (`width > height`), so scientific never shows inside a portrait frame.
 
 ## App shell
 
@@ -76,7 +76,7 @@ Unary scientific functions (`sin`, `cos`, `tan`, `ln`, `log`, `√`, `x²`, `n!`
     5. `n!` | `x²` | `xʸ` | `0` (double-width) | `.` | `=` (red) | `M+`
   - Angle mode buttons (`Deg` / `Rad` / `Grad`): selected mode uses lighter grey (`#3A3A3A`); others default dark-grey.
   - Function labels shrink to 17sp to fit (`sin`, `10ˣ`, `Grad`, etc.).
-  - Keypad reserves 48dp bottom clearance for the Metro nav bar overlay (landscape system bar moves to the edge and supplies no bottom inset).
+  - Keypad reserves bottom clearance via `metroNavBarPadding()` for the Metro nav bar overlay.
 - **Navigation:** Rotate device to portrait → Page 1 (standard).
 - **Interactions:**
   - Expression evaluation with operator precedence on `=`.
@@ -85,7 +85,7 @@ Unary scientific functions (`sin`, `cos`, `tan`, `ln`, `log`, `√`, `x²`, `n!`
   - `xʸ` — power operator (display current, then `^` next operand).
   - Error state: display `Error`; next digit or `C` recovers.
 - **Background:** Solid black.
-- **Reference:** `images/scientific_dark_blue.jpg` (landscape capture; portrait grid above is the v1 adaptation)
+- **Reference:** `images/scientific_dark_blue.jpg`
 
 ## Images
 
@@ -97,6 +97,6 @@ Unary scientific functions (`sin`, `cos`, `tan`, `ln`, `log`, `√`, `x²`, `n!`
 ## Out of scope (v1)
 
 - Binary / programmer / octal / hex modes
-- Landscape orientation layouts
+- On-screen Standard / Scientific tabs or pivot headers
 - Calculation history panel
 - Cortana / voice input

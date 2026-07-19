@@ -73,8 +73,15 @@ class MetroAppBarIcon(
     val contentDescription: String = label,
     val enabled: Boolean = true,
     /**
-     * Draws the monochrome glyph using the supplied tint. Do not bake a circle in — the app bar
-     * draws the standard rest outline and filled press circle around every icon.
+     * When true (default), the app bar draws the rest-state circular outline. Set false only when
+     * [icon] already paints its own circle (e.g. a custom glyph that matches [MetroSystemIcon]).
+     * The filled press circle is always drawn by the app bar.
+     */
+    val showRestOutline: Boolean = true,
+    /**
+     * Draws the monochrome glyph using the supplied tint. Do not bake a circle in unless
+     * [showRestOutline] is false — the app bar draws the standard rest outline and filled press
+     * circle around every icon by default.
      */
     val icon: @Composable (color: Color) -> Unit,
 )
@@ -270,10 +277,14 @@ private fun AppBarIconButton(
                 modifier = Modifier
                     .size(MetroAppBarDefaults.IconCircleSize)
                     .then(
-                        if (active) {
-                            Modifier.background(baseColor, CircleShape)
-                        } else {
-                            Modifier.border(MetroAppBarDefaults.IconCircleBorder, baseColor, CircleShape)
+                        when {
+                            active -> Modifier.background(baseColor, CircleShape)
+                            item.showRestOutline -> Modifier.border(
+                                MetroAppBarDefaults.IconCircleBorder,
+                                baseColor,
+                                CircleShape,
+                            )
+                            else -> Modifier
                         },
                     ),
                 contentAlignment = Alignment.Center,

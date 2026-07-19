@@ -29,7 +29,7 @@ Before implementing or changing any composable, read [`METRO-UX-LANGUAGE.md`](ME
 | P0 | `MetroColors` | Exact hex from scope §2 |
 | P0 | `MetroPageHeader` | 64sp title area |
 | P1 | `MetroAppBar` ✅ | ApplicationBar — bottom, standard/minimized; `…` reveals icon labels + text overflow menu. Apps needing bottom-bar options must use this, not a bespoke row. |
-| P1 | `MetroBorderButton` | Outlined square text button (§6.3) |
+| P1 | `MetroBorderButton` ✅ | Outlined square text button (§6.3) |
 | P1 | `MetroIconButton` | In-page circular-press icon button (§6.4) |
 | P1 | `MetroPivot` | Pivot control |
 | P1 | `MetroPanorama` | Panorama control |

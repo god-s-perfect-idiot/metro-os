@@ -21,6 +21,7 @@ Add one `##` section per screen or feature. Keep URLs stable; use archive.org mi
 | `images/settings_dark_yellow.jpg` | https://blogs.windows.com/devices/2014/03/06/windows-phone-8-messaging-deep-dive/ | Settings toggle list |
 | `images/tile_yellow.jpg` | https://blogs.windows.com/devices/2014/03/06/windows-phone-8-messaging-deep-dive/ | Live tile glyph + count |
 | `images/conversation_schematic.png` | https://nokia-lumia-521.helpdoc.net/en-us/people-messaging/messages/read-a-message/ | Conversation bubble layout schematic |
+| `images/conversation_dark_orange.png` | User-supplied WP dark-theme capture (orange accent) | Real conversation — bubble tails, accent/darkened fills, gray composer |
 
 ## Thread list
 

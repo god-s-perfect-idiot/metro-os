@@ -10,6 +10,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -84,6 +85,14 @@ fun LauncherShell(
                     modifier = Modifier.testTag("metro_page_app_list"),
                 )
             }
+        }
+
+        if (state.showNotificationAccessPrompt && state.currentPage == 0 && !editing) {
+            NotificationAccessPrompt(
+                onGrant = state::openNotificationAccessSettings,
+                onDismiss = state::dismissNotificationAccessPrompt,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }

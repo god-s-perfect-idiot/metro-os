@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Navigation Bar</string>
+    <string name="setup_title">setup</string>
     <string name="accessibility_service_description">Enables the Metro navigation bar to cover the system navigation bar and powers Back and recent-apps keys.</string>
     <string name="overlay_notification_title">Metro navigation bar</string>
     <string name="overlay_notification_body">WP8.1 soft keys are active</string>

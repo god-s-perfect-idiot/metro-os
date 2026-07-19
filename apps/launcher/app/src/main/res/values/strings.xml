@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Start</string>
+    <string name="notification_listener_label">Live tile notifications</string>
+    <string name="notification_access_title">live tiles</string>
+    <string name="notification_access_body">Allow Start to read notifications for live tiles.</string>
+    <string name="notification_access_grant">turn on</string>
+    <string name="notification_access_later">not now</string>
 </resources>

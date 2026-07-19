@@ -5,13 +5,13 @@
 
 ## Status
 
-Implemented — standard and scientific pivot panes with WP8.1 evaluation rules (left-to-right vs precedence).
+Implemented — portrait standard / landscape scientific via device rotation. WP8.1 evaluation rules (left-to-right vs precedence).
 
 ## App role
 
-This app recreates the WP8.1 **Calculator** in portrait mode with standard and scientific functionality presented in Metro styling.
+This app recreates the WP8.1 **Calculator**: standard in portrait, scientific in landscape. No Standard/Scientific tabs.
 
-It should feel like a clean, flat, high-contrast utility. Avoid turning it into a Material keypad app or a landscape-tablet scientific layout.
+It should feel like a clean, flat, high-contrast utility. Avoid turning it into a Material keypad app.
 
 ## Build gate
 
@@ -28,8 +28,8 @@ It should feel like a clean, flat, high-contrast utility. Avoid turning it into 
 
 ### 2. Scientific surface
 
-- Extended operations surface
-- May be implemented as a flip/pivot/panel transition depending on reference fidelity
+- Extended operations surface in **landscape**
+- Entered by rotating the device (no mode tabs)
 - Expected reference: `references/images/scientific_dark_blue.png`
 
 ## System functions and contracts
@@ -55,7 +55,7 @@ It should feel like a clean, flat, high-contrast utility. Avoid turning it into 
 1. Build pure calculation engine with tests
 2. Build standard keypad and display
 3. Add scientific functions
-4. Add mode switching and layout polish
+4. Wire orientation-driven mode switch and landscape layout polish
 
 ## Test-critical user flows
 
@@ -93,8 +93,8 @@ cd apps/calculator
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | Exact OS calculator feature parity | Feature scope may exceed v1 utility goals | Prioritize standard and core scientific functions with exact Metro presentation before expanding feature set |
-| Standard ↔ scientific via device rotation | `scope.md` §portrait-only would forbid landscape | Landscape is enabled **only** to surface the scientific keypad (the authentic WP8.1 rotation behavior); portrait standard remains the primary orientation. State is preserved across rotation via `configChanges`. |
-| Landscape system bar supplies no bottom inset | Metro nav bar overlay still occupies the bottom edge | Keypad reserves a 48dp bottom clearance in landscape so no key is occluded. |
+| Standard ↔ scientific via device rotation | `scope.md` §portrait-only would forbid landscape-primary apps | Landscape is enabled **only** for the scientific keypad; portrait standard remains the default. Mode follows window shape (`width > height`). State is preserved across rotation via `configChanges`. |
+| Landscape system bar supplies no bottom inset | Metro nav bar overlay still occupies the bottom edge | `metroNavBarPadding()` keeps keys clear of the overlay. |
 
 ## Agent postmortem
 

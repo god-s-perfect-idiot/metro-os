@@ -6,9 +6,10 @@ Items the blueprint requires but we do not yet have a high-fidelity capture for 
 
 | File | What we need | Workaround |
 |------|--------------|------------|
-| `conversation_dark_yellow.jpg` | Real WP8.1 **dark-theme** conversation capture — accent-filled sent bubbles (right), `#1F1F1F` received bubbles (left), timestamp + send state, bottom composer | Use `conversation_schematic.png` (official line-art shows bubble alignment + MMS) plus blueprint Page 2 for exact styling. |
-| `new_message_dark_yellow.jpg` | New-message / composer page — recipient field, message box, send + attach app bar | Behavior documented in `web-resources.md` (Lumia 920 "send a message"); render from blueprint Page 2 composer spec. |
+| `new_message_dark_yellow.jpg` | New-message / composer page — recipient field, message box, send + attach app bar | Behavior documented in `web-resources.md` (Lumia 920 "send a message"); render from blueprint Page 2 composer spec (same gray outgoing bubble). |
 | `permission_gate_dark_yellow.jpg` | Permission / demo gate (Page 3) — WP8.1 had no equivalent (Android-only screen) | No WP source exists; implement per blueprint Page 3 using standard Metro full-page text + border buttons. |
+
+Closed: `conversation_dark_orange.png` supplies a real dark-theme conversation capture (orange accent) for bubble geometry, colors, and the gray composer prompt.
 
 ## Caveats on shipped images
 

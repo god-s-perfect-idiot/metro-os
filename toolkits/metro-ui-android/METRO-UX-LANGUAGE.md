@@ -231,7 +231,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 
 **Don't:** Rounded corners, filled accent background (that's a link or pivot selection), icons inside border buttons unless using a separate icon-button pattern.
 
-**Toolkit:** `MetroBorderButton` (planned — until then, match this spec exactly in app code).
+**Toolkit:** `MetroBorderButton`.
 
 ---
 
@@ -441,10 +441,11 @@ WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under let
 | Dismiss | Hardware Back, or tap scrim outside tiles |
 | Locale tile | Globe glyph; inactive unless the app supplies locale jump support |
 | Helpers | `MetroJumpListLogic.sortKey` / `activeLetters` / `showSectionMarkers` / `diagonalIndex`; section anchors use `MetroLetterTile` |
+| Sticky section markers | Letter markers **pin** at the top of the scroll viewport while that section's rows scroll underneath. The next letter's header **pushes** the previous marker up and replaces it (classic LongListSelector sticky headers). Implement with `metroStickyLetterHeader` — never plain `item` for letter markers. Give the sticky content an opaque theme background so rows do not show through. |
 | Entrance | Each tile flips in around its **horizontal center** (`rotationX` 90° → 0°, 300ms ease-out). Stagger by diagonal (`row + col`) from top-left at 40ms steps |
 | Search mode | While an inline list search field is active, **omit** letter section markers (`showSectionMarkers(false)`). Jump list is unavailable until search is dismissed. App-list search uses a **white fill + accent border** square field (not the underline TextBox); matching characters in result labels use accent. |
 
-**Agent rule:** Do not reimplement jump grids in apps. Import `MetroJumpList` from `metro-ui-android`.
+**Agent rule:** Do not reimplement jump grids in apps. Import `MetroJumpList` from `metro-ui-android`. Do not invent per-app sticky-header logic — use `metroStickyLetterHeader` for every alphabet-grouped list.
 
 ---
 
@@ -548,7 +549,7 @@ Need a container shape?
 |-----------------|------------|--------|
 | §6.1 Tile | `MetroTile` | Implemented |
 | §6.2 App bar | `MetroAppBar` | Implemented |
-| §6.3 Border button | `MetroBorderButton` | Planned |
+| §6.3 Border button | `MetroBorderButton` | Implemented |
 | §6.4 Icon button | `MetroIconButton` | Planned |
 | §6.5 Hyperlink | `MetroHyperlink` | Planned |
 | §6.6 List item | `MetroListItem` | Planned |
@@ -563,7 +564,7 @@ Need a container shape?
 | §6.15 Dialog | `MetroMessageDialog` | Planned |
 | §6.16 Hub | `MetroHub` | Planned |
 | §6.17 Page header | `MetroPageHeader` | Implemented |
-| §6.18 Jump list | `MetroJumpList`, `MetroLetterTile`, `MetroJumpListLogic` | Implemented |
+| §6.18 Jump list | `MetroJumpList`, `MetroLetterTile`, `MetroJumpListLogic`, `metroStickyLetterHeader` | Implemented |
 | Theme / color | `MetroTheme`, `MetroColors` | Implemented |
 | Typography | `MetroText`, `MetroTextStyle` | Implemented |
 | Motion | `MetroTransitions` | Implemented |

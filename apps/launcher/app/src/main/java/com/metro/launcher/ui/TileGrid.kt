@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,11 +25,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -44,10 +48,13 @@ import com.metro.system.MetroTileContract
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.random.Random
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTransitions
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -58,8 +65,20 @@ private val TILE_CONTENT_INSET = 8.dp
 private val TILE_SMALL_ICON_INSET = 10.dp
 /** Duration for tile resize / magnet reflow — matches Metro page transition timing. */
 private const val TILE_RESIZE_MS = 300
+/** How long each live-tile face stays visible before the next 600ms flip. */
+private const val TILE_FLIP_HOLD_MS = 5_000L
+/** Max initial stagger so neighboring live tiles don't flip in sync. */
+private const val TILE_FLIP_STAGGER_MAX_MS = 4_000L
+/** Per-cycle hold jitter (±) so tiles stay desynced over time. */
+private const val TILE_FLIP_HOLD_JITTER_MS = 1_200L
+/** Camera distance multiplier so rotationX reads as a 3D flip, not a squash. */
+private const val TILE_FLIP_CAMERA_DISTANCE = 16f
 private val TileResizeAnimation: AnimationSpec<Dp> = tween(
     durationMillis = TILE_RESIZE_MS,
+    easing = FastOutSlowInEasing,
+)
+private val TileFlipHalfAnimation = tween<Float>(
+    durationMillis = MetroTransitions.TileFlipMs / 2,
     easing = FastOutSlowInEasing,
 )
 
@@ -330,6 +349,12 @@ private fun LauncherTileCell(
     val agenda = tile.agenda?.takeIf { it.hasContent }
     val showAgenda = agenda != null && !showPhotoContent &&
         tile.entry.size != PinnedTileSize.OneByOne
+    val isSmall = tile.entry.size == PinnedTileSize.OneByOne
+    val canFlip = tile.hasFlipFace &&
+        !showPhotoContent &&
+        !showAgenda &&
+        !isSmall &&
+        !editMode
 
     // Outer box must not clip — edit corner buttons are centered on the tile vertices and
     // intentionally draw half outside the tile (WP8.1). Clip only the tile face below.
@@ -356,85 +381,103 @@ private fun LauncherTileCell(
                 onLongClick = onLongClick,
             ),
     ) {
+        // Flip tiles keep a black void in the slot; the accent fill rides on the rotating
+        // face so the Start-screen black shows through during the 3D flip.
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
                 .then(
-                    if (showPhotoContent) Modifier else Modifier
-                        .background(tile.backgroundColor)
-                        .padding(TILE_CONTENT_INSET),
+                    when {
+                        showPhotoContent -> Modifier
+                        canFlip -> Modifier.background(MetroColors.DarkBackground)
+                        else -> Modifier
+                            .background(tile.backgroundColor)
+                            .padding(TILE_CONTENT_INSET)
+                    },
                 ),
         ) {
-            val isSmall = tile.entry.size == PinnedTileSize.OneByOne
-            when {
-                showCyclePhoto -> {
-                    CyclingPhotoTileContent(
-                        cells = photoGrid!!.cells,
-                        title = tile.title,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                showPhotoGrid -> {
-                    val (columns, rows) = gridDimensions!!
-                    PhotoGridTileContent(
-                        cells = photoGrid!!.cells,
-                        columns = columns,
-                        rows = rows,
-                        title = tile.title,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                showAgenda -> {
-                    AgendaTileContent(
-                        agenda = agenda!!,
-                        wide = tile.entry.size == PinnedTileSize.FourByTwo,
-                        contentColor = contentColor,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                isSmall -> {
-                    MetroAppIcon(
-                        packageName = tile.entry.packageName,
-                        size = iconSize,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(TILE_SMALL_ICON_INSET),
-                        contentDescription = tile.title,
-                        fallbackLabel = tile.title,
-                        fallbackColor = contentColor,
-                    )
-                }
-                else -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Box(
+            val frontFace: @Composable () -> Unit = {
+                when {
+                    showCyclePhoto -> {
+                        CyclingPhotoTileContent(
+                            cells = photoGrid!!.cells,
+                            title = tile.title,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    showPhotoGrid -> {
+                        val (columns, rows) = gridDimensions!!
+                        PhotoGridTileContent(
+                            cells = photoGrid!!.cells,
+                            columns = columns,
+                            rows = rows,
+                            title = tile.title,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    showAgenda -> {
+                        AgendaTileContent(
+                            agenda = agenda!!,
+                            wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                            contentColor = contentColor,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    isSmall -> {
+                        MetroAppIcon(
+                            packageName = tile.entry.packageName,
+                            size = iconSize,
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            MetroAppIcon(
-                                packageName = tile.entry.packageName,
-                                size = iconSize,
-                                modifier = Modifier.size(iconSize),
-                                contentDescription = tile.title,
-                                fallbackLabel = tile.title,
-                                fallbackColor = contentColor,
-                            )
-                        }
-                        MetroText(
-                            text = tile.title,
-                            style = MetroTextStyle.Body,
-                            color = contentColor,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth(),
+                                .fillMaxSize()
+                                .padding(TILE_SMALL_ICON_INSET),
+                            contentDescription = tile.title,
+                            fallbackLabel = tile.title,
+                            fallbackColor = contentColor,
+                        )
+                    }
+                    else -> {
+                        StaticIconTileContent(
+                            packageName = tile.entry.packageName,
+                            title = tile.title,
+                            iconSize = iconSize,
+                            contentColor = contentColor,
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }
             }
-            if (!showAgenda) {
-                tile.counter?.takeIf { it > 0 }?.let { count ->
+            val badgeCount = tile.counter?.takeIf { it > 0 && !showAgenda }
+            if (canFlip) {
+                LiveTileFlipFace(
+                    flipSeed = floatSeed,
+                    faceColor = tile.backgroundColor,
+                    front = frontFace,
+                    back = {
+                        NotificationPeekTileContent(
+                            title = tile.backFaceTitle,
+                            body = tile.backFaceBody,
+                            footer = tile.title,
+                            wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                            contentColor = contentColor,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    },
+                    badge = badgeCount?.let { count ->
+                        {
+                            MetroText(
+                                text = count.toString(),
+                                style = MetroTextStyle.Body,
+                                color = contentColor,
+                                modifier = Modifier.align(Alignment.TopEnd),
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                frontFace()
+                badgeCount?.let { count ->
                     MetroText(
                         text = count.toString(),
                         style = MetroTextStyle.Body,
@@ -545,6 +588,134 @@ private fun AgendaTileContent(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StaticIconTileContent(
+    packageName: String,
+    title: String,
+    iconSize: Dp,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            MetroAppIcon(
+                packageName = packageName,
+                size = iconSize,
+                modifier = Modifier.size(iconSize),
+                contentDescription = title,
+                fallbackLabel = title,
+                fallbackColor = contentColor,
+            )
+        }
+        MetroText(
+            text = title,
+            style = MetroTextStyle.Body,
+            color = contentColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/**
+ * WP8.1 notification / peek face: title + body stacked from the top, app name as footer.
+ */
+@Composable
+private fun NotificationPeekTileContent(
+    title: String?,
+    body: String?,
+    footer: String,
+    wide: Boolean,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val lines = buildList {
+        title?.takeIf { it.isNotBlank() }?.let { add(it) }
+        body?.takeIf { it.isNotBlank() }?.let { add(it) }
+    }.let { all ->
+        when {
+            wide -> all.take(3)
+            all.size <= 2 -> all
+            else -> listOf(all.first(), all.last())
+        }
+    }
+
+    Column(modifier = modifier) {
+        lines.forEachIndexed { index, line ->
+            MetroText(
+                text = line,
+                style = if (index == 0) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
+                color = contentColor,
+                maxLines = if (index == 0 && wide) 2 else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        MetroText(
+            text = footer,
+            style = MetroTextStyle.Body,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/**
+ * 600ms vertical flip (around the horizontal center axis) between front (icon/title) and
+ * back (notification peek) faces. The accent [faceColor] is painted on the rotating face so
+ * the black tile slot behind it is revealed mid-flip. [flipSeed] drives a per-tile random
+ * stagger so flips don't synchronize across the Start screen.
+ */
+@Composable
+private fun LiveTileFlipFace(
+    flipSeed: Int,
+    faceColor: Color,
+    front: @Composable () -> Unit,
+    back: @Composable () -> Unit,
+    badge: (@Composable BoxScope.() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val rotation = remember { Animatable(0f) }
+    var showingBack by remember { mutableStateOf(false) }
+
+    LaunchedEffect(flipSeed) {
+        val rng = Random(flipSeed)
+        delay(rng.nextLong(0L, TILE_FLIP_STAGGER_MAX_MS + 1))
+        while (true) {
+            val jitter = rng.nextLong(-TILE_FLIP_HOLD_JITTER_MS, TILE_FLIP_HOLD_JITTER_MS + 1)
+            delay((TILE_FLIP_HOLD_MS + jitter).coerceAtLeast(2_500L))
+            // Pivot about the tile center: 0° → +90° (edge-on), swap face, −90° → 0°.
+            rotation.animateTo(90f, animationSpec = TileFlipHalfAnimation)
+            showingBack = !showingBack
+            rotation.snapTo(-90f)
+            rotation.animateTo(0f, animationSpec = TileFlipHalfAnimation)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                rotationX = rotation.value
+                transformOrigin = TransformOrigin(0.5f, 0.5f)
+                cameraDistance = TILE_FLIP_CAMERA_DISTANCE * density
+            }
+            .background(faceColor)
+            .padding(TILE_CONTENT_INSET),
+    ) {
+        if (showingBack) back() else front()
+        badge?.invoke(this)
     }
 }
 

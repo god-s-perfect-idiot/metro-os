@@ -34,3 +34,9 @@ data class DraftState(
     val threadId: Long,
     val text: String,
 )
+
+data class ContactSuggestion(
+    val displayName: String,
+    val phoneNumber: String,
+    val normalizedNumber: String,
+)

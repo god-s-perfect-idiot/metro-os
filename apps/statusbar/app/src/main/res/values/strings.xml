@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Status Bar</string>
+    <string name="setup_title">setup</string>
     <string name="accessibility_service_description">Enables the Metro status tray to cover the system status bar so the WP8.1 clock and indicators appear on top.</string>
     <string name="overlay_notification_title">Metro status tray</string>
     <string name="overlay_notification_body">WP8.1 system tray is active</string>

@@ -12,6 +12,8 @@ Blueprint: [`guides/blueprint.md`](guides/blueprint.md)
 | Centered edit overlay | In-grid edit: dim all tiles, focus active, corner buttons |
 | App list over-engineered | Simple alphabetical list per blueprint |
 | Navigation | Bottom-right → arrow opens app menu |
+| Live tile flip (600ms) | Notification / peek back faces flip with 600ms turnstile |
+| Notification → live tile | `TileNotificationListenerService` → badges + flip peeks |
 
 ## Remaining
 
@@ -19,7 +21,6 @@ Blueprint: [`guides/blueprint.md`](guides/blueprint.md)
 |-----|----------------------|
 | Tile drag reorder | blueprint + startmenu.md |
 | Real app icons in app list | `images/applist_dark_blue.png` |
-| Live tile flip (600ms) | scope.md § Motion |
 | Pin from app list | — |
 
 ## Images vs blueprint

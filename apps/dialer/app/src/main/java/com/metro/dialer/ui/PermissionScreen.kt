@@ -1,9 +1,10 @@
 package com.metro.dialer.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
@@ -12,10 +13,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.dialer.R
-import com.metro.ui.MetroPageHeader
+import com.metro.ui.MetroAppTitle
+import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
-import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 
 @Composable
 fun PermissionScreen(
@@ -33,52 +35,54 @@ fun PermissionScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .background(Color.Black)
-            .padding(horizontal = 24.dp),
+            .statusBarsPadding()
+            .metroNavBarPadding(),
     ) {
-        MetroPageHeader(title = stringResource(R.string.setup_title))
+        MetroAppTitle(title = stringResource(R.string.app_name))
+        MetroText(
+            text = stringResource(R.string.setup_title),
+            style = MetroTextStyle.HubTitle,
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 12.dp),
+        )
 
         if (needsPermissions) {
             MetroText(
                 text = stringResource(R.string.permission_call_log_body),
                 style = MetroTextStyle.Body,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp),
             )
             MetroText(
                 text = stringResource(R.string.permission_call_phone_body),
                 style = MetroTextStyle.Body,
-                modifier = Modifier.padding(bottom = 24.dp),
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
             )
-            MetroText(
+            MetroBorderButton(
                 text = stringResource(R.string.grant_permissions),
-                style = MetroTextStyle.ListItemTitle,
-                color = MetroTheme.colors.accent,
-                modifier = Modifier
-                    .padding(bottom = 24.dp)
-                    .clickable(onClick = onRequestPermissions),
+                onClick = onRequestPermissions,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
         if (!needsPermissions && needsDefaultDialer) {
             MetroText(
                 text = stringResource(R.string.default_dialer_body),
                 style = MetroTextStyle.Body,
-                modifier = Modifier.padding(bottom = 24.dp),
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
             )
-            MetroText(
+            MetroBorderButton(
                 text = stringResource(R.string.set_default_dialer),
-                style = MetroTextStyle.ListItemTitle,
-                color = MetroTheme.colors.accent,
-                modifier = Modifier
-                    .padding(bottom = 16.dp)
-                    .clickable(onClick = onRequestDefaultDialer),
+                onClick = onRequestDefaultDialer,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
-            MetroText(
+            Spacer(modifier = Modifier.height(12.dp))
+            MetroBorderButton(
                 text = stringResource(R.string.continue_without_default),
-                style = MetroTextStyle.ListItemSubtitle,
-                color = MetroTheme.colors.secondaryText,
-                modifier = Modifier.clickable(onClick = onContinue),
+                onClick = onContinue,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
         }
     }

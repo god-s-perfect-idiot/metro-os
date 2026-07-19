@@ -58,6 +58,10 @@ class MainActivity : ComponentActivity() {
             var permissionTick by remember { mutableStateOf(0) }
             val pendingNavigation by navigationSignal
 
+            DisposableEffect(state) {
+                onDispose { state.clear() }
+            }
+
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
@@ -71,7 +75,7 @@ class MainActivity : ComponentActivity() {
             DisposableEffect(permissionTick) {
                 state.refreshPermissions(context)
                 state.refreshDefaultStatus()
-                if (state.hasReadSmsPermission || state.skippedPermissions) {
+                if (state.canAccessSystemSms || state.skippedPermissions) {
                     state.reloadThreads()
                 }
                 onDispose { }
@@ -117,11 +121,14 @@ class MainActivity : ComponentActivity() {
                                     "Already the default messaging app",
                                     Toast.LENGTH_SHORT,
                                 ).show()
+                                state.refreshPermissions(context)
                                 state.refreshDefaultStatus()
                             } else {
                                 defaultAppResult = {
+                                    // Role grant also unlocks Telephony provider access — refresh
+                                    // permissions and switch off demo data immediately.
+                                    state.refreshPermissions(context)
                                     state.refreshDefaultStatus()
-                                    state.reloadThreads()
                                 }
                                 requestDefaultSmsApp.launch(roleIntent)
                             }

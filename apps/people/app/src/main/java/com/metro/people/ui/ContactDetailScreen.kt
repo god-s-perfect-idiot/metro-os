@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.people.R
 import com.metro.people.data.PersonDetail
@@ -48,7 +49,12 @@ fun ContactDetailScreen(
                 .padding(horizontal = 24.dp)
                 .padding(top = 4.dp, bottom = 8.dp),
         ) {
-            MetroText(text = summary.displayName.uppercase(), style = MetroTextStyle.SectionHeader)
+            MetroText(
+                text = summary.displayName.uppercase(),
+                style = MetroTextStyle.SectionHeader,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             MetroText(
                 text = summary.sourceLabel,
                 style = MetroTextStyle.ListItemSubtitle,

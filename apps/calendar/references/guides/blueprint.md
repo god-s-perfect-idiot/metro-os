@@ -54,8 +54,7 @@ Max 4 icons. No FAB.
 - **Layout:** Black background. Year label small at top-left. Current month name large (`HubTitle`), adjacent months peek in secondary text.
 - **Weekday header row:** Mon–Sun abbreviated, 7 equal columns, thin vertical dividers.
 - **Grid:** 6 rows × 7 columns. Thin white grid lines. Date number top-left of cell. Small colored horizontal bars (2–3 max) in top-right for days with events. Selected day: accent triangle marker top-right. Today: accent underline on date number.
-- **Below grid:** Optional event list for selected day (when a day is tapped, show that day's events below the grid).
-- **Navigation:** Tap a day → select it and show events below grid. Swipe left/right changes month.
+- **Navigation:** Tap a day → switch to **day** view for that date. Swipe left/right changes month.
 - **Interactions:** Today action returns to current month and selects today.
 
 ## Event detail (v1 stub)

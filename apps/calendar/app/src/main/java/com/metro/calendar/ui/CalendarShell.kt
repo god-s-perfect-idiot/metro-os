@@ -18,12 +18,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.metro.calendar.R
 import com.metro.calendar.data.CalendarLogic
 import com.metro.calendar.data.CalendarViewType
 import com.metro.calendar.data.DayBucket
 import com.metro.ui.MetroAppBar
+import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
 import com.metro.ui.MetroAppTitle
@@ -68,7 +68,7 @@ fun CalendarShell(
             .statusBarsPadding()
             .metroNavBarPadding(),
     ) {
-        val appTitle = appTitleForPage(state.viewType, pagerState.currentPage)
+        val appTitle = appTitleForPage(state.viewType, state.epochDayForPage(pagerState.currentPage))
         MetroPivot(
             titles = state.tabTitles,
             pagerState = pagerState,
@@ -78,7 +78,7 @@ fun CalendarShell(
                 scope.launch { pagerState.animateScrollToPage(index) }
             },
             pageContent = { page ->
-                val epochDay = CalendarLogic.epochDayForTab(state.viewType, page)
+                val epochDay = state.epochDayForPage(page)
                 when (state.viewType) {
                     CalendarViewType.Day -> DayScreen(
                         epochDay = epochDay,
@@ -138,6 +138,7 @@ fun CalendarShell(
                     label = stringResource(R.string.view_type),
                     onClick = state::toggleTypePicker,
                     contentDescription = stringResource(R.string.view_type),
+                    showRestOutline = false,
                     icon = { color -> ViewTypeIcon(color = color) },
                 ),
                 MetroAppBarIcon(
@@ -164,14 +165,13 @@ fun CalendarShell(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
-        if (state.showTypePicker) {
-            ViewTypePicker(
-                currentType = state.viewType,
-                onSelect = state::selectViewType,
-                onDismiss = state::dismissTypePicker,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        }
+        ViewTypePicker(
+            visible = state.showTypePicker,
+            currentType = state.viewType,
+            onSelect = state::selectViewType,
+            onDismiss = state::dismissTypePicker,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
@@ -179,9 +179,8 @@ fun CalendarShell(
  * The WP8.1 pivot overline above the tab row. Reflects the period currently in view: the month and
  * year for day/week, and the year for month/year views. Recomputes as the user swipes pages.
  */
-private fun appTitleForPage(viewType: CalendarViewType, page: Int): String {
-    val epochDay = CalendarLogic.epochDayForTab(viewType, page)
-    return when (viewType) {
+private fun appTitleForPage(viewType: CalendarViewType, epochDay: Long): String =
+    when (viewType) {
         CalendarViewType.Day -> CalendarLogic.monthYearLabel(epochDay)
         CalendarViewType.Week -> CalendarLogic.monthYearLabel(
             CalendarLogic.weekStartEpochDay(epochDay),
@@ -189,7 +188,6 @@ private fun appTitleForPage(viewType: CalendarViewType, page: Int): String {
         CalendarViewType.Month -> CalendarLogic.yearLabel(epochDay)
         CalendarViewType.Year -> LocalDate.ofEpochDay(epochDay).year.toString()
     }
-}
 
 private fun weekBuckets(state: CalendarState, weekStart: Long): List<DayBucket> =
     CalendarLogic.weekDayEpochDays(weekStart).map { day ->
@@ -201,47 +199,48 @@ private fun weekBuckets(state: CalendarState, weekStart: Long): List<DayBucket> 
     }
 
 /**
- * "Switch view" glyph — two opposing horizontal arrows (a swap icon), conveying that tapping
- * cycles between day/week/month/year views. Drawn in the same line-stroke style as the WP8.1
- * system glyphs rather than the old 2×2 grid (which read as the Windows logo).
+ * "Switch view" glyph — two opposing horizontal arrows inside the standard circular outline.
+ * Circle is drawn here (with [MetroAppBarIcon.showRestOutline] false) so the border matches Add.
  */
 @Composable
 private fun ViewTypeIcon(color: Color) {
-    Box(
-        modifier = Modifier.size(26.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = size.minDimension * 0.08f
-            val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            val cx = size.width / 2f
-            val halfLen = size.minDimension * 0.34f
-            val offsetY = size.minDimension * 0.16f
-            val head = size.minDimension * 0.13f
-            val topY = size.height / 2f - offsetY
-            val botY = size.height / 2f + offsetY
+    Canvas(modifier = Modifier.size(MetroAppBarDefaults.IconCircleSize)) {
+        val strokeWidth = size.minDimension * 0.05f
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
-            drawLine(color, Offset(cx - halfLen, topY), Offset(cx + halfLen, topY), strokeWidth, StrokeCap.Round)
-            drawPath(
-                Path().apply {
-                    moveTo(cx + halfLen - head, topY - head)
-                    lineTo(cx + halfLen, topY)
-                    lineTo(cx + halfLen - head, topY + head)
-                },
-                color,
-                style = stroke,
-            )
+        drawCircle(
+            color = color,
+            radius = size.minDimension * 0.42f - strokeWidth,
+            style = Stroke(width = strokeWidth),
+        )
 
-            drawLine(color, Offset(cx - halfLen, botY), Offset(cx + halfLen, botY), strokeWidth, StrokeCap.Round)
-            drawPath(
-                Path().apply {
-                    moveTo(cx - halfLen + head, botY - head)
-                    lineTo(cx - halfLen, botY)
-                    lineTo(cx - halfLen + head, botY + head)
-                },
-                color,
-                style = stroke,
-            )
-        }
+        val cx = size.width / 2f
+        val halfLen = size.minDimension * 0.22f
+        val offsetY = size.minDimension * 0.10f
+        val head = size.minDimension * 0.085f
+        val topY = size.height / 2f - offsetY
+        val botY = size.height / 2f + offsetY
+
+        drawLine(color, Offset(cx - halfLen, topY), Offset(cx + halfLen, topY), strokeWidth, StrokeCap.Round)
+        drawPath(
+            Path().apply {
+                moveTo(cx + halfLen - head, topY - head)
+                lineTo(cx + halfLen, topY)
+                lineTo(cx + halfLen - head, topY + head)
+            },
+            color,
+            style = stroke,
+        )
+
+        drawLine(color, Offset(cx - halfLen, botY), Offset(cx + halfLen, botY), strokeWidth, StrokeCap.Round)
+        drawPath(
+            Path().apply {
+                moveTo(cx - halfLen + head, botY - head)
+                lineTo(cx - halfLen, botY)
+                lineTo(cx - halfLen + head, botY + head)
+            },
+            color,
+            style = stroke,
+        )
     }
 }

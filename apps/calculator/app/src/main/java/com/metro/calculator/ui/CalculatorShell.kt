@@ -1,6 +1,5 @@
 package com.metro.calculator.ui
 
-import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,12 +48,12 @@ fun CalculatorShell(
     onAction: (CalculatorAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isLandscape =
-        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val configuration = LocalConfiguration.current
+    // Gate on actual window shape so scientific never appears in a portrait frame.
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
     val targetMode = if (isLandscape) CalculatorMode.SCIENTIFIC else CalculatorMode.STANDARD
 
-    // WP8.1 calculator: portrait = standard, landscape = scientific. Sync the engine mode
-    // to the device orientation rather than exposing tabs.
+    // WP8.1: portrait = standard, landscape = scientific. No mode tabs.
     LaunchedEffect(targetMode) {
         if (targetMode != state.mode) {
             onAction(CalculatorAction.SetMode(targetMode))
@@ -69,13 +68,16 @@ fun CalculatorShell(
             .navigationBarsPadding()
             .metroNavBarPadding(),
     ) {
+        // Landscape: size display to content so the result is never weight-clipped.
+        // Portrait: keep the large WP8.1 display band via weight.
         CalculatorDisplay(
             operation = CalculatorLogic.operationText(state),
             value = state.display,
             isError = state.isError,
+            compact = isLandscape,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(if (isLandscape) 0.18f else 0.34f),
+                .then(if (isLandscape) Modifier else Modifier.weight(0.34f)),
         )
 
         if (isLandscape) {
@@ -84,7 +86,7 @@ fun CalculatorShell(
                 onAction = onAction,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.82f),
+                    .weight(1f),
             )
         } else {
             StandardKeypad(
@@ -102,32 +104,41 @@ private fun CalculatorDisplay(
     operation: String,
     value: String,
     isError: Boolean,
+    compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val valueSize = when {
+        compact && value.length <= 8 -> 40.sp
+        compact && value.length <= 12 -> 32.sp
+        compact -> 24.sp
         value.length <= 8 -> 64.sp
         value.length <= 12 -> 48.sp
         else -> 34.sp
     }
+    val operationSize = if (compact) 18.sp else 24.sp
+    val horizontalPadding = if (compact) 16.dp else 24.dp
+    val verticalPadding = if (compact) 4.dp else 12.dp
 
     Column(
-        modifier = modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+        modifier = modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalArrangement = Arrangement.Bottom,
         horizontalAlignment = Alignment.End,
     ) {
-        BasicText(
-            text = operation,
-            style = TextStyle(
-                fontFamily = MetroFontFamily,
-                fontWeight = FontWeight.Light,
-                fontSize = 24.sp,
-                color = MetroTheme.colors.secondaryText,
-                textAlign = TextAlign.End,
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-        )
+        if (operation.isNotEmpty()) {
+            BasicText(
+                text = operation,
+                style = TextStyle(
+                    fontFamily = MetroFontFamily,
+                    fontWeight = FontWeight.Light,
+                    fontSize = operationSize,
+                    color = MetroTheme.colors.secondaryText,
+                    textAlign = TextAlign.End,
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(bottom = if (compact) 2.dp else 6.dp),
+            )
+        }
         BasicText(
             text = value,
             style = TextStyle(

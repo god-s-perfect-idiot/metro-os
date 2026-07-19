@@ -8,7 +8,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 
 ## Status
 
-**Scaffolded** — P0 components (`MetroTheme`, `MetroText`, `MetroPageHeader`, `MetroTile`, `MetroTransitions`, `MetroColors`) plus `MetroAppBar` (§6.2 bottom application bar).
+**Scaffolded** — P0 components (`MetroTheme`, `MetroText`, `MetroPageHeader`, `MetroTile`, `MetroTransitions`, `MetroColors`) plus `MetroAppBar` (§6.2 bottom application bar) and `MetroBorderButton` (§6.3 outlined square text button).
 
 ## Public API (planned)
 
@@ -16,6 +16,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 |------------|-------------|
 | `MetroTheme` | Root theme wrapper |
 | `MetroAppBar` | Bottom application bar |
+| `MetroBorderButton` | Outlined square text button |
 | `MetroPivot` | Tabbed pivot navigation |
 | `MetroPanorama` | Horizontal hub panorama |
 | `MetroListItem` | List row with tilt-on-press |
@@ -23,6 +24,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroPageHeader` | Large page title |
 | `MetroJumpList` | Find-by-letter overlay (`#`, a–z, globe); accent = active |
 | `MetroLetterTile` | Accent/inactive letter square for list anchors and jump grid |
+| `metroStickyLetterHeader` | LazyColumn sticky letter section marker (pins until next letter pushes it) |
 | `MetroMessageDialog` | Centered modal dialog |
 
 ## Usage (target)

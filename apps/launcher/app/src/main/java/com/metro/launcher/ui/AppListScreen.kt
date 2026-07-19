@@ -76,6 +76,7 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroTransitions
+import com.metro.ui.metroStickyLetterHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -279,8 +280,12 @@ fun AppListScreen(
                 ) {
                     if (showLetterMarkers) {
                         grouped.forEach { (letter, sectionApps) ->
-                            item(key = "header-$letter", contentType = "header") {
+                            metroStickyLetterHeader(letter = letter) {
+                                // Opaque bg so app rows do not show through while pinned.
                                 AppListRowLayout(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color.Black),
                                     iconContent = {
                                         LetterHeader(
                                             letter = letter,
@@ -456,12 +461,11 @@ private fun AppListContextMenuItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (enabled) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier
-                },
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
             )
             .padding(vertical = ContextMenuVerticalPadding),
         contentAlignment = Alignment.CenterStart,

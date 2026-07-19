@@ -12,8 +12,20 @@ import android.provider.Telephony
  * [Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT] prompt.
  */
 object DefaultSmsApp {
-    fun isDefault(context: Context): Boolean =
-        Telephony.Sms.getDefaultSmsPackage(context) == context.packageName
+    /**
+     * True when this package is the system default SMS app. Prefer [RoleManager.isRoleHeld] on
+     * API 29+ (authoritative for the role picker); fall back to
+     * [Telephony.Sms.getDefaultSmsPackage] for older devices / OEM lag.
+     */
+    fun isDefault(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleHeld(RoleManager.ROLE_SMS)) {
+                return true
+            }
+        }
+        return Telephony.Sms.getDefaultSmsPackage(context) == context.packageName
+    }
 
     /**
      * Intent that prompts the user to make this app the default messaging app, or `null` when the

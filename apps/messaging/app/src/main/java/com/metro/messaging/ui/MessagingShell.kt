@@ -3,15 +3,24 @@ package com.metro.messaging.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.metro.messaging.data.ConversationThread
+import com.metro.messaging.data.DefaultSmsApp
+import com.metro.system.MetroNavBar
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
@@ -20,6 +29,7 @@ import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.metroNavBarPadding
+import com.metro.ui.rememberMetroNavBarEnabled
 
 @Composable
 fun MessagingShell(
@@ -30,12 +40,14 @@ fun MessagingShell(
     val generation = state.generation
     @Suppress("UNUSED_VARIABLE")
     val observeState = generation
+    val composing = state.route is MessagingRoute.NewMessage ||
+        state.route is MessagingRoute.Conversation
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .metroNavBarPadding()
+            .then(if (composing) Modifier.composerBottomClearance() else Modifier.metroNavBarPadding())
             .background(Color.Black),
     ) {
         when (val route = state.route) {
@@ -67,8 +79,10 @@ fun MessagingShell(
                 NewMessageScreen(
                     recipient = state.newRecipient,
                     body = state.newBody,
+                    contactSuggestions = state.contactSuggestions,
                     onRecipientChange = state::updateNewRecipient,
                     onBodyChange = state::updateNewBody,
+                    onSelectContact = state::selectContactSuggestion,
                     onSend = state::sendNewMessage,
                     onBack = state::backToThreads,
                 )
@@ -96,6 +110,24 @@ fun MessagingShell(
     }
 }
 
+/**
+ * Single bottom inset for composer screens: IME when the keyboard is open, otherwise Metro
+ * soft-key clearance. Never stack both — that shoves the header off the top of the screen.
+ */
+@Composable
+private fun Modifier.composerBottomClearance(): Modifier {
+    val density = LocalDensity.current
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val navBarEnabled by rememberMetroNavBarEnabled()
+    return if (imeBottomPx > 0) {
+        this.windowInsetsPadding(WindowInsets.ime)
+    } else if (navBarEnabled) {
+        this.padding(bottom = MetroNavBar.HEIGHT_DP.dp)
+    } else {
+        this
+    }
+}
+
 @Composable
 private fun ThreadListAppBar(
     isDefaultSmsApp: Boolean,
@@ -103,8 +135,14 @@ private fun ThreadListAppBar(
     onSetDefaultApp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    // Re-check when default status flips so the overflow item disappears immediately after
+    // the user grants the SMS role (and never appears when already default).
+    val canRequestDefault = remember(isDefaultSmsApp) {
+        !isDefaultSmsApp && DefaultSmsApp.requestIntent(context) != null
+    }
     val menuItems = buildList {
-        if (!isDefaultSmsApp) {
+        if (canRequestDefault) {
             add(MetroAppBarMenuItem("set as default messaging app", onClick = onSetDefaultApp))
         }
         add(MetroAppBarMenuItem("select", enabled = false) {})

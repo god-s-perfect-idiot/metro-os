@@ -6,7 +6,7 @@
     <string name="permission_call_phone_body">Phone also needs permission to place and manage calls.</string>
     <string name="grant_call_log">allow access</string>
     <string name="grant_permissions">allow access</string>
-    <string name="setup_title">phone setup</string>
+    <string name="setup_title">setup</string>
     <string name="default_dialer_body">Set Phone as your default dialer to place calls and show the in-call screen.</string>
     <string name="set_default_dialer">set as default phone app</string>
     <string name="continue_without_default">continue without setting default</string>

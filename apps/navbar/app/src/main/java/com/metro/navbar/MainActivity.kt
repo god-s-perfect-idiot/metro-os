@@ -7,7 +7,6 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -15,22 +14,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.metro.ui.MetroPageHeader
+import com.metro.ui.MetroAppTitle
+import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,17 +69,25 @@ class MainActivity : ComponentActivity() {
         Column(
           modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .statusBarsPadding()
+            .metroNavBarPadding(),
           verticalArrangement = Arrangement.Top,
         ) {
-          MetroPageHeader(title = stringResource(R.string.app_name))
+          MetroAppTitle(title = stringResource(R.string.app_name))
+          MetroText(
+            text = stringResource(R.string.setup_title),
+            style = MetroTextStyle.HubTitle,
+            modifier = Modifier
+              .padding(horizontal = 24.dp)
+              .padding(bottom = 12.dp),
+          )
           MetroText(
             text = stringResource(R.string.permission_overlay_body),
             style = MetroTextStyle.Body,
-            modifier = Modifier.padding(bottom = 16.dp),
+            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp),
           )
-          ShellActionButton(
-            label = stringResource(R.string.grant_overlay),
+          MetroBorderButton(
+            text = stringResource(R.string.grant_overlay),
             enabled = !overlayGranted,
             onClick = {
               startActivity(
@@ -88,24 +97,27 @@ class MainActivity : ComponentActivity() {
                 ),
               )
             },
+            modifier = Modifier.padding(horizontal = 24.dp),
           )
           Spacer(modifier = Modifier.height(12.dp))
-          ShellActionButton(
-            label = stringResource(R.string.grant_accessibility),
+          MetroBorderButton(
+            text = stringResource(R.string.grant_accessibility),
             enabled = !accessibilityEnabled,
             onClick = { NavbarActions.openAccessibilitySettings(context) },
+            modifier = Modifier.padding(horizontal = 24.dp),
           )
           Spacer(modifier = Modifier.height(12.dp))
-          ShellActionButton(
-            label = stringResource(R.string.start_overlay),
+          MetroBorderButton(
+            text = stringResource(R.string.start_overlay),
             enabled = overlayGranted && accessibilityEnabled,
             onClick = { NavbarOverlayService.start(context) },
+            modifier = Modifier.padding(horizontal = 24.dp),
           )
           Spacer(modifier = Modifier.height(32.dp))
           MetroText(
             text = "Preview",
             style = MetroTextStyle.SectionHeader,
-            modifier = Modifier.padding(bottom = 8.dp),
+            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp),
           )
           NavbarWithSystemChrome(
             theme = state.theme,
@@ -114,38 +126,12 @@ class MainActivity : ComponentActivity() {
             onStart = { NavbarActions.launchStart(context) },
             onSearch = { NavbarActions.launchGoogleSearch(context) },
             onSearchLongPress = { NavbarActions.launchGemini(context) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 24.dp),
           )
         }
       }
     }
-  }
-}
-
-@androidx.compose.runtime.Composable
-private fun ShellActionButton(
-  label: String,
-  enabled: Boolean,
-  onClick: () -> Unit,
-) {
-  Column(
-    modifier = Modifier
-      .fillMaxWidth()
-      .then(
-        if (enabled) {
-          Modifier
-            .padding(vertical = 8.dp)
-            .clickable(onClick = onClick)
-        } else {
-          Modifier.padding(vertical = 8.dp)
-        },
-      ),
-    horizontalAlignment = Alignment.Start,
-  ) {
-    MetroText(
-      text = label,
-      style = MetroTextStyle.ListItemTitle,
-      color = if (enabled) MetroTheme.colors.accent else MetroTheme.colors.secondaryText,
-    )
   }
 }
