@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Windows 8/10 flag logo — four perspective panes, adaptive-icon safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,30h18v48h-18zM60,30h18v48h-18z" />
+        android:fillColor="#00A4EF"
+        android:pathData="M22.64,30.90 L48.30,27.25 L48.30,52.78 L22.64,52.78 Z" />
+    <path
+        android:fillColor="#00A4EF"
+        android:pathData="M51.38,26.93 L86.00,22.00 L86.00,52.46 L51.70,52.78 Z" />
+    <path
+        android:fillColor="#00A4EF"
+        android:pathData="M22.64,55.22 L48.62,55.86 L48.62,80.75 L22.64,77.36 Z" />
+    <path
+        android:fillColor="#00A4EF"
+        android:pathData="M51.38,55.54 L86.00,55.54 L86.00,86.00 L51.38,81.07 Z" />
 </vector>

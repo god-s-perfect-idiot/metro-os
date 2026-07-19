@@ -39,6 +39,10 @@ class PeopleState(context: Context) {
     var hasContactsPermission: Boolean = false
         private set
 
+    /** False until the first [refreshPermission] completes — avoids flashing the permission gate. */
+    var permissionsChecked: Boolean = false
+        private set
+
     var route: PeopleRoute = PeopleRoute.Hub
         private set
 
@@ -79,6 +83,7 @@ class PeopleState(context: Context) {
             context,
             Manifest.permission.READ_CONTACTS,
         ) == PackageManager.PERMISSION_GRANTED
+        permissionsChecked = true
         notifyChanged()
     }
 

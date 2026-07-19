@@ -20,6 +20,7 @@ import com.metro.calendar.tiles.CalendarTileRefresh
 import com.metro.calendar.ui.CalendarShell
 import com.metro.calendar.ui.CalendarState
 import com.metro.calendar.ui.PermissionScreen
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroTheme
 
 class MainActivity : ComponentActivity() {
@@ -62,22 +63,28 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroTheme {
-                if (state.needsPermissionGate) {
-                    PermissionScreen(
-                        onRequestPermission = {
-                            permissionResult = { granted ->
-                                state.onPermissionResult(granted)
-                            }
-                            requestCalendar.launch(Manifest.permission.READ_CALENDAR)
-                        },
-                        onContinueWithDemo = state::continueWithDemo,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    CalendarShell(
-                        state = state,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                when {
+                    !state.permissionsChecked -> {
+                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                    }
+                    state.needsPermissionGate -> {
+                        PermissionScreen(
+                            onRequestPermission = {
+                                permissionResult = { granted ->
+                                    state.onPermissionResult(granted)
+                                }
+                                requestCalendar.launch(Manifest.permission.READ_CALENDAR)
+                            },
+                            onContinueWithDemo = state::continueWithDemo,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    else -> {
+                        CalendarShell(
+                            state = state,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }

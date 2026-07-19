@@ -24,6 +24,7 @@ import com.metro.dialer.telecom.MetroTelecomSetup
 import com.metro.dialer.ui.DialerShell
 import com.metro.dialer.ui.DialerState
 import com.metro.dialer.ui.PermissionScreen
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroTheme
 
 class MainActivity : ComponentActivity() {
@@ -104,36 +105,42 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroTheme {
-                if (needsSetup) {
-                    PermissionScreen(
-                        hasCallLogPermission = state.hasCallLogPermission,
-                        hasCallPhonePermission = state.hasCallPhonePermission,
-                        isDefaultDialer = isDefaultDialer,
-                        onRequestPermissions = {
-                            permissionResult = { callLog, contacts, callPhone ->
-                                state.onPermissionResult(callLog, contacts, callPhone)
-                            }
-                            requestPermissions.launch(
-                                arrayOf(
-                                    Manifest.permission.READ_CALL_LOG,
-                                    Manifest.permission.READ_CONTACTS,
-                                    Manifest.permission.CALL_PHONE,
-                                ),
-                            )
-                        },
-                        onRequestDefaultDialer = {
-                            MetroTelecomSetup.createDefaultDialerRequestIntent(context)?.let { roleIntent ->
-                                requestDefaultDialer.launch(roleIntent)
-                            }
-                        },
-                        onContinue = { skippedDefaultDialer = true },
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    DialerShell(
-                        state = state,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                when {
+                    !state.permissionsChecked -> {
+                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                    }
+                    needsSetup -> {
+                        PermissionScreen(
+                            hasCallLogPermission = state.hasCallLogPermission,
+                            hasCallPhonePermission = state.hasCallPhonePermission,
+                            isDefaultDialer = isDefaultDialer,
+                            onRequestPermissions = {
+                                permissionResult = { callLog, contacts, callPhone ->
+                                    state.onPermissionResult(callLog, contacts, callPhone)
+                                }
+                                requestPermissions.launch(
+                                    arrayOf(
+                                        Manifest.permission.READ_CALL_LOG,
+                                        Manifest.permission.READ_CONTACTS,
+                                        Manifest.permission.CALL_PHONE,
+                                    ),
+                                )
+                            },
+                            onRequestDefaultDialer = {
+                                MetroTelecomSetup.createDefaultDialerRequestIntent(context)?.let { roleIntent ->
+                                    requestDefaultDialer.launch(roleIntent)
+                                }
+                            },
+                            onContinue = { skippedDefaultDialer = true },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    else -> {
+                        DialerShell(
+                            state = state,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }

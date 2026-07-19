@@ -58,6 +58,10 @@ class PhotosState(context: Context) {
     var skippedPermissions by mutableStateOf(false)
         private set
 
+    /** False until the first [refreshPermissions] completes — avoids flashing the permission gate. */
+    var permissionsChecked by mutableStateOf(false)
+        private set
+
     val needsPermissionGate: Boolean
         get() = !hasMediaPermission && !skippedPermissions
 
@@ -71,6 +75,7 @@ class PhotosState(context: Context) {
 
     fun refreshPermissions(context: Context) {
         hasMediaPermission = hasMediaReadPermission(context)
+        permissionsChecked = true
     }
 
     fun onPermissionGranted() {

@@ -41,6 +41,10 @@ class DialerState(context: Context) {
     var hasCallPhonePermission by mutableStateOf(false)
         private set
 
+    /** False until the first [refreshPermissions] completes — avoids flashing the permission gate. */
+    var permissionsChecked by mutableStateOf(false)
+        private set
+
     var callGroups by mutableStateOf<List<CallGroup>>(emptyList())
         private set
 
@@ -95,6 +99,7 @@ class DialerState(context: Context) {
             context,
             Manifest.permission.CALL_PHONE,
         ) == PackageManager.PERMISSION_GRANTED
+        permissionsChecked = true
     }
 
     fun onPermissionResult(callLogGranted: Boolean, contactsGranted: Boolean, callPhoneGranted: Boolean) {

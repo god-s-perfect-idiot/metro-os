@@ -90,6 +90,10 @@ class MessagingState(
     var skippedPermissions by mutableStateOf(false)
         private set
 
+    /** False until the first [refreshPermissions] completes — avoids flashing the permission gate. */
+    var permissionsChecked by mutableStateOf(false)
+        private set
+
     private var allContacts: List<ContactSuggestion> = emptyList()
 
     val needsPermissionGate: Boolean
@@ -117,6 +121,7 @@ class MessagingState(
         repository.refreshPermissions(context)
         syncAccessFlags()
         reloadContactsIfNeeded()
+        permissionsChecked = true
         notifyChanged()
     }
 

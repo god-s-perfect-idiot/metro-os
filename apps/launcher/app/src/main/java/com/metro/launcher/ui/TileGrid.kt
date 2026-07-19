@@ -5,6 +5,7 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -32,15 +33,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.metro.launcher.R
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.system.MetroTileAgenda
@@ -57,6 +62,8 @@ import com.metro.ui.MetroTransitions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+
+private const val MESSAGING_PACKAGE = "com.metro.messaging"
 
 const val TILE_GRID_COLUMNS = 4
 val TILE_GRID_GAP = 8.dp
@@ -350,9 +357,15 @@ private fun LauncherTileCell(
     val showAgenda = agenda != null && !showPhotoContent &&
         tile.entry.size != PinnedTileSize.OneByOne
     val isSmall = tile.entry.size == PinnedTileSize.OneByOne
+    val isMessaging = tile.entry.packageName == MESSAGING_PACKAGE
+    val messagingUnread = tile.counter?.takeIf { it > 0 && isMessaging }
+    // Medium/wide Messaging unread: wink glyph + large count (tile_yellow.jpg), not a corner badge.
+    val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
+        !showPhotoContent && !showAgenda
     val canFlip = tile.hasFlipFace &&
         !showPhotoContent &&
         !showAgenda &&
+        !showMessagingUnreadFace &&
         !isSmall &&
         !editMode
 
@@ -424,6 +437,32 @@ private fun LauncherTileCell(
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
+                    showMessagingUnreadFace -> {
+                        MessagingUnreadTileContent(
+                            count = messagingUnread!!,
+                            iconSize = iconSize,
+                            contentColor = contentColor,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    isMessaging && isSmall -> {
+                        MessagingGlyph(
+                            unread = messagingUnread != null,
+                            contentColor = contentColor,
+                            contentDescription = tile.title,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(TILE_SMALL_ICON_INSET),
+                        )
+                    }
+                    isMessaging -> {
+                        MessagingIdleTileContent(
+                            title = tile.title,
+                            iconSize = iconSize,
+                            contentColor = contentColor,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                     isSmall -> {
                         MetroAppIcon(
                             packageName = tile.entry.packageName,
@@ -447,7 +486,9 @@ private fun LauncherTileCell(
                     }
                 }
             }
-            val badgeCount = tile.counter?.takeIf { it > 0 && !showAgenda }
+            val badgeCount = tile.counter?.takeIf {
+                it > 0 && !showAgenda && !showMessagingUnreadFace
+            }
             if (canFlip) {
                 LiveTileFlipFace(
                     flipSeed = floatSeed,
@@ -628,6 +669,100 @@ private fun StaticIconTileContent(
             modifier = Modifier.fillMaxWidth(),
         )
     }
+}
+
+/** Idle Messaging Start face: :-) bubble + app title. */
+@Composable
+private fun MessagingIdleTileContent(
+    title: String,
+    iconSize: Dp,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            MessagingGlyph(
+                unread = false,
+                contentColor = contentColor,
+                contentDescription = title,
+                modifier = Modifier.size(iconSize),
+            )
+        }
+        MetroText(
+            text = title,
+            style = MetroTextStyle.Body,
+            color = contentColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/**
+ * Unread Messaging live-tile face: ;-) bubble + large count (`tile_yellow.jpg`).
+ * No corner badge and no app-title footer — the count sits beside the glyph.
+ */
+@Composable
+private fun MessagingUnreadTileContent(
+    count: Int,
+    iconSize: Dp,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val digits = count.toString().length
+    val countSp = when {
+        digits <= 1 -> iconSize.value * 0.78f
+        digits == 2 -> iconSize.value * 0.62f
+        digits == 3 -> iconSize.value * 0.48f
+        else -> iconSize.value * 0.38f
+    }
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MessagingGlyph(
+                unread = true,
+                contentColor = contentColor,
+                contentDescription = null,
+                modifier = Modifier.size(iconSize),
+            )
+            BasicText(
+                text = count.toString(),
+                style = TextStyle(
+                    fontFamily = MetroFontFamily,
+                    fontWeight = FontWeight.Light,
+                    fontSize = countSp.sp,
+                    color = contentColor,
+                ),
+                modifier = Modifier.padding(start = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessagingGlyph(
+    unread: Boolean,
+    contentColor: Color,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+) {
+    Image(
+        painter = painterResource(
+            if (unread) R.drawable.ic_system_messaging_unread else R.drawable.ic_system_messaging,
+        ),
+        contentDescription = contentDescription,
+        contentScale = ContentScale.Fit,
+        colorFilter = ColorFilter.tint(contentColor),
+        modifier = modifier,
+    )
 }
 
 /**

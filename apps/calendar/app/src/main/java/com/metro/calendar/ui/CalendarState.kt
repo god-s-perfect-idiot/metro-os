@@ -39,6 +39,10 @@ class CalendarState(context: Context) {
     var skippedPermissions: Boolean = false
         private set
 
+    /** False until the first [refreshPermission] completes — avoids flashing the permission gate. */
+    var permissionsChecked: Boolean = false
+        private set
+
     val needsPermissionGate: Boolean
         get() = !hasCalendarPermission && !skippedPermissions
 
@@ -123,6 +127,7 @@ class CalendarState(context: Context) {
             context,
             Manifest.permission.READ_CALENDAR,
         ) == PackageManager.PERMISSION_GRANTED
+        permissionsChecked = true
         notifyChanged()
     }
 
