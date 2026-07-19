@@ -26,6 +26,18 @@ class FavoritesStore(context: Context) {
         return current
     }
 
+    fun add(id: Long): Set<Long> {
+        val current = load().toMutableSet()
+        if (current.add(id)) save(current)
+        return current
+    }
+
+    fun remove(id: Long): Set<Long> {
+        val current = load().toMutableSet()
+        if (current.remove(id)) save(current)
+        return current
+    }
+
     fun isFavorite(id: Long): Boolean = load().contains(id)
 
     companion object {

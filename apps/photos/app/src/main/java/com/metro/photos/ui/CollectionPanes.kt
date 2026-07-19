@@ -71,6 +71,8 @@ fun AllPicturesPane(
     }
 }
 
+private val PhotoGridGutter = 4.dp
+
 @Composable
 private fun PhotoGridRow(
     photos: List<PhotoItem>,
@@ -79,8 +81,9 @@ private fun PhotoGridRow(
     androidx.compose.foundation.layout.Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+            .padding(horizontal = 24.dp)
+            .padding(bottom = PhotoGridGutter),
+        horizontalArrangement = Arrangement.spacedBy(PhotoGridGutter),
     ) {
         photos.forEach { photo ->
             PhotoThumbnail(
@@ -111,9 +114,11 @@ fun AlbumsPane(
         return
     }
 
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(albums, key = { it.bucketId }) { album ->
@@ -129,7 +134,7 @@ private fun AlbumTile(
 ) {
     Box(
         modifier = Modifier
-            .fillMaxWidth(0.55f)
+            .fillMaxWidth()
             .aspectRatio(1f)
             .background(Color(0xFF333333))
             .clickable(onClick = onClick),
@@ -174,8 +179,8 @@ fun FavoritesPane(
         columns = GridCells.Fixed(4),
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(PhotoGridGutter),
+        verticalArrangement = Arrangement.spacedBy(PhotoGridGutter),
     ) {
         items(photos, key = { it.id }) { photo ->
             PhotoThumbnail(
@@ -211,8 +216,8 @@ fun AlbumDetailScreen(
             columns = GridCells.Fixed(4),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(PhotoGridGutter),
+            verticalArrangement = Arrangement.spacedBy(PhotoGridGutter),
         ) {
             items(album.photos, key = { it.id }) { photo ->
                 PhotoThumbnail(

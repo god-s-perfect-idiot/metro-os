@@ -31,6 +31,7 @@ Curated links for how this app should look and behave on Windows Phone 8.1.
 | Resource | URL | Notes |
 |----------|-----|-------|
 | WP8.1 SDK leak — full screen | [AAWP wp81 article](https://allaboutwindowsphone.com/news/item/19291_Windows_Phone_81_details_emerg.php) | Photo viewer auto full-screen; search key double-tap |
+| WP8 pinch / ManipulationDelta | [Stack Overflow — PinchManipulation](https://stackoverflow.com/questions/13969400/pinch-to-zoom-functionality-in-windows-phone-8) | Native Photos pinch scale + centroid pan pattern used on WP8/8.1 |
 
 ## Reference images
 

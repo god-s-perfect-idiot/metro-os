@@ -390,6 +390,18 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Determinate | Rectangular accent fill |
 | Label | Sentence caps; ellipsis allowed for ongoing ("downloading…") |
 
+### 6.14a Loading screen (`MetroLoadingScreen` / `MetroLoadingDots`)
+
+Full-page await surface — use whenever a page is blocked on async work (> 500ms per scope §11).
+
+| Property | Spec |
+|----------|------|
+| Layout | Theme background, content **centered** on the page |
+| Label | 18sp Light Noto Sans, primary text, sentence caps (`Loading...`) |
+| Indicator | Accent **dancing dots** below the label — four 3dp squares, 140dp clipped track, 1.8s cycle |
+| Inline | Prefer `MetroLoadingDots` alone when progress sits inside an existing layout |
+| Anti-pattern | Material circular spinner, Lottie blobs, or centered indeterminate bars |
+
 ---
 
 ### 6.15 Message dialog (`MetroMessageDialog`)
@@ -561,6 +573,7 @@ Need a container shape?
 | §6.12 Text box | `MetroTextBox` | Planned |
 | §6.13 Slider | `MetroSlider` | Planned |
 | §6.14 Progress | `MetroProgressBar` | Planned |
+| §6.14a Loading screen | `MetroLoadingScreen`, `MetroLoadingDots` | Implemented |
 | §6.15 Dialog | `MetroMessageDialog` | Planned |
 | §6.16 Hub | `MetroHub` | Planned |
 | §6.17 Page header | `MetroPageHeader` | Implemented |

@@ -6,6 +6,7 @@ import android.os.Build
 import android.util.Size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import com.metro.photos.data.ThumbnailCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -28,10 +30,14 @@ fun PhotoThumbnail(
     targetSizePx: Int = 256,
 ) {
     val context = LocalContext.current
-    var bitmap by remember(uri, targetSizePx) { mutableStateOf<Bitmap?>(null) }
+    var bitmap by remember(uri, targetSizePx) {
+        mutableStateOf(ThumbnailCache.get(uri, targetSizePx))
+    }
+    val imageBitmap = remember(bitmap) { bitmap?.asImageBitmap() }
 
     LaunchedEffect(uri, targetSizePx) {
-        bitmap = withContext(Dispatchers.IO) {
+        if (bitmap != null) return@LaunchedEffect
+        val loaded = withContext(Dispatchers.IO) {
             runCatching {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     context.contentResolver.loadThumbnail(
@@ -50,19 +56,21 @@ fun PhotoThumbnail(
                 }
             }.getOrNull()
         }
+        if (loaded != null) {
+            ThumbnailCache.put(uri, targetSizePx, loaded)
+            bitmap = loaded
+        }
     }
 
-    if (bitmap != null) {
+    if (imageBitmap != null) {
         Image(
-            bitmap = bitmap!!.asImageBitmap(),
+            bitmap = imageBitmap,
             contentDescription = null,
             contentScale = contentScale,
             modifier = modifier,
         )
     } else {
-        androidx.compose.foundation.layout.Box(
-            modifier = modifier.background(Color(0xFF333333)),
-        )
+        Box(modifier = modifier.background(Color(0xFF333333)))
     }
 }
 
@@ -73,6 +81,7 @@ fun PhotoFullImage(
 ) {
     val context = LocalContext.current
     var bitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
+    val imageBitmap = remember(bitmap) { bitmap?.asImageBitmap() }
 
     LaunchedEffect(uri) {
         bitmap = withContext(Dispatchers.IO) {
@@ -92,16 +101,14 @@ fun PhotoFullImage(
         }
     }
 
-    if (bitmap != null) {
+    if (imageBitmap != null) {
         Image(
-            bitmap = bitmap!!.asImageBitmap(),
+            bitmap = imageBitmap,
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = modifier,
         )
     } else {
-        androidx.compose.foundation.layout.Box(
-            modifier = modifier.background(Color.Black),
-        )
+        Box(modifier = modifier.background(Color.Black))
     }
 }

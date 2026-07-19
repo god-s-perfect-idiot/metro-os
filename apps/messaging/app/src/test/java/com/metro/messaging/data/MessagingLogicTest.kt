@@ -45,6 +45,28 @@ class MessagingLogicTest {
     }
 
     @Test
+    fun mergeMessages_dedupesLocalOverlayAgainstProviderSend() {
+        val fromProvider = MessageItem(
+            id = 42L,
+            threadId = 1L,
+            body = "hello",
+            timestamp = 1_000L,
+            direction = MessageDirection.Outgoing,
+            sendState = SendState.Sent,
+        )
+        val fromLocal = MessageItem(
+            id = 9_999_999L,
+            threadId = 1L,
+            body = "hello",
+            timestamp = 1_000L,
+            direction = MessageDirection.Outgoing,
+            sendState = SendState.Sent,
+        )
+        val merged = MessagingLogic.mergeMessages(listOf(fromProvider), listOf(fromLocal))
+        assertEquals(listOf(42L), merged.map { it.id })
+    }
+
+    @Test
     fun markThreadRead_clearsUnreadCount() {
         val threads = listOf(
             ConversationThread(1L, "+1", "A", "hi", 100L, 2),

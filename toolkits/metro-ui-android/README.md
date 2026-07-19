@@ -26,6 +26,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroLetterTile` | Accent/inactive letter square for list anchors and jump grid |
 | `metroStickyLetterHeader` | LazyColumn sticky letter section marker (pins until next letter pushes it) |
 | `MetroMessageDialog` | Centered modal dialog |
+| `MetroLoadingScreen` | Full-page await — centered label + dancing dots |
+| `MetroLoadingDots` | Inline WP8.1 indeterminate dancing-dots indicator |
 
 ## Usage (target)
 
@@ -53,6 +55,20 @@ MetroTheme {
 
 `MetroAppBarIcon` also accepts a custom `icon: @Composable (Color) -> Unit` glyph for app-specific
 artwork (e.g. a phone or envelope), so every app routes its overflow actions through the same bar.
+
+### Loading (await)
+
+```kotlin
+if (isLoading) {
+    MetroLoadingScreen()                 // default "Loading..."
+    // MetroLoadingScreen(message = "syncing…")
+} else {
+    Content()
+}
+
+// Inline indicator (e.g. inside a pane):
+MetroLoadingDots()
+```
 
 ## Build
 

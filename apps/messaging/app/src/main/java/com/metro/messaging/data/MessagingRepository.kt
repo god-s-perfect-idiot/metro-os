@@ -123,10 +123,15 @@ class MessagingRepository(
                 // provider; the platform no longer writes them automatically.
                 if (isDefaultSmsApp) {
                     persistSentToProvider(thread.address, trimmed, pending.timestamp)
+                    // Drop the local overlay so mergeMessages does not show the same send twice
+                    // (provider _ID ≠ local nanoTime id).
+                    localStore.remove(thread.id, pending.id)
+                    pending.copy(sendState = SendState.Sent)
+                } else {
+                    val sent = pending.copy(sendState = SendState.Sent)
+                    localStore.update(sent)
+                    sent
                 }
-                val sent = pending.copy(sendState = SendState.Sent)
-                localStore.update(sent)
-                sent
             } catch (_: Exception) {
                 val failed = pending.copy(sendState = SendState.Failed)
                 localStore.update(failed)

@@ -14,6 +14,6 @@
     <string name="pivot_all">all</string>
     <string name="pivot_albums">albums</string>
     <string name="pivot_favorites">favorites</string>
-    <string name="add_favorite">add to favorites</string>
-    <string name="remove_favorite">remove from favorites</string>
+    <string name="add_favorite">favorite</string>
+    <string name="remove_favorite">unfavorite</string>
 </resources>

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -25,6 +26,7 @@ import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -52,28 +54,32 @@ fun MessagingShell(
     ) {
         when (val route = state.route) {
             MessagingRoute.Threads -> {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    MetroText(
-                        text = "threads",
-                        style = MetroTextStyle.HubTitle,
-                        modifier = Modifier
-                            .padding(horizontal = 24.dp)
-                            .padding(top = 8.dp, bottom = 12.dp),
-                    )
-                    ThreadListScreen(
-                        threads = state.threads,
-                        usingDemoData = state.usingDemoData,
-                        onOpenThread = state::openThread,
-                        onDeleteThread = state::deleteThread,
-                        modifier = Modifier.padding(bottom = MetroAppBarDefaults.BarHeight),
+                if (state.isLoadingThreads && state.threads.isEmpty()) {
+                    MetroLoadingScreen()
+                } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        MetroText(
+                            text = "threads",
+                            style = MetroTextStyle.HubTitle,
+                            modifier = Modifier
+                                .padding(horizontal = 24.dp)
+                                .padding(top = 8.dp, bottom = 12.dp),
+                        )
+                        ThreadListScreen(
+                            threads = state.threads,
+                            usingDemoData = state.usingDemoData,
+                            onOpenThread = state::openThread,
+                            onDeleteThread = state::deleteThread,
+                            modifier = Modifier.padding(bottom = MetroAppBarDefaults.BarHeight),
+                        )
+                    }
+                    ThreadListAppBar(
+                        isDefaultSmsApp = state.isDefaultSmsApp,
+                        onNewMessage = state::startNewMessage,
+                        onSetDefaultApp = onRequestDefaultApp,
+                        modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
-                ThreadListAppBar(
-                    isDefaultSmsApp = state.isDefaultSmsApp,
-                    onNewMessage = state::startNewMessage,
-                    onSetDefaultApp = onRequestDefaultApp,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
             }
             MessagingRoute.NewMessage -> {
                 NewMessageScreen(
@@ -88,23 +94,28 @@ fun MessagingShell(
                 )
             }
             is MessagingRoute.Conversation -> {
-                val thread = state.threads.firstOrNull { it.id == route.threadId }
-                    ?: ConversationThread(
-                        id = route.threadId,
-                        address = route.threadId.toString(),
-                        displayName = null,
-                        preview = "",
-                        timestamp = 0L,
-                        unreadCount = 0,
+                if (state.isLoadingMessages) {
+                    BackHandler(onBack = state::backToThreads)
+                    MetroLoadingScreen()
+                } else {
+                    val thread = state.threads.firstOrNull { it.id == route.threadId }
+                        ?: ConversationThread(
+                            id = route.threadId,
+                            address = route.threadId.toString(),
+                            displayName = null,
+                            preview = "",
+                            timestamp = 0L,
+                            unreadCount = 0,
+                        )
+                    ConversationScreen(
+                        thread = thread,
+                        messages = state.messages,
+                        composerText = state.composerText,
+                        onBack = state::backToThreads,
+                        onComposerChange = state::updateComposer,
+                        onSend = state::sendMessage,
                     )
-                ConversationScreen(
-                    thread = thread,
-                    messages = state.messages,
-                    composerText = state.composerText,
-                    onBack = state::backToThreads,
-                    onComposerChange = state::updateComposer,
-                    onSend = state::sendMessage,
-                )
+                }
             }
         }
     }

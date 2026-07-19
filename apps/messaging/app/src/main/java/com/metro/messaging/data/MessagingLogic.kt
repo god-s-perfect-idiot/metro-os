@@ -125,11 +125,31 @@ object MessagingLogic {
         val read: Boolean,
     )
 
+    /**
+     * Merges message lists (typically system SMS first, then local overlay).
+     * Dedupes by id, then by body/direction/exact timestamp so a local overlay row does not
+     * appear beside the same send once it lands in the Telephony provider (different ids).
+     * Timestamps must match exactly — [MessagingRepository] persists the pending timestamp
+     * into the provider.
+     */
     fun mergeMessages(vararg lists: List<MessageItem>): List<MessageItem> {
-        return lists
-            .flatMap { it }
-            .distinctBy { it.id }
-            .sortedWith(compareBy<MessageItem> { it.timestamp }.thenBy { it.id })
+        val byId = linkedMapOf<Long, MessageItem>()
+        lists.flatMap { it }.forEach { message ->
+            byId.putIfAbsent(message.id, message)
+        }
+        val merged = mutableListOf<MessageItem>()
+        for (message in byId.values.sortedWith(
+            compareBy<MessageItem> { it.timestamp }.thenBy { it.id },
+        )) {
+            val duplicate = merged.any { existing ->
+                existing.threadId == message.threadId &&
+                    existing.direction == message.direction &&
+                    existing.body == message.body &&
+                    existing.timestamp == message.timestamp
+            }
+            if (!duplicate) merged.add(message)
+        }
+        return merged
     }
 
     fun markThreadRead(threads: List<ConversationThread>, threadId: Long): List<ConversationThread> =

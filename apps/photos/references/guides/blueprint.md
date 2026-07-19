@@ -20,8 +20,8 @@ Target: **Windows Phone 8.1** Photos app on a portrait phone (768×1280 / xhdpi 
 - **Layout:**
   - Small caps label `PHOTOS` optional; primary navigation is pivot headers flush-left.
   - **Pivot tabs:** `all` | `albums` | `favorites` (max 3, lowercase).
-  - **All tab:** 4-column square thumbnail grid with thin black gutters (~2dp). Photos grouped under month headers (`MMMM yyyy`, accent-colored, 20sp SemiBold).
-  - **Albums tab:** Vertical list of square album tiles (~45% screen width). Each tile shows cover thumbnail or solid `#333333` placeholder; album name bottom-left in small white text. `Camera Roll` is the default bucket.
+  - **All tab:** 4-column square thumbnail grid with thin black gutters (~4dp). Photos grouped under month headers (`MMMM yyyy`, accent-colored, 20sp SemiBold).
+  - **Albums tab:** 2-column grid of square album tiles. Each tile shows cover thumbnail or solid `#333333` placeholder; album name bottom-left in small white text. `Camera Roll` is the default bucket.
   - **Favorites tab:** Same 4-column grid as All, filtered to user-favorited items only.
   - Empty states per tab when no media / no favorites.
 - **Navigation:** Tap thumbnail → Page 3 (viewer). Tap album tile → Page 2 (album detail). Horizontal flick switches pivot.
@@ -37,7 +37,7 @@ Target: **Windows Phone 8.1** Photos app on a portrait phone (768×1280 / xhdpi 
 ### Page 3 — Photo viewer
 
 - **Layout:** Full-bleed image centered on black. No rounded corners. Minimal chrome overlay (optional fade on tap).
-- **Interactions:** Horizontal flick moves to prev/next photo in current collection. Tap toggles chrome. System Back → collection preserving pivot and scroll context.
+- **Interactions:** Horizontal flick moves to prev/next photo in current collection (only while image is at fit scale). Pinch zooms 1×–5× around the pinch centroid; drag pans when zoomed. Double-tap toggles fit ↔ ~2.5× toward the tap. While zoomed, horizontal flick between photos is disabled (pinch out or double-tap to fit first). Tap toggles chrome. System Back → collection preserving pivot and scroll context.
 - **Background:** Black.
 - **Reference:** No high-fidelity WP8.1 capture yet — see `known-gaps.md`. WP8.1 auto-enters full-screen mode (search key disabled).
 

@@ -60,6 +60,20 @@ class LocalMessageStore(context: Context) {
         append(message)
     }
 
+    /** Drops a local overlay row once the message is persisted in the system SMS provider. */
+    fun remove(threadId: Long, messageId: Long) {
+        val existing = messagesForThread(threadId).toMutableList()
+        if (!existing.removeAll { it.id == messageId }) return
+        if (existing.isEmpty()) {
+            prefs.edit()
+                .remove(key(threadId))
+                .remove(threadKey(threadId))
+                .apply()
+        } else {
+            persist(threadId, existing)
+        }
+    }
+
     private fun persist(threadId: Long, messages: List<MessageItem>) {
         val array = JSONArray()
         messages.forEach { message ->

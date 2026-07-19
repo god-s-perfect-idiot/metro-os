@@ -10,6 +10,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -18,7 +19,10 @@ import com.metro.photos.R
 import com.metro.photos.data.ViewerCollection
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroPivot
+import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -71,14 +75,19 @@ private fun CollectionScreen(
         stringResource(R.string.pivot_favorites),
     )
 
+    // Keep pager in sync for external pivot changes (e.g. back from album → albums).
+    // Skip while a gesture/animation is in progress so we don't cancel animateScrollToPage.
     LaunchedEffect(state.pivot) {
-        if (pagerState.currentPage != state.pivot.index) {
+        if (pagerState.currentPage != state.pivot.index && !pagerState.isScrollInProgress) {
             pagerState.scrollToPage(state.pivot.index)
         }
     }
 
-    LaunchedEffect(pagerState.currentPage) {
-        state.setPivot(pagerState.currentPage)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage to pagerState.isScrollInProgress }
+            .filter { (_, scrolling) -> !scrolling }
+            .distinctUntilChanged()
+            .collect { (page, _) -> state.setPivot(page) }
     }
 
     MetroPivot(
@@ -95,8 +104,12 @@ private fun CollectionScreen(
             MetroAppTitle(title = stringResource(R.string.photos_label))
         },
         onTitleClick = { index ->
-            scope.launch { pagerState.animateScrollToPage(index) }
-            state.setPivot(index)
+            scope.launch {
+                pagerState.animateScrollToPage(
+                    page = index,
+                    animationSpec = MetroTransitions.pivotTween(),
+                )
+            }
         },
     ) { page ->
         when (CollectionPivot.fromIndex(page)) {

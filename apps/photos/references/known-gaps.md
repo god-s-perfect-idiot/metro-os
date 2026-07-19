@@ -6,7 +6,7 @@ Items the blueprint requires but we do not yet have a high-fidelity capture for 
 
 | File | What we need | Workaround |
 |------|--------------|------------|
-| `viewer_dark_blue.jpg` | Full-screen WP8.1 photo viewer — edge-to-edge image, minimal chrome, horizontal flick between photos | Blueprint Page 3 + WP8.1 full-screen auto-mode note in `web-resources.md`. Implement black background, `ContentScale.Fit`, tap-to-toggle chrome. |
+| `viewer_dark_blue.jpg` | Full-screen WP8.1 photo viewer — edge-to-edge image, minimal chrome, horizontal flick between photos, pinch-zoom | Blueprint Page 3 + WP8.1 full-screen auto-mode note in `web-resources.md`. Implement black background, `ContentScale.Fit`, tap-to-toggle chrome, pinch/pan zoom (1×–5×). |
 | `hub_all_pictures_dark_blue.jpg` | WP8.1-specific **all pictures** pivot header (not WP8 panorama) | Use `hub_dark_blue.jpg` grid layout + `pivot_albums_dark_blue.jpg` pivot chrome. Build 2014 article confirms thumbnail-first landing. |
 | `permission_gate_dark_blue.jpg` | Android permission gate | No WP source; implement per blueprint Page 4 with Metro page header + accent links. |
 

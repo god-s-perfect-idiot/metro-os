@@ -42,6 +42,8 @@ class MessagingState(
     private var conversationLoadJob: Job? = null
     private var threadsLoadGeneration = 0
     private var conversationLoadGeneration = 0
+    private var sendInFlight = false
+    private var newSendInFlight = false
 
     var generation by mutableIntStateOf(0)
         private set
@@ -53,6 +55,17 @@ class MessagingState(
         private set
 
     var messages by mutableStateOf<List<MessageItem>>(emptyList())
+        private set
+
+    /** True while [loadConversation] is awaiting SMS/provider IO. */
+    var isLoadingMessages by mutableStateOf(false)
+        private set
+
+    /**
+     * True until the first (or an empty-list) [reloadThreads] completes.
+     * Starts true so cold open never flashes the empty placeholder.
+     */
+    var isLoadingThreads by mutableStateOf(true)
         private set
 
     var composerText by mutableStateOf("")
@@ -140,13 +153,25 @@ class MessagingState(
         val generation = ++threadsLoadGeneration
         val openThreadId = (route as? MessagingRoute.Conversation)?.threadId ?: -1L
         threadsLoadJob?.cancel()
-        threadsLoadJob = scope.launch {
-            val loaded = withContext(Dispatchers.IO) {
-                MessagingLogic.markThreadRead(repository.loadThreads(), openThreadId)
-            }
-            if (generation != threadsLoadGeneration) return@launch
-            threads = loaded
+        // Only block the threads UI when there is nothing to show yet — silent refresh
+        // when the list already has rows.
+        if (threads.isEmpty()) {
+            isLoadingThreads = true
             notifyChanged()
+        }
+        threadsLoadJob = scope.launch {
+            try {
+                val loaded = withContext(Dispatchers.IO) {
+                    MessagingLogic.markThreadRead(repository.loadThreads(), openThreadId)
+                }
+                if (generation != threadsLoadGeneration) return@launch
+                threads = loaded
+            } finally {
+                if (generation == threadsLoadGeneration) {
+                    isLoadingThreads = false
+                    notifyChanged()
+                }
+            }
         }
     }
 
@@ -202,30 +227,41 @@ class MessagingState(
     }
 
     fun sendNewMessage() {
+        if (newSendInFlight) return
         val addressInput = newRecipient
         val body = newBody.trim()
         if (body.isEmpty()) return
         val contactsSnapshot = allContacts
 
+        newSendInFlight = true
+        newBody = ""
+        notifyChanged()
         scope.launch {
-            val address = MessagingLogic.resolveRecipientAddress(addressInput, contactsSnapshot)
-            if (address.isEmpty()) return@launch
+            try {
+                val address = MessagingLogic.resolveRecipientAddress(addressInput, contactsSnapshot)
+                if (address.isEmpty()) {
+                    newBody = body
+                    notifyChanged()
+                    return@launch
+                }
 
-            val (thread, sent, conversationMessages) = withContext(Dispatchers.IO) {
-                val thread = repository.threadForAddress(address)
-                val sent = repository.sendMessage(thread, body)
-                Triple(thread, sent, repository.loadMessages(thread.id))
-            }
+                val (thread, sent, conversationMessages) = withContext(Dispatchers.IO) {
+                    val thread = repository.threadForAddress(address)
+                    val sent = repository.sendMessage(thread, body)
+                    Triple(thread, sent, repository.loadMessages(thread.id))
+                }
 
-            newRecipient = ""
-            newBody = ""
-            contactSuggestions = emptyList()
-            route = MessagingRoute.Conversation(thread.id)
-            messages = conversationMessages
-            notifyChanged()
-            reloadThreads()
-            if (sent.sendState == SendState.Failed) {
-                Toast.makeText(appContext, "Message failed to send", Toast.LENGTH_SHORT).show()
+                newRecipient = ""
+                contactSuggestions = emptyList()
+                route = MessagingRoute.Conversation(thread.id)
+                messages = conversationMessages
+                notifyChanged()
+                reloadThreads()
+                if (sent.sendState == SendState.Failed) {
+                    Toast.makeText(appContext, "Message failed to send", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                newSendInFlight = false
             }
         }
     }
@@ -238,6 +274,7 @@ class MessagingState(
         contactSuggestions = emptyList()
         messages = emptyList()
         conversationLoadJob?.cancel()
+        isLoadingMessages = false
         notifyChanged()
         reloadThreads()
     }
@@ -263,16 +300,24 @@ class MessagingState(
     fun loadConversation(threadId: Long) {
         val generation = ++conversationLoadGeneration
         conversationLoadJob?.cancel()
+        isLoadingMessages = true
+        notifyChanged()
         conversationLoadJob = scope.launch {
-            val (loadedMessages, draft) = withContext(Dispatchers.IO) {
-                repository.loadMessages(threadId) to
-                    (repository.loadDraft(threadId)?.text.orEmpty())
+            try {
+                val (loadedMessages, draft) = withContext(Dispatchers.IO) {
+                    repository.loadMessages(threadId) to
+                        (repository.loadDraft(threadId)?.text.orEmpty())
+                }
+                if (generation != conversationLoadGeneration) return@launch
+                if ((route as? MessagingRoute.Conversation)?.threadId != threadId) return@launch
+                messages = loadedMessages
+                composerText = draft
+            } finally {
+                if (generation == conversationLoadGeneration) {
+                    isLoadingMessages = false
+                    notifyChanged()
+                }
             }
-            if (generation != conversationLoadGeneration) return@launch
-            if ((route as? MessagingRoute.Conversation)?.threadId != threadId) return@launch
-            messages = loadedMessages
-            composerText = draft
-            notifyChanged()
         }
     }
 
@@ -285,28 +330,34 @@ class MessagingState(
     }
 
     fun sendMessage() {
+        if (sendInFlight) return
         val threadId = (route as? MessagingRoute.Conversation)?.threadId ?: return
         val body = composerText.trim()
         if (body.isEmpty()) return
         val threadSnapshot = threads.firstOrNull { it.id == threadId }
 
+        sendInFlight = true
         composerText = ""
         notifyChanged()
 
         scope.launch {
-            val (sent, conversationMessages) = withContext(Dispatchers.IO) {
-                val thread = threadSnapshot
-                    ?: repository.threadForAddress(threadId.toString())
-                val sent = repository.sendMessage(thread, body)
-                sent to repository.loadMessages(threadId)
-            }
-            if ((route as? MessagingRoute.Conversation)?.threadId == threadId) {
-                messages = conversationMessages
-                notifyChanged()
-            }
-            reloadThreads()
-            if (sent.sendState == SendState.Failed) {
-                Toast.makeText(appContext, "Message failed to send", Toast.LENGTH_SHORT).show()
+            try {
+                val (sent, conversationMessages) = withContext(Dispatchers.IO) {
+                    val thread = threadSnapshot
+                        ?: repository.threadForAddress(threadId.toString())
+                    val sent = repository.sendMessage(thread, body)
+                    sent to repository.loadMessages(threadId)
+                }
+                if ((route as? MessagingRoute.Conversation)?.threadId == threadId) {
+                    messages = conversationMessages
+                    notifyChanged()
+                }
+                reloadThreads()
+                if (sent.sendState == SendState.Failed) {
+                    Toast.makeText(appContext, "Message failed to send", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                sendInFlight = false
             }
         }
     }

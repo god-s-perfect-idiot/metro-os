@@ -7,8 +7,8 @@ package com.metro.system
  * layout from the pinned tile size (e.g. 3×3 on 2×2, 6×3 on 4×2) and draws the first
  * [columns × rows] cells (People hub style).
  *
- * When [cycle] is true the launcher renders a single photo that cross-fades to the next
- * image cell on a fixed cadence (WP8.1 Photos tile style), regardless of tile size.
+ * When [cycle] is true the launcher renders a single photo that slowly pans up, then slides
+ * up as the next image enters from below (WP8.1 Photos tile style), regardless of tile size.
  */
 data class MetroTilePhotoGrid(
     val cells: List<MetroTileGridCell>,

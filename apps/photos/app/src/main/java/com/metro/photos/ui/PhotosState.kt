@@ -34,6 +34,15 @@ class PhotosState(context: Context) {
     var favoriteIds by mutableStateOf(favoritesStore.load())
         private set
 
+    var dateGroups by mutableStateOf<List<DateGroup>>(emptyList())
+        private set
+
+    var albums by mutableStateOf<List<AlbumGroup>>(emptyList())
+        private set
+
+    var favoritePhotos by mutableStateOf<List<PhotoItem>>(emptyList())
+        private set
+
     var selectedAlbum by mutableStateOf<AlbumGroup?>(null)
         private set
 
@@ -51,15 +60,6 @@ class PhotosState(context: Context) {
 
     val needsPermissionGate: Boolean
         get() = !hasMediaPermission && !skippedPermissions
-
-    val dateGroups: List<DateGroup>
-        get() = PhotoLogic.groupByMonth(photos)
-
-    val albums: List<AlbumGroup>
-        get() = PhotoLogic.groupByAlbum(photos)
-
-    val favoritePhotos: List<PhotoItem>
-        get() = PhotoLogic.filterFavorites(photos, favoriteIds)
 
     val viewerPhotos: List<PhotoItem>
         get() = PhotoLogic.viewerList(
@@ -81,12 +81,14 @@ class PhotosState(context: Context) {
     fun continueWithoutPhotos() {
         skippedPermissions = true
         photos = emptyList()
+        refreshDerived()
     }
 
     fun reloadPhotos() {
         if (!hasMediaPermission) return
         photos = repository.loadImages()
         favoriteIds = favoritesStore.load()
+        refreshDerived()
     }
 
     fun setPivot(index: Int) {
@@ -116,6 +118,23 @@ class PhotosState(context: Context) {
 
     fun toggleFavorite(photoId: Long) {
         favoriteIds = favoritesStore.toggle(photoId)
+        refreshDerived()
+    }
+
+    fun addFavorite(photoId: Long) {
+        favoriteIds = favoritesStore.add(photoId)
+        refreshDerived()
+    }
+
+    fun removeFavorite(photoId: Long) {
+        favoriteIds = favoritesStore.remove(photoId)
+        refreshDerived()
+    }
+
+    private fun refreshDerived() {
+        dateGroups = PhotoLogic.groupByMonth(photos)
+        albums = PhotoLogic.groupByAlbum(photos)
+        favoritePhotos = PhotoLogic.filterFavorites(photos, favoriteIds)
     }
 
     fun isFavorite(photoId: Long): Boolean = favoriteIds.contains(photoId)
