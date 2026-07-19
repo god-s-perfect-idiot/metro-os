@@ -61,4 +61,10 @@ class MetroTransitionsTest {
     fun tileFlip_is600ms() {
         assertEquals(600, MetroTransitions.TileFlipMs)
     }
+
+    @Test
+    fun jumpListFlip_is300msWith40msStagger() {
+        assertEquals(300, MetroTransitions.JumpListFlipMs)
+        assertEquals(40, MetroTransitions.JumpListFlipStaggerMs)
+    }
 }

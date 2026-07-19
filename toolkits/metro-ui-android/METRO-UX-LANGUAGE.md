@@ -440,7 +440,8 @@ WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under let
 | Select | Tap active letter → scroll list to that section and dismiss |
 | Dismiss | Hardware Back, or tap scrim outside tiles |
 | Locale tile | Globe glyph; inactive unless the app supplies locale jump support |
-| Helpers | `MetroJumpListLogic.sortKey` / `activeLetters` / `showSectionMarkers`; section anchors use `MetroLetterTile` |
+| Helpers | `MetroJumpListLogic.sortKey` / `activeLetters` / `showSectionMarkers` / `diagonalIndex`; section anchors use `MetroLetterTile` |
+| Entrance | Each tile flips in around its **horizontal center** (`rotationX` 90° → 0°, 300ms ease-out). Stagger by diagonal (`row + col`) from top-left at 40ms steps |
 | Search mode | While an inline list search field is active, **omit** letter section markers (`showSectionMarkers(false)`). Jump list is unavailable until search is dismissed. App-list search uses a **white fill + accent border** square field (not the underline TextBox); matching characters in result labels use accent. |
 
 **Agent rule:** Do not reimplement jump grids in apps. Import `MetroJumpList` from `metro-ui-android`.

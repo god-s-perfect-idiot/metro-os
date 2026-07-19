@@ -51,6 +51,7 @@ Constants from `scope.md` §9 — export as `Duration` and easing objects:
 - `ListTilt`: 150ms, 3° Z-rotation
 - `AppBarSlide`: 200ms from bottom
 - `TileFlip`: 600ms turnstile
+- `JumpListFlip`: 300ms `rotationX` with 40ms diagonal stagger
 
 ## Fonts
 

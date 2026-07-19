@@ -18,6 +18,10 @@ object MetroTransitions {
     const val StatusTrayCollapseMs = 200
     const val StatusTrayAutoCollapseMs = 8000
     const val TileFlipMs = 600
+    /** Jump-list letter tile entrance flip (PlaneProjection RotationX). */
+    const val JumpListFlipMs = 300
+    /** Delay between successive diagonals when the jump grid enters. */
+    const val JumpListFlipStaggerMs = 40
 
     /** WP NavigationThemeTransition ease-out cubic approximation. */
     val PageEasing: Easing = CubicBezierEasing(0.0f, 0.0f, 0.0f, 1.0f)
@@ -37,6 +41,11 @@ object MetroTransitions {
     fun <T> tileFlipTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = TileFlipMs,
         easing = PivotEasing,
+    )
+
+    fun <T> jumpListFlipTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = JumpListFlipMs,
+        easing = PageEasing,
     )
 
     const val ListTiltDegrees = 3f

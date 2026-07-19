@@ -44,19 +44,26 @@ fun AllPane(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(scrollToLetter, grouped) {
-        val letter = scrollToLetter ?: return@LaunchedEffect
-        val target = MetroJumpListLogic.normalize(letter)
-        // Index 0 is the "showing" filter row; headers follow with their contact rows.
-        var lazyIndex = 1
-        for ((key, people) in grouped) {
-            if (MetroJumpListLogic.normalize(key) == target) {
-                listState.animateScrollToItem(lazyIndex)
-                onScrollConsumed()
-                return@LaunchedEffect
+    // Index 0 is the "showing" filter row; section headers follow with their contact rows.
+    // Keys are normalized so jump-list lowercase letters match uppercase group keys.
+    val headerIndices = remember(grouped) {
+        var index = 1
+        buildMap {
+            grouped.forEach { (letter, people) ->
+                put(MetroJumpListLogic.normalize(letter), index)
+                index += 1 + people.size
             }
-            lazyIndex += 1 + people.size
         }
+    }
+    LaunchedEffect(scrollToLetter, headerIndices) {
+        val letter = scrollToLetter ?: return@LaunchedEffect
+        val index = headerIndices[MetroJumpListLogic.normalize(letter)]
+        // Instant jump — animateScrollToItem undershoots when the target header is
+        // still uncomposed (variable contact-row heights throw off size estimates).
+        if (index != null) {
+            listState.scrollToItem(index)
+        }
+        onScrollConsumed()
     }
 
     LazyColumn(

@@ -64,4 +64,16 @@ class MetroJumpListLogicTest {
         assertTrue(MetroJumpListLogic.showSectionMarkers(searchActive = false))
         assertFalse(MetroJumpListLogic.showSectionMarkers(searchActive = true))
     }
+
+    @Test
+    fun diagonalIndex_staggersFromTopLeft() {
+        // 4-column grid: delay wave follows row + col
+        assertEquals(0, MetroJumpListLogic.diagonalIndex(0)) // (0,0) #
+        assertEquals(1, MetroJumpListLogic.diagonalIndex(1)) // (0,1) a
+        assertEquals(1, MetroJumpListLogic.diagonalIndex(4)) // (1,0) d
+        assertEquals(2, MetroJumpListLogic.diagonalIndex(2)) // (0,2) b
+        assertEquals(2, MetroJumpListLogic.diagonalIndex(5)) // (1,1) e
+        assertEquals(2, MetroJumpListLogic.diagonalIndex(8)) // (2,0) h
+        assertEquals(9, MetroJumpListLogic.diagonalIndex(27)) // (6,3) locale
+    }
 }

@@ -16,6 +16,17 @@ object MetroJumpListLogic {
     const val GridColumns: Int = 4
 
     /**
+     * Diagonal wave index for entrance stagger: top-left is 0, then cells where
+     * `row + col` increases (e.g. (0,1) and (1,0) share index 1).
+     */
+    fun diagonalIndex(cellIndex: Int, columns: Int = GridColumns): Int {
+        require(columns > 0) { "columns must be > 0" }
+        val row = cellIndex / columns
+        val col = cellIndex % columns
+        return row + col
+    }
+
+    /**
      * Sort key for a display label: `#` for empty / non A–Z starters, else lowercase letter.
      */
     fun sortKey(label: String): Char {
