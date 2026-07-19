@@ -58,7 +58,7 @@ fun AllPicturesPane(
                     text = group.label,
                     style = MetroTextStyle.SectionHeader,
                     color = MetroTheme.colors.accent,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                 )
             }
             items(
@@ -81,7 +81,7 @@ private fun PhotoGridRow(
     androidx.compose.foundation.layout.Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 12.dp)
             .padding(bottom = PhotoGridGutter),
         horizontalArrangement = Arrangement.spacedBy(PhotoGridGutter),
     ) {
@@ -117,7 +117,7 @@ fun AlbumsPane(
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -169,7 +169,7 @@ fun FavoritesPane(
                 text = stringResource(R.string.empty_favorites_hint),
                 style = MetroTextStyle.Body,
                 color = MetroTheme.colors.secondaryText,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
         }
         return
@@ -178,7 +178,7 @@ fun FavoritesPane(
     LazyVerticalGrid(
         columns = GridCells.Fixed(4),
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(PhotoGridGutter),
         verticalArrangement = Arrangement.spacedBy(PhotoGridGutter),
     ) {
@@ -210,12 +210,12 @@ fun AlbumDetailScreen(
         MetroText(
             text = album.name,
             style = MetroTextStyle.ListItemTitle,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
         )
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(PhotoGridGutter),
             verticalArrangement = Arrangement.spacedBy(PhotoGridGutter),
         ) {

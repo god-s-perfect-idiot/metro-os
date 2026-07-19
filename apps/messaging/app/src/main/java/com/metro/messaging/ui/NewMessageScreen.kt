@@ -65,7 +65,7 @@ fun NewMessageScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 12.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
             MetroText(
@@ -103,7 +103,7 @@ fun NewMessageScreen(
             sendEnabled = canSend,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
         )
     }
     }

@@ -175,7 +175,7 @@ WP8.1 themes are **background (dark/light) + single accent**. No per-control arb
 | Rule | Value |
 |------|-------|
 | Base unit | **12px** grid |
-| Screen margins | 24dp left/right for list content |
+| Screen margins | 12dp left/right for list content (matches launcher) |
 | Tile grid | 6 columns on standard phone width; tile size Small = 99×99dp, Medium = 198×99dp (half-height), Wide = 198×198dp |
 | Tile gap | 4dp |
 | List item height | 76dp (single line), 90dp (two line) |

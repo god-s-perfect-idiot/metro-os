@@ -44,7 +44,7 @@ fun PermissionScreen(
             text = stringResource(R.string.setup_title),
             style = MetroTextStyle.HubTitle,
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp),
         )
 
@@ -52,17 +52,17 @@ fun PermissionScreen(
             MetroText(
                 text = stringResource(R.string.permission_call_log_body),
                 style = MetroTextStyle.Body,
-                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
             )
             MetroText(
                 text = stringResource(R.string.permission_call_phone_body),
                 style = MetroTextStyle.Body,
-                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 24.dp),
             )
             MetroBorderButton(
                 text = stringResource(R.string.grant_permissions),
                 onClick = onRequestPermissions,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
             Spacer(modifier = Modifier.height(12.dp))
         }
@@ -71,18 +71,18 @@ fun PermissionScreen(
             MetroText(
                 text = stringResource(R.string.default_dialer_body),
                 style = MetroTextStyle.Body,
-                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 24.dp),
             )
             MetroBorderButton(
                 text = stringResource(R.string.set_default_dialer),
                 onClick = onRequestDefaultDialer,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
             Spacer(modifier = Modifier.height(12.dp))
             MetroBorderButton(
                 text = stringResource(R.string.continue_without_default),
                 onClick = onContinue,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
         }
     }

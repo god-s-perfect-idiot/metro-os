@@ -118,7 +118,7 @@ private fun ViewTypeRow(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         BasicText(

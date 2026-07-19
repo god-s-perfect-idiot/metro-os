@@ -152,7 +152,7 @@ fun InCallScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

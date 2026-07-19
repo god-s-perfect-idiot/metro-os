@@ -58,7 +58,7 @@ fun HistoryScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 12.dp),
     ) {
         items(groups, key = { it.normalizedNumber }) { group ->
             HistoryRow(

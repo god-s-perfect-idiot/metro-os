@@ -42,7 +42,7 @@ fun YearScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 12.dp),
     ) {
         item(key = "year-header") {
             Spacer(modifier = Modifier.height(8.dp))

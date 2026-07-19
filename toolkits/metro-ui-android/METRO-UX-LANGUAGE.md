@@ -44,7 +44,7 @@ Use **sharp 0dp corner radius** unless a control is listed in §2.2.
 |---------|------------|
 | **Live tiles** | Perfect rectangles on a 12dp grid; **no** corner radius |
 | **Border text buttons** | Rectangle with 1:1 aspect unconstrained; **square corners**, visible border stroke |
-| **List rows** | Full-width horizontal bands; edge-to-edge within 24dp margins |
+| **List rows** | Full-width horizontal bands; edge-to-edge within 12dp margins |
 | **Pivot accent underline** | 3dp-thick **rectangle** under selected header |
 | **Checkboxes** | 20×20dp **square** outline; filled accent when checked |
 | **Progress bar** | Rectangular track and fill |
@@ -76,7 +76,7 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 | Token | Value | Usage |
 |-------|-------|-------|
 | Base unit | **12dp** | All spacing snaps to multiples of 12 |
-| Screen side margins | **24dp** | List and page content |
+| Screen side margins | **12dp** | List and page content (matches launcher) |
 | Tile gap | **4dp** | Start screen grid |
 | Tile columns | **6** | Standard phone width |
 
@@ -218,13 +218,13 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Property | Dark theme | Light theme |
 |----------|------------|-------------|
 | Corner radius | **0dp** | **0dp** |
-| Border | 3dp stroke, `#FFFFFF` | 3dp stroke, `#000000` |
+| Border | 2dp stroke, `#FFFFFF` | 2dp stroke, `#000000` |
 | Background (rest) | Transparent | Transparent |
 | Text | 15sp SemiBold, `#FFFFFF` | 15sp SemiBold, `#000000` |
 | Background (pressed) | `#33FFFFFF` (20% white) | `#33000000` (20% black) |
 | Background (disabled) | Transparent; border + text @ 40% | Same |
-| Min height | 44dp | 44dp |
-| Horizontal padding | 16dp | 16dp |
+| Min height | **44dp** touch target around chrome (not extra inset inside the border) | Same |
+| Padding (inside border) | **10dp** horizontal, **4dp** vertical (WP Button `10,3,10,5`) | Same |
 | Label | Max 2 words; verb-first ("save", "delete", "connect") |
 
 **Dialog button order:** Affirmative (**ok**, **yes**, **save**) on the **left**; dismissive (**cancel**, **no**) on the **right**.
@@ -273,7 +273,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Chevron | Optional 12dp accent or secondary glyph for drill-in |
 | Press | **Tilt** 3° Z-rotation, 150ms ease-out |
 | Separator | None between items — whitespace bands only |
-| Margins | 24dp horizontal |
+| Margins | 12dp horizontal |
 
 **Don't:** Card elevation, rounded corners, swipe actions (WP8.1 uses app bar for row actions).
 
@@ -288,7 +288,7 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Alignment | **Top-left** (`Alignment.TopStart`) — never centered |
 | Type style | **`ListItemTitle`** (24sp) — large, not body-sized |
 | Color | Secondary foreground (60% opacity) |
-| Margins | 24dp horizontal + 24dp top |
+| Margins | 12dp horizontal + 24dp top |
 | Background | Theme background |
 
 **Standard across all apps.** Empty-state text must be big, left- and top-aligned (matches the WP8.1 Phone app's "no recent calls" treatment). Use `MetroEmptyState` from the toolkit; do not center, shrink, or restyle empty text per-app.
@@ -307,6 +307,7 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Selected | Accent text + **3dp accent underline** (square ends) |
 | Unselected | Secondary foreground, no underline |
 | Header labels | 1–2 words, lowercase |
+| Header strip | **Full-bleed** — active title starts at 24dp content margin; adjacent titles may overflow past the screen edges (clip at screen, never at inner padding) |
 | Switch animation | 250ms ease-in-out |
 | Nesting | **Never** pivot inside pivot; **never** pivot inside panorama |
 

@@ -116,7 +116,7 @@ private fun CalculatorDisplay(
         else -> 34.sp
     }
     val operationSize = if (compact) 18.sp else 24.sp
-    val horizontalPadding = if (compact) 16.dp else 24.dp
+    val horizontalPadding = 12.dp
     val verticalPadding = if (compact) 4.dp else 12.dp
 
     Column(

@@ -50,7 +50,7 @@ fun MonthScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 12.dp),
     ) {
         item(key = "month-header") {
             Spacer(modifier = Modifier.height(4.dp))

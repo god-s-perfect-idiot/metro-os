@@ -225,7 +225,7 @@ fun AppListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .padding(top = 4.dp, start = AppListHorizontalStartPadding, end = 24.dp),
+                .padding(top = 4.dp, start = AppListHorizontalStartPadding, end = 12.dp),
         ) {
             Column(
                 modifier = Modifier

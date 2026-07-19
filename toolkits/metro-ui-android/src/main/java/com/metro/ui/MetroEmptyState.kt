@@ -25,7 +25,7 @@ fun MetroEmptyState(
         modifier = modifier
             .fillMaxSize()
             .background(MetroTheme.colors.background)
-            .padding(horizontal = 24.dp, vertical = 24.dp),
+            .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = 24.dp),
         contentAlignment = Alignment.TopStart,
     ) {
         MetroText(

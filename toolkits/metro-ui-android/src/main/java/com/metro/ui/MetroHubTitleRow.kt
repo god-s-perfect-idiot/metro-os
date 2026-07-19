@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 private val PivotTabSpacing = 20.dp
+/** Content margin for the active title; inactive titles bleed past screen edges. */
+private val HubTitleStartInset = MetroDimens.ScreenHorizontalMargin
 
 enum class MetroHubTitleMode {
     /** Active tab flush-left; earlier tabs scroll off to the left. */
@@ -93,14 +95,16 @@ private fun PivotTitleRow(
         label = "pivotTitleOffset",
     )
 
+    // Full-bleed strip: clip at screen edges only. Active title starts at the
+    // content margin; adjacent titles may overflow past the left/right edges.
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
             .clipToBounds(),
     ) {
         Row(
             modifier = Modifier
+                .padding(start = HubTitleStartInset)
                 .wrapContentWidth(unbounded = true, align = Alignment.Start)
                 .offset { IntOffset(-animatedOffsetPx, 0) },
             verticalAlignment = Alignment.Bottom,
@@ -133,13 +137,15 @@ private fun PanoramaTitleRow(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .clipToBounds(),
     ) {
         PanoramaTitle(
             title = activeTitle,
             active = true,
             onClick = onTitleClick?.let { { it(selectedIndex) } },
-            modifier = Modifier.align(Alignment.BottomStart),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = HubTitleStartInset),
         )
         if (peekTitle != null) {
             PanoramaTitle(

@@ -71,7 +71,7 @@ fun ConversationScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 12.dp)
                 .padding(top = 4.dp, bottom = 8.dp),
         ) {
             MetroText(
@@ -90,7 +90,7 @@ fun ConversationScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(messages, key = { it.id }) { message ->
@@ -104,7 +104,7 @@ fun ConversationScreen(
             onSend = onSend,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
         )
     }
     }

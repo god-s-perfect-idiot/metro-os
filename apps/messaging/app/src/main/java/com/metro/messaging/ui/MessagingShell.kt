@@ -62,7 +62,7 @@ fun MessagingShell(
                             text = "threads",
                             style = MetroTextStyle.HubTitle,
                             modifier = Modifier
-                                .padding(horizontal = 24.dp)
+                                .padding(horizontal = 12.dp)
                                 .padding(top = 8.dp, bottom = 12.dp),
                         )
                         ThreadListScreen(

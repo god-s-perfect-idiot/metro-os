@@ -108,7 +108,7 @@ fun CallDetailScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 12.dp)
                 .padding(top = 8.dp, bottom = 16.dp),
         ) {
             MetroText(
@@ -128,7 +128,7 @@ fun CallDetailScreen(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 12.dp),
         ) {
             group.calls.forEach { call ->
                 val directionLabel = when (call.type) {
@@ -178,7 +178,7 @@ fun CallDetailScreen(
                     indication = null,
                     onClick = onCall,
                 )
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PhoneCallIcon()
@@ -220,7 +220,7 @@ fun DialPadPane(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onSuggestionClick(suggestion.phoneNumber) }
-                                .padding(horizontal = 24.dp, vertical = 8.dp),
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                         ) {
                             MetroText(text = suggestion.displayName, style = MetroTextStyle.ListItemTitle)
                             MetroText(
@@ -279,7 +279,7 @@ internal fun DialNumberField(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 80.dp)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BasicText(

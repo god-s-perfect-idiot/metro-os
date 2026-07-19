@@ -79,13 +79,13 @@ class MainActivity : ComponentActivity() {
                         text = stringResource(R.string.setup_title),
                         style = MetroTextStyle.HubTitle,
                         modifier = Modifier
-                            .padding(horizontal = 24.dp)
+                            .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
                     )
                     MetroText(
                         text = stringResource(R.string.permission_overlay_body),
                         style = MetroTextStyle.Body,
-                        modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
                     )
                     MetroBorderButton(
                         text = stringResource(R.string.grant_overlay),
@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
                                 ),
                             )
                         },
-                        modifier = Modifier.padding(horizontal = 24.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
@@ -111,27 +111,27 @@ class MainActivity : ComponentActivity() {
                                 },
                             )
                         },
-                        modifier = Modifier.padding(horizontal = 24.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
                         text = stringResource(R.string.start_overlay),
                         enabled = overlayGranted && accessibilityEnabled,
                         onClick = { StatusBarOverlayService.start(context) },
-                        modifier = Modifier.padding(horizontal = 24.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                     )
                     Spacer(modifier = Modifier.height(32.dp))
                     MetroText(
                         text = "Preview",
                         style = MetroTextStyle.SectionHeader,
-                        modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                     )
                     StatusTray(
                         snapshot = state.snapshot,
                         onTrayTap = { state.toggleExpanded() },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
+                            .padding(horizontal = 12.dp),
                     )
                 }
             }

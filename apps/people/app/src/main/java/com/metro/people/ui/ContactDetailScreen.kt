@@ -46,7 +46,7 @@ fun ContactDetailScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 12.dp)
                 .padding(top = 4.dp, bottom = 8.dp),
         ) {
             MetroText(
@@ -66,11 +66,11 @@ fun ContactDetailScreen(
             text = "profile",
             style = MetroTextStyle.HubTitle,
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 12.dp)
                 .padding(bottom = 8.dp),
         )
 
-        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp)) {
             Row(modifier = Modifier.padding(bottom = 24.dp)) {
                 ContactAvatar(
                     contactId = summary.id,

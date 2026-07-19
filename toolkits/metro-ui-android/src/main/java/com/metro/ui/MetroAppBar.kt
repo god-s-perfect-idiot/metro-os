@@ -357,7 +357,7 @@ private fun AppBarMenuRow(
                     onSelected()
                 },
             )
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = 12.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         BasicText(

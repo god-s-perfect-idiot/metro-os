@@ -39,24 +39,24 @@ fun PermissionScreen(
             text = stringResource(R.string.setup_title),
             style = MetroTextStyle.HubTitle,
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp),
         )
         MetroText(
             text = stringResource(R.string.permission_media_body),
             style = MetroTextStyle.Body,
-            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 24.dp),
         )
         MetroBorderButton(
             text = stringResource(R.string.grant_media),
             onClick = onRequestPermissions,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = 12.dp),
         )
         Spacer(modifier = Modifier.height(12.dp))
         MetroBorderButton(
             text = stringResource(R.string.continue_without),
             onClick = onContinueWithout,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = 12.dp),
         )
     }
 }

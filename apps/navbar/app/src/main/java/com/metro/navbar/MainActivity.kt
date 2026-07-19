@@ -78,13 +78,13 @@ class MainActivity : ComponentActivity() {
             text = stringResource(R.string.setup_title),
             style = MetroTextStyle.HubTitle,
             modifier = Modifier
-              .padding(horizontal = 24.dp)
+              .padding(horizontal = 12.dp)
               .padding(bottom = 12.dp),
           )
           MetroText(
             text = stringResource(R.string.permission_overlay_body),
             style = MetroTextStyle.Body,
-            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 16.dp),
+            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
           )
           MetroBorderButton(
             text = stringResource(R.string.grant_overlay),
@@ -97,27 +97,27 @@ class MainActivity : ComponentActivity() {
                 ),
               )
             },
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = 12.dp),
           )
           Spacer(modifier = Modifier.height(12.dp))
           MetroBorderButton(
             text = stringResource(R.string.grant_accessibility),
             enabled = !accessibilityEnabled,
             onClick = { NavbarActions.openAccessibilitySettings(context) },
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = 12.dp),
           )
           Spacer(modifier = Modifier.height(12.dp))
           MetroBorderButton(
             text = stringResource(R.string.start_overlay),
             enabled = overlayGranted && accessibilityEnabled,
             onClick = { NavbarOverlayService.start(context) },
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = 12.dp),
           )
           Spacer(modifier = Modifier.height(32.dp))
           MetroText(
             text = "Preview",
             style = MetroTextStyle.SectionHeader,
-            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp),
+            modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
           )
           NavbarWithSystemChrome(
             theme = state.theme,
@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
             onSearchLongPress = { NavbarActions.launchGemini(context) },
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 24.dp),
+              .padding(horizontal = 12.dp),
           )
         }
       }

@@ -153,7 +153,7 @@ private fun SearchBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         MetroText(
             text = stringResource(R.string.search_history),

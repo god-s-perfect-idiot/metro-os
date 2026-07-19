@@ -48,7 +48,7 @@ fun FilterScreen(
             .fillMaxSize()
             .background(Color.Black)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 12.dp),
     ) {
         MetroText(
             text = stringResource(R.string.filter_contacts).uppercase(),

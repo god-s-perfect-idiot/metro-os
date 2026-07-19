@@ -79,7 +79,7 @@ fun MetroAppTitle(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
-            .padding(start = 24.dp, top = 8.dp),
+            .padding(start = MetroDimens.ScreenHorizontalMargin, top = 8.dp),
     )
 }
 
@@ -93,7 +93,7 @@ fun MetroPageHeader(
         modifier = modifier
             .fillMaxWidth()
             .height(98.dp)
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
         contentAlignment = Alignment.BottomStart,
     ) {
         MetroText(

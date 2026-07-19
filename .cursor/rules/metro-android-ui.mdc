@@ -32,7 +32,7 @@ MetroTheme(darkTheme = MetroPreferences.isDark, accent = MetroPreferences.accent
 
 ## Layout
 
-- 24dp horizontal list margins; 44dp min touch targets
+- 12dp horizontal list margins; 44dp min touch targets
 - App bar at **bottom**; minimized (ellipsis) on panorama pages
 - Page transitions: 300ms horizontal slide, ease-out
 - **Respect the navigation bar (mandatory):** the navbar is a separate overlay window, so it is

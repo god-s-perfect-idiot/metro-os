@@ -30,7 +30,7 @@ Use before marking any UI task complete. Every item must pass or be documented a
 
 ## Layout
 
-- [ ] 24dp horizontal margins on list content
+- [ ] 12dp horizontal margins on list content
 - [ ] Touch targets ≥ 44×44dp
 - [ ] 12dp grid alignment
 - [ ] Pivot header 48dp with 3dp accent underline on selected
