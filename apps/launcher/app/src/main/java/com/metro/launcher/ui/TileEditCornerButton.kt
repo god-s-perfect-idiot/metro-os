@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -29,8 +30,8 @@ import com.metro.launcher.data.PinnedTileSize
 internal val TileCornerButtonSize = 40.dp
 private val TileCornerBorderWidth = 2.dp
 private const val GlyphStrokeFraction = 0.095f
-private const val UnpinStrokeFraction = 0.075f
-private const val GlyphCanvasFraction = 0.54f
+private const val UnpinStrokeFraction = 0.090f
+private const val GlyphCanvasFraction = 0.58f
 
 /** Glyph shown on the resize corner button for the upcoming tile size transition. */
 enum class TileResizeGlyph {
@@ -97,22 +98,45 @@ fun TileEditCornerButton(
     }
 }
 
+/**
+ * Classic thumbtack silhouette (flat head, collar, needle) tilted with a slash —
+ * the WP8.1 Start tile-edit unpin affordance (Segoe UnPin).
+ */
 private fun DrawScope.drawUnpinGlyph(color: Color, stroke: Stroke) {
+    val min = size.minDimension
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val s = size.minDimension * 0.18f
-    // Pushpin head (upper-right of glyph) and shaft angling down-left — WP8.1 unpin silhouette.
-    val headCenter = Offset(cx + s * 0.55f, cy - s * 0.95f)
-    val headRadius = s * 0.42f
-    drawCircle(color, headRadius, headCenter, style = stroke)
-    val shaftTop = Offset(headCenter.x - s * 0.08f, headCenter.y + headRadius * 0.55f)
-    val shaftBottom = Offset(cx - s * 1.05f, cy + s * 1.05f)
-    drawLine(color, shaftTop, shaftBottom, stroke.width, StrokeCap.Round)
-    // Strike-through offset from the pin so both shapes stay legible at small size.
+    val s = min * 0.42f
+    val pivot = Offset(cx, cy)
+
+    rotate(degrees = 38f, pivot = pivot) {
+        val pin = Path().apply {
+            // Flat push-head
+            moveTo(cx - 0.28f * s, cy - 0.95f * s)
+            lineTo(cx + 0.28f * s, cy - 0.95f * s)
+            lineTo(cx + 0.28f * s, cy - 0.45f * s)
+            // Right collar
+            lineTo(cx + 0.55f * s, cy - 0.15f * s)
+            lineTo(cx + 0.55f * s, cy + 0.05f * s)
+            // Taper to needle tip
+            lineTo(cx + 0.12f * s, cy + 0.35f * s)
+            lineTo(cx, cy + 1.05f * s)
+            lineTo(cx - 0.12f * s, cy + 0.35f * s)
+            // Left collar
+            lineTo(cx - 0.55f * s, cy + 0.05f * s)
+            lineTo(cx - 0.55f * s, cy - 0.15f * s)
+            lineTo(cx - 0.28f * s, cy - 0.45f * s)
+            close()
+        }
+        drawPath(pin, color)
+    }
+
+    // Slash across the pin (top-left → bottom-right); ends extend past the silhouette.
+    val arm = s * 1.05f
     drawLine(
         color,
-        Offset(cx - s * 1.15f, cy - s * 0.35f),
-        Offset(cx + s * 1.15f, cy + s * 1.35f),
+        Offset(cx - arm, cy - arm),
+        Offset(cx + arm, cy + arm),
         stroke.width,
         StrokeCap.Round,
     )
@@ -127,16 +151,18 @@ private fun DrawScope.drawResizeGlyph(color: Color, stroke: Stroke, glyph: TileR
 }
 
 private fun DrawScope.drawDiagonalArrow(color: Color, stroke: Stroke, downRight: Boolean) {
-    val arm = size.minDimension * 0.20f
+    val arm = size.minDimension * 0.24f
     val cx = size.width / 2f
     val cy = size.height / 2f
+    // Shaft slightly short of the tip so the L-head reads as the terminal, not a stub.
     val (start, end) = if (downRight) {
-        Offset(cx - arm * 0.8f, cy - arm * 0.8f) to Offset(cx + arm * 0.8f, cy + arm * 0.8f)
+        Offset(cx - arm * 0.85f, cy - arm * 0.85f) to Offset(cx + arm * 0.85f, cy + arm * 0.85f)
     } else {
-        Offset(cx + arm * 0.8f, cy + arm * 0.8f) to Offset(cx - arm * 0.8f, cy - arm * 0.8f)
+        Offset(cx + arm * 0.85f, cy + arm * 0.85f) to Offset(cx - arm * 0.85f, cy - arm * 0.85f)
     }
     drawLine(color, start, end, stroke.width, StrokeCap.Butt)
-    val head = arm * 0.36f
+    // Axis-aligned L tip — WP8.1 resize chevron; sized to match shaft visual weight.
+    val head = arm * 0.68f
     if (downRight) {
         val path = Path().apply {
             moveTo(end.x - head, end.y)
@@ -155,14 +181,14 @@ private fun DrawScope.drawDiagonalArrow(color: Color, stroke: Stroke, downRight:
 }
 
 private fun DrawScope.drawRightArrow(color: Color, stroke: Stroke) {
-    val arm = size.minDimension * 0.20f
+    val arm = size.minDimension * 0.28f
     val cx = size.width / 2f
     val cy = size.height / 2f
-    drawLine(color, Offset(cx - arm * 0.9f, cy), Offset(cx + arm * 0.55f, cy), stroke.width, StrokeCap.Butt)
+    drawLine(color, Offset(cx - arm * 0.95f, cy), Offset(cx + arm * 0.45f, cy), stroke.width, StrokeCap.Butt)
     val path = Path().apply {
-        moveTo(cx + arm * 0.1f, cy - arm * 0.65f)
-        lineTo(cx + arm * 0.9f, cy)
-        lineTo(cx + arm * 0.1f, cy + arm * 0.65f)
+        moveTo(cx + arm * 0.05f, cy - arm * 0.72f)
+        lineTo(cx + arm * 0.95f, cy)
+        lineTo(cx + arm * 0.05f, cy + arm * 0.72f)
     }
     drawPath(path, color, style = stroke)
 }

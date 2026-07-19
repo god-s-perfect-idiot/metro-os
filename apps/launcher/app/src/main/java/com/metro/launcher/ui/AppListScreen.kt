@@ -1,6 +1,10 @@
 package com.metro.launcher.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -43,8 +47,11 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -54,6 +61,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import kotlin.math.roundToInt
 import androidx.core.graphics.drawable.toBitmap
 import android.util.LruCache
 import com.metro.launcher.data.SystemAppPlaceholders
@@ -67,6 +75,7 @@ import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroTransitions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -80,6 +89,7 @@ private val ContextMenuGapBelowIcon = 4.dp
 private val ContextMenuHorizontalPadding = 16.dp
 private val ContextMenuVerticalPadding = 12.dp
 private val ContextMenuMinWidth = 160.dp
+private val ContextMenuExpandMs = MetroTransitions.AppBarSlideMs
 private val SearchFieldRowHeight = 48.dp
 private val SearchFieldBorderWidth = 3.dp
 private val SearchFieldHorizontalPadding = 10.dp
@@ -123,6 +133,7 @@ fun AppListScreen(
     var contextMenuApp by remember { mutableStateOf<MetroAppInfo?>(null) }
     var contextMenuIconBounds by remember { mutableStateOf(Rect.Zero) }
     var contextMenuRootBounds by remember { mutableStateOf(Rect.Zero) }
+    val contextMenuVisible = remember { MutableTransitionState(false) }
     val popupRootBounds = remember { RectRef() }
     val density = LocalDensity.current
     val listState = rememberLazyListState()
@@ -131,6 +142,22 @@ fun AppListScreen(
     val imeVisible = WindowInsets.isImeVisible
     var imeWasVisibleWhileSearching by remember { mutableStateOf(false) }
     val menuGapPx = with(density) { ContextMenuGapBelowIcon.roundToPx() }
+    val openContextMenu: (MetroAppInfo, Rect) -> Unit = { app, iconBounds ->
+        contextMenuIconBounds = iconBounds
+        contextMenuRootBounds = popupRootBounds.value
+        contextMenuApp = app
+        contextMenuVisible.targetState = true
+    }
+    val dismissContextMenu: () -> Unit = {
+        contextMenuVisible.targetState = false
+    }
+
+    // Drop the host once the shrink animation finishes.
+    LaunchedEffect(contextMenuVisible.isIdle, contextMenuVisible.currentState) {
+        if (contextMenuVisible.isIdle && !contextMenuVisible.currentState) {
+            contextMenuApp = null
+        }
+    }
     val showLetterMarkers = MetroJumpListLogic.showSectionMarkers(searchActive)
     val grouped = remember(apps) {
         apps.groupBy { MetroJumpListLogic.sortKey(it.label) }.toSortedMap()
@@ -271,11 +298,7 @@ fun AppListScreen(
                                 app = app,
                                 highlightQuery = "",
                                 onAppClick = { onAppClick(app) },
-                                onLongClick = { iconBounds ->
-                                    contextMenuIconBounds = iconBounds
-                                    contextMenuRootBounds = popupRootBounds.value
-                                    contextMenuApp = app
-                                },
+                                onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
                             )
                         }
                     }
@@ -289,11 +312,7 @@ fun AppListScreen(
                             app = app,
                             highlightQuery = searchQuery,
                             onAppClick = { onAppClick(app) },
-                            onLongClick = { iconBounds ->
-                                contextMenuIconBounds = iconBounds
-                                contextMenuRootBounds = popupRootBounds.value
-                                contextMenuApp = app
-                            },
+                            onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
                         )
                     }
                 }
@@ -305,23 +324,45 @@ fun AppListScreen(
                 x = (contextMenuIconBounds.left - contextMenuRootBounds.left).toInt(),
                 y = (contextMenuIconBounds.bottom - contextMenuRootBounds.top + menuGapPx).toInt(),
             )
+            // Height-only wipe: expandVertically/shrinkVertically animate IntSize and can
+            // collapse width after height finishes — keep measured width fixed throughout.
+            val menuTransition = updateTransition(contextMenuVisible, label = "appListContextMenu")
+            val revealFraction by menuTransition.animateFloat(
+                transitionSpec = { tween(ContextMenuExpandMs) },
+                label = "revealFraction",
+            ) { visible -> if (visible) 1f else 0f }
             Popup(
                 alignment = Alignment.TopStart,
                 offset = menuOffset,
-                onDismissRequest = { contextMenuApp = null },
+                onDismissRequest = dismissContextMenu,
                 properties = PopupProperties(focusable = true),
             ) {
-                AppListContextMenu(
-                    uninstallEnabled = !app.isSystemApp,
-                    onPinToStart = {
-                        onPinToStart(app)
-                        contextMenuApp = null
+                Layout(
+                    modifier = Modifier.clipToBounds(),
+                    content = {
+                        AppListContextMenu(
+                            uninstallEnabled = !app.isSystemApp,
+                            onPinToStart = {
+                                onPinToStart(app)
+                                dismissContextMenu()
+                            },
+                            onUninstall = {
+                                onUninstall(app)
+                                dismissContextMenu()
+                            },
+                        )
                     },
-                    onUninstall = {
-                        onUninstall(app)
-                        contextMenuApp = null
-                    },
-                )
+                ) { measurables, constraints ->
+                    val placeable = measurables.first().measure(
+                        constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity),
+                    )
+                    val height = (placeable.height * revealFraction)
+                        .roundToInt()
+                        .coerceIn(0, placeable.height)
+                    layout(placeable.width, height) {
+                        placeable.placeRelative(0, 0)
+                    }
+                }
             }
         }
 

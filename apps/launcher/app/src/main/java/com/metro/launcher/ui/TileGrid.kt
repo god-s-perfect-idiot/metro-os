@@ -1,7 +1,9 @@
 package com.metro.launcher.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,9 +22,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -51,6 +56,50 @@ val TILE_GRID_GAP = 8.dp
 val TILE_GRID_PADDING = 12.dp
 private val TILE_CONTENT_INSET = 8.dp
 private val TILE_SMALL_ICON_INSET = 10.dp
+/** Duration for tile resize / magnet reflow — matches Metro page transition timing. */
+private const val TILE_RESIZE_MS = 300
+private val TileResizeAnimation: AnimationSpec<Dp> = tween(
+    durationMillis = TILE_RESIZE_MS,
+    easing = FastOutSlowInEasing,
+)
+
+private data class AnimatedTileBounds(
+    val width: Dp,
+    val height: Dp,
+    val x: Dp,
+    val y: Dp,
+)
+
+@Composable
+private fun rememberAnimatedTileBounds(
+    width: Dp,
+    height: Dp,
+    x: Dp,
+    y: Dp,
+    labelPrefix: String,
+): AnimatedTileBounds {
+    val animatedWidth by animateDpAsState(
+        targetValue = width,
+        animationSpec = TileResizeAnimation,
+        label = "${labelPrefix}Width",
+    )
+    val animatedHeight by animateDpAsState(
+        targetValue = height,
+        animationSpec = TileResizeAnimation,
+        label = "${labelPrefix}Height",
+    )
+    val animatedX by animateDpAsState(
+        targetValue = x,
+        animationSpec = TileResizeAnimation,
+        label = "${labelPrefix}X",
+    )
+    val animatedY by animateDpAsState(
+        targetValue = y,
+        animationSpec = TileResizeAnimation,
+        label = "${labelPrefix}Y",
+    )
+    return AnimatedTileBounds(animatedWidth, animatedHeight, animatedX, animatedY)
+}
 
 data class PlacedTile(
     val tile: DisplayTile,
@@ -130,17 +179,32 @@ fun TileGrid(
     val placed = layoutTilesOnGrid(tiles)
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val unit = (maxWidth - TILE_GRID_PADDING * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) / TILE_GRID_COLUMNS
+        // Edit corner buttons sit half outside the tile; keep enough inset so the discs
+        // are not clipped by the scroll viewport or screen edge.
+        val cornerOverhang = TileCornerButtonSize / 2
+        val horizontalPad = if (editMode) {
+            maxOf(TILE_GRID_PADDING, cornerOverhang)
+        } else {
+            TILE_GRID_PADDING
+        }
+        val topPad = if (editMode) maxOf(8.dp, cornerOverhang) else 8.dp
+        val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) /
+            TILE_GRID_COLUMNS
         val contentHeight = gridContentHeight(unit, placed)
+        val animatedContentHeight by animateDpAsState(
+            targetValue = contentHeight + 16.dp + if (editMode) cornerOverhang else 0.dp,
+            animationSpec = TileResizeAnimation,
+            label = "tileGridHeight",
+        )
 
         Box(
             modifier = Modifier
                 .padding(
-                    start = TILE_GRID_PADDING,
-                    end = TILE_GRID_PADDING,
-                    top = 8.dp,
+                    start = horizontalPad,
+                    end = horizontalPad,
+                    top = topPad,
                 )
-                .size(width = maxWidth, height = contentHeight + 16.dp)
+                .size(width = maxWidth, height = animatedContentHeight)
                 .then(
                     if (editMode) {
                         Modifier
@@ -157,28 +221,35 @@ fun TileGrid(
                     activeTile.entry.tileId == tile.entry.tileId
                 if (editMode && isActive) return@forEach
 
-                val (tileWidth, tileHeight) = tilePixelSize(
-                    unit,
-                    tile.entry.size.colSpan,
-                    tile.entry.size.rowSpan,
-                )
-                val x = (unit + TILE_GRID_GAP) * placement.col
-                val y = (unit + TILE_GRID_GAP) * placement.row
+                key(tile.entry.packageName, tile.entry.tileId) {
+                    val (tileWidth, tileHeight) = tilePixelSize(
+                        unit,
+                        tile.entry.size.colSpan,
+                        tile.entry.size.rowSpan,
+                    )
+                    val bounds = rememberAnimatedTileBounds(
+                        width = tileWidth,
+                        height = tileHeight,
+                        x = (unit + TILE_GRID_GAP) * placement.col,
+                        y = (unit + TILE_GRID_GAP) * placement.row,
+                        labelPrefix = "tile",
+                    )
 
-                LauncherTileCell(
-                    tile = tile,
-                    width = tileWidth,
-                    height = tileHeight,
-                    editMode = editMode,
-                    isActive = false,
-                    onClick = {
-                        if (editMode) onDismissEdit() else onTileClick(tile)
-                    },
-                    onLongClick = { if (!editMode) onTileLongPress(tile) },
-                    onResize = onResize,
-                    onUnpin = onUnpin,
-                    modifier = Modifier.offset(x = x, y = y),
-                )
+                    LauncherTileCell(
+                        tile = tile,
+                        width = bounds.width,
+                        height = bounds.height,
+                        editMode = editMode,
+                        isActive = false,
+                        onClick = {
+                            if (editMode) onDismissEdit() else onTileClick(tile)
+                        },
+                        onLongClick = { if (!editMode) onTileLongPress(tile) },
+                        onResize = onResize,
+                        onUnpin = onUnpin,
+                        modifier = Modifier.offset(x = bounds.x, y = bounds.y),
+                    )
+                }
             }
 
             if (editMode && activeTile != null) {
@@ -187,25 +258,36 @@ fun TileGrid(
                         placement.tile.entry.tileId == activeTile.entry.tileId
                 }
                 if (activePlacement != null) {
-                    val (tileWidth, tileHeight) = tilePixelSize(
-                        unit,
-                        activePlacement.tile.entry.size.colSpan,
-                        activePlacement.tile.entry.size.rowSpan,
-                    )
-                    val x = (unit + TILE_GRID_GAP) * activePlacement.col
-                    val y = (unit + TILE_GRID_GAP) * activePlacement.row
-                    LauncherTileCell(
-                        tile = activePlacement.tile,
-                        width = tileWidth,
-                        height = tileHeight,
-                        editMode = true,
-                        isActive = true,
-                        onClick = {},
-                        onLongClick = {},
-                        onResize = onResize,
-                        onUnpin = onUnpin,
-                        modifier = Modifier.offset(x = x, y = y),
-                    )
+                    key(
+                        activePlacement.tile.entry.packageName,
+                        activePlacement.tile.entry.tileId,
+                        "active",
+                    ) {
+                        val (tileWidth, tileHeight) = tilePixelSize(
+                            unit,
+                            activePlacement.tile.entry.size.colSpan,
+                            activePlacement.tile.entry.size.rowSpan,
+                        )
+                        val bounds = rememberAnimatedTileBounds(
+                            width = tileWidth,
+                            height = tileHeight,
+                            x = (unit + TILE_GRID_GAP) * activePlacement.col,
+                            y = (unit + TILE_GRID_GAP) * activePlacement.row,
+                            labelPrefix = "activeTile",
+                        )
+                        LauncherTileCell(
+                            tile = activePlacement.tile,
+                            width = bounds.width,
+                            height = bounds.height,
+                            editMode = true,
+                            isActive = true,
+                            onClick = {},
+                            onLongClick = {},
+                            onResize = onResize,
+                            onUnpin = onUnpin,
+                            modifier = Modifier.offset(x = bounds.x, y = bounds.y),
+                        )
+                    }
                 }
             }
         }
@@ -249,6 +331,8 @@ private fun LauncherTileCell(
     val showAgenda = agenda != null && !showPhotoContent &&
         tile.entry.size != PinnedTileSize.OneByOne
 
+    // Outer box must not clip — edit corner buttons are centered on the tile vertices and
+    // intentionally draw half outside the tile (WP8.1). Clip only the tile face below.
     Box(
         modifier = modifier
             .size(width, height)
@@ -275,6 +359,7 @@ private fun LauncherTileCell(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .clipToBounds()
                 .then(
                     if (showPhotoContent) Modifier else Modifier
                         .background(tile.backgroundColor)

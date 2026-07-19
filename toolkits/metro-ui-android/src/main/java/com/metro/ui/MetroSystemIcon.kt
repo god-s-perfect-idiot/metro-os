@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -171,21 +172,35 @@ private fun DrawScope.drawCloseGlyph(color: Color, stroke: Stroke) {
 }
 
 private fun DrawScope.drawUnpinGlyph(color: Color, stroke: Stroke) {
-    val arm = size.minDimension * 0.12f
+    val min = size.minDimension
     val cx = size.width / 2f
     val cy = size.height / 2f
-    drawCircle(color, arm * 0.42f, Offset(cx + arm * 0.1f, cy - arm * 0.55f), style = stroke)
+    val s = min * 0.28f
+    val pivot = Offset(cx, cy)
+
+    rotate(degrees = 38f, pivot = pivot) {
+        val pin = Path().apply {
+            moveTo(cx - 0.28f * s, cy - 0.95f * s)
+            lineTo(cx + 0.28f * s, cy - 0.95f * s)
+            lineTo(cx + 0.28f * s, cy - 0.45f * s)
+            lineTo(cx + 0.55f * s, cy - 0.15f * s)
+            lineTo(cx + 0.55f * s, cy + 0.05f * s)
+            lineTo(cx + 0.12f * s, cy + 0.35f * s)
+            lineTo(cx, cy + 1.05f * s)
+            lineTo(cx - 0.12f * s, cy + 0.35f * s)
+            lineTo(cx - 0.55f * s, cy + 0.05f * s)
+            lineTo(cx - 0.55f * s, cy - 0.15f * s)
+            lineTo(cx - 0.28f * s, cy - 0.45f * s)
+            close()
+        }
+        drawPath(pin, color)
+    }
+
+    val arm = s * 1.05f
     drawLine(
         color,
-        Offset(cx + arm * 0.1f, cy - arm * 0.15f),
-        Offset(cx - arm * 0.55f, cy + arm * 0.55f),
-        stroke.width,
-        StrokeCap.Round,
-    )
-    drawLine(
-        color,
-        Offset(cx - arm * 0.75f, cy - arm * 0.75f),
-        Offset(cx + arm * 0.75f, cy + arm * 0.75f),
+        Offset(cx - arm, cy - arm),
+        Offset(cx + arm, cy + arm),
         stroke.width,
         StrokeCap.Round,
     )
