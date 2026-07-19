@@ -513,8 +513,9 @@ private fun LauncherTileCell(
  * WP8.1 Calendar-style live tile face: event lines stacked from the top, an optional footer label
  * (app name) flush bottom-left, and a large bottom-right date badge (`Thu 15`).
  *
- * Wide (4×2) tiles show up to three lines (title, location, time); medium (2×2) tiles drop the
- * middle line and keep the title plus the trailing time/all-day line so the badge stays legible.
+ * Wide (4×2) tiles show up to three lines (title, location, time) and let the title wrap; medium
+ * (2×2) tiles drop the middle line and keep the title plus the trailing time/all-day line so the
+ * badge stays legible.
  */
 @Composable
 private fun AgendaTileContent(
@@ -539,7 +540,10 @@ private fun AgendaTileContent(
                 text = line,
                 style = if (index == 0) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
                 color = contentColor,
-                maxLines = 1,
+                maxLines = when {
+                    wide && index == 0 -> 2
+                    else -> 1
+                },
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -628,6 +632,9 @@ private fun StaticIconTileContent(
 
 /**
  * WP8.1 notification / peek face: title + body stacked from the top, app name as footer.
+ *
+ * Wide (4×2) tiles wrap title and body across multiple lines so peek copy is readable instead of
+ * single-line ellipsis; medium (2×2) stays single-line per field.
  */
 @Composable
 private fun NotificationPeekTileContent(
@@ -651,11 +658,18 @@ private fun NotificationPeekTileContent(
 
     Column(modifier = modifier) {
         lines.forEachIndexed { index, line ->
+            val isTitle = index == 0
             MetroText(
                 text = line,
-                style = if (index == 0) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
+                style = if (isTitle) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
                 color = contentColor,
-                maxLines = if (index == 0 && wide) 2 else 1,
+                maxLines = when {
+                    !wide -> 1
+                    // Sole peek field can fill the face above the footer.
+                    lines.size == 1 -> 5
+                    isTitle -> 2
+                    else -> 4
+                },
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
             )

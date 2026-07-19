@@ -1,20 +1,24 @@
 package com.metro.messaging.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +33,7 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ConversationScreen(
     thread: ConversationThread,
@@ -41,6 +46,15 @@ fun ConversationScreen(
 ) {
     BackHandler(onBack = onBack)
     val listState = rememberLazyListState()
+    val noExtraBringIntoView = remember {
+        object : BringIntoViewSpec {
+            override fun calculateScrollDistance(
+                offset: Float,
+                size: Float,
+                containerSize: Float,
+            ): Float = 0f
+        }
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -48,11 +62,11 @@ fun ConversationScreen(
         }
     }
 
+    CompositionLocalProvider(LocalBringIntoViewSpec provides noExtraBringIntoView) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black)
-            .imePadding(),
+            .background(Color.Black),
     ) {
         Column(
             modifier = Modifier
@@ -92,6 +106,7 @@ fun ConversationScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 12.dp),
         )
+    }
     }
 }
 

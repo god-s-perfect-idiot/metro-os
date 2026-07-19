@@ -1,6 +1,7 @@
 package com.metro.messaging.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -28,6 +29,7 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NewMessageScreen(
     recipient: String,
@@ -103,6 +105,7 @@ fun NewMessageScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 12.dp),
         )
+    }
     }
 }
 
