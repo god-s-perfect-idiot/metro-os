@@ -21,6 +21,12 @@ data class ConversationThread(
     val unreadCount: Int,
 )
 
+/** Unread count + optional peek label for the Start live tile. */
+data class SmsTilePeek(
+    val unreadCount: Int,
+    val latestUnreadLabel: String?,
+)
+
 data class MessageItem(
     val id: Long,
     val threadId: Long,

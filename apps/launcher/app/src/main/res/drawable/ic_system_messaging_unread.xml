@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 Messaging unread glyph: speech bubble with ;-) cutout.
+     Scaled into the adaptive-icon safe zone (~72% of the 108dp canvas). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M20,30c0,-2.8 2.2,-5 5,-5h54c2.8,0 5,2.2 5,5v32c0,2.8 -2.2,5 -5,5H58l16,18l-10,-18H25c-2.8,0 -5,-2.2 -5,-5V30zM36.4,41a2.4,2.4 0 1,0 4.8,0a2.4,2.4 0 1,0 -4.8,0zM37.2,48.5c1.1,1.6 2.4,3.4 2.4,5.2c0,1.5 -1.2,2.7 -2.7,2.7s-2.7,-1.2 -2.7,-2.7c0,-2.2 1.6,-4.2 2.6,-5.8c0.2,-0.3 0.3,-0.5 0.4,-0.7zM46.5,46h10c1,0 1.8,0.8 1.8,1.8s-0.8,1.8 -1.8,1.8h-10c-1,0 -1.8,-0.8 -1.8,-1.8s0.8,-1.8 1.8,-1.8zM61,40.5c6.8,3.2 6.8,17.8 0,21c1.2,1.6 3.3,1.9 4.8,0.6c8.5,-4.4 8.5,-19.8 0,-24.2c-1.5,-1.3 -3.6,-1 -4.8,0.6z" />
+    </group>
+</vector>

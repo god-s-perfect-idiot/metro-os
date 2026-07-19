@@ -56,7 +56,6 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -64,7 +63,6 @@ import androidx.compose.ui.window.PopupProperties
 import kotlin.math.roundToInt
 import androidx.core.graphics.drawable.toBitmap
 import android.util.LruCache
-import com.metro.launcher.data.SystemAppPlaceholders
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
 import com.metro.ui.MetroCircleIconButton
@@ -585,7 +583,6 @@ private fun AppListSquareIcon(
     val density = LocalDensity.current
     val pixelSize = with(density) { AppListIconSize.roundToPx() }.coerceAtLeast(1)
     val cacheKey = remember(packageName, pixelSize) { "$packageName@$pixelSize" }
-    val placeholderResId = remember(packageName) { SystemAppPlaceholders.iconResId(packageName) }
     var cached by remember(cacheKey) {
         mutableStateOf(appListIconCache.get(cacheKey))
     }
@@ -614,14 +611,6 @@ private fun AppListSquareIcon(
         if (bitmap != null) {
             Image(
                 bitmap = bitmap,
-                contentDescription = label,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(IconInnerPadding),
-            )
-        } else if (placeholderResId != null) {
-            Image(
-                painter = painterResource(placeholderResId),
                 contentDescription = label,
                 modifier = Modifier
                     .fillMaxSize()

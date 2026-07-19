@@ -21,6 +21,8 @@ import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroPreferenceKeys
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroThemeMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class LauncherState(context: Context) {
     private val appContext = context.applicationContext
@@ -39,7 +41,10 @@ class LauncherState(context: Context) {
     var showNotificationAccessPrompt by mutableStateOf(false)
 
     private var pinnedEntries by mutableStateOf(repository.loadPinnedTiles())
-    var displayTiles by mutableStateOf(repository.resolveDisplayTiles(pinnedEntries))
+    /** Static Start chrome first; [refreshAllAsync] fills live tile payloads off the critical path. */
+    var displayTiles by mutableStateOf(
+        repository.resolveDisplayTiles(pinnedEntries, liveContent = false),
+    )
     var apps by mutableStateOf(repository.discoverApps(pinnedEntries))
 
     val filteredApps: List<MetroAppInfo>
@@ -96,11 +101,28 @@ class LauncherState(context: Context) {
 
     fun refreshAll() {
         pinnedEntries = repository.loadPinnedTiles()
-        displayTiles = repository.resolveDisplayTiles(pinnedEntries)
+        displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
         apps = repository.discoverApps(pinnedEntries)
         darkTheme = metroPrefs.isDark
         accent = metroPrefs.accentColor
         refreshNotificationAccessPrompt()
+    }
+
+    /**
+     * Loads pinned layout on the caller thread, then resolves live tile ContentProviders on
+     * [Dispatchers.IO] so Start can paint before SMS/contacts/media queries finish.
+     */
+    suspend fun refreshAllAsync() {
+        val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles() }
+        pinnedEntries = pinned
+        apps = withContext(Dispatchers.IO) { repository.discoverApps(pinned) }
+        darkTheme = metroPrefs.isDark
+        accent = metroPrefs.accentColor
+        refreshNotificationAccessPrompt()
+        val liveTiles = withContext(Dispatchers.IO) {
+            repository.resolveDisplayTiles(pinned, liveContent = true)
+        }
+        displayTiles = liveTiles
     }
 
     fun refreshNotificationAccessPrompt() {
@@ -206,7 +228,7 @@ class LauncherState(context: Context) {
 
     private fun persistAndRefresh() {
         repository.savePinnedTiles(pinnedEntries)
-        displayTiles = repository.resolveDisplayTiles(pinnedEntries)
+        displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
         apps = repository.discoverApps(pinnedEntries)
     }
 

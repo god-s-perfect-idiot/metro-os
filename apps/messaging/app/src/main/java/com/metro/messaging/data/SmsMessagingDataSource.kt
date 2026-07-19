@@ -26,6 +26,41 @@ class SmsMessagingDataSource(
         return loadThreadsFromThreadsTable() ?: loadThreadsByScanningSms()
     }
 
+    /**
+     * Cheap live-tile snapshot: one unread-inbox scan + at most one contact lookup.
+     * Safe for ContentProvider calls from the launcher (unlike [loadThreads]).
+     */
+    fun loadTilePeek(): SmsTilePeek {
+        var unreadCount = 0
+        var latestAddress: String? = null
+        val cursor = runCatching {
+            context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(Telephony.Sms.ADDRESS),
+                "${Telephony.Sms.READ} = 0",
+                null,
+                "${Telephony.Sms.DATE} DESC",
+            )
+        }.getOrNull()
+        cursor?.use { c ->
+            val addressIdx = c.columnIndexOrNull(Telephony.Sms.ADDRESS) ?: return@use
+            while (c.moveToNext()) {
+                unreadCount++
+                if (latestAddress == null) {
+                    latestAddress = c.getString(addressIdx)?.trim()?.takeIf { it.isNotEmpty() }
+                }
+            }
+        }
+        val label = latestAddress?.let { address ->
+            cachedContactName(address)?.takeIf { it.isNotBlank() }
+                ?: MessagingLogic.formatAddress(address)
+        }
+        return SmsTilePeek(
+            unreadCount = unreadCount,
+            latestUnreadLabel = label,
+        )
+    }
+
     private fun loadThreadsFromThreadsTable(): List<ConversationThread>? {
         val uri = Telephony.Threads.CONTENT_URI.buildUpon()
             .appendQueryParameter("simple", "true")

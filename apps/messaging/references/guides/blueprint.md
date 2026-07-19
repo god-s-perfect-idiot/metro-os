@@ -66,7 +66,7 @@ Target: **Windows Phone 8.1** Messaging app on a portrait phone (768×1280 / xhd
 | `conversation_dark_orange.png` | Page 2 — conversation | Real WP dark-theme capture — accent received / darkened sent bubbles + gray composer |
 | `conversation_schematic.png` | Page 2 — conversation | Official layout schematic — sent/received bubble alignment + MMS |
 | `settings_dark_yellow.jpg` | (settings, out of v1 scope) | Toggle-list styling reference |
-| `tile_yellow.jpg` | (live tile, out of v1 scope) | Messaging tile glyph + unread count |
+| `tile_yellow.jpg` | Messaging live tile (unread wink glyph + count) | Messaging tile glyph + unread count |
 
 ## Data model (implementation hint)
 
@@ -90,4 +90,3 @@ Target: **Windows Phone 8.1** Messaging app on a portrait phone (768×1280 / xhd
 - MMS attachments and media viewer (WAP push receiver is declared but no-ops)
 - Facebook / Skype chat integration (removed in WP8.1)
 - Multi-select delete
-- Messaging live tile provider

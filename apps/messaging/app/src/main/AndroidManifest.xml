@@ -81,5 +81,15 @@
                 <data android:scheme="mmsto" />
             </intent-filter>
         </service>
+
+        <provider
+            android:name=".tiles.MessagingTileProvider"
+            android:authorities="com.metro.messaging.tiles"
+            android:exported="true"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="com.metro.tile.provider"
+                android:value="true" />
+        </provider>
     </application>
 </manifest>

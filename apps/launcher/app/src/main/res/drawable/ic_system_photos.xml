@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 Photos glyph: picture frame with twin mountain peaks.
+     Scaled into the adaptive-icon safe zone (~72% of the 108dp canvas). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M28,68l8,-36h36l8,36z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M38,32c0,-6 5,-10 10,-10s10,4 10,10v6h-20z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <!-- Square frame -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M23,23h61v61h-61zM27,27h53v53h-53z" />
+        <!-- Twin peaks rising from the bottom of the frame -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,59L44,37L74,77L75,56L80,63V80H27z" />
+    </group>
 </vector>

@@ -5,8 +5,11 @@ import com.metro.launcher.R
 import com.metro.system.MetroAppRegistry
 
 /**
- * Pre-defined WP8.1-style glyphs for Metro suite apps that are not yet installed.
- * Installed apps always use their package launcher icon instead.
+ * Labels (and legacy glyph assets) for known Metro suite packages.
+ *
+ * Start tiles and the app list render each installed suite app's own launcher icon via
+ * [com.metro.system.MetroAppBranding] — these `ic_system_*` drawables are not used as icon
+ * overrides for installed apps.
  */
 object SystemAppPlaceholders {
     private val iconByPackage: Map<String, Int> = mapOf(

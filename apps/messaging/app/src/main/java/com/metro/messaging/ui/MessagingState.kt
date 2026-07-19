@@ -14,6 +14,7 @@ import com.metro.messaging.data.MessageItem
 import com.metro.messaging.data.MessagingLogic
 import com.metro.messaging.data.MessagingRepository
 import com.metro.messaging.data.SendState
+import com.metro.messaging.tiles.MessagingTileRefresh
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -166,6 +167,7 @@ class MessagingState(
                 }
                 if (generation != threadsLoadGeneration) return@launch
                 threads = loaded
+                MessagingTileRefresh.request(appContext)
             } finally {
                 if (generation == threadsLoadGeneration) {
                     isLoadingThreads = false
@@ -181,6 +183,7 @@ class MessagingState(
         messages = emptyList()
         composerText = ""
         notifyChanged()
+        MessagingTileRefresh.request(appContext)
         loadConversation(thread.id)
     }
 

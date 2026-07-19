@@ -57,8 +57,13 @@ class LauncherRepository(private val context: Context) {
     fun filterApps(apps: List<MetroAppInfo>, query: String): List<MetroAppInfo> =
         MetroAppDiscovery.filterApps(apps, query)
 
-    fun resolveDisplayTiles(pinned: List<PinnedTileEntry>): List<DisplayTile> =
-        pinned.filter { isPackageInstalled(it.packageName) }.map { entry -> entry.toDisplayTile() }
+    fun resolveDisplayTiles(
+        pinned: List<PinnedTileEntry>,
+        liveContent: Boolean = true,
+    ): List<DisplayTile> =
+        pinned.filter { isPackageInstalled(it.packageName) }.map { entry ->
+            entry.toDisplayTile(liveContent = liveContent)
+        }
 
     fun refreshTileContent(packageName: String, tileId: String): MetroTileData? =
         MetroTileContract.readTile(context.contentResolver, packageName, tileId)
@@ -84,8 +89,12 @@ class LauncherRepository(private val context: Context) {
         context.startActivity(intent)
     }
 
-    private fun PinnedTileEntry.toDisplayTile(): DisplayTile {
-        val providerData = MetroTileContract.readTile(context.contentResolver, packageName, tileId)
+    private fun PinnedTileEntry.toDisplayTile(liveContent: Boolean): DisplayTile {
+        val providerData = if (liveContent) {
+            MetroTileContract.readTile(context.contentResolver, packageName, tileId)
+        } else {
+            null
+        }
         val label = resolveAppLabel(packageName)
         val title = providerData?.title ?: label ?: packageName.substringAfterLast('.')
         val background = providerData?.backgroundColorHex?.let { MetroPreferences.parseAccentHex(it) }

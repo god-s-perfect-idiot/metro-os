@@ -1,10 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Full-battery glyph: thick outlined body, inset fill, right terminal nub.
+     Scaled into the adaptive-icon safe zone (~70% of the 108dp canvas). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M24,54 L54,24 L84,54 L54,84 Z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <!-- Outline ring (outer rect minus inner rect). -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M18,36h66v36h-66zM20.8,38.8h60.4v30.4h-60.4z" />
+        <!-- Charge fill, inset by a white gap ≈ stroke width. -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M23.6,41.6h54.8v24.8h-54.8z" />
+        <!-- Positive terminal nub. -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M84,46.8h7.5v14.4h-7.5z" />
+    </group>
 </vector>

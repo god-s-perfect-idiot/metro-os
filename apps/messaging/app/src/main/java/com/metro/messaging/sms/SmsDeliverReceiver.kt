@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
+import com.metro.messaging.tiles.MessagingTileRefresh
 
 /**
  * Handles `SMS_DELIVER`, the broadcast delivered only to the **default SMS app**. The platform no
@@ -41,5 +42,6 @@ class SmsDeliverReceiver : BroadcastReceiver() {
         runCatching {
             context.contentResolver.insert(Telephony.Sms.Inbox.CONTENT_URI, values)
         }
+        MessagingTileRefresh.request(context)
     }
 }

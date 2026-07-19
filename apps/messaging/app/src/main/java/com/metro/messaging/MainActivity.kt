@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.messaging.data.DefaultSmsApp
+import com.metro.messaging.tiles.MessagingTileRefresh
 import com.metro.messaging.ui.MessagingShell
 import com.metro.messaging.ui.MessagingState
 import com.metro.messaging.ui.PermissionScreen
@@ -78,6 +79,7 @@ class MainActivity : ComponentActivity() {
                 if (state.canAccessSystemSms || state.skippedPermissions) {
                     state.reloadThreads()
                 }
+                MessagingTileRefresh.request(context)
                 onDispose { }
             }
 

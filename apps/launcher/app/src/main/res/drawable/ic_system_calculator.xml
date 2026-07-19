@@ -1,34 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 Calculator glyph: rounded body with display + 3×3 key cutouts.
+     Scaled into the adaptive-icon safe zone (~72% of the 108dp canvas). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M28,34h52v50h-52z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,42h14v10h-14z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52,42h22v4h-22z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52,50h22v4h-22z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,58h14v10h-14z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52,58h22v4h-22z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52,66h22v4h-22z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,74h14v10h-14z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52,74h22v4h-22z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M29.58,18L78.21,18Q81.19,18 81.19,20.97L81.19,86.81Q81.19,89.79 78.21,89.79L29.58,89.79Q26.6,89.79 26.6,86.81L26.6,20.97Q26.6,18 29.58,18ZM32.34,23.95L75.66,23.95L75.66,37.12L32.34,37.12ZM33.19,42.85L44.02,42.85L44.02,53.47L33.19,53.47ZM48.48,42.85L59.1,42.85L59.1,53.47L48.48,53.47ZM63.56,42.85L74.39,42.85L74.39,53.47L63.56,53.47ZM33.19,57.93L44.02,57.93L44.02,68.76L33.19,68.76ZM48.48,57.93L59.1,57.93L59.1,68.76L48.48,68.76ZM63.56,57.93L74.39,57.93L74.39,68.76L63.56,68.76ZM33.19,73.43L44.02,73.43L44.02,84.05L33.19,84.05ZM48.48,73.43L59.1,73.43L59.1,84.05L48.48,84.05ZM63.56,73.43L74.39,73.43L74.39,84.05L63.56,84.05Z" />
+    </group>
 </vector>

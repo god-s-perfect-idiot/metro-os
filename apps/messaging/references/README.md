@@ -23,7 +23,7 @@ references/
 | Conversation | `images/conversation_dark_orange.png` | Real WP dark-theme thread — bubble tails, accent/darkened fills, gray composer |
 | Conversation (schematic) | `images/conversation_schematic.png` | Message thread layout — bubble alignment + MMS (official schematic) |
 | Settings (ref only) | `images/settings_dark_yellow.jpg` | Toggle-list styling; settings page is out of v1 scope |
-| Live tile (ref only) | `images/tile_yellow.jpg` | Tile glyph + unread count |
+| Live tile | `images/tile_yellow.jpg` | Unread wink glyph + count |
 
 ## Image naming
 
