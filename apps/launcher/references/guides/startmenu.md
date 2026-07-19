@@ -48,7 +48,8 @@ Tiles snap flat; live updates resume; layout persists.
 | WP8.1 | Android (`TileGrid` edit mode) |
 |-------|--------------------------------|
 | Dimmed Start behind | Scrim + dimmed non-active tiles in grid |
-| Lifted tile | Active tile `scale 1.02` in place |
+| Floating idle tiles | Non-active tiles drift independently (`rememberTileIdleFloat`) |
+| Lifted tile | Active tile `scale 1.02` in place (stationary) |
 | Unpin top-right | `TileCornerButton` aligned top-end of tile |
 | Resize bottom-right | `TileCornerButton` aligned bottom-end of tile |
 | Tap blank to dismiss | Scrim `clickable` → `onDismiss` |

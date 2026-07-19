@@ -20,12 +20,10 @@ object MetroAppDiscovery {
         val launchablePackages = activities
             .map { it.activityInfo.packageName }
             .filter { it != LAUNCHER_PACKAGE }
-            .toSet()
-
-        val packages = (launchablePackages + pinnedPackages)
             .distinct()
 
-        return packages
+        // Only installed/launchable apps — never inject uninstalled suite placeholders.
+        return launchablePackages
             .map { packageName ->
                 MetroAppInfo(
                     packageName = packageName,

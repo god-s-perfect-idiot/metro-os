@@ -31,14 +31,24 @@ class LauncherRepository(private val context: Context) {
     private val store = PinnedTileStore(context)
     private val packageManager = context.packageManager
 
-    fun loadPinnedTiles(): List<PinnedTileEntry> = store.load()
+    fun loadPinnedTiles(): List<PinnedTileEntry> {
+        val loaded = store.load()
+        val installed = loaded.filter { isPackageInstalled(it.packageName) }
+        if (installed.size != loaded.size) {
+            store.save(installed)
+        }
+        return installed
+    }
 
     fun savePinnedTiles(tiles: List<PinnedTileEntry>) = store.save(tiles)
 
     fun wideTilesEnabled(): Boolean = store.wideTilesEnabled()
 
     fun discoverApps(pinned: List<PinnedTileEntry>): List<MetroAppInfo> {
-        val pinnedPackages = pinned.map { it.packageName }.toSet()
+        val pinnedPackages = pinned
+            .map { it.packageName }
+            .filter { isPackageInstalled(it) }
+            .toSet()
         return MetroAppDiscovery.discoverInstalledApps(context, pinnedPackages)
     }
 
@@ -46,7 +56,7 @@ class LauncherRepository(private val context: Context) {
         MetroAppDiscovery.filterApps(apps, query)
 
     fun resolveDisplayTiles(pinned: List<PinnedTileEntry>): List<DisplayTile> =
-        pinned.map { entry -> entry.toDisplayTile() }
+        pinned.filter { isPackageInstalled(it.packageName) }.map { entry -> entry.toDisplayTile() }
 
     fun refreshTileContent(packageName: String, tileId: String): MetroTileData? =
         MetroTileContract.readTile(context.contentResolver, packageName, tileId)
@@ -96,6 +106,13 @@ class LauncherRepository(private val context: Context) {
         ).toString()
     } catch (_: PackageManager.NameNotFoundException) {
         SystemAppPlaceholders.label(packageName)
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean = try {
+        packageManager.getApplicationInfo(packageName, 0)
+        true
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
     }
 
     private fun fallbackTileColor(packageName: String): Color =

@@ -9,7 +9,15 @@ class PinnedTileStore(context: Context) {
 
     fun load(): List<PinnedTileEntry> {
         val raw = prefs.getString(KEY_PINS, null) ?: return defaultPins()
-        return parsePins(raw).ifEmpty { defaultPins() }
+        val parsed = parsePins(raw)
+        if (parsed.isEmpty()) return defaultPins()
+        // Replace the pre-suite placeholder seed (IE / Notes / Music / …) with apps that exist.
+        if (parsed.map { it.packageName }.toSet() == LEGACY_PLACEHOLDER_PACKAGES) {
+            val migrated = defaultPins()
+            save(migrated)
+            return migrated
+        }
+        return parsed
     }
 
     fun save(tiles: List<PinnedTileEntry>) {
@@ -52,12 +60,23 @@ class PinnedTileStore(context: Context) {
             }
         }
 
+        /** Apps that were seeded before their packages shipped — migrate off this set. */
+        private val LEGACY_PLACEHOLDER_PACKAGES = setOf(
+            "com.metro.browser",
+            "com.metro.notes",
+            "com.metro.music",
+            "com.metro.settings",
+            "com.metro.store",
+        )
+
+        /** Preferred Start seed — only packages that exist under `apps/` today. */
         fun defaultPins(): List<PinnedTileEntry> = listOf(
-            PinnedTileEntry("com.metro.browser", size = PinnedTileSize.TwoByTwo),
-            PinnedTileEntry("com.metro.notes", size = PinnedTileSize.TwoByTwo),
-            PinnedTileEntry("com.metro.music", size = PinnedTileSize.FourByTwo),
-            PinnedTileEntry("com.metro.settings", size = PinnedTileSize.OneByOne),
-            PinnedTileEntry("com.metro.store", size = PinnedTileSize.OneByOne),
+            PinnedTileEntry("com.metro.people", size = PinnedTileSize.TwoByTwo),
+            PinnedTileEntry("com.metro.photos", size = PinnedTileSize.TwoByTwo),
+            PinnedTileEntry("com.metro.messaging", size = PinnedTileSize.TwoByTwo),
+            PinnedTileEntry("com.metro.calendar", size = PinnedTileSize.TwoByTwo),
+            PinnedTileEntry("com.metro.dialer", size = PinnedTileSize.OneByOne),
+            PinnedTileEntry("com.metro.calculator", size = PinnedTileSize.OneByOne),
         )
     }
 }

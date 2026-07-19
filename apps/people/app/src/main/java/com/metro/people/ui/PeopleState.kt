@@ -74,9 +74,6 @@ class PeopleState(context: Context) {
     val filterLabel: String
         get() = PeopleContactsLogic.filterLabel(filter)
 
-    val jumpLetters: List<Char>
-        get() = PeopleContactsLogic.jumpLetters(visibleContacts)
-
     fun refreshPermission(context: Context) {
         hasContactsPermission = ContextCompat.checkSelfPermission(
             context,

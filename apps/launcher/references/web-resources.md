@@ -33,7 +33,7 @@ Curated links for WP8.1 Start screen look, layout, and interaction.
 | Resource | URL | Notes |
 |----------|-----|-------|
 | App list UX | `images/applist_dark_blue.png` | Lowercase letter headers in bordered squares, icon + label rows |
-| Search | `images/applist_dark_blue.png` | Magnifying glass in circle at top-left |
+| Search | `images/applist_search_dark_blue.png` | White accent-bordered field; matching letters highlighted in accent |
 
 **Layout rules:**
 

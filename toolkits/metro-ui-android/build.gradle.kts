@@ -45,6 +45,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.runtime:runtime")
+    implementation("androidx.activity:activity-compose:1.9.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 

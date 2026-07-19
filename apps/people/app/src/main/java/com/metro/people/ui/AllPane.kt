@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.metro.people.data.PersonSummary
+import com.metro.ui.MetroJumpListLogic
 import com.metro.ui.MetroLetterTile
 import com.metro.ui.MetroShowingLabel
 import com.metro.ui.MetroSystemIcon
@@ -45,10 +46,16 @@ fun AllPane(
     val listState = rememberLazyListState()
     LaunchedEffect(scrollToLetter, grouped) {
         val letter = scrollToLetter ?: return@LaunchedEffect
-        val index = grouped.entries.indexOfFirst { it.key == letter }
-        if (index >= 0) {
-            listState.animateScrollToItem(index.coerceAtLeast(0) + 1)
-            onScrollConsumed()
+        val target = MetroJumpListLogic.normalize(letter)
+        // Index 0 is the "showing" filter row; headers follow with their contact rows.
+        var lazyIndex = 1
+        for ((key, people) in grouped) {
+            if (MetroJumpListLogic.normalize(key) == target) {
+                listState.animateScrollToItem(lazyIndex)
+                onScrollConsumed()
+                return@LaunchedEffect
+            }
+            lazyIndex += 1 + people.size
         }
     }
 

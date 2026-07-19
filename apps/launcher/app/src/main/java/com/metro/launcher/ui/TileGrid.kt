@@ -1,5 +1,8 @@
 package com.metro.launcher.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -16,10 +19,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,12 +36,15 @@ import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
-import kotlin.math.max
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 const val TILE_GRID_COLUMNS = 4
 val TILE_GRID_GAP = 8.dp
@@ -120,18 +129,9 @@ fun TileGrid(
 ) {
     val placed = layoutTilesOnGrid(tiles)
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val unit = (maxWidth - TILE_GRID_PADDING * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) / TILE_GRID_COLUMNS
         val contentHeight = gridContentHeight(unit, placed)
-
-        if (editMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable(onClick = onDismissEdit),
-            )
-        }
 
         Box(
             modifier = Modifier
@@ -140,7 +140,16 @@ fun TileGrid(
                     end = TILE_GRID_PADDING,
                     top = 8.dp,
                 )
-                .size(width = maxWidth, height = contentHeight + 16.dp),
+                .size(width = maxWidth, height = contentHeight + 16.dp)
+                .then(
+                    if (editMode) {
+                        Modifier
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .clickable(onClick = onDismissEdit)
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             placed.forEach { placement ->
                 val tile = placement.tile
@@ -171,30 +180,20 @@ fun TileGrid(
                     modifier = Modifier.offset(x = x, y = y),
                 )
             }
-        }
 
-        if (editMode && activeTile != null) {
-            val activePlacement = placed.firstOrNull { placement ->
-                placement.tile.entry.packageName == activeTile.entry.packageName &&
-                    placement.tile.entry.tileId == activeTile.entry.tileId
-            }
-            if (activePlacement != null) {
-                val (tileWidth, tileHeight) = tilePixelSize(
-                    unit,
-                    activePlacement.tile.entry.size.colSpan,
-                    activePlacement.tile.entry.size.rowSpan,
-                )
-                val x = (unit + TILE_GRID_GAP) * activePlacement.col
-                val y = (unit + TILE_GRID_GAP) * activePlacement.row
-                Box(
-                    modifier = Modifier
-                        .padding(
-                            start = TILE_GRID_PADDING,
-                            end = TILE_GRID_PADDING,
-                            top = 8.dp,
-                        )
-                        .size(width = maxWidth, height = contentHeight + 16.dp),
-                ) {
+            if (editMode && activeTile != null) {
+                val activePlacement = placed.firstOrNull { placement ->
+                    placement.tile.entry.packageName == activeTile.entry.packageName &&
+                        placement.tile.entry.tileId == activeTile.entry.tileId
+                }
+                if (activePlacement != null) {
+                    val (tileWidth, tileHeight) = tilePixelSize(
+                        unit,
+                        activePlacement.tile.entry.size.colSpan,
+                        activePlacement.tile.entry.size.rowSpan,
+                    )
+                    val x = (unit + TILE_GRID_GAP) * activePlacement.col
+                    val y = (unit + TILE_GRID_GAP) * activePlacement.row
                     LauncherTileCell(
                         tile = activePlacement.tile,
                         width = tileWidth,
@@ -228,6 +227,13 @@ private fun LauncherTileCell(
     modifier: Modifier = Modifier,
 ) {
     val dimmed = editMode && !isActive
+    val density = LocalDensity.current
+    val floatSeed = remember(tile.entry.packageName, tile.entry.tileId) {
+        tile.entry.packageName.hashCode() * 31 + tile.entry.tileId.hashCode()
+    }
+    val idleFloat = rememberTileIdleFloat(enabled = dimmed, seed = floatSeed)
+    val floatTx = with(density) { idleFloat.offsetXDp.dp.toPx() }
+    val floatTy = with(density) { idleFloat.offsetYDp.dp.toPx() }
     val iconSize = tileIconSize(width, height, tile.entry.size)
     val contentColor = MetroColors.tileContentColor(tile.backgroundColor)
     val photoGrid = tile.photoGrid
@@ -258,6 +264,8 @@ private fun LauncherTileCell(
                     dimmed -> 0.97f
                     else -> 1f
                 }
+                translationX = floatTx
+                translationY = floatTy
             }
             .combinedClickable(
                 onClick = onClick,
@@ -462,5 +470,88 @@ private fun tileIconSize(tileWidth: Dp, tileHeight: Dp, size: PinnedTileSize): D
         PinnedTileSize.OneByOne -> (content - TILE_SMALL_ICON_INSET.value * 2).dp
         PinnedTileSize.TwoByTwo -> (content * 0.55f).dp
         PinnedTileSize.FourByTwo -> (content * 0.42f).dp
+    }
+}
+
+/**
+ * Per-tile idle float used in edit mode for every non-active tile.
+ * Amplitudes / periods are derived from [seed] so neighboring tiles drift independently.
+ */
+internal data class TileIdleFloatParams(
+    val ampXDp: Float,
+    val ampYDp: Float,
+    val durationXMs: Int,
+    val durationYMs: Int,
+) {
+    companion object {
+        fun fromSeed(seed: Int): TileIdleFloatParams {
+            val s = abs(seed)
+            return TileIdleFloatParams(
+                ampXDp = 3.5f + (s % 50) / 50f * 5f,
+                ampYDp = 3f + ((s / 7) % 50) / 50f * 5f,
+                durationXMs = 2200 + (s % 11) * 140,
+                durationYMs = 2400 + ((s / 3) % 13) * 130,
+            )
+        }
+    }
+}
+
+private data class TileIdleFloatState(
+    val offsetXDp: Float,
+    val offsetYDp: Float,
+) {
+    companion object {
+        val Still = TileIdleFloatState(0f, 0f)
+    }
+}
+
+@Composable
+private fun rememberTileIdleFloat(enabled: Boolean, seed: Int): TileIdleFloatState {
+    val offsetX = remember { Animatable(0f) }
+    val offsetY = remember { Animatable(0f) }
+
+    LaunchedEffect(enabled, seed) {
+        if (!enabled) {
+            offsetX.snapTo(0f)
+            offsetY.snapTo(0f)
+            return@LaunchedEffect
+        }
+        val params = TileIdleFloatParams.fromSeed(seed)
+        val phaseX = (abs(seed) % 100) / 100f
+        val phaseY = ((abs(seed) / 11) % 100) / 100f
+        offsetX.snapTo(params.ampXDp * (phaseX * 2f - 1f))
+        offsetY.snapTo(params.ampYDp * (phaseY * 2f - 1f))
+
+        coroutineScope {
+            launch {
+                var towardPositive = phaseX < 0.5f
+                while (true) {
+                    offsetX.animateTo(
+                        if (towardPositive) params.ampXDp else -params.ampXDp,
+                        animationSpec = tween(params.durationXMs, easing = FastOutSlowInEasing),
+                    )
+                    towardPositive = !towardPositive
+                }
+            }
+            launch {
+                var towardPositive = phaseY < 0.5f
+                while (true) {
+                    offsetY.animateTo(
+                        if (towardPositive) params.ampYDp else -params.ampYDp,
+                        animationSpec = tween(params.durationYMs, easing = FastOutSlowInEasing),
+                    )
+                    towardPositive = !towardPositive
+                }
+            }
+        }
+    }
+
+    return if (enabled) {
+        TileIdleFloatState(
+            offsetXDp = offsetX.value,
+            offsetYDp = offsetY.value,
+        )
+    } else {
+        TileIdleFloatState.Still
     }
 }

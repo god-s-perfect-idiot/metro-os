@@ -10,3 +10,5 @@ The app will require 2 different pages.
     - Grid items have an inner spacing
 - App Menu: 
     - All apps are to be listed in a list here.
+    - Apps are grouped under lowercase letter markers (`#` for non-letter starters). Tapping a letter marker opens the standard find-by-letter overlay (`MetroJumpList`): 4-column grid of `#` + a–z + globe; accent tiles are active, gray tiles inactive. Tapping an active letter scrolls the list to that group.
+    - Search: tapping the magnifying-glass button reveals a white search field with an accent border above the list and shows the keyboard (`images/applist_search_dark_blue.png`). While search is active, letter markers are hidden (`MetroJumpListLogic.showSectionMarkers`) and the list is a flat filtered result; the first case-insensitive match of the query in each app label is highlighted in accent. Tapping search again re-focuses the field and shows the keyboard. Dismiss search by closing the keyboard, pressing Back, or tapping the empty strip under the icon.

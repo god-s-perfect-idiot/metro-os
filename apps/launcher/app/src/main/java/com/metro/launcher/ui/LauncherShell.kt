@@ -40,6 +40,9 @@ fun LauncherShell(
         if (pagerState.currentPage != state.currentPage) {
             pagerState.animateScrollToPage(state.currentPage)
         }
+        if (state.currentPage != 1) {
+            state.dismissSearch()
+        }
     }
 
     Box(
@@ -53,7 +56,7 @@ fun LauncherShell(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 1,
+            beyondViewportPageCount = 0,
             userScrollEnabled = !editing,
         ) { page ->
             when (page) {
@@ -71,7 +74,9 @@ fun LauncherShell(
                 )
                 1 -> AppListScreen(
                     apps = state.filteredApps,
+                    searchActive = state.searchActive,
                     searchQuery = state.searchQuery,
+                    onSearchActiveChange = state::onSearchActiveChange,
                     onSearchQueryChange = state::onSearchQueryChange,
                     onAppClick = state::launchApp,
                     onPinToStart = state::pinApp,

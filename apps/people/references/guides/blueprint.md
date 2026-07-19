@@ -85,9 +85,9 @@ Target: **Windows Phone 8.1 GDR2+** People hub on a portrait phone (768×1280 / 
 
 ### Page 4 — Jump list overlay
 
-- **Layout:** Full-screen overlay grid of alphanumeric tiles (A–Z, `#`, and locale bucket). Tiles are accent-colored squares with letter centered.
-- **Navigation:** Opened from alphabet tile on `all` pane. Tap letter → scroll list to section and dismiss. Tap outside or Back → dismiss.
-- **Background:** Black with slight scrim optional.
+- **Layout:** Full-screen overlay via toolkit `MetroJumpList`: 4-column grid of `#`, `a`–`z`, and locale globe. Active letters (with contacts) use accent fill; inactive letters use dark gray. Glyphs are lowercase white.
+- **Navigation:** Opened from alphabet tile on `all` pane. Tap active letter → scroll list to section and dismiss. Tap inactive → no-op. Tap scrim or Back → dismiss.
+- **Background:** Translucent black scrim over the list.
 
 ### Page 5 — Contact detail (pivot container)
 

@@ -44,7 +44,4 @@ object PeopleContactsLogic {
         } else {
             "showing all contacts"
         }
-
-    fun jumpLetters(people: List<PersonSummary>, sortByLastName: Boolean = false): List<Char> =
-        groupBySortKey(people, sortByLastName).keys.toList()
 }

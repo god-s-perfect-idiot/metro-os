@@ -425,6 +425,28 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 
 ---
 
+### 6.18 Find by letter / jump list (`MetroJumpList`)
+
+WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under letter markers (app list, People `all`, etc.).
+
+| Property | Spec |
+|----------|------|
+| Trigger | Tap a letter section marker in the list |
+| Layout | Full-screen overlay; **4 columns** × 7 rows |
+| Cells | `#`, `a`–`z`, then locale **globe** tile (28 total) |
+| Active tile | System **accent** fill, white lowercase glyph, tappable |
+| Inactive tile | `#2B2B2B` fill (`MetroColors.JumpListInactive`), not actionable |
+| Scrim | Translucent black so the list remains faintly visible in gaps |
+| Select | Tap active letter → scroll list to that section and dismiss |
+| Dismiss | Hardware Back, or tap scrim outside tiles |
+| Locale tile | Globe glyph; inactive unless the app supplies locale jump support |
+| Helpers | `MetroJumpListLogic.sortKey` / `activeLetters` / `showSectionMarkers`; section anchors use `MetroLetterTile` |
+| Search mode | While an inline list search field is active, **omit** letter section markers (`showSectionMarkers(false)`). Jump list is unavailable until search is dismissed. App-list search uses a **white fill + accent border** square field (not the underline TextBox); matching characters in result labels use accent. |
+
+**Agent rule:** Do not reimplement jump grids in apps. Import `MetroJumpList` from `metro-ui-android`.
+
+---
+
 ## 7. System chrome (shell apps)
 
 ### 7.1 Status bar
@@ -540,6 +562,7 @@ Need a container shape?
 | §6.15 Dialog | `MetroMessageDialog` | Planned |
 | §6.16 Hub | `MetroHub` | Planned |
 | §6.17 Page header | `MetroPageHeader` | Implemented |
+| §6.18 Jump list | `MetroJumpList`, `MetroLetterTile`, `MetroJumpListLogic` | Implemented |
 | Theme / color | `MetroTheme`, `MetroColors` | Implemented |
 | Typography | `MetroText`, `MetroTextStyle` | Implemented |
 | Motion | `MetroTransitions` | Implemented |

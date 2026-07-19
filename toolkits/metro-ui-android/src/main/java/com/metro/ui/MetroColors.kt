@@ -10,6 +10,8 @@ object MetroColors {
     val TileContentOnAccent = Color(0xFFFFFFFF)
     val DarkBackground = Color(0xFF000000)
     val DarkSecondarySurface = Color(0xFF1F1F1F)
+    /** Inactive find-by-letter tile fill (WP8.1 jump list gray). */
+    val JumpListInactive = Color(0xFF2B2B2B)
     val LightBackground = Color(0xFFFFFFFF)
     val LightSecondarySurface = Color(0xFFF2F2F2)
 

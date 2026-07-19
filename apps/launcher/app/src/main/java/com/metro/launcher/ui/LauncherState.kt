@@ -30,6 +30,7 @@ class LauncherState(context: Context) {
     var darkTheme by mutableStateOf(metroPrefs.isDark)
     var accent by mutableStateOf(metroPrefs.accentColor)
     var currentPage by mutableIntStateOf(0)
+    var searchActive by mutableStateOf(false)
     var searchQuery by mutableStateOf("")
     var editingTile by mutableStateOf<DisplayTile?>(null)
 
@@ -172,6 +173,15 @@ class LauncherState(context: Context) {
 
     fun onSearchQueryChange(query: String) {
         searchQuery = query
+    }
+
+    fun onSearchActiveChange(active: Boolean) {
+        searchActive = active
+        if (!active) searchQuery = ""
+    }
+
+    fun dismissSearch() {
+        onSearchActiveChange(false)
     }
 
     private fun persistAndRefresh() {

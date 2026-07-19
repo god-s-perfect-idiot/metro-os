@@ -4,6 +4,7 @@ import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.PinnedTileStore
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.launcher.ui.TILE_GRID_COLUMNS
+import com.metro.launcher.ui.TileIdleFloatParams
 import com.metro.launcher.ui.TileResizeGlyph
 import com.metro.launcher.ui.layoutTilesOnGrid
 import com.metro.launcher.ui.resizeGlyphForTileSize
@@ -12,6 +13,8 @@ import com.metro.launcher.data.PinnedTileEntry
 import com.metro.system.MetroTileContract
 import com.metro.ui.MetroColors
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TileGridTest {
@@ -28,16 +31,23 @@ class TileGridTest {
     }
 
     @Test
-    fun defaultPins_includeCoreMetroApps() {
+    fun defaultPins_includeShippedMetroApps() {
         val pins = PinnedTileStore.defaultPins()
-        assertEquals(5, pins.size)
-        assertEquals("com.metro.browser", pins.first().packageName)
-        assertEquals("com.metro.store", pins.last().packageName)
+        assertEquals(6, pins.size)
+        assertEquals("com.metro.people", pins.first().packageName)
+        assertEquals("com.metro.calculator", pins.last().packageName)
+        assertTrue(pins.none { it.packageName in setOf(
+            "com.metro.browser",
+            "com.metro.notes",
+            "com.metro.music",
+            "com.metro.settings",
+            "com.metro.store",
+        ) })
     }
 
     @Test
     fun wideTile_spansFullGridWidth() {
-        val tile = displayTile("com.metro.music", PinnedTileSize.FourByTwo)
+        val tile = displayTile("com.metro.photos", PinnedTileSize.FourByTwo)
         val placed = layoutTilesOnGrid(listOf(tile))
         assertEquals(1, placed.size)
         assertEquals(0, placed.first().col)
@@ -62,6 +72,16 @@ class TileGridTest {
         assertEquals(TileResizeGlyph.DiagonalDownRight, resizeGlyphForTileSize(PinnedTileSize.OneByOne))
         assertEquals(TileResizeGlyph.Right, resizeGlyphForTileSize(PinnedTileSize.TwoByTwo))
         assertEquals(TileResizeGlyph.DiagonalUpLeft, resizeGlyphForTileSize(PinnedTileSize.FourByTwo))
+    }
+
+    @Test
+    fun idleFloatParams_differBySeed() {
+        val a = TileIdleFloatParams.fromSeed(1)
+        val b = TileIdleFloatParams.fromSeed(99)
+        assertNotEquals(a, b)
+        assertTrue(a.ampXDp in 3.5f..8.5f)
+        assertTrue(a.ampYDp in 3f..8f)
+        assertTrue(a.durationXMs in 2200..4000)
     }
 
     @Test

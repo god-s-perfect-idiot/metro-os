@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.metro.ui.MetroJumpList
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.metroNavBarPadding
@@ -85,8 +86,8 @@ fun PeopleShell(
         }
 
         if (state.jumpListVisible) {
-            JumpListOverlay(
-                letters = state.jumpLetters,
+            MetroJumpList(
+                activeLetters = state.groupedContacts.keys,
                 onLetterSelected = { scrollToLetter = it },
                 onDismiss = state::dismissJumpList,
             )

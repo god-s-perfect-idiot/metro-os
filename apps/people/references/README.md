@@ -9,7 +9,7 @@
 | Hub · all (contacts) | [blueprint § Page 1](guides/blueprint.md) | _missing_ — [`known-gaps.md`](known-gaps.md) | [`guides/people-hub.md`](guides/people-hub.md) |
 | Hub · what's new | [blueprint § Page 2](guides/blueprint.md) | _missing_ — [`known-gaps.md`](known-gaps.md) | [`guides/people-hub.md`](guides/people-hub.md) |
 | Filter contacts | [blueprint § Page 3](guides/blueprint.md) | `images/pivot_dark_blue.jpg` | [`web-resources.md#filter-contacts`](web-resources.md) |
-| Jump list | [blueprint § Page 4](guides/blueprint.md) | — | [`guides/people-hub.md`](guides/people-hub.md) |
+| Jump list | [blueprint § Page 4](guides/blueprint.md) | `images/jumplist_dark_blue.png` | [`guides/people-hub.md`](guides/people-hub.md) |
 | Contact detail · profile | [blueprint § Page 6](guides/blueprint.md) | `images/detail_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |
 | Contact detail · connect | [blueprint § Page 7](guides/blueprint.md) | `images/detail_connect_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |
 | Contact detail · what's new | [blueprint § Page 8](guides/blueprint.md) | `images/detail_whatsnew_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |

@@ -23,9 +23,9 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 ## Current implementation snapshot
 
 - `MainActivity` hosts `LauncherShell` with horizontal Start ↔ app list navigation
-- Pinned tiles persisted in `PinnedTileStore`; default seed for Tier 0/1 metro apps
+- Pinned tiles persisted in `PinnedTileStore`; default seed for shipped metro apps only (uninstalled packages are omitted)
 - Tile taps launch via `PackageManager` / deep link from `MetroTileContract`
-- App list: alphabetical `com.metro.*` discovery with inline search filter
+- App list: alphabetical `com.metro.*` discovery with inline search filter and find-by-letter jump list
 - Long-press tile edit overlay: resize (cycles small/medium/wide when `BuildConfig.WIDE_TILES`) and unpin
 - `TILE_UPDATE` and `THEME_CHANGED` broadcasts refresh tile content and shell theme
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
