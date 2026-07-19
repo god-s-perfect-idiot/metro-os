@@ -259,61 +259,63 @@ fun AppListScreen(
                 }
             }
 
-            LazyColumn(
-                state = listState,
+            Column(
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = SearchColumnGap),
-                contentPadding = PaddingValues(bottom = ListBottomScrollPadding),
             ) {
                 if (searchActive) {
-                    item(key = "search-field") {
-                        AppListSearchField(
-                            value = searchQuery,
-                            onValueChange = onSearchQueryChange,
-                            focusRequester = searchFocusRequester,
-                        )
-                    }
+                    AppListSearchField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        focusRequester = searchFocusRequester,
+                    )
                 }
 
-                if (showLetterMarkers) {
-                    grouped.forEach { (letter, sectionApps) ->
-                        item(key = "header-$letter", contentType = "header") {
-                            AppListRowLayout(
-                                iconContent = {
-                                    LetterHeader(
-                                        letter = letter,
-                                        onClick = { jumpListVisible = true },
-                                    )
-                                },
-                                labelContent = {},
-                            )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(bottom = ListBottomScrollPadding),
+                ) {
+                    if (showLetterMarkers) {
+                        grouped.forEach { (letter, sectionApps) ->
+                            item(key = "header-$letter", contentType = "header") {
+                                AppListRowLayout(
+                                    iconContent = {
+                                        LetterHeader(
+                                            letter = letter,
+                                            onClick = { jumpListVisible = true },
+                                        )
+                                    },
+                                    labelContent = {},
+                                )
+                            }
+                            items(
+                                items = sectionApps,
+                                key = { it.packageName },
+                                contentType = { "app" },
+                            ) { app ->
+                                AppListAppRow(
+                                    app = app,
+                                    highlightQuery = "",
+                                    onAppClick = { onAppClick(app) },
+                                    onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
+                                )
+                            }
                         }
+                    } else {
                         items(
-                            items = sectionApps,
+                            items = apps,
                             key = { it.packageName },
                             contentType = { "app" },
                         ) { app ->
                             AppListAppRow(
                                 app = app,
-                                highlightQuery = "",
+                                highlightQuery = searchQuery,
                                 onAppClick = { onAppClick(app) },
                                 onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
                             )
                         }
-                    }
-                } else {
-                    items(
-                        items = apps,
-                        key = { it.packageName },
-                        contentType = { "app" },
-                    ) { app ->
-                        AppListAppRow(
-                            app = app,
-                            highlightQuery = searchQuery,
-                            onAppClick = { onAppClick(app) },
-                            onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
-                        )
                     }
                 }
             }
