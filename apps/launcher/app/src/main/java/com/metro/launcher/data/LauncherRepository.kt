@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
+import com.metro.launcher.data.AppLauncherOption
+import com.metro.launcher.data.AppLauncherOptions
 import com.metro.system.MetroAppDiscovery
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroIntents
@@ -70,6 +72,11 @@ class LauncherRepository(private val context: Context) {
 
     fun refreshTileContent(packageName: String, tileId: String): MetroTileData? =
         MetroTileContract.readTile(context.contentResolver, packageName, tileId)
+
+    fun queryAppOptions(packageName: String): List<AppLauncherOption> =
+        AppLauncherOptions.query(context, packageName)
+
+    fun launchAppOption(option: AppLauncherOption) = AppLauncherOptions.launch(context, option)
 
     fun requestUninstall(hostContext: Context, packageName: String) {
         if (packageName == hostContext.packageName) return

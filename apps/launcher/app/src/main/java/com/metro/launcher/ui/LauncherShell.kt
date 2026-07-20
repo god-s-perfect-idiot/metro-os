@@ -84,6 +84,8 @@ fun LauncherShell(
                     onAppClick = state::launchApp,
                     onPinToStart = state::pinApp,
                     onUninstall = state::uninstallApp,
+                    queryAppOptions = state::queryAppOptions,
+                    onLaunchAppOption = state::launchAppOption,
                     modifier = Modifier.testTag("metro_page_app_list"),
                 )
             }

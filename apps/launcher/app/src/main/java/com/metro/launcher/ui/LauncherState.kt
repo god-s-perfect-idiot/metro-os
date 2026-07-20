@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.metro.launcher.BuildConfig
+import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.PinnedTileEntry
@@ -278,6 +279,15 @@ class LauncherState(context: Context) {
             .filter { it.packageName == app.packageName }
             .forEach { unpinTile(it) }
         repository.requestUninstall(hostContext, app.packageName)
+    }
+
+    suspend fun queryAppOptions(packageName: String): List<AppLauncherOption> =
+        withContext(Dispatchers.IO) {
+            repository.queryAppOptions(packageName)
+        }
+
+    fun launchAppOption(option: AppLauncherOption) {
+        repository.launchAppOption(option)
     }
 
     fun onSearchQueryChange(query: String) {

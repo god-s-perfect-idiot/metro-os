@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,6 +51,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -63,6 +67,7 @@ import androidx.compose.ui.window.PopupProperties
 import kotlin.math.roundToInt
 import androidx.core.graphics.drawable.toBitmap
 import android.util.LruCache
+import com.metro.launcher.data.AppLauncherOption
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
 import com.metro.ui.MetroCircleIconButton
@@ -88,7 +93,14 @@ private val ContextMenuGapBelowIcon = 4.dp
 private val ContextMenuHorizontalPadding = 16.dp
 private val ContextMenuVerticalPadding = 12.dp
 private val ContextMenuMinWidth = 160.dp
+private val ContextMenuMaxVisibleItems = 6
+/** ListItemTitle line (~24sp) plus top/bottom item padding. */
+private val ContextMenuItemRowHeight = 48.dp
+private val ContextMenuMaxScrollHeight =
+    ContextMenuItemRowHeight * ContextMenuMaxVisibleItems + ContextMenuVerticalPadding * 2
 private val ContextMenuExpandMs = MetroTransitions.AppBarSlideMs
+private val ContextMenuDimmedAlpha = 0.45f
+private val ContextMenuActiveShift = 8.dp
 private val SearchFieldRowHeight = 48.dp
 private val SearchFieldBorderWidth = 3.dp
 private val SearchFieldHorizontalPadding = 10.dp
@@ -125,6 +137,8 @@ fun AppListScreen(
     onAppClick: (MetroAppInfo) -> Unit,
     onPinToStart: (MetroAppInfo) -> Unit,
     onUninstall: (MetroAppInfo) -> Unit,
+    queryAppOptions: suspend (String) -> List<AppLauncherOption>,
+    onLaunchAppOption: (AppLauncherOption) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var jumpListVisible by remember { mutableStateOf(false) }
@@ -157,6 +171,12 @@ fun AppListScreen(
             contextMenuApp = null
         }
     }
+    val contextMenuFocusTransition =
+        updateTransition(contextMenuVisible, label = "appListContextMenuFocus")
+    val contextMenuFocusFraction by contextMenuFocusTransition.animateFloat(
+        transitionSpec = { tween(ContextMenuExpandMs) },
+        label = "focusFraction",
+    ) { visible -> if (visible) 1f else 0f }
     val showLetterMarkers = MetroJumpListLogic.showSectionMarkers(searchActive)
     val grouped = remember(apps) {
         apps.groupBy { MetroJumpListLogic.sortKey(it.label) }.toSortedMap()
@@ -301,6 +321,8 @@ fun AppListScreen(
                                 AppListAppRow(
                                     app = app,
                                     highlightQuery = "",
+                                    contextMenuTarget = contextMenuApp?.packageName == app.packageName,
+                                    contextMenuFocusFraction = contextMenuFocusFraction,
                                     onAppClick = { onAppClick(app) },
                                     onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
                                 )
@@ -315,6 +337,8 @@ fun AppListScreen(
                             AppListAppRow(
                                 app = app,
                                 highlightQuery = searchQuery,
+                                contextMenuTarget = contextMenuApp?.packageName == app.packageName,
+                                contextMenuFocusFraction = contextMenuFocusFraction,
                                 onAppClick = { onAppClick(app) },
                                 onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
                             )
@@ -325,17 +349,17 @@ fun AppListScreen(
         }
 
         contextMenuApp?.let { app ->
+            var appOptions by remember(app.packageName) { mutableStateOf<List<AppLauncherOption>>(emptyList()) }
+            LaunchedEffect(app.packageName) {
+                appOptions = queryAppOptions(app.packageName)
+            }
             val menuOffset = IntOffset(
                 x = (contextMenuIconBounds.left - contextMenuRootBounds.left).toInt(),
                 y = (contextMenuIconBounds.bottom - contextMenuRootBounds.top + menuGapPx).toInt(),
             )
             // Height-only wipe: expandVertically/shrinkVertically animate IntSize and can
             // collapse width after height finishes — keep measured width fixed throughout.
-            val menuTransition = updateTransition(contextMenuVisible, label = "appListContextMenu")
-            val revealFraction by menuTransition.animateFloat(
-                transitionSpec = { tween(ContextMenuExpandMs) },
-                label = "revealFraction",
-            ) { visible -> if (visible) 1f else 0f }
+            val revealFraction = contextMenuFocusFraction
             Popup(
                 alignment = Alignment.TopStart,
                 offset = menuOffset,
@@ -347,12 +371,17 @@ fun AppListScreen(
                     content = {
                         AppListContextMenu(
                             uninstallEnabled = !app.isSystemApp,
+                            appOptions = appOptions,
                             onPinToStart = {
                                 onPinToStart(app)
                                 dismissContextMenu()
                             },
                             onUninstall = {
                                 onUninstall(app)
+                                dismissContextMenu()
+                            },
+                            onLaunchAppOption = { option ->
+                                onLaunchAppOption(option)
                                 dismissContextMenu()
                             },
                         )
@@ -426,9 +455,22 @@ private fun AppListSearchField(
 @Composable
 private fun AppListContextMenu(
     uninstallEnabled: Boolean,
+    appOptions: List<AppLauncherOption>,
     onPinToStart: () -> Unit,
     onUninstall: () -> Unit,
+    onLaunchAppOption: (AppLauncherOption) -> Unit,
 ) {
+    val menuEntries = remember(uninstallEnabled, appOptions) {
+        buildList {
+            add(ContextMenuEntry("pin to start"))
+            add(ContextMenuEntry("uninstall", enabled = uninstallEnabled))
+            appOptions.forEach { option ->
+                add(ContextMenuEntry(option.label.lowercase(), option = option))
+            }
+        }
+    }
+    val scrollState = rememberScrollState()
+    val needsScroll = menuEntries.size > ContextMenuMaxVisibleItems
     Column(
         modifier = Modifier
             .widthIn(min = ContextMenuMinWidth)
@@ -436,19 +478,38 @@ private fun AppListContextMenu(
             .padding(
                 horizontal = ContextMenuHorizontalPadding,
                 vertical = ContextMenuVerticalPadding,
+            )
+            .then(
+                if (needsScroll) {
+                    Modifier
+                        .heightIn(max = ContextMenuMaxScrollHeight)
+                        .verticalScroll(scrollState)
+                } else {
+                    Modifier
+                },
             ),
     ) {
-        AppListContextMenuItem(
-            text = "pin to start",
-            onClick = onPinToStart,
-        )
-        AppListContextMenuItem(
-            text = "uninstall",
-            onClick = onUninstall,
-            enabled = uninstallEnabled,
-        )
+        menuEntries.forEach { entry ->
+            AppListContextMenuItem(
+                text = entry.label,
+                onClick = {
+                    when {
+                        entry.option != null -> onLaunchAppOption(entry.option)
+                        entry.label == "pin to start" -> onPinToStart()
+                        entry.label == "uninstall" -> onUninstall()
+                    }
+                },
+                enabled = entry.enabled,
+            )
+        }
     }
 }
+
+private data class ContextMenuEntry(
+    val label: String,
+    val enabled: Boolean = true,
+    val option: AppLauncherOption? = null,
+)
 
 @Composable
 private fun AppListContextMenuItem(
@@ -485,6 +546,8 @@ private fun AppListContextMenuItem(
 private fun AppListAppRow(
     app: MetroAppInfo,
     highlightQuery: String,
+    contextMenuTarget: Boolean,
+    contextMenuFocusFraction: Float,
     onAppClick: () -> Unit,
     onLongClick: (Rect) -> Unit,
 ) {
@@ -496,11 +559,23 @@ private fun AppListAppRow(
         AppListSearchLogic.highlightMatch(app.label, highlightQuery, accent)
     }
 
+    val density = LocalDensity.current
+    val activeShiftPx = with(density) { ContextMenuActiveShift.toPx() }
     AppListRowLayout(
-        modifier = Modifier.combinedClickable(
-            onClick = onAppClick,
-            onLongClick = { onLongClick(iconBounds.value) },
-        ),
+        modifier = Modifier
+            .graphicsLayer {
+                if (contextMenuTarget) {
+                    translationX = -contextMenuFocusFraction * activeShiftPx
+                    alpha = 1f
+                } else {
+                    translationX = 0f
+                    alpha = 1f - contextMenuFocusFraction * (1f - ContextMenuDimmedAlpha)
+                }
+            }
+            .combinedClickable(
+                onClick = onAppClick,
+                onLongClick = { onLongClick(iconBounds.value) },
+            ),
         iconContent = {
             AppListSquareIcon(
                 packageName = app.packageName,
