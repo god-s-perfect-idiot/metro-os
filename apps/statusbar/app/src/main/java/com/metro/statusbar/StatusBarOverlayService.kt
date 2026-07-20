@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.graphics.Color as AndroidColor
 import android.content.Intent
+import android.graphics.Rect
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -33,6 +34,7 @@ import com.metro.statusbar.ui.StatusTray
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroTheme
 import java.time.ZonedDateTime
+import kotlin.math.ceil
 
 class StatusBarOverlayService :
     Service(),
@@ -60,6 +62,7 @@ class StatusBarOverlayService :
     private val clockRunnable = object : Runnable {
         override fun run() {
             trayState.refreshClock()
+            trayState.refreshDataConnectionLabel()
             scheduleNextClockTick()
         }
     }
@@ -82,6 +85,7 @@ class StatusBarOverlayService :
         trayState.refreshTheme()
         trayState.refreshClock()
         trayState.refreshBattery()
+        trayState.refreshDataConnectionLabel()
         scheduleNextClockTick()
         handler.post(autoCollapseRunnable)
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
@@ -133,6 +137,7 @@ class StatusBarOverlayService :
         removeOverlay()
 
         val barHeightDp = statusBarInsetDp()
+        val horizontalPadding = statusBarHorizontalPaddingDp()
         val composeView = ComposeView(hostContext).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
             suppressSystemBarInsets()
@@ -148,6 +153,8 @@ class StatusBarOverlayService :
                         snapshot = trayState.snapshot,
                         onTrayTap = { trayState.toggleExpanded() },
                         barHeightDp = barHeightDp,
+                        startPaddingDp = horizontalPadding.start,
+                        endPaddingDp = horizontalPadding.end,
                     )
                 }
             }
@@ -208,6 +215,46 @@ class StatusBarOverlayService :
             }
         val dp = (topPx / density).toInt()
         return maxOf(dp, TraySpec.TRAY_HEIGHT_DP)
+    }
+
+    /**
+     * Leaves space for cutouts and Android privacy indicators so system dots never overlap the
+     * Metro tray clock row.
+     */
+    private fun statusBarHorizontalPaddingDp(): HorizontalPaddingDp {
+        val density = resources.displayMetrics.density
+        var startPx = TraySpec.START_PADDING_DP * density
+        var endPx = TraySpec.END_PADDING_DP * density
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+            val metrics = wm.currentWindowMetrics
+            val insets = metrics.windowInsets
+            val cutout = insets.displayCutout
+
+            startPx = maxOf(startPx, cutout?.safeInsetLeft?.toFloat() ?: 0f)
+            endPx = maxOf(endPx, cutout?.safeInsetRight?.toFloat() ?: 0f)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val bounds = insets.privacyIndicatorBounds
+                if (bounds != null && !bounds.isEmpty) {
+                    val gapPx = TraySpec.PRIVACY_INDICATOR_GAP_DP * density
+                    val widthPx = metrics.bounds.width().toFloat()
+                    if (bounds.centerX() >= widthPx / 2f) {
+                        // Keep only a tiny trailing cushion next to the privacy dots instead of
+                        // reserving the entire dots width on the tray's right edge.
+                        endPx = maxOf(endPx, widthPx - bounds.right + gapPx)
+                    } else {
+                        startPx = maxOf(startPx, bounds.right + gapPx)
+                    }
+                }
+            }
+        }
+
+        return HorizontalPaddingDp(
+            start = ceil(startPx / density).toInt(),
+            end = ceil(endPx / density).toInt(),
+        )
     }
 
     /** Draw to the very top edge instead of being pushed below the status bar inset. */
@@ -301,3 +348,8 @@ class StatusBarOverlayService :
         }
     }
 }
+
+private data class HorizontalPaddingDp(
+    val start: Int,
+    val end: Int,
+)

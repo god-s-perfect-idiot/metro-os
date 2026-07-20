@@ -5,11 +5,13 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,27 +28,40 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
 import com.metro.launcher.R
 import com.metro.launcher.data.DisplayTile
+import com.metro.launcher.data.findFirstOpenSlot
+import com.metro.launcher.data.markTileCells
+import com.metro.launcher.data.rowCompactionMap
+import com.metro.launcher.data.tileOverlapsRegion
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
@@ -133,49 +148,113 @@ data class PlacedTile(
     val row: Int,
 )
 
-fun layoutTilesOnGrid(tiles: List<DisplayTile>, columns: Int = TILE_GRID_COLUMNS): List<PlacedTile> {
+/** Reserved grid cells for a tile being dragged — other tiles pack around this hole. */
+data class GridSlot(val col: Int, val row: Int, val colSpan: Int, val rowSpan: Int)
+
+fun layoutTilesOnGrid(
+    tiles: List<DisplayTile>,
+    columns: Int = TILE_GRID_COLUMNS,
+    reservedSlot: GridSlot? = null,
+): List<PlacedTile> {
+    val placed = tiles.mapNotNull { tile ->
+        val col = tile.entry.gridCol ?: return@mapNotNull null
+        val row = tile.entry.gridRow ?: return@mapNotNull null
+        PlacedTile(tile, col, row)
+    }
+    if (reservedSlot != null) return pushTilesForReservedSlot(placed, reservedSlot, columns)
+    return compactEmptyRowPlacements(placed)
+}
+
+/** Shifts placements up to remove fully empty rows; column gaps are preserved. */
+fun compactEmptyRowPlacements(placed: List<PlacedTile>): List<PlacedTile> {
+    if (placed.isEmpty()) return placed
+    val rowMap = rowCompactionMap(placed.map { it.row to it.tile.entry.size.rowSpan })
+    return placed.map { placement ->
+        PlacedTile(placement.tile, placement.col, rowMap[placement.row] ?: placement.row)
+    }
+}
+
+/**
+ * Magnet reflow while dragging: keep non-dragged tiles at [baseline] positions (gaps allowed),
+ * reserve the snapped slot for [dragged], and push only tiles that overlap that slot.
+ */
+fun layoutTilesForDrag(
+    tiles: List<DisplayTile>,
+    dragged: DisplayTile,
+    slotCol: Int,
+    slotRow: Int,
+    baseline: Map<TileKey, Pair<Int, Int>>,
+    columns: Int = TILE_GRID_COLUMNS,
+): List<PlacedTile> {
+    val others = tiles.filterNot { sameTile(it, dragged) }
+    val slot = GridSlot(
+        col = slotCol.coerceIn(0, columns - dragged.entry.size.colSpan),
+        row = slotRow.coerceAtLeast(0),
+        colSpan = dragged.entry.size.colSpan,
+        rowSpan = dragged.entry.size.rowSpan,
+    )
+    val baselinePlaced = others.map { tile ->
+        val (col, row) = baseline[tile.tileKey()]
+            ?: (tile.entry.gridCol!! to tile.entry.gridRow!!)
+        PlacedTile(tile, col, row)
+    }
+    val pushed = pushTilesForReservedSlot(baselinePlaced, slot, columns)
+    return pushed + PlacedTile(dragged, slot.col, slot.row)
+}
+
+/** Moves only tiles that overlap [reserved]; all others keep their current slot. */
+fun pushTilesForReservedSlot(
+    placed: List<PlacedTile>,
+    reserved: GridSlot,
+    columns: Int = TILE_GRID_COLUMNS,
+): List<PlacedTile> {
     val occupied = mutableSetOf<Pair<Int, Int>>()
-    val placed = mutableListOf<PlacedTile>()
+    markTileCells(occupied, reserved.col, reserved.row, reserved.colSpan, reserved.rowSpan)
 
-    fun canPlace(col: Int, row: Int, colSpan: Int, rowSpan: Int): Boolean {
-        if (col + colSpan > columns) return false
-        for (r in row until row + rowSpan) {
-            for (c in col until col + colSpan) {
-                if ((c to r) in occupied) return false
-            }
-        }
-        return true
-    }
-
-    fun mark(col: Int, row: Int, colSpan: Int, rowSpan: Int) {
-        for (r in row until row + rowSpan) {
-            for (c in col until col + colSpan) {
-                occupied += c to r
-            }
-        }
-    }
-
-    tiles.forEach { tile ->
-        val colSpan = tile.entry.size.colSpan
-        val rowSpan = tile.entry.size.rowSpan
-        var row = 0
-        while (true) {
-            var col = 0
-            var found = false
-            while (col <= columns - colSpan) {
-                if (canPlace(col, row, colSpan, rowSpan)) {
-                    mark(col, row, colSpan, rowSpan)
-                    placed += PlacedTile(tile, col, row)
-                    found = true
-                    break
-                }
-                col++
-            }
-            if (found) break
-            row++
+    val stable = mutableListOf<PlacedTile>()
+    val displaced = mutableListOf<PlacedTile>()
+    for (placement in placed) {
+        val tile = placement.tile
+        if (tileOverlapsRegion(
+                placement.col,
+                placement.row,
+                tile.entry.size.colSpan,
+                tile.entry.size.rowSpan,
+                reserved.col,
+                reserved.row,
+                reserved.colSpan,
+                reserved.rowSpan,
+            )
+        ) {
+            displaced += placement
+        } else {
+            stable += placement
+            markTileCells(
+                occupied,
+                placement.col,
+                placement.row,
+                tile.entry.size.colSpan,
+                tile.entry.size.rowSpan,
+            )
         }
     }
-    return placed
+
+    val repositioned = displaced
+        .sortedWith(compareBy({ it.row }, { it.col }))
+        .map { placement ->
+            val tile = placement.tile
+            val (col, row) = findFirstOpenSlot(
+                occupied,
+                tile.entry.size.colSpan,
+                tile.entry.size.rowSpan,
+                columns,
+                startRow = reserved.row,
+            )
+            markTileCells(occupied, col, row, tile.entry.size.colSpan, tile.entry.size.rowSpan)
+            PlacedTile(tile, col, row)
+        }
+
+    return stable + repositioned
 }
 
 fun tilePixelSize(unit: Dp, colSpan: Int, rowSpan: Int, gap: Dp = TILE_GRID_GAP): Pair<Dp, Dp> {
@@ -190,6 +269,7 @@ fun gridContentHeight(unit: Dp, placed: List<PlacedTile>, gap: Dp = TILE_GRID_GA
     return unit * maxRow + gap * max(0, maxRow - 1)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TileGrid(
     tiles: List<DisplayTile>,
@@ -201,8 +281,34 @@ fun TileGrid(
     onDismissEdit: () -> Unit = {},
     onResize: () -> Unit = {},
     onUnpin: () -> Unit = {},
+    onDragLayout: (List<PlacedTile>) -> Unit = {},
+    onReorderCommit: () -> Unit = {},
+    onDragActiveChange: (Boolean) -> Unit = {},
 ) {
-    val placed = layoutTilesOnGrid(tiles)
+    val density = LocalDensity.current
+    val viewConfiguration = LocalViewConfiguration.current
+    var dragPositionPx by remember { mutableStateOf<Offset?>(null) }
+    var draggingKey by remember { mutableStateOf<TileKey?>(null) }
+    var dragSlotCol by remember { mutableIntStateOf(0) }
+    var dragSlotRow by remember { mutableIntStateOf(0) }
+    var dragBaselinePositions by remember { mutableStateOf<Map<TileKey, Pair<Int, Int>>?>(null) }
+    val isDragging = dragPositionPx != null
+    val tilesState = rememberUpdatedState(tiles)
+    val onDragLayoutState = rememberUpdatedState(onDragLayout)
+    val onReorderCommitState = rememberUpdatedState(onReorderCommit)
+    val onDragActiveChangeState = rememberUpdatedState(onDragActiveChange)
+    val onTileLongPressState = rememberUpdatedState(onTileLongPress)
+
+    LaunchedEffect(editMode) {
+        if (!editMode) {
+            dragPositionPx = null
+            draggingKey = null
+            dragSlotCol = 0
+            dragSlotRow = 0
+            dragBaselinePositions = null
+            onDragActiveChangeState.value(false)
+        }
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         // Edit corner buttons sit half outside the tile; keep enough inset so the discs
@@ -216,12 +322,89 @@ fun TileGrid(
         val topPad = if (editMode) maxOf(8.dp, cornerOverhang) else 8.dp
         val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) /
             TILE_GRID_COLUMNS
+        val cellStridePx = with(density) { (unit + TILE_GRID_GAP).toPx() }
+        val placed = if (isDragging && draggingKey != null) {
+            val dragged = tiles.firstOrNull { it.tileKey() == draggingKey }
+            val baseline = dragBaselinePositions
+            if (dragged != null && baseline != null) {
+                layoutTilesForDrag(tiles, dragged, dragSlotCol, dragSlotRow, baseline)
+            } else {
+                layoutTilesOnGrid(tiles)
+            }
+        } else {
+            layoutTilesOnGrid(tiles)
+        }
         val contentHeight = gridContentHeight(unit, placed)
         val animatedContentHeight by animateDpAsState(
             targetValue = contentHeight + 16.dp + if (editMode) cornerOverhang else 0.dp,
             animationSpec = TileResizeAnimation,
             label = "tileGridHeight",
         )
+
+        fun beginDragAtLayout(
+            tile: DisplayTile,
+            layoutX: Dp,
+            layoutY: Dp,
+            tileWidthPx: Float,
+            tileHeightPx: Float,
+        ) {
+            draggingKey = tile.tileKey()
+            dragBaselinePositions = tilesState.value.associate { current ->
+                current.tileKey() to (current.entry.gridCol!! to current.entry.gridRow!!)
+            }
+            val xPx = with(density) { layoutX.toPx() }
+            val yPx = with(density) { layoutY.toPx() }
+            dragPositionPx = Offset(xPx, yPx)
+            val centerCol = (xPx + tileWidthPx / 2f) / cellStridePx
+            val centerRow = (yPx + tileHeightPx / 2f) / cellStridePx
+            val (slotCol, slotRow) = snapDragSlot(
+                centerCol,
+                centerRow,
+                tile.entry.size.colSpan,
+                tile.entry.size.rowSpan,
+            )
+            dragSlotCol = slotCol
+            dragSlotRow = slotRow
+            onDragActiveChangeState.value(true)
+        }
+
+        fun updateDragBy(
+            amount: Offset,
+            draggedKey: TileKey,
+            tileWidthPx: Float,
+            tileHeightPx: Float,
+        ) {
+            val current = dragPositionPx ?: return
+            val next = current + amount
+            dragPositionPx = next
+            val latestTiles = tilesState.value
+            val dragged = latestTiles.firstOrNull { it.tileKey() == draggedKey } ?: return
+            val baseline = dragBaselinePositions ?: return
+            val centerCol = (next.x + tileWidthPx / 2f) / cellStridePx
+            val centerRow = (next.y + tileHeightPx / 2f) / cellStridePx
+            val (slotCol, slotRow) = snapDragSlot(
+                centerCol,
+                centerRow,
+                dragged.entry.size.colSpan,
+                dragged.entry.size.rowSpan,
+            )
+            dragSlotCol = slotCol
+            dragSlotRow = slotRow
+            val layout = layoutTilesForDrag(latestTiles, dragged, slotCol, slotRow, baseline)
+            onDragLayoutState.value(layout)
+        }
+
+        fun endDrag() {
+            if (dragPositionPx != null) {
+                dragPositionPx = null
+                draggingKey = null
+                dragSlotCol = 0
+                dragSlotRow = 0
+                dragBaselinePositions = null
+                onDragActiveChangeState.value(false)
+                onReorderCommitState.value()
+            }
+        }
 
         Box(
             modifier = Modifier
@@ -243,9 +426,14 @@ fun TileGrid(
         ) {
             placed.forEach { placement ->
                 val tile = placement.tile
-                val isActive = editMode && activeTile?.entry?.packageName == tile.entry.packageName &&
-                    activeTile.entry.tileId == tile.entry.tileId
-                if (editMode && isActive) return@forEach
+                val tileKey = tile.tileKey()
+                val isActive = editMode && activeTile != null && sameTile(activeTile, tile)
+                val tileIsDragging = draggingKey == tileKey && isDragging
+                val layoutX = (unit + TILE_GRID_GAP) * placement.col
+                val layoutY = (unit + TILE_GRID_GAP) * placement.row
+                val layoutXState = rememberUpdatedState(layoutX)
+                val layoutYState = rememberUpdatedState(layoutY)
+                val isActiveState = rememberUpdatedState(isActive)
 
                 key(tile.entry.packageName, tile.entry.tileId) {
                     val (tileWidth, tileHeight) = tilePixelSize(
@@ -256,64 +444,104 @@ fun TileGrid(
                     val bounds = rememberAnimatedTileBounds(
                         width = tileWidth,
                         height = tileHeight,
-                        x = (unit + TILE_GRID_GAP) * placement.col,
-                        y = (unit + TILE_GRID_GAP) * placement.row,
-                        labelPrefix = "tile",
+                        x = layoutX,
+                        y = layoutY,
+                        labelPrefix = if (isActive) "activeTile" else "tile",
                     )
+                    val tileWidthPx = with(density) { tileWidth.toPx() }
+                    val tileHeightPx = with(density) { tileHeight.toPx() }
+                    val dragPx = dragPositionPx.takeIf { tileIsDragging }
+
+                    val positionModifier = if (dragPx != null) {
+                        Modifier
+                            .zIndex(1f)
+                            .offset {
+                                IntOffset(dragPx.x.roundToInt(), dragPx.y.roundToInt())
+                            }
+                    } else {
+                        Modifier
+                            .zIndex(if (isActive) 0.5f else 0f)
+                            .offset(x = bounds.x, y = bounds.y)
+                    }
+
+                    // Edit mode: one gesture scope for tap-to-focus and drag-to-reorder.
+                    // combinedClickable is disabled in edit mode — it waits for pointer-up and
+                    // blocks drag on the same touch sequence.
+                    val tileDragModifier = if (editMode) {
+                        Modifier.pointerInput(tileKey, "editDrag") {
+                            val touchSlop = viewConfiguration.touchSlop
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                down.consume()
+                                val pointerId = down.id
+                                var pastSlop = false
+                                var totalMovement = Offset.Zero
+
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+
+                                    if (!change.pressed) {
+                                        if (!pastSlop && !isActiveState.value) {
+                                            onTileLongPressState.value(tile)
+                                        } else if (pastSlop) {
+                                            endDrag()
+                                        }
+                                        change.consume()
+                                        break
+                                    }
+
+                                    val delta = change.positionChange()
+                                    if (!pastSlop) {
+                                        totalMovement += delta
+                                        if (totalMovement.getDistance() > touchSlop) {
+                                            if (isActiveState.value) {
+                                                pastSlop = true
+                                                beginDragAtLayout(
+                                                    tile,
+                                                    layoutXState.value,
+                                                    layoutYState.value,
+                                                    tileWidthPx,
+                                                    tileHeightPx,
+                                                )
+                                            } else {
+                                                // In edit mode, a different tile must be tapped first to
+                                                // become active before it can participate in drag reorder.
+                                                change.consume()
+                                            }
+                                        }
+                                    }
+                                    if (pastSlop) {
+                                        change.consume()
+                                        updateDragBy(delta, tileKey, tileWidthPx, tileHeightPx)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Modifier
+                    }
 
                     LauncherTileCell(
                         tile = tile,
-                        width = bounds.width,
-                        height = bounds.height,
+                        width = if (dragPx != null) tileWidth else bounds.width,
+                        height = if (dragPx != null) tileHeight else bounds.height,
                         editMode = editMode,
-                        isActive = false,
+                        isActive = isActive,
+                        isDragging = tileIsDragging,
                         onClick = {
-                            if (editMode) onDismissEdit() else onTileClick(tile)
+                            when {
+                                editMode && isActive -> Unit
+                                editMode -> onDismissEdit()
+                                else -> onTileClick(tile)
+                            }
                         },
-                        onLongClick = { if (!editMode) onTileLongPress(tile) },
+                        onLongClick = { onTileLongPress(tile) },
                         onResize = onResize,
                         onUnpin = onUnpin,
-                        modifier = Modifier.offset(x = bounds.x, y = bounds.y),
+                        dragModifier = tileDragModifier,
+                        modifier = positionModifier,
                     )
-                }
-            }
-
-            if (editMode && activeTile != null) {
-                val activePlacement = placed.firstOrNull { placement ->
-                    placement.tile.entry.packageName == activeTile.entry.packageName &&
-                        placement.tile.entry.tileId == activeTile.entry.tileId
-                }
-                if (activePlacement != null) {
-                    key(
-                        activePlacement.tile.entry.packageName,
-                        activePlacement.tile.entry.tileId,
-                        "active",
-                    ) {
-                        val (tileWidth, tileHeight) = tilePixelSize(
-                            unit,
-                            activePlacement.tile.entry.size.colSpan,
-                            activePlacement.tile.entry.size.rowSpan,
-                        )
-                        val bounds = rememberAnimatedTileBounds(
-                            width = tileWidth,
-                            height = tileHeight,
-                            x = (unit + TILE_GRID_GAP) * activePlacement.col,
-                            y = (unit + TILE_GRID_GAP) * activePlacement.row,
-                            labelPrefix = "activeTile",
-                        )
-                        LauncherTileCell(
-                            tile = activePlacement.tile,
-                            width = bounds.width,
-                            height = bounds.height,
-                            editMode = true,
-                            isActive = true,
-                            onClick = {},
-                            onLongClick = {},
-                            onResize = onResize,
-                            onUnpin = onUnpin,
-                            modifier = Modifier.offset(x = bounds.x, y = bounds.y),
-                        )
-                    }
                 }
             }
         }
@@ -328,13 +556,15 @@ private fun LauncherTileCell(
     height: Dp,
     editMode: Boolean,
     isActive: Boolean,
+    isDragging: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onResize: () -> Unit,
     onUnpin: () -> Unit,
+    dragModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
 ) {
-    val dimmed = editMode && !isActive
+    val dimmed = editMode && !isActive && !isDragging
     val density = LocalDensity.current
     val floatSeed = remember(tile.entry.packageName, tile.entry.tileId) {
         tile.entry.packageName.hashCode() * 31 + tile.entry.tileId.hashCode()
@@ -377,22 +607,26 @@ private fun LauncherTileCell(
             .graphicsLayer {
                 alpha = if (dimmed) 0.45f else 1f
                 scaleX = when {
+                    isDragging -> 1.06f
                     isActive -> 1.02f
                     dimmed -> 0.97f
                     else -> 1f
                 }
                 scaleY = when {
+                    isDragging -> 1.06f
                     isActive -> 1.02f
                     dimmed -> 0.97f
                     else -> 1f
                 }
-                translationX = floatTx
-                translationY = floatTy
+                translationX = if (isDragging) 0f else floatTx
+                translationY = if (isDragging) 0f else floatTy
             }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
-            ),
+                enabled = !editMode && !isDragging,
+            )
+            .then(dragModifier),
     ) {
         // Flip tiles keep a black void in the slot; the accent fill rides on the rotating
         // face so the Start-screen black shows through during the 3D flip.
@@ -528,7 +762,7 @@ private fun LauncherTileCell(
                 }
             }
         }
-        if (isActive) {
+        if (isActive && !isDragging) {
             val cornerOffset = TileCornerButtonSize / 2
             TileEditCornerButton(
                 onClick = onUnpin,

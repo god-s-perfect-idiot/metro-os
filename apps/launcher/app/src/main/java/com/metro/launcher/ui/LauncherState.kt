@@ -13,6 +13,8 @@ import com.metro.launcher.BuildConfig
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.PinnedTileEntry
+import com.metro.launcher.data.compactEmptyRows
+import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileNotificationAccess
 import com.metro.launcher.data.TileSizeCycle
@@ -184,6 +186,71 @@ class LauncherState(context: Context) {
         editingTile = null
     }
 
+    /**
+     * Live magnet preview while dragging in edit mode. Updates in-memory grid positions only;
+     * call [commitTileOrder] on drag end to persist.
+     */
+    fun applyDragLayout(placements: List<PlacedTile>) {
+        displayTiles = displayTiles.map { tile ->
+            val placement = placements.firstOrNull { sameTile(it.tile, tile) }
+            if (placement != null) {
+                tile.copy(
+                    entry = tile.entry.copy(
+                        gridCol = placement.col,
+                        gridRow = placement.row,
+                    ),
+                )
+            } else {
+                tile
+            }
+        }
+        val editing = editingTile ?: return
+        editingTile = displayTiles.firstOrNull {
+            it.entry.packageName == editing.entry.packageName &&
+                it.entry.tileId == editing.entry.tileId
+        }
+    }
+
+    fun commitTileOrder() {
+        pinnedEntries = compactEmptyRows(
+            pinnedEntries.map { entry ->
+                val display = displayTiles.firstOrNull {
+                    it.entry.packageName == entry.packageName && it.entry.tileId == entry.tileId
+                }
+                if (display != null) {
+                    entry.copy(
+                        gridCol = display.entry.gridCol,
+                        gridRow = display.entry.gridRow,
+                    )
+                } else {
+                    entry
+                }
+            },
+        )
+        displayTiles = displayTiles.map { tile ->
+            val entry = pinnedEntries.firstOrNull {
+                it.packageName == tile.entry.packageName && it.tileId == tile.entry.tileId
+            }
+            if (entry != null) {
+                tile.copy(
+                    entry = tile.entry.copy(
+                        gridCol = entry.gridCol,
+                        gridRow = entry.gridRow,
+                    ),
+                )
+            } else {
+                tile
+            }
+        }
+        editingTile = editingTile?.let { editing ->
+            displayTiles.firstOrNull {
+                it.entry.packageName == editing.entry.packageName &&
+                    it.entry.tileId == editing.entry.tileId
+            }
+        }
+        repository.savePinnedTiles(pinnedEntries)
+    }
+
     fun updateTileSize(entry: PinnedTileEntry, size: PinnedTileSize) {
         pinnedEntries = pinnedEntries.map {
             if (it.packageName == entry.packageName && it.tileId == entry.tileId) it.copy(size = size) else it
@@ -200,7 +267,7 @@ class LauncherState(context: Context) {
 
     fun pinApp(app: MetroAppInfo) {
         if (pinnedEntries.any { it.packageName == app.packageName }) return
-        pinnedEntries = pinnedEntries + PinnedTileEntry(app.packageName)
+        pinnedEntries = ensureGridPositions(pinnedEntries + PinnedTileEntry(app.packageName))
         persistAndRefresh()
         currentPage = 0
     }
@@ -227,6 +294,7 @@ class LauncherState(context: Context) {
     }
 
     private fun persistAndRefresh() {
+        pinnedEntries = compactEmptyRows(pinnedEntries)
         repository.savePinnedTiles(pinnedEntries)
         displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
         apps = repository.discoverApps(pinnedEntries)

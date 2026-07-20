@@ -4,6 +4,11 @@ import com.metro.system.MetroStatusBar
 
 object TraySpec {
     const val TRAY_HEIGHT_DP = MetroStatusBar.HEIGHT_DP
+    const val START_PADDING_DP = 10
+    const val END_PADDING_DP = 2
+    const val PRIVACY_INDICATOR_GAP_DP = 2
+    /** Gap between cellular signal bars and the data connection label (4G, 5G, …). */
+    const val CELLULAR_DATA_LABEL_GAP_DP = 2
     const val EXPAND_ANIMATION_MS = 200L
     const val COLLAPSE_ANIMATION_MS = 200L
     const val AUTO_COLLAPSE_MS = MetroStatusBar.AUTO_COLLAPSE_MS
@@ -91,6 +96,8 @@ data class TraySnapshot(
     val expanded: Boolean,
     val showProgress: Boolean,
     val indicators: List<TrayIndicator>,
+    /** WP8.1 data connection label (4G, LTE, 5G, 3G, 2G, G) shown after cellular bars. */
+    val dataConnectionLabel: String?,
     val battery: BatteryStatus,
     val theme: TrayThemeSnapshot,
 )
@@ -99,6 +106,7 @@ object TrayIndicatorOrder {
     /** Left-side icons shown in the resting (collapsed) tray — common connection indicators. */
     val collapsed: List<TrayIndicator> = listOf(
         TrayIndicator.Cellular,
+        TrayIndicator.DataConnection,
         TrayIndicator.Wifi,
     )
 

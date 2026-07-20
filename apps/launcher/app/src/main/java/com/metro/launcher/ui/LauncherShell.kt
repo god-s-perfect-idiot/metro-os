@@ -64,13 +64,15 @@ fun LauncherShell(
                 0 -> StartScreen(
                     tiles = state.displayTiles,
                     onTileClick = if (editing) ({}) else state::onTileClick,
-                    onTileLongPress = if (editing) ({}) else state::onTileLongPress,
+                    onTileLongPress = state::onTileLongPress,
                     onOpenAppList = { state.currentPage = 1 },
                     editMode = editing,
                     editingTile = state.editingTile,
                     onDismissEdit = state::dismissEdit,
                     onResize = state::resizeEditingTile,
                     onUnpin = state::unpinEditingTile,
+                    onDragLayout = state::applyDragLayout,
+                    onReorderCommit = state::commitTileOrder,
                     modifier = Modifier.testTag("metro_page_start"),
                 )
                 1 -> AppListScreen(

@@ -28,7 +28,13 @@ data class PinnedTileEntry(
     val packageName: String,
     val tileId: String = "primary",
     val size: PinnedTileSize = PinnedTileSize.TwoByTwo,
+    /** Top-left grid column; assigned on first layout when null. */
+    val gridCol: Int? = null,
+    /** Top-left grid row; assigned on first layout when null. */
+    val gridRow: Int? = null,
 )
+
+fun PinnedTileEntry.hasGridPosition(): Boolean = gridCol != null && gridRow != null
 
 object TileSizeCycle {
     fun nextSize(current: PinnedTileSize): PinnedTileSize = when (current) {

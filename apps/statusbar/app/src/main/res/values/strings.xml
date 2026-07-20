@@ -11,6 +11,7 @@
     <string name="permission_accessibility_body">Required to draw above the system status bar.</string>
     <string name="start_overlay">Start status tray</string>
     <string name="grant_overlay">Grant overlay permission</string>
+    <string name="grant_phone_state">Allow mobile network label</string>
     <string name="grant_accessibility">Enable status tray service</string>
     <string name="tray_clock">Clock</string>
 </resources>

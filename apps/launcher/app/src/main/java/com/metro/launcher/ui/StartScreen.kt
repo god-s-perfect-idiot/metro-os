@@ -11,10 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.DisplayTile
 import com.metro.ui.MetroCircleIconButton
@@ -38,56 +44,71 @@ fun StartScreen(
     onDismissEdit: () -> Unit = {},
     onResize: () -> Unit = {},
     onUnpin: () -> Unit = {},
+    onDragLayout: (List<PlacedTile>) -> Unit = {},
+    onReorderCommit: () -> Unit = {},
 ) {
     // verticalScroll consumes blank taps, so edit-mode dismiss must live on this surface —
     // not only on the dim scrim behind the grid (which never receives those events).
     val editDismissInteraction = remember { MutableInteractionSource() }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .verticalScroll(rememberScrollState())
-            .then(
-                if (editMode) {
-                    Modifier.clickable(
-                        interactionSource = editDismissInteraction,
-                        indication = null,
-                        onClick = onDismissEdit,
-                    )
-                } else {
-                    Modifier
-                },
-            ),
-    ) {
-        TileGrid(
-            tiles = tiles,
-            onTileClick = onTileClick,
-            onTileLongPress = onTileLongPress,
-            editMode = editMode,
-            activeTile = editingTile,
-            onDismissEdit = onDismissEdit,
-            onResize = onResize,
-            onUnpin = onUnpin,
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = TILE_GRID_PADDING,
-                    end = TILE_GRID_PADDING,
-                    top = TILE_GRID_GAP,
-                    bottom = StartBottomScrollPadding,
+    var tileDragging by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val viewConfiguration = LocalViewConfiguration.current
+    val fastPressConfiguration = remember(viewConfiguration) {
+        object : ViewConfiguration by viewConfiguration {
+            override val longPressTimeoutMillis: Long = TILE_DRAG_HOLD_MS
+        }
+    }
+    CompositionLocalProvider(LocalViewConfiguration provides fastPressConfiguration) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .verticalScroll(scrollState, enabled = !tileDragging)
+                .then(
+                    if (editMode) {
+                        Modifier.clickable(
+                            interactionSource = editDismissInteraction,
+                            indication = null,
+                            onClick = onDismissEdit,
+                        )
+                    } else {
+                        Modifier
+                    },
                 ),
-            contentAlignment = Alignment.CenterEnd,
         ) {
-            if (!editMode) {
-                MetroCircleIconButton(
-                    type = MetroSystemIconType.Forward,
-                    onClick = onOpenAppList,
-                    size = 64.dp,
-                    contentDescription = "app list",
-                )
+            TileGrid(
+                tiles = tiles,
+                onTileClick = onTileClick,
+                onTileLongPress = onTileLongPress,
+                editMode = editMode,
+                activeTile = editingTile,
+                onDismissEdit = onDismissEdit,
+                onResize = onResize,
+                onUnpin = onUnpin,
+                onDragLayout = onDragLayout,
+                onReorderCommit = onReorderCommit,
+                onDragActiveChange = { tileDragging = it },
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = TILE_GRID_PADDING,
+                        end = TILE_GRID_PADDING,
+                        top = TILE_GRID_GAP,
+                        bottom = StartBottomScrollPadding,
+                    ),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                if (!editMode) {
+                    MetroCircleIconButton(
+                        type = MetroSystemIconType.Forward,
+                        onClick = onOpenAppList,
+                        size = 64.dp,
+                        contentDescription = "app list",
+                    )
+                }
             }
         }
     }

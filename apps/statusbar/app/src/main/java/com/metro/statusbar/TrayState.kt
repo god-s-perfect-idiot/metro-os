@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.telephony.TelephonyCallback
+import android.telephony.TelephonyDisplayInfo
+import android.telephony.TelephonyManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,8 +38,14 @@ class TrayState(context: Context) {
     var battery by mutableStateOf(BatteryStatus.Unknown)
         private set
 
+    var dataConnectionLabel by mutableStateOf<String?>(null)
+        private set
+
     var lastExpandedAtMs by mutableLongStateOf(0L)
         private set
+
+    private var telephonyManager: TelephonyManager? = null
+    private var telephonyCallback: TelephonyCallback? = null
 
     val snapshot: TraySnapshot
         get() = TraySnapshot(
@@ -44,6 +53,7 @@ class TrayState(context: Context) {
             expanded = expanded,
             showProgress = showProgress,
             indicators = if (expanded) TrayIndicatorOrder.expanded else TrayIndicatorOrder.collapsed,
+            dataConnectionLabel = dataConnectionLabel,
             battery = battery,
             theme = theme,
         )
@@ -74,6 +84,10 @@ class TrayState(context: Context) {
 
     fun refreshBattery() {
         battery = BatterySource.current(appContext)
+    }
+
+    fun refreshDataConnectionLabel() {
+        dataConnectionLabel = CellularDataSource.current(appContext)
     }
 
     fun expand(nowMs: Long = System.currentTimeMillis()) {
@@ -122,10 +136,44 @@ class TrayState(context: Context) {
             IntentFilter(Intent.ACTION_BATTERY_CHANGED),
         )
         battery = BatterySource.parse(sticky)
+        refreshDataConnectionLabel()
+        registerTelephonyUpdates(context)
     }
 
     fun unregisterReceivers(context: Context) {
         runCatching { context.unregisterReceiver(themeReceiver) }
         runCatching { context.unregisterReceiver(batteryReceiver) }
+        unregisterTelephonyUpdates()
+    }
+
+    private fun registerTelephonyUpdates(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        if (!CellularDataSource.canRead(context)) return
+        val manager = context.getSystemService(TelephonyManager::class.java) ?: return
+        telephonyManager = manager
+        val callback = object : TelephonyCallback(), TelephonyCallback.DisplayInfoListener {
+            override fun onDisplayInfoChanged(displayInfo: TelephonyDisplayInfo) {
+                dataConnectionLabel = DataConnectionLabels.fromDisplayInfo(
+                    networkType = displayInfo.networkType,
+                    overrideNetworkType = displayInfo.overrideNetworkType,
+                )
+            }
+        }
+        telephonyCallback = callback
+        runCatching {
+            manager.registerTelephonyCallback(context.mainExecutor, callback)
+        }.onFailure {
+            telephonyManager = null
+            telephonyCallback = null
+        }
+    }
+
+    private fun unregisterTelephonyUpdates() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val manager = telephonyManager ?: return
+        val callback = telephonyCallback ?: return
+        runCatching { manager.unregisterTelephonyCallback(callback) }
+        telephonyManager = null
+        telephonyCallback = null
     }
 }

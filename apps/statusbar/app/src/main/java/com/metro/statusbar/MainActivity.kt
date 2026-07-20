@@ -1,10 +1,14 @@
 package com.metro.statusbar
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.statusbar.ui.StatusTray
@@ -62,6 +67,18 @@ class MainActivity : ComponentActivity() {
 
             val overlayGranted = remember(permissionTick) { Settings.canDrawOverlays(context) }
             val accessibilityEnabled = remember(permissionTick) { StatusBarAccessibilityService.isEnabled() }
+            val phoneStateGranted = remember(permissionTick) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
+                    PackageManager.PERMISSION_GRANTED
+            }
+            val phoneStatePermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission(),
+            ) { granted ->
+                permissionTick++
+                if (granted) {
+                    state.refreshDataConnectionLabel()
+                }
+            }
 
             MetroTheme(
                 darkTheme = state.theme.darkTheme,
@@ -97,6 +114,15 @@ class MainActivity : ComponentActivity() {
                                     Uri.parse("package:$packageName"),
                                 ),
                             )
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    MetroBorderButton(
+                        text = stringResource(R.string.grant_phone_state),
+                        enabled = !phoneStateGranted,
+                        onClick = {
+                            phoneStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
                     )

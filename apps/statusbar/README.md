@@ -8,7 +8,7 @@
 **Implemented** — renders the WP8.1 system tray on top of the Android status bar: collapsed clock,
 tap-to-expand indicator row, minute-boundary clock ticks, 8s auto-collapse, indeterminate progress
 affordance, and per-app opaque/translucent/hidden modes. Battery is real device telemetry
-(`ACTION_BATTERY_CHANGED`) with proportional fill + charging bolt; the remaining radio indicators are
+(`ACTION_BATTERY_CHANGED`) with proportional fill + charging plug; the remaining radio indicators are
 static v1 glyphs. The tray auto-starts on boot once permissions are granted, and exposes its per-app
 contract via `MetroStatusBar` in `metro-system-sdk`.
 

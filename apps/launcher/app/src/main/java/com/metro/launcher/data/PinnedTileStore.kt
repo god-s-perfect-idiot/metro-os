@@ -27,7 +27,11 @@ class PinnedTileStore(context: Context) {
                 JSONObject()
                     .put("package", tile.packageName)
                     .put("tileId", tile.tileId)
-                    .put("size", tile.size.storageValue),
+                    .put("size", tile.size.storageValue)
+                    .apply {
+                        tile.gridCol?.let { put("col", it) }
+                        tile.gridRow?.let { put("row", it) }
+                    },
             )
         }
         prefs.edit().putString(KEY_PINS, array.toString()).apply()
@@ -54,6 +58,8 @@ class PinnedTileStore(context: Context) {
                             packageName = obj.getString("package"),
                             tileId = obj.optString("tileId", "primary"),
                             size = PinnedTileSize.fromStorage(obj.optString("size", "medium")),
+                            gridCol = obj.optInt("col", -1).takeIf { it >= 0 },
+                            gridRow = obj.optInt("row", -1).takeIf { it >= 0 },
                         ),
                     )
                 }

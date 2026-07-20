@@ -14,6 +14,8 @@ import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
 import com.metro.system.MetroTilePhotoGrid
+import com.metro.launcher.data.compactEmptyRows
+import com.metro.launcher.data.ensureGridPositions
 import com.metro.system.MetroAppBranding
 
 data class DisplayTile(
@@ -36,10 +38,11 @@ class LauncherRepository(private val context: Context) {
     fun loadPinnedTiles(): List<PinnedTileEntry> {
         val loaded = store.load()
         val installed = loaded.filter { isPackageInstalled(it.packageName) }
-        if (installed.size != loaded.size) {
-            store.save(installed)
+        val positioned = compactEmptyRows(ensureGridPositions(installed))
+        if (installed.size != loaded.size || positioned != installed) {
+            store.save(positioned)
         }
-        return installed
+        return positioned
     }
 
     fun savePinnedTiles(tiles: List<PinnedTileEntry>) = store.save(tiles)

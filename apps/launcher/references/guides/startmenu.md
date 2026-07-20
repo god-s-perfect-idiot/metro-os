@@ -50,6 +50,8 @@ Tiles snap flat; live updates resume; layout persists.
 | Dimmed Start behind | Scrim + dimmed non-active tiles in grid |
 | Floating idle tiles | Non-active tiles drift independently (`rememberTileIdleFloat`) |
 | Lifted tile | Active tile `scale 1.02` in place (stationary) |
+| Drag under thumb | Dragged tile follows pointer (`dragPositionPx`), `scale 1.06` |
+| Magnet reflow | `insertIndexForPointer` + list reorder; others animate via `rememberAnimatedTileBounds` |
 | Unpin top-right | `TileCornerButton` aligned top-end of tile |
 | Resize bottom-right | `TileCornerButton` aligned bottom-end of tile |
 | Tap blank to dismiss | Scrim `clickable` → `onDismiss` |

@@ -14,12 +14,12 @@ Blueprint: [`guides/blueprint.md`](guides/blueprint.md)
 | Navigation | Bottom-right → arrow opens app menu |
 | Live tile flip (600ms) | Notification / peek back faces flip with 600ms turnstile |
 | Notification → live tile | `TileNotificationListenerService` → badges + flip peeks |
+| Tile drag reorder | Long-press then drag: floating tile under thumb, magnet reflow, persist on drop |
 
 ## Remaining
 
 | Gap | Blueprint / reference |
 |-----|----------------------|
-| Tile drag reorder | blueprint + startmenu.md |
 | Real app icons in app list | `images/applist_dark_blue.png` |
 | Pin from app list | — |
 

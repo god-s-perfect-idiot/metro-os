@@ -50,7 +50,11 @@ class TrayCollapseSchedulerTest {
     @Test
     fun collapsedTray_showsBaseConnectionIndicators() {
         assertEquals(
-            listOf(TrayIndicator.Cellular, TrayIndicator.Wifi),
+            listOf(
+                TrayIndicator.Cellular,
+                TrayIndicator.DataConnection,
+                TrayIndicator.Wifi,
+            ),
             TrayIndicatorOrder.collapsed,
         )
     }

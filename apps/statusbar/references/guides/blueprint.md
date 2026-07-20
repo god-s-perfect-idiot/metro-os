@@ -33,7 +33,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | Theme | Observe `com.metro.system.THEME_CHANGED` |
 | Visibility | Apps request opaque / translucent (0.5) / hidden modes via future `metro-system-sdk` API |
 | Overlay | `SYSTEM_ALERT_WINDOW` foreground service, hosted as a `TYPE_ACCESSIBILITY_OVERLAY` so it draws above the native status bar |
-| Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally and shows a bolt while charging |
+| Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally and shows a plug while charging |
 | Coverage | Window height = system status-bar inset (incl. cutout), so the Android bar is fully covered |
 
 ## Images

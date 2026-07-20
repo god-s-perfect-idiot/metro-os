@@ -21,7 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -43,10 +46,14 @@ import com.metro.statusbar.TrayVisibilityMode
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 
-private val GlyphHeight = 13.dp
-private val GlyphWidth = 15.dp
-private val DataGlyphWidth = 20.dp
-private val BatteryWidth = 22.dp
+private val GlyphHeight = 14.dp
+private val GlyphWidth = 16.dp
+private val WifiGlyphHeight = 17.dp
+private val WifiGlyphWidth = 23.dp
+private val DataGlyphWidth = 22.dp
+// WP8.1 battery sits close to clock cap height, with a slightly longer and shallower silhouette.
+private val BatteryWidth = 29.dp
+private val BatteryHeight = 14.dp
 
 /**
  * WP8.1 system tray.
@@ -62,6 +69,8 @@ fun StatusTray(
     onTrayTap: () -> Unit,
     modifier: Modifier = Modifier,
     barHeightDp: Int = TraySpec.TRAY_HEIGHT_DP,
+    startPaddingDp: Int = TraySpec.START_PADDING_DP,
+    endPaddingDp: Int = TraySpec.END_PADDING_DP,
 ) {
     if (snapshot.theme.visibilityMode == TrayVisibilityMode.Hidden) return
 
@@ -78,7 +87,7 @@ fun StatusTray(
                 indication = null,
                 onClick = onTrayTap,
             )
-            .padding(horizontal = 10.dp)
+            .padding(start = startPaddingDp.dp, end = endPaddingDp.dp)
             .testTag("metro_status_tray"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -89,18 +98,12 @@ fun StatusTray(
             modifier = Modifier.weight(1f),
             label = "tray_indicators",
         ) { _ ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                snapshot.indicators.forEach { indicator ->
-                    TrayIndicatorItem(
-                        indicator = indicator,
-                        color = foreground,
-                        backgroundColor = background,
-                    )
-                }
-            }
+            TrayIndicatorRow(
+                indicators = snapshot.indicators,
+                color = foreground,
+                backgroundColor = background,
+                dataConnectionLabel = snapshot.dataConnectionLabel,
+            )
         }
 
         Row(
@@ -111,7 +114,11 @@ fun StatusTray(
                 TrayProgressSpinner(color = snapshot.theme.accentColor)
             }
             if (snapshot.battery.present) {
-                TrayBatteryGlyph(battery = snapshot.battery, color = foreground)
+                TrayBatteryGlyph(
+                    battery = snapshot.battery,
+                    color = foreground,
+                    backgroundColor = background,
+                )
             }
             MetroText(
                 text = snapshot.clockText,
@@ -124,15 +131,73 @@ fun StatusTray(
 }
 
 @Composable
+private fun TrayIndicatorRow(
+    indicators: List<TrayIndicator>,
+    color: Color,
+    backgroundColor: Color,
+    dataConnectionLabel: String?,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        var index = 0
+        while (index < indicators.size) {
+            val indicator = indicators[index]
+            val next = indicators.getOrNull(index + 1)
+            val showDataLabel = indicator == TrayIndicator.Cellular &&
+                next == TrayIndicator.DataConnection &&
+                dataConnectionLabel != null
+            if (showDataLabel) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(TraySpec.CELLULAR_DATA_LABEL_GAP_DP.dp),
+                ) {
+                    TrayIndicatorItem(
+                        indicator = TrayIndicator.Cellular,
+                        color = color,
+                        backgroundColor = backgroundColor,
+                    )
+                    TrayIndicatorItem(
+                        indicator = TrayIndicator.DataConnection,
+                        color = color,
+                        backgroundColor = backgroundColor,
+                        dataConnectionLabel = dataConnectionLabel,
+                    )
+                }
+                index += 2
+            } else {
+                if (indicator == TrayIndicator.DataConnection && dataConnectionLabel == null) {
+                    index++
+                    continue
+                }
+                TrayIndicatorItem(
+                    indicator = indicator,
+                    color = color,
+                    backgroundColor = backgroundColor,
+                    dataConnectionLabel = dataConnectionLabel,
+                )
+                index++
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrayIndicatorItem(
     indicator: TrayIndicator,
     color: Color,
     backgroundColor: Color,
+    dataConnectionLabel: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val width = if (indicator == TrayIndicator.DataConnection) DataGlyphWidth else GlyphWidth
-    Canvas(modifier = modifier.size(width = width, height = GlyphHeight)) {
-        drawIndicator(indicator, color, backgroundColor)
+    val (width, height) = when (indicator) {
+        TrayIndicator.DataConnection -> DataGlyphWidth to GlyphHeight
+        TrayIndicator.Wifi -> WifiGlyphWidth to WifiGlyphHeight
+        else -> GlyphWidth to GlyphHeight
+    }
+    Canvas(modifier = modifier.size(width = width, height = height)) {
+        drawIndicator(indicator, color, backgroundColor, dataConnectionLabel)
     }
 }
 
@@ -140,13 +205,14 @@ private fun DrawScope.drawIndicator(
     indicator: TrayIndicator,
     color: Color,
     backgroundColor: Color,
+    dataConnectionLabel: String? = null,
 ) {
     val w = size.width
     val h = size.height
     when (indicator) {
         TrayIndicator.Cellular -> {
-            val barWidth = w * 0.16f
-            val gap = w * 0.11f
+            val barWidth = w * 0.20f
+            val gap = w * 0.065f
             repeat(4) { index ->
                 val barHeight = h * (0.4f + index * 0.2f)
                 drawRect(
@@ -157,16 +223,17 @@ private fun DrawScope.drawIndicator(
             }
         }
         TrayIndicator.DataConnection -> {
+            val label = dataConnectionLabel ?: return
             drawContext.canvas.nativeCanvas.drawText(
-                "4G",
+                label,
                 w / 2f,
                 h * 0.86f,
                 Paint().apply {
                     this.color = color.toArgb()
-                    textSize = h * 1.05f
+                    textSize = h * 1.1f
                     isAntiAlias = true
                     textAlign = Paint.Align.CENTER
-                    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
                 },
             )
         }
@@ -191,20 +258,23 @@ private fun DrawScope.drawIndicator(
             drawPath(tri, color)
         }
         TrayIndicator.Wifi -> {
-            val stroke = Stroke(width = w * 0.09f, cap = StrokeCap.Round)
+            // WP8.1 Wi-Fi keeps the quarter-arc silhouette, but the bands end flat rather than
+            // using the softer Android rounded stroke treatment.
+            val stroke = Stroke(width = w * 0.102f, cap = StrokeCap.Butt)
+            val anchor = Offset(w * 0.84f, h * 0.86f)
             repeat(3) { band ->
-                val radius = w * (0.18f + band * 0.16f)
+                val radius = w * (0.15f + band * 0.165f)
                 drawArc(
                     color = color,
-                    startAngle = 225f,
+                    startAngle = 180f,
                     sweepAngle = 90f,
                     useCenter = false,
-                    topLeft = Offset(w / 2f - radius, h * 0.82f - radius),
+                    topLeft = Offset(anchor.x - radius, anchor.y - radius),
                     size = Size(radius * 2f, radius * 2f),
                     style = stroke,
                 )
             }
-            drawCircle(color, w * 0.05f, Offset(w / 2f, h * 0.82f))
+            drawCircle(color, w * 0.077f, anchor)
         }
         TrayIndicator.Bluetooth -> {
             val stroke = h * 0.1f
@@ -280,28 +350,74 @@ private fun DrawScope.drawRoundRectPath(
     drawRect(color = color, topLeft = Offset(left, top), size = Size(right - left, bottom - top))
 }
 
+/** WP8.1 charging overlay: two-prong plug with cord, outlined so it reads on the fill. */
+private fun DrawScope.drawChargingPlug(
+    centerX: Float,
+    centerY: Float,
+    bodyWidth: Float,
+    bodyHeight: Float,
+    fill: Color,
+    outline: Color,
+) {
+    val plugW = bodyWidth * 0.34f
+    val prongW = plugW * 0.17f
+    val prongH = bodyHeight * 0.44f
+    val gap = plugW * 0.20f
+    val headH = bodyHeight * 0.26f
+    val cordH = bodyHeight * 0.14f
+    val corner = CornerRadius(prongW * 0.45f, prongW * 0.45f)
+    val outlineW = maxOf(1.2f, size.height * 0.05f)
+
+    val headTop = centerY - headH * 0.25f
+    val prongTop = headTop - prongH + prongH * 0.12f
+    val leftProngX = centerX - gap / 2f - prongW
+    val rightProngX = centerX + gap / 2f
+    val headLeft = centerX - plugW / 2f
+    val cordW = prongW * 0.85f
+    val cordTop = headTop + headH
+
+    val plug = Path().apply {
+        addRect(Rect(Offset(leftProngX, prongTop), Size(prongW, prongH)))
+        addRect(Rect(Offset(rightProngX, prongTop), Size(prongW, prongH)))
+        addRoundRect(
+            RoundRect(
+                left = headLeft,
+                top = headTop,
+                right = headLeft + plugW,
+                bottom = headTop + headH,
+                cornerRadius = corner,
+            ),
+        )
+        addRect(Rect(Offset(centerX - cordW / 2f, cordTop), Size(cordW, cordH)))
+    }
+    drawPath(plug, color = outline, style = Stroke(width = outlineW * 2f))
+    drawPath(plug, color = fill)
+}
+
 @Composable
 private fun TrayBatteryGlyph(
     battery: BatteryStatus,
     color: Color,
+    backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    Canvas(modifier = modifier.size(width = BatteryWidth, height = GlyphHeight)) {
-        val bodyWidth = size.width * 0.82f
-        val bodyHeight = size.height * 0.5f
+    Canvas(modifier = modifier.size(width = BatteryWidth, height = BatteryHeight)) {
+        val bodyWidth = size.width * 0.898f
+        val bodyHeight = size.height * 0.78f
         val left = 0f
         val top = (size.height - bodyHeight) / 2f
-        val stroke = Stroke(width = size.height * 0.08f)
+        val stroke = Stroke(width = bodyHeight * 0.078f)
         drawRect(
             color = color,
             topLeft = Offset(left, top),
             size = Size(bodyWidth, bodyHeight),
             style = stroke,
         )
+        val nubWidth = size.width - bodyWidth
         drawRect(
             color = color,
-            topLeft = Offset(left + bodyWidth, top + bodyHeight * 0.28f),
-            size = Size(size.width * 0.08f, bodyHeight * 0.44f),
+            topLeft = Offset(left + bodyWidth, top + bodyHeight * 0.30f),
+            size = Size(nubWidth, bodyHeight * 0.40f),
         )
         val inset = stroke.width * 1.8f
         val fillTrackWidth = bodyWidth - inset * 2f
@@ -314,20 +430,14 @@ private fun TrayBatteryGlyph(
             )
         }
         if (battery.charging) {
-            val cx = left + bodyWidth * 0.6f
-            val cy = size.height / 2f
-            val bh = bodyHeight * 0.66f
-            val bw = bodyWidth * 0.12f
-            val bolt = Path().apply {
-                moveTo(cx + bw * 0.4f, cy - bh)
-                lineTo(cx - bw, cy + bh * 0.2f)
-                lineTo(cx, cy + bh * 0.2f)
-                lineTo(cx - bw * 0.4f, cy + bh)
-                lineTo(cx + bw, cy - bh * 0.2f)
-                lineTo(cx, cy - bh * 0.2f)
-                close()
-            }
-            drawPath(bolt, color = color)
+            drawChargingPlug(
+                centerX = left + bodyWidth * 0.5f,
+                centerY = top + bodyHeight / 2f,
+                bodyWidth = bodyWidth,
+                bodyHeight = bodyHeight,
+                fill = color,
+                outline = backgroundColor,
+            )
         }
     }
 }

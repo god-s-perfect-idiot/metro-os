@@ -51,8 +51,10 @@ object BatterySource {
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
-        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-            status == BatteryManager.BATTERY_STATUS_FULL
+        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+        // Plug state is stable; status alone flickers (CHARGING ↔ NOT_CHARGING) during trickle /
+        // adaptive charging while the cable stays connected.
+        val charging = plugged != 0 && status != BatteryManager.BATTERY_STATUS_DISCHARGING
         return BatteryStatus.fromLevel(level, scale, charging).copy(present = present)
     }
 
