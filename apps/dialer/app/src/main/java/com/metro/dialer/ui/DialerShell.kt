@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.dialer.R
+import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroHubTitleMode
 import com.metro.ui.MetroHubTitleRow
 import com.metro.ui.MetroText
@@ -75,6 +76,8 @@ fun DialerShell(
                         onQueryChange = state::updateSearchQuery,
                     )
                 }
+
+                MetroAppTitle(title = stringResource(R.string.app_name))
 
                 MetroHubTitleRow(
                     titles = listOf("history", "dialpad", "speed dial"),

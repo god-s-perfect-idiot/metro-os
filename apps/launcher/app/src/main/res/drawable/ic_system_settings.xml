@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 Settings glyph: 8-tooth cog with hollow hub.
+     Scaled into the adaptive-icon safe zone (~72% of the 108dp canvas). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Gear -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,40c-7.7,0 -14,6.3 -14,14s6.3,14 14,14s14,-6.3 14,-14s-6.3,-14 -14,-14zM54,62c-4.4,0 -8,-3.6 -8,-8s3.6,-8 8,-8s8,3.6 8,8s-3.6,8 -8,8z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,24l4,10l10,2l-7,8l2,10l-9,-5l-9,5l2,-10l-7,-8l10,-2z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M47.26,17.62L60.74,17.62L59.74,29.15L61.37,29.59L62.97,30.13L64.53,30.78L66.05,31.53L67.51,32.37L74.96,23.51L84.49,33.04L75.63,40.49L76.47,41.95L77.22,43.47L77.87,45.03L78.41,46.63L78.85,48.26L90.38,47.26L90.38,60.74L78.85,59.74L78.41,61.37L77.87,62.97L77.22,64.53L76.47,66.05L75.63,67.51L84.49,74.96L74.96,84.49L67.51,75.63L66.05,76.47L64.53,77.22L62.97,77.87L61.37,78.41L59.74,78.85L60.74,90.38L47.26,90.38L48.26,78.85L46.63,78.41L45.03,77.87L43.47,77.22L41.95,76.47L40.49,75.63L33.04,84.49L23.51,74.96L32.37,67.51L31.53,66.05L30.78,64.53L30.13,62.97L29.59,61.37L29.15,59.74L17.62,60.74L17.62,47.26L29.15,48.26L29.59,46.63L30.13,45.03L30.78,43.47L31.53,41.95L32.37,40.49L23.51,33.04L33.04,23.51L40.49,32.37L41.95,31.53L43.47,30.78L45.03,30.13L46.63,29.59L48.26,29.15ZM65.50,54.00A11.50,11.50 0 1,1 42.50,54.00A11.50,11.50 0 1,1 65.50,54.00Z" />
+    </group>
 </vector>
