@@ -20,9 +20,14 @@ data class AppIconAsset(
 )
 
 /**
- * Resolves installed-app icon and brand color for launcher surfaces.
+ * Resolves installed-app icon and tile background for launcher surfaces.
  *
- * Color precedence: live tile contract → `ic_launcher_background` resource → default accent.
+ * Tile fill precedence:
+ * 1. [MetroAppRegistry.strongBrandHex] (explicit fixed brand)
+ * 2. System / Metro suite apps → current [MetroPreferences] accent
+ * 3. Live tile `backgroundColorHex` (third-party providers)
+ * 4. Adaptive icon / `ic_launcher_background` (third-party brand)
+ * 5. Default accent
  *
  * Adaptive icons are unwrapped to their **foreground** layer only. WP8.1 tiles and the app list
  * are square; Android's adaptive squircle/circle mask must not clip Metro glyphs.
@@ -46,7 +51,7 @@ object MetroAppBranding {
         } catch (_: PackageManager.NameNotFoundException) {
             null
         }
-        val backgroundColor = resolveIconBackgroundColor(context, packageName, raw)
+        val backgroundColor = resolveTileBackgroundColor(context, packageName, drawable = raw)
         return AppIconAsset(drawable = metroGlyphDrawable(raw), backgroundColor = backgroundColor)
     }
 
@@ -63,13 +68,63 @@ object MetroAppBranding {
         return drawable
     }
 
+    /**
+     * Start tile / app-list square fill. System and Metro apps track the accent unless a strong
+     * brand hex is registered; third-party apps keep icon-derived brand colors.
+     */
+    fun resolveTileBackgroundColor(
+        context: Context,
+        packageName: String,
+        providerBackgroundHex: String? = null,
+        drawable: Drawable? = null,
+    ): Color {
+        MetroAppRegistry.strongBrandHex(packageName)?.let {
+            return MetroPreferences.parseAccentHex(it)
+        }
+
+        if (MetroAppDiscovery.isSystemApp(context.packageManager, packageName)) {
+            return MetroPreferences(context).accentColor
+        }
+
+        providerBackgroundHex?.let { return MetroPreferences.parseAccentHex(it) }
+
+        return resolveThirdPartyIconBackgroundColor(context, packageName, drawable)
+    }
+
     fun resolveIconBackgroundColor(
         context: Context,
         packageName: String,
         drawable: Drawable?,
+    ): Color = resolveTileBackgroundColor(context, packageName, drawable = drawable)
+
+    fun resolvePrimaryColor(context: Context, packageName: String): Color {
+        MetroTileContract.readTile(context.contentResolver, packageName)
+            ?.backgroundColorHex
+            ?.let { providerHex ->
+                return resolveTileBackgroundColor(
+                    context = context,
+                    packageName = packageName,
+                    providerBackgroundHex = providerHex,
+                )
+            }
+
+        return resolveTileBackgroundColor(context, packageName)
+    }
+
+    private fun resolveThirdPartyIconBackgroundColor(
+        context: Context,
+        packageName: String,
+        drawable: Drawable?,
     ): Color {
-        if (drawable is AdaptiveIconDrawable) {
-            when (val background = drawable.background) {
+        val icon = drawable ?: try {
+            val packageManager = context.packageManager
+            packageManager.getApplicationIcon(packageManager.getApplicationInfo(packageName, 0))
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
+
+        if (icon is AdaptiveIconDrawable) {
+            when (val background = icon.background) {
                 is ColorDrawable -> return Color(background.color)
                 null -> Unit
                 else -> sampleDrawableColor(background)?.let { return it }
@@ -77,9 +132,8 @@ object MetroAppBranding {
         }
 
         loadLauncherBackgroundColor(context, packageName)?.let { return it }
-        MetroAppRegistry.brandHex(packageName)?.let { return MetroPreferences.parseAccentHex(it) }
 
-        return MetroPreferences.parseAccentHex(MetroPreferences.DEFAULT_ACCENT_HEX)
+        return MetroPreferences(context).accentColor
     }
 
     private fun sampleDrawableColor(drawable: Drawable): Color? {
@@ -92,18 +146,6 @@ object MetroAppBranding {
         bitmap.recycle()
         val color = Color(center)
         return color.takeIf { it.alpha > 0f }
-    }
-
-    fun resolvePrimaryColor(context: Context, packageName: String): Color {
-        MetroTileContract.readTile(context.contentResolver, packageName)
-            ?.backgroundColorHex
-            ?.let { return MetroPreferences.parseAccentHex(it) }
-
-        loadLauncherBackgroundColor(context, packageName)?.let { return it }
-
-        MetroAppRegistry.brandHex(packageName)?.let { return MetroPreferences.parseAccentHex(it) }
-
-        return MetroPreferences.parseAccentHex(MetroPreferences.DEFAULT_ACCENT_HEX)
     }
 
     private fun loadLauncherBackgroundColor(context: Context, packageName: String): Color? {

@@ -46,7 +46,7 @@ class MetroPreferencesTest {
 
     @Test
     fun fontScale_roundTrip() {
-        prefs.fontScale = 1.25f
-        assertEquals(1.25f, prefs.fontScale)
+        prefs.fontScale = 1.3f
+        assertEquals(1.3f, prefs.fontScale)
     }
 }

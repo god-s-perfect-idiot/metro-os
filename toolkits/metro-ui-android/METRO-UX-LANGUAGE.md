@@ -434,6 +434,7 @@ Full-page await surface — use whenever a page is blocked on async work (> 500m
 |----------|------|
 | Title | 64sp Light, flush left |
 | Region height | 98dp including title block |
+| Overflow | **Single line** — never wraps. Long titles clip mid-glyph at the **screen** edge (start inset only; no end margin). No ellipsis. Same rule for `MetroSettingsHeader` page titles. |
 | Subtitle | 16sp @ 60% below title if needed |
 
 ---
@@ -455,7 +456,7 @@ WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under let
 | Locale tile | Globe glyph; inactive unless the app supplies locale jump support |
 | Helpers | `MetroJumpListLogic.sortKey` / `activeLetters` / `showSectionMarkers` / `diagonalIndex`; section anchors use `MetroLetterTile` |
 | Sticky section markers | Letter markers **pin** at the top of the scroll viewport while that section's rows scroll underneath. The next letter's header **pushes** the previous marker up and replaces it (classic LongListSelector sticky headers). Implement with `metroStickyLetterHeader` — never plain `item` for letter markers. Give the sticky content an opaque theme background so rows do not show through. |
-| Entrance | Each tile flips in around its **horizontal center** (`rotationX` 90° → 0°, 300ms ease-out). Stagger by diagonal (`row + col`) from top-left at 40ms steps |
+| Entrance | Each tile flips in around its **horizontal center** (`rotationX` 90° → 0°, 300ms ease-out). Stagger by diagonal (`row + col`) from top-left at 40ms steps. Shared primitive: `MetroDiagonalFlip` (also used by Settings accents picker; support `exiting` for the reverse 0° → 90° wave) |
 | Search mode | While an inline list search field is active, **omit** letter section markers (`showSectionMarkers(false)`). Jump list is unavailable until search is dismissed. App-list search uses a **white fill + accent border** square field (not the underline TextBox); matching characters in result labels use accent. |
 
 **Agent rule:** Do not reimplement jump grids in apps. Import `MetroJumpList` from `metro-ui-android`. Do not invent per-app sticky-header logic — use `metroStickyLetterHeader` for every alphabet-grouped list.

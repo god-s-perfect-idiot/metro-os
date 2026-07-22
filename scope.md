@@ -142,18 +142,20 @@ WP8.1 themes are **background (dark/light) + single accent**. No per-control arb
 
 #### Accent palette (exact hex — user picks one system-wide)
 
-| Name | Hex |
-|------|-----|
-| Blue (default) | `#1BA1E2` |
-| Red | `#E51400` |
-| Green | `#339933` |
-| Orange | `#F09609` |
-| Purple | `#A200FF` |
-| Teal | `#00ABA9` |
-| Lime | `#8CBF26` |
-| Brown | `#996600` |
-| Pink | `#FF0097` |
-| Magenta | `#FF0097` |
+Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Accent colour). Default remains cyan/blue.
+
+| Name | Hex | Name | Hex |
+|------|-----|------|-----|
+| Lime | `#A4C400` | Crimson | `#A20025` |
+| Green | `#60A917` | Red | `#E51400` |
+| Emerald | `#008A00` | Orange | `#FA6800` |
+| Teal | `#00ABA9` | Amber | `#F0A30A` |
+| Cyan (default) | `#1BA1E2` | Yellow | `#E3C800` |
+| Cobalt | `#0050EF` | Brown | `#825A2C` |
+| Indigo | `#6A00FF` | Olive | `#6D8764` |
+| Violet | `#AA00FF` | Steel | `#647687` |
+| Pink | `#F472D0` | Mauve | `#76608A` |
+| Magenta | `#D80073` | Taupe | `#87794E` |
 
 #### Foreground colors
 

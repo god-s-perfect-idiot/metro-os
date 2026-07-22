@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Settings</string>
+    <string name="settings_system_title">system</string>
+    <string name="settings_start_theme">start+theme</string>
+    <string name="settings_ease_of_access">ease of access</string>
+    <string name="settings_accent_colour">accent colour</string>
+    <string name="settings_accents_title">accents</string>
+    <string name="settings_accent_label">Accent colour</string>
+    <string name="settings_start_theme_intro_prefix">Change your phone\'s background and </string>
+    <string name="settings_start_theme_intro_accent">accent colour</string>
+    <string name="settings_start_theme_intro_suffix"> to suit your mood today, this week or all month.</string>
+    <string name="settings_text_size">Text size</string>
+    <string name="settings_sample">Sample</string>
+    <string name="settings_text_size_help">Changes the text size in People, phone, messaging, and other Metro apps.</string>
+</resources>

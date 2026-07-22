@@ -5,13 +5,11 @@
 
 ## Status
 
-Harness docs only — Android project not scaffolded yet. This README is the implementation brief for the WP8.1 settings app.
+Implemented v1 — Settings root, start+theme (accent colour combo; Background omitted), accent picker (20 WP8 colours), ease of access (7-step text size). Hosts `content://com.metro.system` preferences provider.
 
 ## App role
 
-This app recreates the WP8.1 **Settings** experience and is the authoritative owner of system preference writes for metro-os. It controls theme mode, accent color, nav bar color, and other shell-wide settings surfaced through `MetroPreferences`.
-
-This is one of the most important apps in the suite because its writes affect every other app. Treat its contracts as platform-level, not app-local convenience logic.
+This app recreates the WP8.1 **Settings** experience and is the authoritative owner of system preference writes for metro-os. It controls theme mode, accent color, font scale, and other shell-wide settings surfaced through `MetroPreferences`.
 
 ## Build gate
 
@@ -21,91 +19,31 @@ This is one of the most important apps in the suite because its writes affect ev
 
 ## Screen inventory
 
-### 1. Settings list / hierarchy root
+See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
-- Entry point mirroring WP8.1 settings structure
-- Expected reference: `references/images/root_dark_blue.png`
-
-### 2. Theme settings
-
-- Dark/light theme selection
-- Expected reference: `references/images/theme_dark_blue.png`
-
-### 3. Accent color picker
-
-- Official palette only
-- Expected reference: `references/images/accent_dark_blue.png`
-
-### 4. Navigation bar color settings
-
-- Controls shell nav bar appearance
-- Expected reference: `references/images/navbar_dark_blue.png`
-
-### 5. Font size / related display settings
-
-- Allows user-facing text scaling within approved bounds
-- Expected reference: `references/images/font_dark_blue.png`
+| Screen | Status |
+|--------|--------|
+| Settings root (`system`) | Done |
+| start+theme | Done |
+| Accent colour picker | Done (20 official) |
+| ease of access (text size) | Done |
 
 ## System functions and contracts
 
 ### Preference ownership
 
-- This app owns writes to `MetroPreferences`
-- Other apps read and observe; they should not invent competing write flows for these keys
+- This app owns writes to `MetroPreferences` and exports `MetroSystemPreferencesProvider` (`com.metro.system`)
+- Other apps read via ContentResolver + observe `THEME_CHANGED`
 
 ### Broadcast contract
 
-- Broadcast `THEME_CHANGED` on every relevant preference change
-- Changes must propagate suite-wide immediately
+- Broadcast `THEME_CHANGED` on every relevant preference change (`theme_mode`, `accent_color`, `font_scale`)
 
 ### Official setting keys
 
 - `theme_mode`
-- `accent_color`
-- `nav_bar_color`
-- `font_scale`
-
-Do not create ad hoc preference names without first updating shared contracts.
-
-## UI and interaction guardrails
-
-- Mirror WP8.1 settings hierarchy and plain list presentation
-- No Material switches or preference screens
-- Use Metro controls only
-- Accent picker must use the exact official palette from `scope.md`
-- Avoid Android-specific affordances that break the WP8.1 illusion
-
-## Data and state model
-
-- `SettingsSection`, `SettingItem`, `ThemeMode`, `AccentOption`
-- Keep persisted preference values and transient picker UI state separate
-- Apply validation for font scale and color values at the repository layer
-
-## Primary implementation order
-
-1. Implement shared settings repository over `MetroPreferences`
-2. Build settings root hierarchy
-3. Implement theme mode selection
-4. Implement accent picker
-5. Implement nav bar color settings
-6. Implement font size and any approved display options
-7. Verify cross-app propagation with launcher, statusbar, and another consumer app
-
-## Test-critical user flows
-
-1. Change dark/light theme and observe suite-wide update
-2. Change accent color and observe suite-wide update
-3. Change nav bar color and observe navbar update
-4. Change font scale and observe compliant app updates
-5. Relaunch app and retain settings
-
-## Reference and golden expectations
-
-- `references/images/root_dark_blue.png`
-- `references/images/theme_dark_blue.png`
-- `references/images/accent_dark_blue.png`
-- `references/images/navbar_dark_blue.png`
-- `references/images/font_dark_blue.png`
+- `accent_color` (official palette hex)
+- `font_scale` (7 discrete steps)
 
 ## Commands
 
@@ -129,7 +67,9 @@ cd apps/settings
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
-| True OS-level ownership of all system visuals | This is an app-layer suite running on Android | Settings owns the metro-os shared preference surface and broadcasts changes, while Android system visuals outside suite control remain out of scope |
+| True OS-level ownership of all system visuals | App-layer suite on Android | Settings owns metro-os shared prefs + broadcasts; Android system chrome outside suite remains out of scope |
+| Full system settings list | Large OEM surface | v1 implements personalization + ease of access text size only |
+| start+theme Background ListPicker | Deferred | Theme stays dark (`theme_mode` default); UI matches Accent colour combo only |
 
 ## Agent postmortem
 

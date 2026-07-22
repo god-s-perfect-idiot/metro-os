@@ -28,6 +28,8 @@ object MetroBroadcasts {
 
     const val EXTRA_THEME_MODE = MetroPreferenceKeys.THEME_MODE
     const val EXTRA_ACCENT_COLOR = MetroPreferenceKeys.ACCENT_COLOR
+    const val EXTRA_FONT_SCALE = MetroPreferenceKeys.FONT_SCALE
+    const val EXTRA_NAV_BAR_COLOR = MetroPreferenceKeys.NAV_BAR_COLOR
     const val EXTRA_TILE_PACKAGE = MetroIntents.EXTRA_PACKAGE
     const val EXTRA_TILE_ID = MetroIntents.EXTRA_TILE_ID
     const val EXTRA_NAVBAR_ENABLED = MetroPreferenceKeys.NAV_BAR_ENABLED

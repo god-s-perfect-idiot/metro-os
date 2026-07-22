@@ -21,7 +21,7 @@ import com.metro.photos.ui.PermissionScreen
 import com.metro.photos.ui.PhotosShell
 import com.metro.photos.ui.PhotosState
 import com.metro.ui.MetroLoadingScreen
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
     private val requestPermissions = registerForActivityResult(
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { }
             }
 
-            MetroTheme {
+            MetroSystemTheme {
                 when {
                     !state.permissionsChecked -> {
                         MetroLoadingScreen(modifier = Modifier.fillMaxSize())

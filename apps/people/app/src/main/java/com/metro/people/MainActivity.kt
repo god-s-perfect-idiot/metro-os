@@ -21,7 +21,7 @@ import com.metro.people.ui.PeopleShell
 import com.metro.people.ui.PeopleState
 import com.metro.people.ui.PermissionScreen
 import com.metro.ui.MetroLoadingScreen
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
     private val requestContacts = registerForActivityResult(
@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { }
             }
 
-            MetroTheme {
+            MetroSystemTheme {
                 when {
                     !state.permissionsChecked -> {
                         MetroLoadingScreen(modifier = Modifier.fillMaxSize())

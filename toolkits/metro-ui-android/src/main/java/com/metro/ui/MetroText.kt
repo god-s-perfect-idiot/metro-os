@@ -23,6 +23,7 @@ fun MetroText(
     textAlign: TextAlign? = null,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
+    softWrap: Boolean = true,
 ) {
     val textStyle = style.toTextStyle().copy(
         color = color,
@@ -34,6 +35,7 @@ fun MetroText(
         style = textStyle,
         maxLines = maxLines,
         overflow = overflow,
+        softWrap = softWrap,
     )
 }
 
@@ -46,6 +48,7 @@ fun MetroText(
     textAlign: TextAlign? = null,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
+    softWrap: Boolean = true,
 ) {
     val textStyle = style.toTextStyle().copy(
         color = color,
@@ -57,6 +60,7 @@ fun MetroText(
         style = textStyle,
         maxLines = maxLines,
         overflow = overflow,
+        softWrap = softWrap,
     )
 }
 
@@ -89,18 +93,22 @@ fun MetroPageHeader(
     title: String,
     modifier: Modifier = Modifier,
 ) {
+    // Single line; start inset only so long titles clip at the screen edge — never wrap.
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(98.dp)
-            .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+            .height(98.dp),
         contentAlignment = Alignment.BottomStart,
     ) {
         MetroText(
             text = title,
             style = MetroTextStyle.PageTitle,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            overflow = TextOverflow.Clip,
+            softWrap = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = MetroDimens.ScreenHorizontalMargin),
         )
     }
 }

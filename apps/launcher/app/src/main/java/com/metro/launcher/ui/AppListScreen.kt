@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
@@ -119,6 +120,10 @@ private data class CachedAppIcon(
 
 /** Survives LazyColumn recycling so scrolling past apps does not re-decode icons. */
 private val appListIconCache = object : LruCache<String, CachedAppIcon>(96) {}
+
+internal fun clearAppListIconCache() {
+    appListIconCache.evictAll()
+}
 
 /**
  * App menu — alphabetical list of installed apps.
@@ -656,8 +661,12 @@ private fun AppListSquareIcon(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val accentHex = MetroTheme.colors.accent.let { color ->
+        // Cache key must change when system accent changes (Metro/system square fills).
+        String.format("#%06X", (0xFFFFFF and color.toArgb()))
+    }
     val pixelSize = with(density) { AppListIconSize.roundToPx() }.coerceAtLeast(1)
-    val cacheKey = remember(packageName, pixelSize) { "$packageName@$pixelSize" }
+    val cacheKey = remember(packageName, pixelSize, accentHex) { "$packageName@$pixelSize@$accentHex" }
     var cached by remember(cacheKey) {
         mutableStateOf(appListIconCache.get(cacheKey))
     }

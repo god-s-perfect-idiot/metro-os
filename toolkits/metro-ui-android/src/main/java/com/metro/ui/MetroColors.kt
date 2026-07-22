@@ -2,9 +2,10 @@ package com.metro.ui
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import com.metro.system.MetroAccentPalette
 
 /**
- * WP8.1 color tokens from scope.md §2.
+ * WP8.1 color tokens from scope.md §2, with the full WP8 20-color accent set.
  */
 object MetroColors {
     val TileContentOnAccent = Color(0xFFFFFFFF)
@@ -21,26 +22,32 @@ object MetroColors {
     val LightSecondaryText = Color(0xFF666666)
 
     val AccentBlue = Color(0xFF1BA1E2)
-    val AccentRed = Color(0xFFE51400)
-    val AccentGreen = Color(0xFF339933)
-    val AccentOrange = Color(0xFFF09609)
-    val AccentPurple = Color(0xFFA200FF)
+    val AccentCyan = AccentBlue
+    val AccentLime = Color(0xFFA4C400)
+    val AccentGreen = Color(0xFF60A917)
+    val AccentEmerald = Color(0xFF008A00)
     val AccentTeal = Color(0xFF00ABA9)
-    val AccentLime = Color(0xFF8CBF26)
-    val AccentBrown = Color(0xFF996600)
-    val AccentPink = Color(0xFFFF0097)
+    val AccentCobalt = Color(0xFF0050EF)
+    val AccentIndigo = Color(0xFF6A00FF)
+    val AccentViolet = Color(0xFFAA00FF)
+    val AccentPink = Color(0xFFF472D0)
+    val AccentMagenta = Color(0xFFD80073)
+    val AccentCrimson = Color(0xFFA20025)
+    val AccentRed = Color(0xFFE51400)
+    val AccentOrange = Color(0xFFFA6800)
+    val AccentAmber = Color(0xFFF0A30A)
+    val AccentYellow = Color(0xFFE3C800)
+    val AccentBrown = Color(0xFF825A2C)
+    val AccentOlive = Color(0xFF6D8764)
+    val AccentSteel = Color(0xFF647687)
+    val AccentMauve = Color(0xFF76608A)
+    val AccentTaupe = Color(0xFF87794E)
 
-    val AccentPalette = listOf(
-        AccentBlue,
-        AccentRed,
-        AccentGreen,
-        AccentOrange,
-        AccentPurple,
-        AccentTeal,
-        AccentLime,
-        AccentBrown,
-        AccentPink,
-    )
+    /** Legacy WP7-era aliases kept for existing callers. */
+    val AccentPurple = AccentViolet
+
+    /** Official WP8.1 20-color accent grid order. */
+    val AccentPalette: List<Color> = MetroAccentPalette.all.map { Color(it.colorArgb) }
 
     fun background(dark: Boolean): Color = if (dark) DarkBackground else LightBackground
 

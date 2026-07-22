@@ -21,7 +21,6 @@ object CalendarTileLogic {
     ): MetroTileData {
         val next = CalendarLogic.nextUpcomingEvent(events)
         val todayCount = CalendarLogic.eventsTodayCount(events)
-        val brandHex = MetroAppRegistry.brandHex(packageName) ?: accentHex
         val label = MetroAppRegistry.label(packageName) ?: "Calendar"
         val today = CalendarLogic.todayEpochDay()
 
@@ -34,7 +33,7 @@ object CalendarTileLogic {
 
         return MetroTileData(
             title = label,
-            backgroundColorHex = brandHex,
+            backgroundColorHex = accentHex,
             counter = todayCount.takeIf { it > 0 },
             backFaceTitle = next?.let { event ->
                 "${CalendarLogic.nextEventTimeLabel(event)} — ${event.title}"

@@ -11,7 +11,6 @@ import com.metro.launcher.data.AppLauncherOptions
 import com.metro.system.MetroAppDiscovery
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroIntents
-import com.metro.system.MetroPreferences
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
@@ -107,8 +106,11 @@ class LauncherRepository(private val context: Context) {
         }
         val label = resolveAppLabel(packageName)
         val title = providerData?.title ?: label ?: packageName.substringAfterLast('.')
-        val background = providerData?.backgroundColorHex?.let { MetroPreferences.parseAccentHex(it) }
-            ?: fallbackTileColor(packageName)
+        val background = MetroAppBranding.resolveTileBackgroundColor(
+            context = context,
+            packageName = packageName,
+            providerBackgroundHex = providerData?.backgroundColorHex,
+        )
         val photoGrid = providerData?.photoGrid
         val agenda = providerData?.agenda?.takeIf { it.hasContent }
         val hasRichFrontFace = photoGrid?.hasContent == true || agenda != null
@@ -146,7 +148,4 @@ class LauncherRepository(private val context: Context) {
     } catch (_: PackageManager.NameNotFoundException) {
         false
     }
-
-    private fun fallbackTileColor(packageName: String): Color =
-        MetroAppBranding.loadAppIconAsset(context, packageName).backgroundColor
 }

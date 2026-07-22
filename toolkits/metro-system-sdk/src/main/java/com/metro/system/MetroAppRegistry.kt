@@ -1,13 +1,19 @@
 package com.metro.system
 
 /**
- * Known Metro suite apps — labels and brand colors for surfaces that render
- * apps before they are installed (launcher tiles, app list, placeholders).
+ * Known Metro suite apps — labels and optional strong tile brands for surfaces that
+ * render apps before they are installed (launcher tiles, app list, placeholders).
+ *
+ * Start / app-list tile fills follow the system accent for Metro and Android system
+ * apps unless [Entry.strongBrandHex] is set (rare WP-style fixed brand tiles).
  */
 object MetroAppRegistry {
     data class Entry(
         val label: String,
+        /** Legacy catalog color; not used for Start tiles unless also [strongBrandHex]. */
         val brandHex: String,
+        /** When non-null, Start/app-list use this fill instead of the system accent. */
+        val strongBrandHex: String? = null,
     )
 
     private val entries: Map<String, Entry> = mapOf(
@@ -31,5 +37,10 @@ object MetroAppRegistry {
 
     fun brandHex(packageName: String): String? = entries[packageName]?.brandHex
 
+    fun strongBrandHex(packageName: String): String? = entries[packageName]?.strongBrandHex
+
     fun isKnown(packageName: String): Boolean = packageName in entries
+
+    fun isMetroSuite(packageName: String): Boolean =
+        isKnown(packageName) || packageName.startsWith("com.metro.")
 }

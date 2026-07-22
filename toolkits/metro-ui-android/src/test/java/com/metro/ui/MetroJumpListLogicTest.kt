@@ -76,4 +76,13 @@ class MetroJumpListLogicTest {
         assertEquals(2, MetroJumpListLogic.diagonalIndex(8)) // (2,0) h
         assertEquals(9, MetroJumpListLogic.diagonalIndex(27)) // (6,3) locale
     }
+
+    @Test
+    fun flipWaveDuration_coversLastDiagonalPlusFlip() {
+        // 20-cell 4-col accents grid: bottom-right is (4,3) → diagonal 7
+        assertEquals(
+            7L * MetroTransitions.JumpListFlipStaggerMs + MetroTransitions.JumpListFlipMs,
+            metroDiagonalFlipWaveDurationMs(20, 4),
+        )
+    }
 }

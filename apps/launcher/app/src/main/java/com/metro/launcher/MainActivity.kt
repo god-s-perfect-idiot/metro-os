@@ -13,7 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.launcher.ui.LauncherShell
 import com.metro.launcher.ui.LauncherState
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -45,10 +45,8 @@ class MainActivity : ComponentActivity() {
                     state.unregisterReceivers(context)
                 }
             }
-            MetroTheme(
-                darkTheme = state.darkTheme,
-                accent = state.accent,
-            ) {
+            // Suite theme + font scale from Settings; LauncherState still tracks accent for tiles.
+            MetroSystemTheme {
                 LauncherShell(state = state)
             }
         }

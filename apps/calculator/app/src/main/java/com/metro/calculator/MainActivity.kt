@@ -15,7 +15,7 @@ import com.metro.calculator.data.CalculatorAction
 import com.metro.calculator.data.CalculatorLogic
 import com.metro.calculator.data.CalculatorState
 import com.metro.calculator.ui.CalculatorShell
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
     // Held on the Activity so configChanges rotation keeps the running calculation.
@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Recompose when orientation/size changes under configChanges.
             configurationEpoch
-            MetroTheme {
+            MetroSystemTheme {
                 CalculatorShell(
                     state = state,
                     onAction = { action ->

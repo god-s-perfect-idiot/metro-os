@@ -26,7 +26,7 @@ import com.metro.messaging.ui.MessagingShell
 import com.metro.messaging.ui.MessagingState
 import com.metro.messaging.ui.PermissionScreen
 import com.metro.ui.MetroLoadingScreen
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
     private val navigationSignal = mutableIntStateOf(0)
@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
                 handleMessagingIntent(state, messagingIntent)
             }
 
-            MetroTheme {
+            MetroSystemTheme {
                 when {
                     !state.permissionsChecked -> {
                         MetroLoadingScreen(modifier = Modifier.fillMaxSize())

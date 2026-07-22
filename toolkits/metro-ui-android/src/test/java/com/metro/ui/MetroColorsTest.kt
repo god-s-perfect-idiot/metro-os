@@ -12,8 +12,8 @@ class MetroColorsTest {
     }
 
     @Test
-    fun accentPalette_hasNineColors() {
-        assertEquals(9, MetroColors.AccentPalette.size)
+    fun accentPalette_hasTwentyColors() {
+        assertEquals(20, MetroColors.AccentPalette.size)
     }
 
     @Test

@@ -25,7 +25,7 @@ import com.metro.dialer.ui.DialerShell
 import com.metro.dialer.ui.DialerState
 import com.metro.dialer.ui.PermissionScreen
 import com.metro.ui.MetroLoadingScreen
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
     private val dialNavigationSignal = mutableStateOf(0)
@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MetroTheme {
+            MetroSystemTheme {
                 when {
                     !state.permissionsChecked -> {
                         MetroLoadingScreen(modifier = Modifier.fillMaxSize())

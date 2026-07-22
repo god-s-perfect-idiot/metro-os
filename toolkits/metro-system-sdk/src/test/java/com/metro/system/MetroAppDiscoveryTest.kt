@@ -38,6 +38,18 @@ class MetroAppDiscoveryTest {
     }
 
     @Test
+    fun isSystemApp_metroSuitePrefixTreatedAsSystem() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val packageManager = context.packageManager
+        assertTrue(MetroAppDiscovery.isSystemApp(packageManager, "com.metro.futureapp"))
+    }
+
+    @Test
+    fun strongBrandHex_defaultsUnset() {
+        assertEquals(null, MetroAppRegistry.strongBrandHex("com.metro.calculator"))
+    }
+
+    @Test
     fun discoverInstalledApps_doesNotInjectUninstalledPinnedPackages() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val pinned = setOf("com.metro.settings", "com.metro.store")

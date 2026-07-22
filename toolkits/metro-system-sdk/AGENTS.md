@@ -36,15 +36,16 @@ Storage: `SharedPreferences` file `metro_system` (MODE_MULTI_PROCESS or ContentP
 
 | Action | Payload |
 |--------|---------|
-| `com.metro.system.THEME_CHANGED` | `theme_mode`, `accent_color` |
+| `com.metro.system.THEME_CHANGED` | `theme_mode`, `accent_color`, `font_scale` |
 
 ### ContentProvider
 
-Authority: `com.metro.system`
+Authority: `com.metro.system` — **hosted by Settings** (`MetroSystemPreferencesProvider`)
 
 | URI path | Returns |
 |----------|---------|
 | `/preferences` | All system preferences |
+| `/preferences/{key}` | Single preference value |
 | `/apps` | Installed metro apps registry |
 
 ## Rules

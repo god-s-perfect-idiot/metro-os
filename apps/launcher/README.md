@@ -83,6 +83,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Read theme and accent from `MetroPreferences`
 - Re-render within one frame after preference changes
 - Never hardcode tile accent variants outside the official palette
+- Metro suite and Android system apps use the system accent for Start/app-list tile fills unless `MetroAppRegistry.strongBrandHex` is set; third-party apps keep icon-derived brands
 
 ### Navigation contracts
 

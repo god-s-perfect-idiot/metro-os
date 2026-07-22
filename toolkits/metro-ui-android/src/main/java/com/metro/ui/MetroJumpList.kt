@@ -1,7 +1,6 @@
 package com.metro.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,7 +15,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,25 +22,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 
 private val JumpListHorizontalPadding = 8.dp
 private val JumpListVerticalPadding = 16.dp
 private val JumpListTileGap = 8.dp
 private val JumpListScrimAlpha = 0.72f
-/** Start edge-on (WP PlaneProjection RotationX = 90) before flipping flat. */
-private const val JumpListFlipStartDegrees = 90f
-/** Extra camera distance so rotationX reads as a 3D flip, not a squash. */
-private const val JumpListFlipCameraDistance = 16f
 
 /**
  * WP8.1 find-by-letter overlay: 4-column grid of `#`, `a`–`z`, and a locale (globe) tile.
@@ -102,7 +93,7 @@ fun MetroJumpList(
             ) {
                 itemsIndexed(MetroJumpListLogic.LetterKeys, key = { _, letter -> letter }) { index, letter ->
                     val active = letter in normalizedActive
-                    JumpListFlipIn(cellIndex = index, columns = columns) {
+                    MetroDiagonalFlip(cellIndex = index, columns = columns) {
                         MetroLetterTile(
                             letter = letter,
                             size = tileSize,
@@ -118,7 +109,7 @@ fun MetroJumpList(
                 }
                 item(key = "locale") {
                     val localeEnabled = localeActive && onLocaleClick != null
-                    JumpListFlipIn(
+                    MetroDiagonalFlip(
                         cellIndex = MetroJumpListLogic.LetterKeys.size,
                         columns = columns,
                     ) {
@@ -136,38 +127,6 @@ fun MetroJumpList(
                 }
             }
         }
-    }
-}
-
-/**
- * Flips a jump-list cell from edge-on to flat around the horizontal midline, delayed by
- * diagonal distance from the top-left tile.
- */
-@Composable
-private fun JumpListFlipIn(
-    cellIndex: Int,
-    columns: Int,
-    content: @Composable () -> Unit,
-) {
-    val rotationX = remember { Animatable(JumpListFlipStartDegrees) }
-    LaunchedEffect(cellIndex, columns) {
-        val stagger =
-            MetroJumpListLogic.diagonalIndex(cellIndex, columns) *
-                MetroTransitions.JumpListFlipStaggerMs.toLong()
-        delay(stagger)
-        rotationX.animateTo(
-            targetValue = 0f,
-            animationSpec = MetroTransitions.jumpListFlipTween(),
-        )
-    }
-    Box(
-        modifier = Modifier.graphicsLayer {
-            this.rotationX = rotationX.value
-            transformOrigin = TransformOrigin(0.5f, 0.5f)
-            cameraDistance = JumpListFlipCameraDistance * density
-        },
-    ) {
-        content()
     }
 }
 

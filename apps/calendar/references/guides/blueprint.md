@@ -63,7 +63,7 @@ Overlay page with back affordance. Shows title, date/time, location, calendar na
 
 ## Live tile
 
-WP8.1 Calendar agenda tile. Accent background from `MetroAppRegistry.brandHex`. The tile exports a
+WP8.1 Calendar agenda tile. Accent background from the system accent (`MetroPreferences`). The tile exports a
 structured agenda payload (`MetroTileData.agenda` → `MetroTileAgenda`) that the launcher renders for
 medium (2×2) and wide (4×2) sizes; the small (1×1) tile falls back to the app icon.
 

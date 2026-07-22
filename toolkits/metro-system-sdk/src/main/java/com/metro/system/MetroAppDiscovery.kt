@@ -35,14 +35,20 @@ object MetroAppDiscovery {
             .sortedBy { it.label.lowercase() }
     }
 
-    fun isSystemApp(packageManager: PackageManager, packageName: String): Boolean =
-        try {
+    /**
+     * Android system packages plus Metro suite apps (`com.metro.*` / registry).
+     * Suite APKs installed via `adb` are not FLAG_SYSTEM but still follow accent tiles.
+     */
+    fun isSystemApp(packageManager: PackageManager, packageName: String): Boolean {
+        if (MetroAppRegistry.isMetroSuite(packageName)) return true
+        return try {
             val flags = packageManager.getApplicationInfo(packageName, 0).flags
             (flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
                 (flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
         } catch (_: PackageManager.NameNotFoundException) {
-            MetroAppRegistry.isKnown(packageName)
+            false
         }
+    }
 
     private fun resolveAppLabel(packageManager: PackageManager, packageName: String): String =
         try {

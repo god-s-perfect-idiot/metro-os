@@ -60,7 +60,12 @@ class LauncherState(context: Context) {
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             MetroPreferenceKeys.THEME_MODE -> darkTheme = metroPrefs.isDark
-            MetroPreferenceKeys.ACCENT_COLOR -> accent = metroPrefs.accentColor
+            MetroPreferenceKeys.ACCENT_COLOR -> {
+                accent = metroPrefs.accentColor
+                // System/Metro tiles follow accent; re-resolve fills immediately.
+                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+                clearAppListIconCache()
+            }
         }
     }
 
@@ -78,6 +83,8 @@ class LauncherState(context: Context) {
             }
             intent?.getStringExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR)?.let { hex ->
                 accent = MetroPreferences.parseAccentHex(hex)
+                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+                clearAppListIconCache()
             }
         }
     }

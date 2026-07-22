@@ -176,6 +176,8 @@ private fun PivotTitle(
         style = MetroTextStyle.PivotTab,
         color = if (active) MetroTheme.colors.primaryText else MetroTheme.colors.secondaryText,
         maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
         modifier = modifier.then(clickModifier),
     )
 }
@@ -197,6 +199,7 @@ private fun PanoramaTitle(
         color = if (active) MetroTheme.colors.primaryText else MetroTheme.colors.secondaryText,
         textAlign = textAlign,
         maxLines = 1,
+        softWrap = false,
         overflow = overflow,
         modifier = modifier.then(clickModifier),
     )
