@@ -99,6 +99,7 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 | Role | Size | Weight | Opacity / color |
 |------|------|--------|-----------------|
 | Page title | 64sp | Light | Primary foreground; flush left |
+| App title | 16sp | Medium | Primary foreground; ALL CAPS overline |
 | Section header | 20sp | SemiBold | Primary foreground |
 | List item title | 24sp | Regular | Primary foreground |
 | List item subtitle | 16sp | Regular | **60%** foreground |

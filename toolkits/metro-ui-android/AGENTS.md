@@ -64,7 +64,7 @@ Bundle **Noto Sans** variants in `src/main/assets/fonts/` (download from [Google
 - `NotoSans-Bold.ttf`
 - `NotoSans-Black.ttf`
 
-Map to WP8.1 weight roles: Light → page titles; Regular → body/list titles; SemiBold → section headers; Bold/Black sparingly.
+Map to WP8.1 weight roles: Light → page titles; Medium → app titles; Regular → body/list titles; SemiBold → section headers; Bold/Black sparingly.
 
 ## Rules
 

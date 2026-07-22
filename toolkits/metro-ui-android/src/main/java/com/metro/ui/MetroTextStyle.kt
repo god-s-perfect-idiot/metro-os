@@ -1,22 +1,41 @@
 package com.metro.ui
 
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.metro.ui.R
 
 /**
+ * Noto Sans variable font instance for [weight].
+ *
+ * The bundled `noto_sans.ttf` is a single VF (wght 100–900). Without
+ * [FontVariation.Settings], Compose falls back to the Regular instance for every
+ * [FontWeight], so page titles looked wrong instead of the intended weight.
+ */
+@OptIn(ExperimentalTextApi::class)
+private fun metroFont(weight: FontWeight) = Font(
+    resId = R.font.noto_sans,
+    weight = weight,
+    variationSettings = FontVariation.Settings(
+        FontVariation.weight(weight.weight),
+    ),
+)
+
+/**
  * Noto Sans (Segoe WP stand-in) typography roles from scope.md §1.
  */
 val MetroFontFamily = FontFamily(
-    Font(R.font.noto_sans, FontWeight.Light),
-    Font(R.font.noto_sans, FontWeight.Normal),
-    Font(R.font.noto_sans, FontWeight.Medium),
-    Font(R.font.noto_sans, FontWeight.SemiBold),
-    Font(R.font.noto_sans, FontWeight.Bold),
-    Font(R.font.noto_sans, FontWeight.Black),
+    metroFont(FontWeight.ExtraLight),
+    metroFont(FontWeight.Light),
+    metroFont(FontWeight.Normal),
+    metroFont(FontWeight.Medium),
+    metroFont(FontWeight.SemiBold),
+    metroFont(FontWeight.Bold),
+    metroFont(FontWeight.Black),
 )
 
 enum class MetroTextStyle {
@@ -25,6 +44,8 @@ enum class MetroTextStyle {
     HubTitle,
     /** Pivot tab headers — light weight, slightly smaller than [HubTitle]. */
     PivotTab,
+    /** App-name overline above a page/hub title (`MetroAppTitle`). */
+    AppTitle,
     SectionHeader,
     ListItemTitle,
     ListItemSubtitle,
@@ -53,6 +74,12 @@ enum class MetroTextStyle {
             fontSize = 48.sp,
             lineHeight = 56.sp,
             letterSpacing = (-0.5).sp,
+        )
+        AppTitle -> TextStyle(
+            fontFamily = MetroFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp,
+            lineHeight = 20.sp,
         )
         SectionHeader -> TextStyle(
             fontFamily = MetroFontFamily,

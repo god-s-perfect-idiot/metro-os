@@ -1,6 +1,7 @@
 package com.metro.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -36,8 +37,10 @@ class MetroColorsTest {
 
 class MetroTextStyleTest {
     @Test
-    fun pageTitle_is64sp() {
-        assertEquals(64f, MetroTextStyle.PageTitle.toTextStyle().fontSize.value, 0.01f)
+    fun pageTitle_is64spLight() {
+        val style = MetroTextStyle.PageTitle.toTextStyle()
+        assertEquals(64f, style.fontSize.value, 0.01f)
+        assertEquals(FontWeight.Light, style.fontWeight)
     }
 
     @Test

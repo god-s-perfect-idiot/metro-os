@@ -78,7 +78,7 @@ fun MetroAppTitle(
 ) {
     MetroText(
         text = title.uppercase(),
-        style = MetroTextStyle.ListItemSubtitle,
+        style = MetroTextStyle.AppTitle,
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
