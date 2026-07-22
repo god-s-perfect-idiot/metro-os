@@ -27,3 +27,47 @@ fun snapDragSlot(
     val row = (pointerRow - rowSpan / 2f).roundToInt().coerceAtLeast(0)
     return col to row
 }
+
+/**
+ * Like [snapDragSlot], but keeps [currentCol]/[currentRow] until the pointer crosses the cell
+ * midpoint by [hysteresis] grid units — prevents magnet reflow flicker at boundaries.
+ */
+fun snapDragSlotWithHysteresis(
+    pointerCol: Float,
+    pointerRow: Float,
+    colSpan: Int,
+    rowSpan: Int,
+    currentCol: Int,
+    currentRow: Int,
+    columns: Int = TILE_GRID_COLUMNS,
+    hysteresis: Float = 0.28f,
+): Pair<Int, Int> {
+    val idealCol = pointerCol - colSpan / 2f
+    val idealRow = pointerRow - rowSpan / 2f
+    val rawCol = idealCol.roundToInt().coerceIn(0, columns - colSpan)
+    val rawRow = idealRow.roundToInt().coerceAtLeast(0)
+    val col = holdSlotUntilPastMidpoint(idealCol, rawCol, currentCol, hysteresis)
+        .coerceIn(0, columns - colSpan)
+    val row = holdSlotUntilPastMidpoint(idealRow, rawRow, currentRow, hysteresis)
+        .coerceAtLeast(0)
+    return col to row
+}
+
+private fun holdSlotUntilPastMidpoint(
+    continuous: Float,
+    raw: Int,
+    current: Int,
+    hysteresis: Float,
+): Int {
+    if (raw == current) return current
+    val boundary = if (raw > current) {
+        current + 0.5f + hysteresis
+    } else {
+        current - 0.5f - hysteresis
+    }
+    return when {
+        raw > current && continuous >= boundary -> raw
+        raw < current && continuous <= boundary -> raw
+        else -> current
+    }
+}

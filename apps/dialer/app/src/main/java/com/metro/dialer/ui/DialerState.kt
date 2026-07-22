@@ -1,6 +1,7 @@
 package com.metro.dialer.ui
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -70,10 +71,18 @@ class DialerState(context: Context) {
         get() = DialerCallLogic.filterGroups(callGroups, searchQuery)
 
     val t9Suggestions: List<ContactSuggestion>
-        get() = DialerCallLogic.contactSuggestions(
-            dialString.filter { it.isDigit() || it == '+' || it == '*' || it == '#' },
-            contactSuggestions,
-        )
+        get() {
+            val dialQuery = dialString.filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
+            if (dialQuery.isEmpty()) return emptyList()
+
+            val fromProvider = if (hasContactsPermission && dialQuery.any { it.isDigit() }) {
+                contactsLookup.findMatchingContacts(dialQuery)
+            } else {
+                emptyList()
+            }
+            val fromCache = DialerCallLogic.contactSuggestions(dialQuery, contactSuggestions)
+            return DialerCallLogic.mergeContactSuggestions(fromProvider, fromCache)
+        }
 
     init {
         refreshPermissions(appContext)
@@ -202,6 +211,19 @@ class DialerState(context: Context) {
 
     fun placeCall(number: String, displayName: String? = null) {
         MetroTelecomBridge.placeOutgoingCall(appContext, number, displayName)
+    }
+
+    fun sendMessage(number: String) {
+        val trimmed = number.trim()
+        if (trimmed.isEmpty()) return
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$trimmed")).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            appContext.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(appContext, R.string.messaging_unavailable, Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun launchPeople() {

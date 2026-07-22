@@ -60,6 +60,7 @@ fun TileEditCornerButton(
     modifier: Modifier = Modifier,
     unpin: Boolean = false,
     resizeGlyph: TileResizeGlyph? = null,
+    enabled: Boolean = true,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Box(
@@ -74,6 +75,7 @@ fun TileEditCornerButton(
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
+                enabled = enabled,
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,

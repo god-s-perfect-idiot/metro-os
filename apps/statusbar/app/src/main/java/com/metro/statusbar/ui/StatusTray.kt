@@ -48,8 +48,8 @@ import com.metro.ui.MetroTextStyle
 
 private val GlyphHeight = 14.dp
 private val GlyphWidth = 16.dp
-private val WifiGlyphHeight = 17.dp
-private val WifiGlyphWidth = 23.dp
+private val WifiGlyphHeight = 20.dp
+private val WifiGlyphWidth = 26.dp
 private val DataGlyphWidth = 22.dp
 // WP8.1 battery sits close to clock cap height, with a slightly longer and shallower silhouette.
 private val BatteryWidth = 29.dp
@@ -176,6 +176,11 @@ private fun TrayIndicatorRow(
                     color = color,
                     backgroundColor = backgroundColor,
                     dataConnectionLabel = dataConnectionLabel,
+                    modifier = if (indicator == TrayIndicator.Wifi) {
+                        Modifier.padding(start = TraySpec.WIFI_LEADING_PADDING_DP.dp)
+                    } else {
+                        Modifier
+                    },
                 )
                 index++
             }
@@ -258,12 +263,21 @@ private fun DrawScope.drawIndicator(
             drawPath(tri, color)
         }
         TrayIndicator.Wifi -> {
-            // WP8.1 Wi-Fi keeps the quarter-arc silhouette, but the bands end flat rather than
-            // using the softer Android rounded stroke treatment.
-            val stroke = Stroke(width = w * 0.102f, cap = StrokeCap.Butt)
-            val anchor = Offset(w * 0.84f, h * 0.86f)
-            repeat(3) { band ->
-                val radius = w * (0.15f + band * 0.165f)
+            // Microsoft WiFi / WP tray glyph: thick quarter-bands, flat ends, bottom-right origin.
+            // Pack: dot | gap | band | gap | band | gap | band (stroke ≈ gap, dot diam ≈ 2× stroke).
+            val anchor = Offset(w * 0.94f, h * 0.94f)
+            val avail = minOf(anchor.x, anchor.y)
+            // Slightly denser than a strict 1:1 pack so bands read as bold as the Microsoft glyph.
+            val strokeWidth = avail / 6.0f
+            val gap = strokeWidth * 0.85f
+            val dotR = strokeWidth * 0.95f
+            val band0 = dotR + gap + strokeWidth * 0.5f
+            val band1 = band0 + strokeWidth + gap
+            val band2 = band1 + strokeWidth + gap
+            // Keep outer half-stroke inside the canvas.
+            val outerEdge = band2 + strokeWidth * 0.5f
+            val scale = if (outerEdge > avail) avail / outerEdge else 1f
+            for (radius in floatArrayOf(band0 * scale, band1 * scale, band2 * scale)) {
                 drawArc(
                     color = color,
                     startAngle = 180f,
@@ -271,10 +285,10 @@ private fun DrawScope.drawIndicator(
                     useCenter = false,
                     topLeft = Offset(anchor.x - radius, anchor.y - radius),
                     size = Size(radius * 2f, radius * 2f),
-                    style = stroke,
+                    style = Stroke(width = strokeWidth * scale, cap = StrokeCap.Butt),
                 )
             }
-            drawCircle(color, w * 0.077f, anchor)
+            drawCircle(color, dotR * scale, anchor)
         }
         TrayIndicator.Bluetooth -> {
             val stroke = h * 0.1f

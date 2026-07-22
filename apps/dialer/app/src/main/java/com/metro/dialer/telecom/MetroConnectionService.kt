@@ -13,15 +13,18 @@ class MetroConnectionService : ConnectionService() {
     override fun onCreateOutgoingConnection(
         connectionManagerPhoneAccount: PhoneAccountHandle?,
         request: ConnectionRequest?,
-    ): Connection = MetroConnection(request)
+    ): Connection = MetroConnection(request, outgoing = true)
 
     override fun onCreateIncomingConnection(
         connectionManagerPhoneAccount: PhoneAccountHandle?,
         request: ConnectionRequest?,
-    ): Connection = MetroConnection(request)
+    ): Connection = MetroConnection(request, outgoing = false)
 }
 
-private class MetroConnection(request: ConnectionRequest?) : Connection() {
+private class MetroConnection(
+    request: ConnectionRequest?,
+    private val outgoing: Boolean,
+) : Connection() {
     private val handler = Handler(Looper.getMainLooper())
 
     init {
@@ -34,12 +37,24 @@ private class MetroConnection(request: ConnectionRequest?) : Connection() {
             )
         }
         connectionCapabilities = CAPABILITY_HOLD or CAPABILITY_SUPPORT_HOLD or CAPABILITY_MUTE
-        setInitializing()
-        setDialing()
-        handler.postDelayed({
-            if (state == STATE_DISCONNECTED) return@postDelayed
-            setActive()
-        }, 1500)
+        if (outgoing) {
+            setDialing()
+            handler.postDelayed({
+                if (state == STATE_DISCONNECTED) return@postDelayed
+                setActive()
+            }, 1500)
+        } else {
+            setRinging()
+        }
+    }
+
+    override fun onAnswer() {
+        setActive()
+    }
+
+    override fun onReject() {
+        setDisconnected(DisconnectCause(DisconnectCause.REJECTED))
+        destroy()
     }
 
     override fun onDisconnect() {

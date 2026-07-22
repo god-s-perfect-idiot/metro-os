@@ -117,3 +117,69 @@ fun compactEmptyRows(entries: List<PinnedTileEntry>): List<PinnedTileEntry> {
         }
     }
 }
+
+/**
+ * Applies a size change for one tile: clamps its column so the footprint stays inside the
+ * grid, then pushes only tiles that overlap the new footprint (WP8.1 resize reflow).
+ */
+fun applyTileResize(
+    entries: List<PinnedTileEntry>,
+    packageName: String,
+    tileId: String,
+    newSize: PinnedTileSize,
+    columns: Int = TILE_GRID_COLUMN_COUNT,
+): List<PinnedTileEntry> {
+    val positioned = ensureGridPositions(entries)
+    val target = positioned.firstOrNull { it.packageName == packageName && it.tileId == tileId }
+        ?: return entries
+    val newCol = target.gridCol!!.coerceIn(0, columns - newSize.colSpan)
+    val newRow = target.gridRow!!
+    val resized = target.copy(size = newSize, gridCol = newCol, gridRow = newRow)
+
+    val occupied = mutableSetOf<Pair<Int, Int>>()
+    markTileCells(occupied, newCol, newRow, newSize.colSpan, newSize.rowSpan)
+
+    val stable = mutableListOf<PinnedTileEntry>()
+    val displaced = mutableListOf<PinnedTileEntry>()
+    for (entry in positioned) {
+        if (entry.packageName == packageName && entry.tileId == tileId) continue
+        if (tileOverlapsRegion(
+                entry.gridCol!!,
+                entry.gridRow!!,
+                entry.size.colSpan,
+                entry.size.rowSpan,
+                newCol,
+                newRow,
+                newSize.colSpan,
+                newSize.rowSpan,
+            )
+        ) {
+            displaced += entry
+        } else {
+            stable += entry
+            markTileCells(
+                occupied,
+                entry.gridCol!!,
+                entry.gridRow!!,
+                entry.size.colSpan,
+                entry.size.rowSpan,
+            )
+        }
+    }
+
+    val repositioned = displaced
+        .sortedWith(compareBy({ it.gridRow!! }, { it.gridCol!! }))
+        .map { entry ->
+            val (col, row) = findFirstOpenSlot(
+                occupied,
+                entry.size.colSpan,
+                entry.size.rowSpan,
+                columns,
+                startRow = newRow,
+            )
+            markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
+            entry.copy(gridCol = col, gridRow = row)
+        }
+
+    return compactEmptyRows(stable + repositioned + resized)
+}

@@ -49,6 +49,13 @@ object DialerCallLogic {
         return number.trim()
     }
 
+    /** Sentence caps for contact names on the number view header. */
+    fun formatContactDisplayName(name: String): String {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return trimmed
+        return trimmed.lowercase(Locale.US).replaceFirstChar { it.titlecase(Locale.US) }
+    }
+
     fun primaryLabel(group: CallGroup): String {
         return if (group.callCount > 1) {
             "${group.displayName} (${group.callCount})"
@@ -61,10 +68,13 @@ object DialerCallLogic {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return groups
         val lower = trimmed.lowercase(Locale.US)
+        val queryDigits = digitsOnly(trimmed)
         return groups.filter { group ->
             group.displayName.lowercase(Locale.US).contains(lower) ||
-                group.phoneNumber.contains(trimmed) ||
-                group.normalizedNumber.contains(trimmed)
+                (queryDigits.isNotEmpty() && (
+                    matchesNumberSubstring(group.normalizedNumber, trimmed) ||
+                        matchesNumberSubstring(group.phoneNumber, trimmed)
+                ))
         }
     }
 
@@ -108,10 +118,78 @@ object DialerCallLogic {
         limit: Int = 3,
     ): List<ContactSuggestion> {
         if (queryDigits.isEmpty()) return emptyList()
-        return contacts.filter { contact ->
-            contact.normalizedNumber.startsWith(normalizeNumber(queryDigits)) ||
-                matchesT9(contact.displayName, queryDigits.filter { it.isDigit() })
-        }.take(limit)
+        val t9Digits = queryDigits.filter { it.isDigit() }
+        return contacts.mapNotNull { contact ->
+            val numberMatch = matchesNumberPrefix(contact.normalizedNumber, queryDigits) ||
+                matchesNumberPrefix(contact.phoneNumber, queryDigits)
+            val nameMatch = t9Digits.isNotEmpty() && matchesT9(contact.displayName, t9Digits)
+            when {
+                numberMatch -> contact to 0
+                nameMatch -> contact to 1
+                else -> null
+            }
+        }
+            .sortedWith(
+                compareBy<Pair<ContactSuggestion, Int>> { it.second }
+                    .thenBy { it.first.displayName.lowercase(Locale.US) },
+            )
+            .map { it.first }
+            .take(limit)
+    }
+
+    fun mergeContactSuggestions(
+        primary: List<ContactSuggestion>,
+        secondary: List<ContactSuggestion>,
+        limit: Int = 3,
+    ): List<ContactSuggestion> {
+        val seen = linkedSetOf<String>()
+        val merged = mutableListOf<ContactSuggestion>()
+        for (contact in primary + secondary) {
+            val key = "${digitsOnly(contact.normalizedNumber)}|${contact.displayName.lowercase(Locale.US)}"
+            if (seen.add(key)) {
+                merged.add(contact)
+            }
+            if (merged.size >= limit) break
+        }
+        return merged
+    }
+
+    private fun digitsOnly(raw: String): String = normalizeNumber(raw).filter { it.isDigit() }
+
+    /** Substring match on digit sequences — used for history search. */
+    fun matchesNumberSubstring(number: String, query: String): Boolean {
+        val queryDigits = digitsOnly(query)
+        if (queryDigits.isEmpty()) return false
+        return digitsOnly(number).contains(queryDigits)
+    }
+
+    /** Prefix match on digit sequences — used for dial-pad contact suggestions. */
+    fun matchesNumberPrefix(number: String, query: String): Boolean {
+        val queryDigits = digitsOnly(query)
+        if (queryDigits.isEmpty()) return false
+        return dialingCandidates(number).any { candidate ->
+            candidate.startsWith(queryDigits)
+        }
+    }
+
+    /** Common stored-number shapes to compare against locally dialed prefixes. */
+    internal fun dialingCandidates(number: String): List<String> {
+        val digits = digitsOnly(number)
+        if (digits.isEmpty()) return emptyList()
+        val candidates = linkedSetOf(digits)
+        if (digits.length > 10) {
+            candidates += digits.takeLast(10)
+        }
+        if (digits.startsWith('0') && digits.length > 1) {
+            candidates += digits.drop(1)
+        }
+        if (digits.length == 11 && digits.startsWith('1')) {
+            candidates += digits.drop(1)
+        }
+        if (digits.length >= 12 && digits.startsWith("91")) {
+            candidates += digits.drop(2)
+        }
+        return candidates.toList()
     }
 
     fun relativeTime(timestamp: Long, now: Long = System.currentTimeMillis()): String {
@@ -154,4 +232,7 @@ object DialerCallLogic {
         android.provider.CallLog.Calls.MISSED_TYPE -> CallDirection.Missed
         else -> CallDirection.Outgoing
     }
+
+    fun isIncomingRinging(call: ActiveCall): Boolean =
+        call.direction == CallDirection.Incoming && !call.connected
 }

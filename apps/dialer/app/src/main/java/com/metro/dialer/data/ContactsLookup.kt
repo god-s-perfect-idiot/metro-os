@@ -1,6 +1,7 @@
 package com.metro.dialer.data
 
 import android.content.Context
+import android.net.Uri
 import android.provider.ContactsContract
 
 class ContactsLookup(
@@ -26,15 +27,60 @@ class ContactsLookup(
             while (cursor.moveToNext() && contacts.size < limit) {
                 val name = cursor.getString(0)?.trim().orEmpty()
                 val number = cursor.getString(1)?.trim().orEmpty()
-                if (name.isEmpty() || number.isEmpty()) continue
+                if (number.isEmpty()) continue
                 val normalized = DialerCallLogic.normalizeNumber(number)
-                val key = "$normalized|$name"
+                val displayName = name.ifEmpty { DialerCallLogic.formatDisplayNumber(number) }
+                val key = "$normalized|$displayName"
                 if (!results.add(key)) continue
                 contacts.add(
                     ContactSuggestion(
-                        displayName = name,
+                        displayName = displayName,
                         phoneNumber = number,
                         normalizedNumber = normalized,
+                    ),
+                )
+            }
+            return contacts
+        }
+    }
+
+    /** Live lookup via Android PhoneLookup — matches partial dialed numbers reliably. */
+    fun findMatchingContacts(query: String, limit: Int = 10): List<ContactSuggestion> {
+        val normalized = DialerCallLogic.normalizeNumber(query)
+        if (normalized.none { it.isDigit() }) return emptyList()
+
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(normalized),
+        )
+        val projection = arrayOf(
+            ContactsContract.PhoneLookup.DISPLAY_NAME,
+            ContactsContract.PhoneLookup.NUMBER,
+        )
+        val cursor = context.contentResolver.query(
+            uri,
+            projection,
+            null,
+            null,
+            ContactsContract.PhoneLookup.DISPLAY_NAME,
+        ) ?: return emptyList()
+
+        cursor.use {
+            val seen = linkedSetOf<String>()
+            val contacts = mutableListOf<ContactSuggestion>()
+            while (cursor.moveToNext() && contacts.size < limit) {
+                val name = cursor.getString(0)?.trim().orEmpty()
+                val number = cursor.getString(1)?.trim().orEmpty()
+                if (number.isEmpty()) continue
+                val normalizedNumber = DialerCallLogic.normalizeNumber(number)
+                val displayName = name.ifEmpty { DialerCallLogic.formatDisplayNumber(number) }
+                val key = "$normalizedNumber|$displayName"
+                if (!seen.add(key)) continue
+                contacts.add(
+                    ContactSuggestion(
+                        displayName = displayName,
+                        phoneNumber = number,
+                        normalizedNumber = normalizedNumber,
                     ),
                 )
             }

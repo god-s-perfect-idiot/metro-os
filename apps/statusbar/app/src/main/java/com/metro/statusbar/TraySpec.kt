@@ -9,6 +9,8 @@ object TraySpec {
     const val PRIVACY_INDICATOR_GAP_DP = 2
     /** Gap between cellular signal bars and the data connection label (4G, 5G, …). */
     const val CELLULAR_DATA_LABEL_GAP_DP = 2
+    /** Extra leading space before Wi-Fi so it sits clearly apart from the network group. */
+    const val WIFI_LEADING_PADDING_DP = 8
     const val EXPAND_ANIMATION_MS = 200L
     const val COLLAPSE_ANIMATION_MS = 200L
     const val AUTO_COLLAPSE_MS = MetroStatusBar.AUTO_COLLAPSE_MS

@@ -26,8 +26,14 @@
     <string name="add_call">add call</string>
     <string name="keypad">keypad</string>
     <string name="call">call</string>
+    <string name="message">message</string>
+    <string name="messaging_unavailable">Messaging app is not installed</string>
     <string name="save">save</string>
     <string name="end_call">end call</string>
+    <string name="incoming_call_label">INCOMING CALL</string>
+    <string name="answer">answer</string>
+    <string name="ignore">ignore</string>
+    <string name="text_reply">text reply</string>
     <string name="incoming">incoming</string>
     <string name="outgoing">outgoing</string>
     <string name="missed">missed</string>

@@ -21,9 +21,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -140,53 +145,106 @@ private fun PeopleIconButton(onClick: () -> Unit) {
     }
 }
 
+/** WP8.1 Phone handset glyph — same path as [ic_launcher_foreground]. */
+private const val PHONE_HANDSET_PATH =
+    "M34.24,18.2 C33.27,18.41 32.13,19.11 30.54,20.49 C29.71,21.19 28.58,22.17 27.99,22.67 " +
+        "C25.33,24.9 22.95,28.47 21.77,32 C20.85,34.81 20.66,36.02 20.66,39.56 C20.65,42.9 " +
+        "20.78,43.99 21.51,46.88 C23.49,54.84 29.04,63.8 37.78,73.18 C43.54,79.36 49.88,84.15 " +
+        "55.5,86.58 C63.12,89.87 70.19,90 76.54,86.94 C78.52,85.99 80.14,84.87 82.18,83.06 " +
+        "C84.81,80.71 85.97,79.49 86.34,78.7 C87.35,76.52 86.51,74.16 83.71,71.35 C82.32,69.94 " +
+        "78.75,66.89 77.26,65.83 C74.53,63.89 72.21,63.13 70.08,63.45 C68.18,63.75 66.45,64.93 " +
+        "63.02,68.3 C61.91,69.4 61.31,69.87 60.63,70.18 C56.98,71.91 51.58,68.58 44.6,60.29 " +
+        "C39.57,54.3 37.35,49.69 38.01,46.57 C38.29,45.24 39.06,44.21 40.66,43.03 C42.67,41.54 " +
+        "45.01,39.45 45.68,38.53 C47.18,36.5 47.35,34.09 46.21,31.03 C45.23,28.4 41.56,22.65 " +
+        "39.45,20.43 C38.51,19.45 38.03,19.08 37.25,18.69 C36.17,18.15 35.2,18 34.24,18.2 Z"
+
+private val phoneHandsetPath: Path by lazy {
+    PathParser().parsePathString(PHONE_HANDSET_PATH).toPath()
+}
+
+/**
+ * WP8.1 Messaging :-) bubble — same path as launcher [ic_system_messaging], without the
+ * tile phone overlay.
+ */
+private const val MESSAGING_BUBBLE_PATH =
+    "M18,28c0,-3 2.4,-5.4 5.4,-5.4h56c3,0 5.4,2.4 5.4,5.4v34c0,3 -2.4,5.4 -5.4,5.4H58l14,16l-8,-16H23.4c-3,0 -5.4,-2.4 -5.4,-5.4V28z" +
+        "M35.5,40.5a3.2,3.2 0 1,0 6.4,0a3.2,3.2 0 1,0 -6.4,0z" +
+        "M35.5,53.5a3.2,3.2 0 1,0 6.4,0a3.2,3.2 0 1,0 -6.4,0z" +
+        "M47,45.2h12c1.2,0 2.2,1 2.2,2.2s-1,2.2 -2.2,2.2h-12c-1.2,0 -2.2,-1 -2.2,-2.2s1,-2.2 2.2,-2.2z"
+
+private val messagingBubblePath: Path by lazy {
+    PathParser().parsePathString(MESSAGING_BUBBLE_PATH).toPath().apply {
+        fillType = PathFillType.EvenOdd
+    }
+}
+
+private const val AppBarCallGlyphSizeDp = 28
+private const val AppBarMessageGlyphSizeDp = 26
+private const val AppBarCallGlyphScale = 0.72f
+private const val AppBarMessageGlyphScale = 0.66f
+
+private fun DrawScope.drawViewportGlyph(path: Path, color: Color, glyphScale: Float) {
+    val scale = size.minDimension / 108f * glyphScale
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -54f, top = -54f)
+    }) {
+        drawPath(path, color)
+    }
+}
+
 @Composable
 fun PhoneCallIcon(
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.size(40.dp),
     color: Color = MetroTheme.colors.accent,
     showCircle: Boolean = true,
+    glyphScale: Float = 0.62f,
 ) {
-    Canvas(modifier = modifier.size(40.dp)) {
-        val strokeWidth = size.minDimension * 0.06f
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension * 0.05f
         if (showCircle) {
+            val circleRadius = size.minDimension * 0.42f - strokeWidth
             drawCircle(
                 color = color,
-                radius = size.minDimension * 0.42f,
+                radius = circleRadius,
                 style = Stroke(width = strokeWidth),
             )
         }
-        val path = Path().apply {
-            moveTo(size.width * 0.62f, size.height * 0.68f)
-            cubicTo(
-                size.width * 0.52f, size.height * 0.58f,
-                size.width * 0.42f, size.height * 0.48f,
-                size.width * 0.32f, size.height * 0.38f,
-            )
-            lineTo(size.width * 0.24f, size.height * 0.46f)
-            cubicTo(
-                size.width * 0.18f, size.height * 0.52f,
-                size.width * 0.18f, size.height * 0.62f,
-                size.width * 0.26f, size.height * 0.68f,
-            )
-            cubicTo(
-                size.width * 0.34f, size.height * 0.76f,
-                size.width * 0.44f, size.height * 0.76f,
-                size.width * 0.50f, size.height * 0.70f,
-            )
-            lineTo(size.width * 0.58f, size.height * 0.62f)
-            cubicTo(
-                size.width * 0.64f, size.height * 0.56f,
-                size.width * 0.64f, size.height * 0.48f,
-                size.width * 0.58f, size.height * 0.42f,
-            )
-            close()
-        }
-        drawPath(
-            path,
-            color,
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round),
-        )
+        drawViewportGlyph(phoneHandsetPath, color, glyphScale)
     }
+}
+
+@Composable
+fun MessageIcon(
+    modifier: Modifier = Modifier.size(40.dp),
+    color: Color = MetroTheme.colors.accent,
+    glyphScale: Float = 0.62f,
+) {
+    Canvas(modifier = modifier) {
+        drawViewportGlyph(messagingBubblePath, color, glyphScale)
+    }
+}
+
+@Composable
+fun AppBarCallGlyph(color: Color) {
+    PhoneCallIcon(
+        modifier = Modifier.size(AppBarCallGlyphSizeDp.dp),
+        color = color,
+        showCircle = false,
+        glyphScale = AppBarCallGlyphScale,
+    )
+}
+
+@Composable
+fun AppBarMessageGlyph(color: Color) {
+    MessageIcon(
+        modifier = Modifier.size(AppBarMessageGlyphSizeDp.dp),
+        color = color,
+        glyphScale = AppBarMessageGlyphScale,
+    )
 }
 
 @Composable

@@ -139,6 +139,9 @@ fun DialerShell(
                 onCall = {
                     state.placeCall(group.phoneNumber, group.displayName)
                 },
+                onMessage = {
+                    state.sendMessage(group.phoneNumber)
+                },
             )
         }
     }

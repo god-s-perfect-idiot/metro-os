@@ -42,5 +42,6 @@ data class ActiveCall(
     val phoneNumber: String,
     val displayName: String,
     val startedAtMillis: Long,
+    val direction: CallDirection,
     val connected: Boolean = false,
 )

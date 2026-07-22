@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -28,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +37,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -61,7 +64,6 @@ import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.findFirstOpenSlot
 import com.metro.launcher.data.markTileCells
 import com.metro.launcher.data.rowCompactionMap
-import com.metro.launcher.data.tileOverlapsRegion
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
@@ -87,6 +89,8 @@ private val TILE_CONTENT_INSET = 8.dp
 private val TILE_SMALL_ICON_INSET = 10.dp
 /** Duration for tile resize / magnet reflow — matches Metro page transition timing. */
 private const val TILE_RESIZE_MS = 300
+/** Slightly snappier magnet motion while a tile is mid-drag. */
+private const val TILE_MAGNET_MS = 220
 /** How long each live-tile face stays visible before the next 600ms flip. */
 private const val TILE_FLIP_HOLD_MS = 5_000L
 /** Max initial stagger so neighboring live tiles don't flip in sync. */
@@ -97,6 +101,10 @@ private const val TILE_FLIP_HOLD_JITTER_MS = 1_200L
 private const val TILE_FLIP_CAMERA_DISTANCE = 16f
 private val TileResizeAnimation: AnimationSpec<Dp> = tween(
     durationMillis = TILE_RESIZE_MS,
+    easing = FastOutSlowInEasing,
+)
+private val TileMagnetAnimation: AnimationSpec<Dp> = tween(
+    durationMillis = TILE_MAGNET_MS,
     easing = FastOutSlowInEasing,
 )
 private val TileFlipHalfAnimation = tween<Float>(
@@ -118,25 +126,26 @@ private fun rememberAnimatedTileBounds(
     x: Dp,
     y: Dp,
     labelPrefix: String,
+    animationSpec: AnimationSpec<Dp> = TileResizeAnimation,
 ): AnimatedTileBounds {
     val animatedWidth by animateDpAsState(
         targetValue = width,
-        animationSpec = TileResizeAnimation,
+        animationSpec = animationSpec,
         label = "${labelPrefix}Width",
     )
     val animatedHeight by animateDpAsState(
         targetValue = height,
-        animationSpec = TileResizeAnimation,
+        animationSpec = animationSpec,
         label = "${labelPrefix}Height",
     )
     val animatedX by animateDpAsState(
         targetValue = x,
-        animationSpec = TileResizeAnimation,
+        animationSpec = animationSpec,
         label = "${labelPrefix}X",
     )
     val animatedY by animateDpAsState(
         targetValue = y,
-        animationSpec = TileResizeAnimation,
+        animationSpec = animationSpec,
         label = "${labelPrefix}Y",
     )
     return AnimatedTileBounds(animatedWidth, animatedHeight, animatedX, animatedY)
@@ -148,20 +157,18 @@ data class PlacedTile(
     val row: Int,
 )
 
-/** Reserved grid cells for a tile being dragged — other tiles pack around this hole. */
+/** Reserved grid cells for a tile being dragged — other tiles flow around this hole. */
 data class GridSlot(val col: Int, val row: Int, val colSpan: Int, val rowSpan: Int)
 
 fun layoutTilesOnGrid(
     tiles: List<DisplayTile>,
     columns: Int = TILE_GRID_COLUMNS,
-    reservedSlot: GridSlot? = null,
 ): List<PlacedTile> {
     val placed = tiles.mapNotNull { tile ->
         val col = tile.entry.gridCol ?: return@mapNotNull null
         val row = tile.entry.gridRow ?: return@mapNotNull null
         PlacedTile(tile, col, row)
     }
-    if (reservedSlot != null) return pushTilesForReservedSlot(placed, reservedSlot, columns)
     return compactEmptyRowPlacements(placed)
 }
 
@@ -174,9 +181,59 @@ fun compactEmptyRowPlacements(placed: List<PlacedTile>): List<PlacedTile> {
     }
 }
 
+private fun readingOrderComparator(): Comparator<PlacedTile> =
+    compareBy({ it.row }, { it.col }, { it.tile.entry.packageName }, { it.tile.entry.tileId })
+
 /**
- * Magnet reflow while dragging: keep non-dragged tiles at [baseline] positions (gaps allowed),
- * reserve the snapped slot for [dragged], and push only tiles that overlap that slot.
+ * First-fit pack in reading order. A tile stays on the current row when it fits;
+ * otherwise it wraps (falls) to the next row — WP8.1 Start magnet flow.
+ */
+fun packTilesInReadingOrder(
+    tilesInOrder: List<DisplayTile>,
+    columns: Int = TILE_GRID_COLUMNS,
+): List<PlacedTile> {
+    val occupied = mutableSetOf<Pair<Int, Int>>()
+    return tilesInOrder.map { tile ->
+        val (col, row) = findFirstOpenSlot(
+            occupied,
+            tile.entry.size.colSpan,
+            tile.entry.size.rowSpan,
+            columns,
+            startRow = 0,
+        )
+        markTileCells(occupied, col, row, tile.entry.size.colSpan, tile.entry.size.rowSpan)
+        PlacedTile(tile, col, row)
+    }
+}
+
+/**
+ * Pack [tilesInReadingOrder] around a reserved hole. Tiles fill earlier gaps when they fit,
+ * otherwise wrap past the hole onto the next row.
+ */
+fun flowPackAroundReservedSlot(
+    tilesInReadingOrder: List<DisplayTile>,
+    reserved: GridSlot,
+    columns: Int = TILE_GRID_COLUMNS,
+): List<PlacedTile> {
+    val occupied = mutableSetOf<Pair<Int, Int>>()
+    markTileCells(occupied, reserved.col, reserved.row, reserved.colSpan, reserved.rowSpan)
+    return tilesInReadingOrder.map { tile ->
+        val (col, row) = findFirstOpenSlot(
+            occupied,
+            tile.entry.size.colSpan,
+            tile.entry.size.rowSpan,
+            columns,
+            startRow = 0,
+        )
+        markTileCells(occupied, col, row, tile.entry.size.colSpan, tile.entry.size.rowSpan)
+        PlacedTile(tile, col, row)
+    }
+}
+
+/**
+ * Magnet reflow while dragging: keep [baseline] reading order, reserve the snapped slot as a
+ * hole under the finger, and first-fit pack every other tile around it so neighbors flex and
+ * wrap naturally instead of jumping.
  */
 fun layoutTilesForDrag(
     tiles: List<DisplayTile>,
@@ -186,75 +243,23 @@ fun layoutTilesForDrag(
     baseline: Map<TileKey, Pair<Int, Int>>,
     columns: Int = TILE_GRID_COLUMNS,
 ): List<PlacedTile> {
-    val others = tiles.filterNot { sameTile(it, dragged) }
     val slot = GridSlot(
         col = slotCol.coerceIn(0, columns - dragged.entry.size.colSpan),
         row = slotRow.coerceAtLeast(0),
         colSpan = dragged.entry.size.colSpan,
         rowSpan = dragged.entry.size.rowSpan,
     )
-    val baselinePlaced = others.map { tile ->
-        val (col, row) = baseline[tile.tileKey()]
-            ?: (tile.entry.gridCol!! to tile.entry.gridRow!!)
-        PlacedTile(tile, col, row)
-    }
-    val pushed = pushTilesForReservedSlot(baselinePlaced, slot, columns)
-    return pushed + PlacedTile(dragged, slot.col, slot.row)
-}
-
-/** Moves only tiles that overlap [reserved]; all others keep their current slot. */
-fun pushTilesForReservedSlot(
-    placed: List<PlacedTile>,
-    reserved: GridSlot,
-    columns: Int = TILE_GRID_COLUMNS,
-): List<PlacedTile> {
-    val occupied = mutableSetOf<Pair<Int, Int>>()
-    markTileCells(occupied, reserved.col, reserved.row, reserved.colSpan, reserved.rowSpan)
-
-    val stable = mutableListOf<PlacedTile>()
-    val displaced = mutableListOf<PlacedTile>()
-    for (placement in placed) {
-        val tile = placement.tile
-        if (tileOverlapsRegion(
-                placement.col,
-                placement.row,
-                tile.entry.size.colSpan,
-                tile.entry.size.rowSpan,
-                reserved.col,
-                reserved.row,
-                reserved.colSpan,
-                reserved.rowSpan,
-            )
-        ) {
-            displaced += placement
-        } else {
-            stable += placement
-            markTileCells(
-                occupied,
-                placement.col,
-                placement.row,
-                tile.entry.size.colSpan,
-                tile.entry.size.rowSpan,
-            )
-        }
-    }
-
-    val repositioned = displaced
-        .sortedWith(compareBy({ it.row }, { it.col }))
-        .map { placement ->
-            val tile = placement.tile
-            val (col, row) = findFirstOpenSlot(
-                occupied,
-                tile.entry.size.colSpan,
-                tile.entry.size.rowSpan,
-                columns,
-                startRow = reserved.row,
-            )
-            markTileCells(occupied, col, row, tile.entry.size.colSpan, tile.entry.size.rowSpan)
+    val othersInOrder = tiles
+        .filterNot { sameTile(it, dragged) }
+        .map { tile ->
+            val (col, row) = baseline[tile.tileKey()]
+                ?: (tile.entry.gridCol!! to tile.entry.gridRow!!)
             PlacedTile(tile, col, row)
         }
-
-    return stable + repositioned
+        .sortedWith(readingOrderComparator())
+        .map { it.tile }
+    val packed = flowPackAroundReservedSlot(othersInOrder, slot, columns)
+    return packed + PlacedTile(dragged, slot.col, slot.row)
 }
 
 fun tilePixelSize(unit: Dp, colSpan: Int, rowSpan: Int, gap: Dp = TILE_GRID_GAP): Pair<Dp, Dp> {
@@ -283,30 +288,29 @@ fun TileGrid(
     onUnpin: () -> Unit = {},
     onDragLayout: (List<PlacedTile>) -> Unit = {},
     onReorderCommit: () -> Unit = {},
-    onDragActiveChange: (Boolean) -> Unit = {},
 ) {
     val density = LocalDensity.current
     val viewConfiguration = LocalViewConfiguration.current
-    var dragPositionPx by remember { mutableStateOf<Offset?>(null) }
+    var dragXPx by remember { mutableFloatStateOf(0f) }
+    var dragYPx by remember { mutableFloatStateOf(0f) }
     var draggingKey by remember { mutableStateOf<TileKey?>(null) }
     var dragSlotCol by remember { mutableIntStateOf(0) }
     var dragSlotRow by remember { mutableIntStateOf(0) }
     var dragBaselinePositions by remember { mutableStateOf<Map<TileKey, Pair<Int, Int>>?>(null) }
-    val isDragging = dragPositionPx != null
+    val isDragging = draggingKey != null
     val tilesState = rememberUpdatedState(tiles)
     val onDragLayoutState = rememberUpdatedState(onDragLayout)
     val onReorderCommitState = rememberUpdatedState(onReorderCommit)
-    val onDragActiveChangeState = rememberUpdatedState(onDragActiveChange)
     val onTileLongPressState = rememberUpdatedState(onTileLongPress)
+    val reflowSpec: AnimationSpec<Dp> =
+        if (isDragging) TileMagnetAnimation else TileResizeAnimation
 
     LaunchedEffect(editMode) {
         if (!editMode) {
-            dragPositionPx = null
             draggingKey = null
             dragSlotCol = 0
             dragSlotRow = 0
             dragBaselinePositions = null
-            onDragActiveChangeState.value(false)
         }
     }
 
@@ -337,26 +341,26 @@ fun TileGrid(
         val contentHeight = gridContentHeight(unit, placed)
         val animatedContentHeight by animateDpAsState(
             targetValue = contentHeight + 16.dp + if (editMode) cornerOverhang else 0.dp,
-            animationSpec = TileResizeAnimation,
+            animationSpec = reflowSpec,
             label = "tileGridHeight",
         )
 
-        fun beginDragAtLayout(
+        fun beginDragAtVisual(
             tile: DisplayTile,
-            layoutX: Dp,
-            layoutY: Dp,
+            visualXPx: Float,
+            visualYPx: Float,
             tileWidthPx: Float,
             tileHeightPx: Float,
         ) {
             draggingKey = tile.tileKey()
-            dragBaselinePositions = tilesState.value.associate { current ->
+            val baseline = tilesState.value.associate { current ->
                 current.tileKey() to (current.entry.gridCol!! to current.entry.gridRow!!)
             }
-            val xPx = with(density) { layoutX.toPx() }
-            val yPx = with(density) { layoutY.toPx() }
-            dragPositionPx = Offset(xPx, yPx)
-            val centerCol = (xPx + tileWidthPx / 2f) / cellStridePx
-            val centerRow = (yPx + tileHeightPx / 2f) / cellStridePx
+            dragBaselinePositions = baseline
+            dragXPx = visualXPx
+            dragYPx = visualYPx
+            val centerCol = (visualXPx + tileWidthPx / 2f) / cellStridePx
+            val centerRow = (visualYPx + tileHeightPx / 2f) / cellStridePx
             val (slotCol, slotRow) = snapDragSlot(
                 centerCol,
                 centerRow,
@@ -365,7 +369,10 @@ fun TileGrid(
             )
             dragSlotCol = slotCol
             dragSlotRow = slotRow
-            onDragActiveChangeState.value(true)
+            // Seed magnet layout immediately so neighbors flex into place as the lift starts.
+            onDragLayoutState.value(
+                layoutTilesForDrag(tilesState.value, tile, slotCol, slotRow, baseline),
+            )
         }
 
         fun updateDragBy(
@@ -374,20 +381,23 @@ fun TileGrid(
             tileWidthPx: Float,
             tileHeightPx: Float,
         ) {
-            val current = dragPositionPx ?: return
-            val next = current + amount
-            dragPositionPx = next
+            if (draggingKey != draggedKey) return
+            dragXPx += amount.x
+            dragYPx += amount.y
             val latestTiles = tilesState.value
             val dragged = latestTiles.firstOrNull { it.tileKey() == draggedKey } ?: return
             val baseline = dragBaselinePositions ?: return
-            val centerCol = (next.x + tileWidthPx / 2f) / cellStridePx
-            val centerRow = (next.y + tileHeightPx / 2f) / cellStridePx
-            val (slotCol, slotRow) = snapDragSlot(
-                centerCol,
-                centerRow,
-                dragged.entry.size.colSpan,
-                dragged.entry.size.rowSpan,
+            val centerCol = (dragXPx + tileWidthPx / 2f) / cellStridePx
+            val centerRow = (dragYPx + tileHeightPx / 2f) / cellStridePx
+            val (slotCol, slotRow) = snapDragSlotWithHysteresis(
+                pointerCol = centerCol,
+                pointerRow = centerRow,
+                colSpan = dragged.entry.size.colSpan,
+                rowSpan = dragged.entry.size.rowSpan,
+                currentCol = dragSlotCol,
+                currentRow = dragSlotRow,
             )
+            if (slotCol == dragSlotCol && slotRow == dragSlotRow) return
             dragSlotCol = slotCol
             dragSlotRow = slotRow
             val layout = layoutTilesForDrag(latestTiles, dragged, slotCol, slotRow, baseline)
@@ -395,15 +405,12 @@ fun TileGrid(
         }
 
         fun endDrag() {
-            if (dragPositionPx != null) {
-                dragPositionPx = null
-                draggingKey = null
-                dragSlotCol = 0
-                dragSlotRow = 0
-                dragBaselinePositions = null
-                onDragActiveChangeState.value(false)
-                onReorderCommitState.value()
-            }
+            if (draggingKey == null) return
+            draggingKey = null
+            dragSlotCol = 0
+            dragSlotRow = 0
+            dragBaselinePositions = null
+            onReorderCommitState.value()
         }
 
         Box(
@@ -428,12 +435,9 @@ fun TileGrid(
                 val tile = placement.tile
                 val tileKey = tile.tileKey()
                 val isActive = editMode && activeTile != null && sameTile(activeTile, tile)
-                val tileIsDragging = draggingKey == tileKey && isDragging
+                val tileIsDragging = draggingKey == tileKey
                 val layoutX = (unit + TILE_GRID_GAP) * placement.col
                 val layoutY = (unit + TILE_GRID_GAP) * placement.row
-                val layoutXState = rememberUpdatedState(layoutX)
-                val layoutYState = rememberUpdatedState(layoutY)
-                val isActiveState = rememberUpdatedState(isActive)
 
                 key(tile.entry.packageName, tile.entry.tileId) {
                     val (tileWidth, tileHeight) = tilePixelSize(
@@ -446,27 +450,47 @@ fun TileGrid(
                         height = tileHeight,
                         x = layoutX,
                         y = layoutY,
-                        labelPrefix = if (isActive) "activeTile" else "tile",
+                        labelPrefix = "tile",
+                        animationSpec = if (tileIsDragging) snap() else reflowSpec,
                     )
                     val tileWidthPx = with(density) { tileWidth.toPx() }
                     val tileHeightPx = with(density) { tileHeight.toPx() }
-                    val dragPx = dragPositionPx.takeIf { tileIsDragging }
-
-                    val positionModifier = if (dragPx != null) {
-                        Modifier
-                            .zIndex(1f)
-                            .offset {
-                                IntOffset(dragPx.x.roundToInt(), dragPx.y.roundToInt())
-                            }
+                    val tileWidthPxState = rememberUpdatedState(tileWidthPx)
+                    val tileHeightPxState = rememberUpdatedState(tileHeightPx)
+                    val tileState = rememberUpdatedState(tile)
+                    // Always px offset (one modifier type). While idle, follow animated bounds so
+                    // hit-testing tracks reflow; while dragged, follow finger floats.
+                    val offsetXPx = if (tileIsDragging) {
+                        dragXPx
                     } else {
-                        Modifier
-                            .zIndex(if (isActive) 0.5f else 0f)
-                            .offset(x = bounds.x, y = bounds.y)
+                        with(density) { bounds.x.toPx() }
                     }
+                    val offsetYPx = if (tileIsDragging) {
+                        dragYPx
+                    } else {
+                        with(density) { bounds.y.toPx() }
+                    }
+                    val offsetXState = rememberUpdatedState(offsetXPx)
+                    val offsetYState = rememberUpdatedState(offsetYPx)
+                    val visualXState = rememberUpdatedState(offsetXPx)
+                    val visualYState = rememberUpdatedState(offsetYPx)
 
-                    // Edit mode: one gesture scope for tap-to-focus and drag-to-reorder.
-                    // combinedClickable is disabled in edit mode — it waits for pointer-up and
-                    // blocks drag on the same touch sequence.
+                    val positionModifier = Modifier
+                        .zIndex(
+                            when {
+                                tileIsDragging -> 1f
+                                isActive -> 0.5f
+                                else -> 0f
+                            },
+                        )
+                        .offset {
+                            IntOffset(
+                                offsetXState.value.roundToInt(),
+                                offsetYState.value.roundToInt(),
+                            )
+                        }
+
+                    // Edit mode: tap focuses; drag from any tile starts reorder (and focuses it).
                     val tileDragModifier = if (editMode) {
                         Modifier.pointerInput(tileKey, "editDrag") {
                             val touchSlop = viewConfiguration.touchSlop
@@ -479,12 +503,17 @@ fun TileGrid(
 
                                 while (true) {
                                     val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                    val change = event.changes.firstOrNull { it.id == pointerId }
+                                    if (change == null) {
+                                        if (pastSlop) endDrag()
+                                        break
+                                    }
 
                                     if (!change.pressed) {
-                                        if (!pastSlop && !isActiveState.value) {
-                                            onTileLongPressState.value(tile)
-                                        } else if (pastSlop) {
+                                        if (!pastSlop) {
+                                            // Tap: focus this tile (or keep focus if already active).
+                                            onTileLongPressState.value(tileState.value)
+                                        } else {
                                             endDrag()
                                         }
                                         change.consume()
@@ -492,28 +521,39 @@ fun TileGrid(
                                     }
 
                                     val delta = change.positionChange()
+                                    // Own the pointer in edit mode so verticalScroll cannot cancel
+                                    // the gesture mid-drag (which previously left tiles undraggable).
+                                    change.consume()
+
                                     if (!pastSlop) {
                                         totalMovement += delta
                                         if (totalMovement.getDistance() > touchSlop) {
-                                            if (isActiveState.value) {
-                                                pastSlop = true
-                                                beginDragAtLayout(
-                                                    tile,
-                                                    layoutXState.value,
-                                                    layoutYState.value,
-                                                    tileWidthPx,
-                                                    tileHeightPx,
-                                                )
-                                            } else {
-                                                // In edit mode, a different tile must be tapped first to
-                                                // become active before it can participate in drag reorder.
-                                                change.consume()
-                                            }
+                                            pastSlop = true
+                                            val widthPx = tileWidthPxState.value
+                                            val heightPx = tileHeightPxState.value
+                                            val current = tileState.value
+                                            onTileLongPressState.value(current)
+                                            beginDragAtVisual(
+                                                current,
+                                                visualXState.value,
+                                                visualYState.value,
+                                                widthPx,
+                                                heightPx,
+                                            )
+                                            updateDragBy(
+                                                delta,
+                                                tileKey,
+                                                widthPx,
+                                                heightPx,
+                                            )
                                         }
-                                    }
-                                    if (pastSlop) {
-                                        change.consume()
-                                        updateDragBy(delta, tileKey, tileWidthPx, tileHeightPx)
+                                    } else {
+                                        updateDragBy(
+                                            delta,
+                                            tileKey,
+                                            tileWidthPxState.value,
+                                            tileHeightPxState.value,
+                                        )
                                     }
                                 }
                             }
@@ -522,26 +562,27 @@ fun TileGrid(
                         Modifier
                     }
 
-                    LauncherTileCell(
-                        tile = tile,
-                        width = if (dragPx != null) tileWidth else bounds.width,
-                        height = if (dragPx != null) tileHeight else bounds.height,
-                        editMode = editMode,
-                        isActive = isActive,
-                        isDragging = tileIsDragging,
-                        onClick = {
-                            when {
-                                editMode && isActive -> Unit
-                                editMode -> onDismissEdit()
-                                else -> onTileClick(tile)
-                            }
-                        },
-                        onLongClick = { onTileLongPress(tile) },
-                        onResize = onResize,
-                        onUnpin = onUnpin,
-                        dragModifier = tileDragModifier,
-                        modifier = positionModifier,
-                    )
+                    Box(modifier = positionModifier) {
+                        LauncherTileCell(
+                            tile = tile,
+                            width = if (tileIsDragging) tileWidth else bounds.width,
+                            height = if (tileIsDragging) tileHeight else bounds.height,
+                            editMode = editMode,
+                            isActive = isActive,
+                            isDragging = tileIsDragging,
+                            onClick = {
+                                when {
+                                    editMode && isActive -> Unit
+                                    editMode -> onDismissEdit()
+                                    else -> onTileClick(tile)
+                                }
+                            },
+                            onLongClick = { onTileLongPress(tile) },
+                            onResize = onResize,
+                            onUnpin = onUnpin,
+                            dragModifier = tileDragModifier,
+                        )
+                    }
                 }
             }
         }
@@ -601,6 +642,8 @@ private fun LauncherTileCell(
 
     // Outer box must not clip — edit corner buttons are centered on the tile vertices and
     // intentionally draw half outside the tile (WP8.1). Clip only the tile face below.
+    // Idle float is applied on an inner layer so hit-testing stays on the grid slot (floating
+    // neighbors must not steal presses from tiles underneath).
     Box(
         modifier = modifier
             .size(width, height)
@@ -618,8 +661,6 @@ private fun LauncherTileCell(
                     dimmed -> 0.97f
                     else -> 1f
                 }
-                translationX = if (isDragging) 0f else floatTx
-                translationY = if (isDragging) 0f else floatTy
             }
             .combinedClickable(
                 onClick = onClick,
@@ -628,157 +669,173 @@ private fun LauncherTileCell(
             )
             .then(dragModifier),
     ) {
-        // Flip tiles keep a black void in the slot; the accent fill rides on the rotating
-        // face so the Start-screen black shows through during the 3D flip.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clipToBounds()
-                .then(
-                    when {
-                        showPhotoContent -> Modifier
-                        canFlip -> Modifier.background(MetroColors.DarkBackground)
-                        else -> Modifier
-                            .background(tile.backgroundColor)
-                            .padding(TILE_CONTENT_INSET)
-                    },
-                ),
+                .graphicsLayer {
+                    translationX = if (isDragging) 0f else floatTx
+                    translationY = if (isDragging) 0f else floatTy
+                },
         ) {
-            val frontFace: @Composable () -> Unit = {
-                when {
-                    showCyclePhoto -> {
-                        CyclingPhotoTileContent(
-                            cells = photoGrid!!.cells,
-                            title = tile.title,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    showPhotoGrid -> {
-                        val (columns, rows) = gridDimensions!!
-                        PhotoGridTileContent(
-                            cells = photoGrid!!.cells,
-                            columns = columns,
-                            rows = rows,
-                            title = tile.title,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    showAgenda -> {
-                        AgendaTileContent(
-                            agenda = agenda!!,
-                            wide = tile.entry.size == PinnedTileSize.FourByTwo,
-                            contentColor = contentColor,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    showMessagingUnreadFace -> {
-                        MessagingUnreadTileContent(
-                            count = messagingUnread!!,
-                            iconSize = iconSize,
-                            contentColor = contentColor,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    isMessaging && isSmall -> {
-                        MessagingGlyph(
-                            unread = messagingUnread != null,
-                            contentColor = contentColor,
-                            contentDescription = tile.title,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(TILE_SMALL_ICON_INSET),
-                        )
-                    }
-                    isMessaging -> {
-                        MessagingIdleTileContent(
-                            title = tile.title,
-                            iconSize = iconSize,
-                            contentColor = contentColor,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    isSmall -> {
-                        MetroAppIcon(
-                            packageName = tile.entry.packageName,
-                            size = iconSize,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(TILE_SMALL_ICON_INSET),
-                            contentDescription = tile.title,
-                            fallbackLabel = tile.title,
-                            fallbackColor = contentColor,
-                        )
-                    }
-                    else -> {
-                        StaticIconTileContent(
-                            packageName = tile.entry.packageName,
-                            title = tile.title,
-                            iconSize = iconSize,
-                            contentColor = contentColor,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                }
-            }
-            val badgeCount = tile.counter?.takeIf {
-                it > 0 && !showAgenda && !showMessagingUnreadFace
-            }
-            if (canFlip) {
-                LiveTileFlipFace(
-                    flipSeed = floatSeed,
-                    faceColor = tile.backgroundColor,
-                    front = frontFace,
-                    back = {
-                        NotificationPeekTileContent(
-                            title = tile.backFaceTitle,
-                            body = tile.backFaceBody,
-                            footer = tile.title,
-                            wide = tile.entry.size == PinnedTileSize.FourByTwo,
-                            contentColor = contentColor,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    },
-                    badge = badgeCount?.let { count ->
-                        {
-                            MetroText(
-                                text = count.toString(),
-                                style = MetroTextStyle.Body,
-                                color = contentColor,
-                                modifier = Modifier.align(Alignment.TopEnd),
+            // Flip tiles keep a black void in the slot; the accent fill rides on the rotating
+            // face so the Start-screen black shows through during the 3D flip.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clipToBounds()
+                    .then(
+                        when {
+                            showPhotoContent -> Modifier
+                            canFlip -> Modifier.background(MetroColors.DarkBackground)
+                            else -> Modifier
+                                .background(tile.backgroundColor)
+                                .padding(TILE_CONTENT_INSET)
+                        },
+                    ),
+            ) {
+                val frontFace: @Composable () -> Unit = {
+                    when {
+                        showCyclePhoto -> {
+                            CyclingPhotoTileContent(
+                                cells = photoGrid!!.cells,
+                                title = tile.title,
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                frontFace()
-                badgeCount?.let { count ->
-                    MetroText(
-                        text = count.toString(),
-                        style = MetroTextStyle.Body,
-                        color = contentColor,
-                        modifier = Modifier.align(Alignment.TopEnd),
+                        showPhotoGrid -> {
+                            val (columns, rows) = gridDimensions!!
+                            PhotoGridTileContent(
+                                cells = photoGrid!!.cells,
+                                columns = columns,
+                                rows = rows,
+                                title = tile.title,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        showAgenda -> {
+                            AgendaTileContent(
+                                agenda = agenda!!,
+                                wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                                contentColor = contentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        showMessagingUnreadFace -> {
+                            MessagingUnreadTileContent(
+                                count = messagingUnread!!,
+                                iconSize = iconSize,
+                                contentColor = contentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        isMessaging && isSmall -> {
+                            MessagingGlyph(
+                                unread = messagingUnread != null,
+                                contentColor = contentColor,
+                                contentDescription = tile.title,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(TILE_SMALL_ICON_INSET),
+                            )
+                        }
+                        isMessaging -> {
+                            MessagingIdleTileContent(
+                                title = tile.title,
+                                iconSize = iconSize,
+                                contentColor = contentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        isSmall -> {
+                            MetroAppIcon(
+                                packageName = tile.entry.packageName,
+                                size = iconSize,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(TILE_SMALL_ICON_INSET),
+                                contentDescription = tile.title,
+                                fallbackLabel = tile.title,
+                                fallbackColor = contentColor,
+                            )
+                        }
+                        else -> {
+                            StaticIconTileContent(
+                                packageName = tile.entry.packageName,
+                                title = tile.title,
+                                iconSize = iconSize,
+                                contentColor = contentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                }
+                val badgeCount = tile.counter?.takeIf {
+                    it > 0 && !showAgenda && !showMessagingUnreadFace
+                }
+                if (canFlip) {
+                    LiveTileFlipFace(
+                        flipSeed = floatSeed,
+                        faceColor = tile.backgroundColor,
+                        front = frontFace,
+                        back = {
+                            NotificationPeekTileContent(
+                                title = tile.backFaceTitle,
+                                body = tile.backFaceBody,
+                                footer = tile.title,
+                                wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                                contentColor = contentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        },
+                        badge = badgeCount?.let { count ->
+                            {
+                                MetroText(
+                                    text = count.toString(),
+                                    style = MetroTextStyle.Body,
+                                    color = contentColor,
+                                    modifier = Modifier.align(Alignment.TopEnd),
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
                     )
+                } else {
+                    frontFace()
+                    badgeCount?.let { count ->
+                        MetroText(
+                            text = count.toString(),
+                            style = MetroTextStyle.Body,
+                            color = contentColor,
+                            modifier = Modifier.align(Alignment.TopEnd),
+                        )
+                    }
                 }
             }
         }
-        if (isActive && !isDragging) {
+        if (isActive) {
             val cornerOffset = TileCornerButtonSize / 2
+            val controlsVisible = !isDragging
             TileEditCornerButton(
                 onClick = onUnpin,
                 contentDescription = "unpin",
                 unpin = true,
+                enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = cornerOffset, y = -cornerOffset),
+                    .offset(x = cornerOffset, y = -cornerOffset)
+                    // Keep composed while dragging so removing the clickable child cannot
+                    // cancel the tile's in-progress pointerInput gesture.
+                    .alpha(if (controlsVisible) 1f else 0f),
             )
             TileEditCornerButton(
                 onClick = onResize,
                 contentDescription = "resize",
                 resizeGlyph = resizeGlyphForTileSize(tile.entry.size),
+                enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = cornerOffset, y = cornerOffset),
+                    .offset(x = cornerOffset, y = cornerOffset)
+                    .alpha(if (controlsVisible) 1f else 0f),
             )
         }
     }

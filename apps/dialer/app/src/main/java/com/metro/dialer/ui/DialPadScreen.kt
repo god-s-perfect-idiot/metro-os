@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,6 +45,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +53,9 @@ import com.metro.dialer.R
 import com.metro.dialer.data.CallDirection
 import com.metro.dialer.data.CallGroup
 import com.metro.dialer.data.DialerCallLogic
+import com.metro.ui.MetroAppBar
+import com.metro.ui.MetroAppBarDefaults
+import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroText
@@ -85,6 +90,9 @@ private val DialNumberStyle = TextStyle(
     lineHeight = 46.sp,
 )
 
+/** Smallest dialed-number size before ellipsis — blueprint minimum is 32sp. */
+private const val DialNumberMinFontSizeSp = 24f
+
 private val DialKeyBackground = Color(0xFF252525)
 private val DialKeypadSectionBackground = Color(0xFF141414)
 private val DialKeyHeight = 64.dp
@@ -94,11 +102,12 @@ fun CallDetailScreen(
     group: CallGroup,
     onBack: () -> Unit,
     onCall: () -> Unit,
+    onMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BackHandler(onBack = onBack)
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
@@ -107,88 +116,94 @@ fun CallDetailScreen(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .padding(top = 8.dp, bottom = 16.dp),
+                .fillMaxSize()
+                .padding(bottom = MetroAppBarDefaults.BarHeight),
         ) {
-            MetroText(
-                text = group.displayName.uppercase(),
-                style = MetroTextStyle.SectionHeader,
-            )
-            if (group.displayName != DialerCallLogic.formatDisplayNumber(group.phoneNumber)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .padding(top = 8.dp, bottom = 16.dp),
+            ) {
+                val hasContactName =
+                    group.displayName != DialerCallLogic.formatDisplayNumber(group.phoneNumber)
                 MetroText(
-                    text = DialerCallLogic.formatDisplayNumber(group.phoneNumber),
-                    style = MetroTextStyle.ListItemTitle,
-                    color = MetroTheme.colors.accent,
+                    text = group.displayName.uppercase(),
+                    style = MetroTextStyle.SectionHeader,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp),
-        ) {
-            group.calls.forEach { call ->
-                val directionLabel = when (call.type) {
-                    CallDirection.Incoming -> stringResource(R.string.incoming)
-                    CallDirection.Outgoing -> stringResource(R.string.outgoing)
-                    CallDirection.Missed -> stringResource(R.string.missed)
-                }
-                val durationLabel = when {
-                    call.type == CallDirection.Missed -> stringResource(R.string.missed)
-                    call.durationSeconds > 0 -> DialerCallLogic.formatDuration(call.durationSeconds)
-                    else -> stringResource(R.string.declined)
-                }
-                val titleColor = when (call.type) {
-                    CallDirection.Missed -> MetroColors.AccentRed
-                    else -> MetroTheme.colors.primaryText
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                ) {
+                if (hasContactName) {
                     MetroText(
-                        text = directionLabel,
-                        style = MetroTextStyle.ListItemTitle,
-                        color = titleColor,
-                    )
-                    MetroText(
-                        text = DialerCallLogic.formatTimestamp(call.timestamp),
+                        text = DialerCallLogic.formatDisplayNumber(group.phoneNumber),
                         style = MetroTextStyle.ListItemSubtitle,
-                        color = MetroTheme.colors.secondaryText,
-                    )
-                    MetroText(
-                        text = durationLabel,
-                        style = MetroTextStyle.Body,
-                        color = MetroTheme.colors.secondaryText,
+                        color = MetroTheme.colors.accent,
                     )
                 }
-                ListDivider()
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp),
+            ) {
+                group.calls.forEach { call ->
+                    val directionLabel = when (call.type) {
+                        CallDirection.Incoming -> stringResource(R.string.incoming)
+                        CallDirection.Outgoing -> stringResource(R.string.outgoing)
+                        CallDirection.Missed -> stringResource(R.string.missed)
+                    }
+                    val durationLabel = when {
+                        call.type == CallDirection.Missed -> stringResource(R.string.missed)
+                        call.durationSeconds > 0 -> DialerCallLogic.formatDuration(call.durationSeconds)
+                        else -> stringResource(R.string.declined)
+                    }
+                    val titleColor = when (call.type) {
+                        CallDirection.Missed -> MetroColors.AccentRed
+                        else -> MetroTheme.colors.primaryText
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                    ) {
+                        MetroText(
+                            text = directionLabel,
+                            style = MetroTextStyle.ListItemTitle,
+                            color = titleColor,
+                        )
+                        MetroText(
+                            text = DialerCallLogic.formatTimestamp(call.timestamp),
+                            style = MetroTextStyle.ListItemSubtitle,
+                            color = MetroTheme.colors.secondaryText,
+                        )
+                        MetroText(
+                            text = durationLabel,
+                            style = MetroTextStyle.Body,
+                            color = MetroTheme.colors.secondaryText,
+                        )
+                    }
+                    ListDivider()
+                }
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
+        MetroAppBar(
+            icons = listOf(
+                MetroAppBarIcon(
+                    label = stringResource(R.string.call),
                     onClick = onCall,
-                )
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PhoneCallIcon()
-            MetroText(
-                text = stringResource(R.string.call),
-                style = MetroTextStyle.ListItemTitle,
-                color = MetroTheme.colors.accent,
-                modifier = Modifier.padding(start = 12.dp),
-            )
-        }
+                    icon = { color -> AppBarCallGlyph(color = color) },
+                ),
+                MetroAppBarIcon(
+                    label = stringResource(R.string.message),
+                    onClick = onMessage,
+                    icon = { color -> AppBarMessageGlyph(color = color) },
+                ),
+            ),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
@@ -206,32 +221,32 @@ fun DialPadPane(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black),
-        verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            if (suggestions.isNotEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    suggestions.forEach { suggestion ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSuggestionClick(suggestion.phoneNumber) }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                        ) {
-                            MetroText(text = suggestion.displayName, style = MetroTextStyle.ListItemTitle)
-                            MetroText(
-                                text = suggestion.phoneNumber,
-                                style = MetroTextStyle.ListItemSubtitle,
-                                color = MetroTheme.colors.secondaryText,
-                            )
-                        }
+        if (suggestions.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                suggestions.forEach { suggestion ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSuggestionClick(suggestion.phoneNumber) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        MetroText(text = suggestion.displayName, style = MetroTextStyle.ListItemTitle)
+                        MetroText(
+                            text = suggestion.phoneNumber,
+                            style = MetroTextStyle.ListItemSubtitle,
+                            color = MetroTheme.colors.secondaryText,
+                        )
                     }
                 }
             }
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
         }
 
         Column(
@@ -282,12 +297,11 @@ internal fun DialNumberField(
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BasicText(
+        AutoScaleDialNumberText(
             text = dialString,
+            baseStyle = DialNumberStyle,
+            color = MetroTheme.colors.primaryText,
             modifier = Modifier.weight(1f),
-            style = DialNumberStyle.copy(color = MetroTheme.colors.primaryText),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
         )
         if (dialString.isNotEmpty()) {
             BackspaceIcon(
@@ -295,6 +309,60 @@ internal fun DialNumberField(
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun AutoScaleDialNumberText(
+    text: String,
+    baseStyle: TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val textMeasurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier = modifier) {
+        val maxWidthPx = constraints.maxWidth
+        val lineHeightRatio = baseStyle.lineHeight.value / baseStyle.fontSize.value
+        val style = remember(text, maxWidthPx, baseStyle, color) {
+            val tinted = baseStyle.copy(color = color)
+            if (text.isEmpty() || maxWidthPx <= 0) {
+                tinted
+            } else {
+                val maxSp = baseStyle.fontSize.value
+                val minSp = DialNumberMinFontSizeSp.coerceAtMost(maxSp)
+                var low = minSp
+                var high = maxSp
+                var bestSp = minSp
+                while (low <= high) {
+                    val midSp = (low + high) / 2f
+                    val candidate = tinted.copy(
+                        fontSize = midSp.sp,
+                        lineHeight = (midSp * lineHeightRatio).sp,
+                    )
+                    val width = textMeasurer.measure(
+                        text = text,
+                        style = candidate,
+                        maxLines = 1,
+                    ).size.width
+                    if (width <= maxWidthPx) {
+                        bestSp = midSp
+                        low = midSp + 0.5f
+                    } else {
+                        high = midSp - 0.5f
+                    }
+                }
+                tinted.copy(
+                    fontSize = bestSp.sp,
+                    lineHeight = (bestSp * lineHeightRatio).sp,
+                )
+            }
+        }
+        BasicText(
+            text = text,
+            style = style,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

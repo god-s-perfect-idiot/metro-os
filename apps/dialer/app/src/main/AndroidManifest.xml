@@ -9,6 +9,15 @@
 
     <queries>
         <package android:name="com.metro.people" />
+        <package android:name="com.metro.messaging" />
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="sms" />
+        </intent>
     </queries>
 
     <application

@@ -12,10 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,7 +47,6 @@ fun StartScreen(
     // verticalScroll consumes blank taps, so edit-mode dismiss must live on this surface —
     // not only on the dim scrim behind the grid (which never receives those events).
     val editDismissInteraction = remember { MutableInteractionSource() }
-    var tileDragging by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val viewConfiguration = LocalViewConfiguration.current
     val fastPressConfiguration = remember(viewConfiguration) {
@@ -59,11 +55,13 @@ fun StartScreen(
         }
     }
     CompositionLocalProvider(LocalViewConfiguration provides fastPressConfiguration) {
+        // Never toggle verticalScroll.enabled mid-gesture — that cancels the tile's
+        // pointerInput and forces a second drag. Tile gestures consume the pointer instead.
         Column(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .verticalScroll(scrollState, enabled = !tileDragging)
+                .verticalScroll(scrollState)
                 .then(
                     if (editMode) {
                         Modifier.clickable(
@@ -87,7 +85,6 @@ fun StartScreen(
                 onUnpin = onUnpin,
                 onDragLayout = onDragLayout,
                 onReorderCommit = onReorderCommit,
-                onDragActiveChange = { tileDragging = it },
             )
 
             Box(

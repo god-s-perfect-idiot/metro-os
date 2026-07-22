@@ -211,7 +211,7 @@ fun MetroAppBar(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.Top,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         visibleIcons.forEach { item ->
                             AppBarIconButton(item = item, showLabel = expanded)
@@ -221,7 +221,7 @@ fun MetroAppBar(
                 EllipsisButton(
                     expanded = expanded,
                     onClick = { onExpandedChange(!expanded) },
-                    modifier = Modifier.align(Alignment.TopEnd),
+                    modifier = Modifier.align(Alignment.CenterEnd),
                 )
             }
 

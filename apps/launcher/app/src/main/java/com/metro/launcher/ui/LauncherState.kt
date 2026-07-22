@@ -14,6 +14,7 @@ import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.PinnedTileEntry
+import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.PinnedTileSize
@@ -178,7 +179,10 @@ class LauncherState(context: Context) {
         val current = editingTile ?: return
         val newSize = TileSizeCycle.nextSize(current.entry.size)
         updateTileSize(current.entry, newSize)
-        editingTile = displayTiles.firstOrNull { it.entry.packageName == current.entry.packageName }
+        editingTile = displayTiles.firstOrNull {
+            it.entry.packageName == current.entry.packageName &&
+                it.entry.tileId == current.entry.tileId
+        }
     }
 
     fun unpinEditingTile() {
@@ -253,9 +257,12 @@ class LauncherState(context: Context) {
     }
 
     fun updateTileSize(entry: PinnedTileEntry, size: PinnedTileSize) {
-        pinnedEntries = pinnedEntries.map {
-            if (it.packageName == entry.packageName && it.tileId == entry.tileId) it.copy(size = size) else it
-        }
+        pinnedEntries = applyTileResize(
+            entries = pinnedEntries,
+            packageName = entry.packageName,
+            tileId = entry.tileId,
+            newSize = size,
+        )
         persistAndRefresh()
     }
 

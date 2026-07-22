@@ -28,10 +28,17 @@ class MetroInCallService : InCallService() {
         val displayName = resolveDisplayName(number)
         MetroCallSession.bindTelecomCall(call, displayName)
 
-        val intent = Intent(this, InCallActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val isIncoming = when (call.details.callDirection) {
+            Call.Details.DIRECTION_INCOMING -> true
+            Call.Details.DIRECTION_OUTGOING -> false
+            else -> call.state == Call.STATE_RINGING
         }
-        startActivity(intent)
+        if (isIncoming && call.state != Call.STATE_ACTIVE) {
+            val intent = Intent(this, InCallActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
+        }
     }
 
     override fun onCallRemoved(call: Call) {
