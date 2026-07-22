@@ -95,7 +95,7 @@ fun StartThemeScreen(
             Spacer(modifier = Modifier.width(12.dp))
             MetroText(
                 text = state.accentDisplayName,
-                style = MetroTextStyle.ListItemTitle,
+                style = MetroTextStyle.Body,
             )
         }
     }

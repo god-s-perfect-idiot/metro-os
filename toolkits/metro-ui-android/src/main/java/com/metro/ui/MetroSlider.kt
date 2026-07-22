@@ -9,8 +9,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -18,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -27,7 +25,8 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
 /**
- * WP8.1 slider — accent fill, 4dp track, 24dp circular thumb (METRO-UX-LANGUAGE §6.13).
+ * WP8.1 slider — accent fill, thick rectangular track/thumb (METRO-UX-LANGUAGE §6.13).
+ * Discrete ticks use the page background so they read as empty notches in the fill.
  * [steps] follows Compose Slider semantics: number of discrete intermediate ticks
  * (tick count = steps + 2 including endpoints). Prefer [MetroStepSlider] for N positions.
  */
@@ -42,13 +41,17 @@ fun MetroSlider(
 ) {
     val accent = MetroTheme.colors.accent
     val trackColor = MetroTheme.colors.secondaryText.copy(alpha = 0.45f)
-    val thumbSize = 24.dp
-    val trackHeight = 4.dp
+    // Match page background so ticks punch empty gaps through the accent fill.
+    val tickColor = MetroTheme.colors.background
+    val thumbWidth = 10.dp
+    val thumbHeight = 32.dp
+    val trackHeight = 10.dp
+    val tickWidth = 2.dp
+    val tickCount = if (steps > 0) steps + 2 else 0
 
     fun snap(raw: Float): Float {
         val coerced = raw.coerceIn(valueRange.start, valueRange.endInclusive)
         if (steps <= 0) return coerced
-        val tickCount = steps + 2
         val span = valueRange.endInclusive - valueRange.start
         if (span == 0f) return coerced
         val t = (coerced - valueRange.start) / span
@@ -68,7 +71,8 @@ fun MetroSlider(
         contentAlignment = Alignment.CenterStart,
     ) {
         val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
-        val thumbPx = with(LocalDensity.current) { thumbSize.toPx() }
+        val thumbPx = with(LocalDensity.current) { thumbWidth.toPx() }
+        val tickPx = with(LocalDensity.current) { tickWidth.toPx() }
         val travel = (widthPx - thumbPx).coerceAtLeast(1f)
         var fraction by remember(value, valueRange, steps) {
             mutableFloatStateOf(fractionOf(snap(value)))
@@ -113,13 +117,34 @@ fun MetroSlider(
                         .background(accent, RectangleShape),
                 )
             }
+
+            if (tickCount > 2) {
+                for (i in 1 until tickCount - 1) {
+                    val tickFraction = i / (tickCount - 1).toFloat()
+                    Box(
+                        modifier = Modifier
+                            .offset {
+                                IntOffset(
+                                    (thumbPx / 2f + tickFraction * travel - tickPx / 2f)
+                                        .roundToInt(),
+                                    0,
+                                )
+                            }
+                            .align(Alignment.CenterStart)
+                            .width(tickWidth)
+                            .height(trackHeight)
+                            .background(tickColor, RectangleShape),
+                    )
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .offset { IntOffset((fraction * travel).roundToInt(), 0) }
                     .align(Alignment.CenterStart)
-                    .size(thumbSize)
-                    .clip(CircleShape)
-                    .background(MetroTheme.colors.primaryText),
+                    .width(thumbWidth)
+                    .height(thumbHeight)
+                    .background(MetroTheme.colors.primaryText, RectangleShape),
             )
         }
     }

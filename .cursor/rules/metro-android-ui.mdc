@@ -10,8 +10,8 @@ alwaysApply: false
 
 ## Shape language (summary)
 
-- **Squares (0dp corners):** tiles, border text buttons, lists, dialogs
-- **Circles / pills (exceptions):** app bar icon press, toggle track, slider thumb, radio
+- **Squares (0dp corners):** tiles, border text buttons, lists, dialogs, slider thumb/track
+- **Circles / pills (exceptions):** app bar icon press, toggle track, radio
 - **Never:** Material cards, FAB, rounded-corner photo frames
 
 ## Theme

@@ -48,6 +48,7 @@ Use **sharp 0dp corner radius** unless a control is listed in §2.2.
 | **Pivot accent underline** | 3dp-thick **rectangle** under selected header |
 | **Checkboxes** | 20×20dp **square** outline; filled accent when checked |
 | **Progress bar** | Rectangular track and fill |
+| **Slider thumb** | 10×32dp **rectangle** on a rectangular track |
 | **Message dialog** | Centered rectangle panel; square corners |
 | **Panorama section headers** | Flush-left text blocks over imagery |
 | **Photography** | Full-bleed rectangles; **never** rounded "cards" |
@@ -61,7 +62,6 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 | **App bar icon press affordance** | **Circle** (not rounded-rect) drawn behind icon on press — system-provided in WP, replicated in `MetroAppBar` |
 | **App bar icon glyph area** | 26×26dp icon centered in 48×48dp touch target |
 | **ToggleSwitch** | **Pill** capsule; 38×20dp track, circular thumb |
-| **Slider thumb** | **Circle**, 24dp diameter |
 | **Radio button** | **Circle** outline with inner dot when selected |
 | **Indeterminate progress** | Accent bar with soft ends (WP system control) |
 
@@ -376,9 +376,10 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 
 | Property | Spec |
 |----------|------|
-| Track | 4dp height, secondary foreground |
-| Fill | Accent |
-| Thumb | **24dp circle** |
+| Track | 10dp height, secondary foreground |
+| Fill | Accent (left of thumb) |
+| Thumb | **10×32dp rectangle** (WP8.1; not a circle) |
+| Ticks | Discrete steps draw 2dp vertical notches in **page background** (empty gaps through the fill) |
 | Value bubble | Optional accent label above thumb while dragging |
 
 ---

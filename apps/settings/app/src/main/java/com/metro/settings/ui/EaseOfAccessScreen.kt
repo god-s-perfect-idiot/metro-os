@@ -4,10 +4,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,7 +36,7 @@ fun EaseOfAccessScreen(
 
         MetroText(
             text = stringResource(R.string.settings_text_size),
-            style = MetroTextStyle.ListItemTitle,
+            style = MetroTextStyle.SectionHeader,
             modifier = Modifier.padding(
                 horizontal = MetroDimens.ScreenHorizontalMargin,
                 vertical = 8.dp,
@@ -45,8 +47,10 @@ fun EaseOfAccessScreen(
             modifier = Modifier
                 .padding(horizontal = MetroDimens.ScreenHorizontalMargin)
                 .fillMaxWidth()
-                .border(1.dp, MetroTheme.colors.primaryText)
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+                .height(148.dp)
+                .border(1.dp, MetroTheme.colors.secondaryText.copy(alpha = 0.55f))
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            contentAlignment = Alignment.BottomStart,
         ) {
             MetroText(
                 text = stringResource(R.string.settings_sample),
@@ -60,14 +64,14 @@ fun EaseOfAccessScreen(
             stepCount = MetroFontScale.STEP_COUNT,
             modifier = Modifier.padding(
                 horizontal = MetroDimens.ScreenHorizontalMargin,
-                vertical = 16.dp,
+                vertical = 20.dp,
             ),
         )
 
         MetroText(
             text = stringResource(R.string.settings_text_size_help),
             style = MetroTextStyle.Body,
-            color = MetroTheme.colors.secondaryText,
+            color = MetroTheme.colors.primaryText,
             modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
         )
     }
