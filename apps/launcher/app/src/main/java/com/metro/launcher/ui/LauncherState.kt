@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.database.ContentObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,9 +23,11 @@ import com.metro.launcher.data.TileNotificationAccess
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroBroadcasts
+import com.metro.system.MetroIntents
 import com.metro.system.MetroPreferenceKeys
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroThemeMode
+import com.metro.system.MetroTileContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,6 +48,11 @@ class LauncherState(context: Context) {
     var showNotificationAccessPrompt by mutableStateOf(false)
 
     private var pinnedEntries by mutableStateOf(repository.loadPinnedTiles())
+    /**
+     * Bumped on every pin/unpin/reorder mutation. [refreshAllAsync] discards results started
+     * before the latest bump so an in-flight reload cannot wipe a just-pinned contact tile.
+     */
+    private var layoutEpoch = 0
     /** Static Start chrome first; [refreshAllAsync] fills live tile payloads off the critical path. */
     var displayTiles by mutableStateOf(
         repository.resolveDisplayTiles(pinnedEntries, liveContent = false),
@@ -78,10 +86,17 @@ class LauncherState(context: Context) {
 
     private val themeReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
-            intent?.getStringExtra(MetroBroadcasts.EXTRA_THEME_MODE)?.let { mode ->
+            if (intent?.action != MetroBroadcasts.ACTION_THEME_CHANGED) return
+            val modeExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_THEME_MODE)
+            val accentExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR)
+            metroPrefs.cacheThemeSnapshot(
+                themeMode = modeExtra?.let { MetroThemeMode.fromStorage(it) },
+                accentColorHex = accentExtra,
+            )
+            modeExtra?.let { mode ->
                 darkTheme = MetroThemeMode.fromStorage(mode) == MetroThemeMode.Dark
             }
-            intent?.getStringExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR)?.let { hex ->
+            accentExtra?.let { hex ->
                 accent = MetroPreferences.parseAccentHex(hex)
                 displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
                 clearAppListIconCache()
@@ -89,23 +104,32 @@ class LauncherState(context: Context) {
         }
     }
 
+    private var prefsObserver: ContentObserver? = null
+
     init {
-        metroPrefs.let { prefs ->
-            appContext.getSharedPreferences(MetroPreferenceKeys.PREFS_NAME, Context.MODE_PRIVATE)
-                .registerOnSharedPreferenceChangeListener(preferenceListener)
-        }
+        appContext.getSharedPreferences(MetroPreferenceKeys.PREFS_NAME, Context.MODE_PRIVATE)
+            .registerOnSharedPreferenceChangeListener(preferenceListener)
     }
 
     fun registerReceivers(context: Context) {
         val tileFilter = IntentFilter(MetroBroadcasts.ACTION_TILE_UPDATE)
         val themeFilter = IntentFilter(MetroBroadcasts.ACTION_THEME_CHANGED)
         context.registerReceiver(tileUpdateReceiver, tileFilter, Context.RECEIVER_EXPORTED)
-        context.registerReceiver(themeReceiver, themeFilter, Context.RECEIVER_NOT_EXPORTED)
+        // Settings is a different package — must be exported to receive THEME_CHANGED.
+        context.registerReceiver(themeReceiver, themeFilter, Context.RECEIVER_EXPORTED)
+        prefsObserver = metroPrefs.registerObserver {
+            darkTheme = metroPrefs.isDark
+            accent = metroPrefs.accentColor
+            displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+            clearAppListIconCache()
+        }
     }
 
     fun unregisterReceivers(context: Context) {
         context.unregisterReceiver(tileUpdateReceiver)
         context.unregisterReceiver(themeReceiver)
+        metroPrefs.unregisterObserver(prefsObserver)
+        prefsObserver = null
         appContext.getSharedPreferences(MetroPreferenceKeys.PREFS_NAME, Context.MODE_PRIVATE)
             .unregisterOnSharedPreferenceChangeListener(preferenceListener)
     }
@@ -124,15 +148,19 @@ class LauncherState(context: Context) {
      * [Dispatchers.IO] so Start can paint before SMS/contacts/media queries finish.
      */
     suspend fun refreshAllAsync() {
+        val epochAtStart = layoutEpoch
         val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles() }
+        if (epochAtStart != layoutEpoch) return
         pinnedEntries = pinned
         apps = withContext(Dispatchers.IO) { repository.discoverApps(pinned) }
+        if (epochAtStart != layoutEpoch) return
         darkTheme = metroPrefs.isDark
         accent = metroPrefs.accentColor
         refreshNotificationAccessPrompt()
         val liveTiles = withContext(Dispatchers.IO) {
             repository.resolveDisplayTiles(pinned, liveContent = true)
         }
+        if (epochAtStart != layoutEpoch) return
         displayTiles = liveTiles
     }
 
@@ -224,6 +252,7 @@ class LauncherState(context: Context) {
     }
 
     fun commitTileOrder() {
+        layoutEpoch++
         pinnedEntries = compactEmptyRows(
             pinnedEntries.map { entry ->
                 val display = displayTiles.firstOrNull {
@@ -282,9 +311,48 @@ class LauncherState(context: Context) {
 
     fun pinApp(app: MetroAppInfo) {
         if (pinnedEntries.any { it.packageName == app.packageName }) return
-        pinnedEntries = ensureGridPositions(pinnedEntries + PinnedTileEntry(app.packageName))
+        pinnedEntries = ensureGridPositions(
+            pinnedEntries + PinnedTileEntry(
+                packageName = app.packageName,
+                size = PinnedTileSize.OneByOne,
+            ),
+        )
         persistAndRefresh()
         currentPage = 0
+    }
+
+    /**
+     * Pin a primary or secondary tile (e.g. People contact shortcut).
+     * No-ops when the same package+tileId is already pinned.
+     */
+    fun pinTile(
+        packageName: String,
+        tileId: String,
+        size: PinnedTileSize = PinnedTileSize.TwoByTwo,
+    ) {
+        if (pinnedEntries.any { it.packageName == packageName && it.tileId == tileId }) {
+            currentPage = 0
+            return
+        }
+        pinnedEntries = ensureGridPositions(
+            pinnedEntries + PinnedTileEntry(
+                packageName = packageName,
+                tileId = tileId,
+                size = size,
+            ),
+        )
+        persistAndRefresh()
+        currentPage = 0
+    }
+
+    fun handlePinTileIntent(intent: Intent?) {
+        if (intent?.action != MetroIntents.ACTION_PIN_TILE) return
+        val packageName = intent.getStringExtra(MetroIntents.EXTRA_PACKAGE)?.trim().orEmpty()
+        if (packageName.isEmpty()) return
+        val tileId = intent.getStringExtra(MetroIntents.EXTRA_TILE_ID)
+            ?.takeIf { it.isNotBlank() }
+            ?: MetroTileContract.DEFAULT_TILE_ID
+        pinTile(packageName = packageName, tileId = tileId)
     }
 
     fun uninstallApp(app: MetroAppInfo) {
@@ -318,6 +386,7 @@ class LauncherState(context: Context) {
     }
 
     private fun persistAndRefresh() {
+        layoutEpoch++
         pinnedEntries = compactEmptyRows(pinnedEntries)
         repository.savePinnedTiles(pinnedEntries)
         displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)

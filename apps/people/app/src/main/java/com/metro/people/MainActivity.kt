@@ -1,6 +1,7 @@
 package com.metro.people
 
 import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -8,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,17 +33,29 @@ class MainActivity : ComponentActivity() {
     }
 
     private var permissionResult: ((Boolean) -> Unit)? = null
+    private var peopleState: PeopleState? = null
+    private var onDeepLink: ((Intent) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
-            val state = remember { PeopleState(context) }
+            val state = remember { PeopleState(context).also { peopleState = it } }
             var permissionTick by remember { mutableStateOf(0) }
+            var deepLinkTick by remember { mutableStateOf(0) }
+            var latestDeepLink by remember { mutableStateOf(intent) }
             val generation = state.generation
             @Suppress("UNUSED_VARIABLE")
             val observePeopleState = generation
+
+            DisposableEffect(Unit) {
+                onDeepLink = { deepIntent ->
+                    latestDeepLink = deepIntent
+                    deepLinkTick++
+                }
+                onDispose { onDeepLink = null }
+            }
 
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -60,6 +74,12 @@ class MainActivity : ComponentActivity() {
                 }
                 PeopleTileRefresh.request(context)
                 onDispose { }
+            }
+
+            LaunchedEffect(deepLinkTick, latestDeepLink, state.hasContactsPermission) {
+                if (state.hasContactsPermission) {
+                    state.openDeepLink(latestDeepLink?.data)
+                }
             }
 
             MetroSystemTheme {
@@ -87,5 +107,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        onDeepLink?.invoke(intent) ?: peopleState?.openDeepLink(intent.data)
     }
 }

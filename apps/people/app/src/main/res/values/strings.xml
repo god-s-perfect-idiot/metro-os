@@ -23,5 +23,11 @@
     <string name="add_apps">add apps</string>
     <string name="history_empty">No communication history yet.</string>
     <string name="search_contacts">search contacts</string>
+    <string name="people_search">People Search</string>
     <string name="account_device">Device</string>
+    <string name="add_to_speed_dial">add to speed dial</string>
+    <string name="pin_to_start">pin to start</string>
+    <string name="added_to_speed_dial">added to speed dial</string>
+    <string name="pinned_to_start">pinned to start</string>
+    <string name="speed_dial_needs_phone">Contact has no phone number</string>
 </resources>

@@ -48,7 +48,7 @@ Tiles snap flat; live updates resume; layout persists.
 | WP8.1 | Android (`TileGrid` edit mode) |
 |-------|--------------------------------|
 | Dimmed Start behind | Scrim + dimmed non-active tiles in grid |
-| Floating idle tiles | Non-active tiles drift independently (`rememberTileIdleFloat`) |
+| Floating idle tiles | Non-active tiles drift via shared float clock (`tileIdleFloatAt`) |
 | Lifted tile | Active tile `scale 1.02` in place (stationary) |
 | Drag under thumb | Dragged tile follows pointer (`dragPositionPx`), `scale 1.06` |
 | Magnet reflow | Hole under finger + `flowPackAroundReservedSlot`; neighbors animate via `rememberAnimatedTileBounds` |

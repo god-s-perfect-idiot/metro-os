@@ -99,6 +99,21 @@ class TileGridTest {
     }
 
     @Test
+    fun idleFloatAt_stillWhenTimeZero() {
+        val still = tileIdleFloatAt(seed = 42, timeSec = 0f)
+        assertEquals(0f, still.offsetXDp)
+        assertEquals(0f, still.offsetYDp)
+    }
+
+    @Test
+    fun idleFloatAt_movesWithTime() {
+        val a = tileIdleFloatAt(seed = 42, timeSec = 0.25f)
+        val b = tileIdleFloatAt(seed = 42, timeSec = 1.25f)
+        assertTrue(a.offsetXDp != 0f || a.offsetYDp != 0f)
+        assertNotEquals(a, b)
+    }
+
+    @Test
     fun ensureGridPositions_assignsFirstFitForMissingSlots() {
         val entries = listOf(
             PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo),

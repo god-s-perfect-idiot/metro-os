@@ -8,6 +8,27 @@ import com.metro.system.MetroPreferences
 
 object PeopleTileLogic {
     const val MAX_CELLS = MetroTileContract.MAX_PHOTO_GRID_CELLS
+    const val CONTACT_TILE_PREFIX = "contact:"
+    const val DEEP_LINK_SCHEME = "metro"
+    const val DEEP_LINK_HOST = "people"
+
+    fun contactTileId(contactId: Long): String = "$CONTACT_TILE_PREFIX$contactId"
+
+    fun parseContactTileId(tileId: String): Long? {
+        if (!tileId.startsWith(CONTACT_TILE_PREFIX)) return null
+        return tileId.removePrefix(CONTACT_TILE_PREFIX).toLongOrNull()
+    }
+
+    fun contactDeepLinkUri(contactId: Long): String =
+        "$DEEP_LINK_SCHEME://$DEEP_LINK_HOST/contact/$contactId"
+
+    fun parseContactDeepLink(uri: android.net.Uri?): Long? {
+        if (uri == null) return null
+        if (uri.scheme != DEEP_LINK_SCHEME || uri.host != DEEP_LINK_HOST) return null
+        val segments = uri.pathSegments
+        if (segments.size < 2 || segments[0] != "contact") return null
+        return segments[1].toLongOrNull()
+    }
 
     fun accentShades(accentHex: String, count: Int): List<String> {
         if (count <= 0) return emptyList()

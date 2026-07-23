@@ -19,14 +19,10 @@ class MetroPreferences(context: Context) {
             Context.MODE_PRIVATE,
         )
 
-    private val providerAvailable: Boolean
-        get() = appContext.packageManager.resolveContentProvider(
-            MetroContentProviderContract.AUTHORITY,
-            0,
-        ) != null
-
     var themeMode: MetroThemeMode
-        get() = MetroThemeMode.fromStorage(readString(MetroPreferenceKeys.THEME_MODE, MetroThemeMode.Dark.storageValue))
+        get() = MetroThemeMode.fromStorage(
+            readString(MetroPreferenceKeys.THEME_MODE, MetroThemeMode.Dark.storageValue),
+        )
         set(value) = writeString(MetroPreferenceKeys.THEME_MODE, value.storageValue)
 
     val isDark: Boolean
@@ -82,6 +78,28 @@ class MetroPreferences(context: Context) {
         }
     }
 
+    /**
+     * Mirrors a theme snapshot into this app's local cache only (no provider write, no broadcast).
+     * Used when a [MetroBroadcasts.ACTION_THEME_CHANGED] arrives so cold starts still see the
+     * last-known suite theme even if the Settings ContentProvider is briefly unreachable.
+     */
+    fun cacheThemeSnapshot(
+        themeMode: MetroThemeMode? = null,
+        accentColorHex: String? = null,
+        fontScale: Float? = null,
+    ) {
+        val editor = localPrefs.edit()
+        themeMode?.let { editor.putString(MetroPreferenceKeys.THEME_MODE, it.storageValue) }
+        accentColorHex?.let { hex ->
+            val normalized = MetroAccentPalette.normalizeHex(hex) ?: DEFAULT_ACCENT_HEX
+            editor.putString(MetroPreferenceKeys.ACCENT_COLOR, normalized)
+        }
+        fontScale?.let {
+            editor.putFloat(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.coerceToStep(it))
+        }
+        editor.apply()
+    }
+
     fun broadcastThemeChanged() {
         val intent = Intent(MetroBroadcasts.ACTION_THEME_CHANGED).apply {
             putExtra(MetroBroadcasts.EXTRA_THEME_MODE, themeMode.storageValue)
@@ -95,17 +113,18 @@ class MetroPreferences(context: Context) {
     }
 
     fun registerObserver(onChange: () -> Unit): ContentObserver? {
-        if (!providerAvailable) return null
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) = onChange()
-            override fun onChange(selfChange: Boolean, uri: Uri?) = onChange()
-        }
-        appContext.contentResolver.registerContentObserver(
-            MetroSystemPreferencesProvider.PREFERENCES_URI,
-            true,
-            observer,
-        )
-        return observer
+        return runCatching {
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) = onChange()
+                override fun onChange(selfChange: Boolean, uri: Uri?) = onChange()
+            }
+            appContext.contentResolver.registerContentObserver(
+                MetroSystemPreferencesProvider.PREFERENCES_URI,
+                true,
+                observer,
+            )
+            observer
+        }.getOrNull()
     }
 
     fun unregisterObserver(observer: ContentObserver?) {
@@ -115,37 +134,45 @@ class MetroPreferences(context: Context) {
     }
 
     private fun readString(key: String, default: String?): String? {
-        if (providerAvailable) {
-            queryProvider(key)?.let { return it }
+        queryProvider(key)?.let { value ->
+            cacheStringLocally(key, value)
+            return value
         }
         return localPrefs.getString(key, default)
     }
 
     private fun readFloat(key: String, default: Float): Float {
-        if (providerAvailable) {
-            queryProvider(key)?.toFloatOrNull()?.let { return it }
-            // Provider may return float via cursor type
-            queryProviderRaw(key)?.let { raw ->
-                when (raw) {
-                    is Float -> return raw
-                    is Double -> return raw.toFloat()
-                    is Number -> return raw.toFloat()
-                    is String -> raw.toFloatOrNull()?.let { return it }
-                }
+        queryProvider(key)?.toFloatOrNull()?.let { value ->
+            cacheFloatLocally(key, value)
+            return value
+        }
+        queryProviderRaw(key)?.let { raw ->
+            val value = when (raw) {
+                is Float -> raw
+                is Double -> raw.toFloat()
+                is Number -> raw.toFloat()
+                is String -> raw.toFloatOrNull()
+                else -> null
+            }
+            if (value != null) {
+                cacheFloatLocally(key, value)
+                return value
             }
         }
         return localPrefs.getFloat(key, default)
     }
 
     private fun readBoolean(key: String, default: Boolean): Boolean {
-        if (providerAvailable) {
-            queryProviderRaw(key)?.let { raw ->
-                return when (raw) {
-                    is Boolean -> raw
-                    is Number -> raw.toInt() != 0
-                    is String -> raw == "1" || raw.equals("true", ignoreCase = true)
-                    else -> default
-                }
+        queryProviderRaw(key)?.let { raw ->
+            val value = when (raw) {
+                is Boolean -> raw
+                is Number -> raw.toInt() != 0
+                is String -> raw == "1" || raw.equals("true", ignoreCase = true)
+                else -> null
+            }
+            if (value != null) {
+                cacheBooleanLocally(key, value)
+                return value
             }
         }
         return localPrefs.getBoolean(key, default)
@@ -153,66 +180,78 @@ class MetroPreferences(context: Context) {
 
     private fun writeString(key: String, value: String) {
         localPrefs.edit().putString(key, value).apply()
-        if (providerAvailable && !isProviderHost()) {
-            updateProvider(key, value)
-        } else if (providerAvailable && isProviderHost()) {
-            appContext.contentResolver.notifyChange(
-                MetroSystemPreferencesProvider.PREFERENCES_URI,
-                null,
-            )
-        }
+        propagateWrite { updateProvider(key, value) }
     }
 
     private fun writeFloat(key: String, value: Float) {
         localPrefs.edit().putFloat(key, value).apply()
-        if (providerAvailable && !isProviderHost()) {
-            updateProvider(key, value)
-        } else if (providerAvailable && isProviderHost()) {
-            appContext.contentResolver.notifyChange(
-                MetroSystemPreferencesProvider.PREFERENCES_URI,
-                null,
-            )
-        }
+        propagateWrite { updateProvider(key, value) }
     }
 
     private fun writeBoolean(key: String, value: Boolean) {
         localPrefs.edit().putBoolean(key, value).apply()
-        if (providerAvailable && !isProviderHost()) {
-            updateProvider(key, if (value) 1 else 0)
-        } else if (providerAvailable && isProviderHost()) {
-            appContext.contentResolver.notifyChange(
-                MetroSystemPreferencesProvider.PREFERENCES_URI,
-                null,
-            )
-        }
+        propagateWrite { updateProvider(key, if (value) 1 else 0) }
     }
 
     private fun remove(key: String) {
         localPrefs.edit().remove(key).apply()
-        if (providerAvailable && !isProviderHost()) {
+        propagateWrite {
             val values = ContentValues().apply { putNull(key) }
-            runCatching {
-                appContext.contentResolver.update(
-                    MetroSystemPreferencesProvider.PREFERENCES_URI,
-                    values,
-                    null,
-                    null,
-                )
-            }
-        } else if (providerAvailable && isProviderHost()) {
-            appContext.contentResolver.notifyChange(
+            appContext.contentResolver.update(
                 MetroSystemPreferencesProvider.PREFERENCES_URI,
+                values,
+                null,
                 null,
             )
         }
     }
 
+    /**
+     * Host (Settings) owns the SharedPreferences backing the provider — notify observers.
+     * Clients always attempt a ContentResolver update; do not gate on
+     * [android.content.pm.PackageManager.resolveContentProvider], which fails under Android 11+
+     * package visibility even when URI access still works.
+     */
+    private fun propagateWrite(clientUpdate: () -> Unit) {
+        if (isProviderHost()) {
+            runCatching {
+                appContext.contentResolver.notifyChange(
+                    MetroSystemPreferencesProvider.PREFERENCES_URI,
+                    null,
+                )
+            }
+        } else {
+            runCatching(clientUpdate)
+        }
+    }
+
     private fun isProviderHost(): Boolean {
+        if (appContext.packageName == MetroContentProviderContract.HOST_PACKAGE) {
+            return true
+        }
         val provider = appContext.packageManager.resolveContentProvider(
             MetroContentProviderContract.AUTHORITY,
             0,
         ) ?: return false
         return provider.packageName == appContext.packageName
+    }
+
+    private fun cacheStringLocally(key: String, value: String) {
+        if (localPrefs.getString(key, null) != value) {
+            localPrefs.edit().putString(key, value).apply()
+        }
+    }
+
+    private fun cacheFloatLocally(key: String, value: Float) {
+        if (!localPrefs.contains(key) || localPrefs.getFloat(key, 0f) != value) {
+            localPrefs.edit().putFloat(key, value).apply()
+        }
+    }
+
+    private fun cacheBooleanLocally(key: String, value: Boolean) {
+        if (!localPrefs.contains(key) || localPrefs.getBoolean(key, !value) != value) {
+            localPrefs.edit().putBoolean(key, value).apply()
+        }
     }
 
     private fun queryProvider(key: String): String? {
@@ -260,14 +299,12 @@ class MetroPreferences(context: Context) {
                 else -> put(key, value.toString())
             }
         }
-        runCatching {
-            appContext.contentResolver.update(
-                MetroSystemPreferencesProvider.PREFERENCES_URI,
-                values,
-                null,
-                null,
-            )
-        }
+        appContext.contentResolver.update(
+            MetroSystemPreferencesProvider.PREFERENCES_URI,
+            values,
+            null,
+            null,
+        )
     }
 
     companion object {

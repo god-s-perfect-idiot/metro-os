@@ -113,6 +113,8 @@ fun DialerShell(
                                 state.placeCall(group.phoneNumber, group.displayName)
                             },
                             onAddSpeedDial = state::addToSpeedDial,
+                            onPinToStart = state::pinToStart,
+                            canPinToStart = state::canPinToStart,
                         )
                         1 -> DialPadPane(
                             suggestions = state.t9Suggestions,
@@ -129,6 +131,8 @@ fun DialerShell(
                             onCall = { entry ->
                                 state.placeCall(entry.phoneNumber, entry.displayName)
                             },
+                            onPinToStart = state::pinToStart,
+                            canPinToStart = state::canPinToStart,
                             onRemove = state::removeSpeedDial,
                         )
                     }

@@ -10,6 +10,7 @@
     <queries>
         <package android:name="com.metro.people" />
         <package android:name="com.metro.messaging" />
+        <package android:name="com.metro.launcher" />
         <intent>
             <action android:name="android.intent.action.SENDTO" />
             <data android:scheme="smsto" />
@@ -91,5 +92,13 @@
                 android:name="android.telecom.IN_CALL_SERVICE_RINGING"
                 android:value="true" />
         </service>
+
+        <receiver
+            android:name=".AddSpeedDialReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.metro.action.ADD_SPEED_DIAL" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -15,6 +15,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
@@ -23,6 +26,8 @@ import com.metro.system.MetroThemeMode
 /**
  * Applies suite-wide theme, accent, and font scale from [MetroPreferences].
  * Observes [MetroBroadcasts.ACTION_THEME_CHANGED] so Settings writes recompose all apps.
+ * Also reloads on resume and mirrors broadcast extras into the local prefs cache so cold
+ * starts keep the last suite accent even if the Settings provider is briefly unreachable.
  */
 @Composable
 fun MetroSystemTheme(
@@ -45,16 +50,26 @@ fun MetroSystemTheme(
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 if (intent?.action != MetroBroadcasts.ACTION_THEME_CHANGED) return
-                intent.getStringExtra(MetroBroadcasts.EXTRA_THEME_MODE)?.let { mode ->
+                val modeExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_THEME_MODE)
+                val accentExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR)
+                val fontExtra = if (intent.hasExtra(MetroBroadcasts.EXTRA_FONT_SCALE)) {
+                    intent.getFloatExtra(MetroBroadcasts.EXTRA_FONT_SCALE, MetroFontScale.DEFAULT)
+                } else {
+                    null
+                }
+                prefs.cacheThemeSnapshot(
+                    themeMode = modeExtra?.let { MetroThemeMode.fromStorage(it) },
+                    accentColorHex = accentExtra,
+                    fontScale = fontExtra,
+                )
+                modeExtra?.let { mode ->
                     darkTheme = MetroThemeMode.fromStorage(mode) == MetroThemeMode.Dark
                 }
-                intent.getStringExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR)?.let { hex ->
+                accentExtra?.let { hex ->
                     accent = MetroPreferences.parseAccentHex(hex)
                 }
-                if (intent.hasExtra(MetroBroadcasts.EXTRA_FONT_SCALE)) {
-                    fontScale = MetroFontScale.coerceToStep(
-                        intent.getFloatExtra(MetroBroadcasts.EXTRA_FONT_SCALE, MetroFontScale.DEFAULT),
-                    )
+                if (fontExtra != null) {
+                    fontScale = MetroFontScale.coerceToStep(fontExtra)
                 } else {
                     reload()
                 }
@@ -67,6 +82,18 @@ fun MetroSystemTheme(
             runCatching { context.unregisterReceiver(receiver) }
             prefs.unregisterObserver(observer)
         }
+    }
+
+    val lifecycleOwner = context as? LifecycleOwner
+    DisposableEffect(lifecycleOwner) {
+        if (lifecycleOwner == null) return@DisposableEffect onDispose { }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                reload()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val baseDensity = LocalDensity.current

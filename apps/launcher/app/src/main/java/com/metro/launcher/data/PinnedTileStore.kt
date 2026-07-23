@@ -34,7 +34,9 @@ class PinnedTileStore(context: Context) {
                     },
             )
         }
-        prefs.edit().putString(KEY_PINS, array.toString()).apply()
+        // commit() so a following refreshAllAsync / ON_RESUME cannot reload stale pins
+        // (apply() is async and raced with pin-to-Start bringing the launcher forward).
+        prefs.edit().putString(KEY_PINS, array.toString()).commit()
     }
 
     fun wideTilesEnabled(): Boolean = prefs.getBoolean(KEY_WIDE_TILES, false)

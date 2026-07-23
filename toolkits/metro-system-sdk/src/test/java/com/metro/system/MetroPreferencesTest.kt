@@ -45,6 +45,18 @@ class MetroPreferencesTest {
     }
 
     @Test
+    fun cacheThemeSnapshot_updatesLocalWithoutRequiringProvider() {
+        prefs.cacheThemeSnapshot(
+            themeMode = MetroThemeMode.Light,
+            accentColorHex = "#E51400",
+            fontScale = 1.15f,
+        )
+        assertFalse(prefs.isDark)
+        assertEquals("#E51400", prefs.accentColorHex)
+        assertEquals(1.15f, prefs.fontScale)
+    }
+
+    @Test
     fun fontScale_roundTrip() {
         prefs.fontScale = 1.3f
         assertEquals(1.3f, prefs.fontScale)

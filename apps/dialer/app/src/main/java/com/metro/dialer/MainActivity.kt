@@ -73,6 +73,9 @@ class MainActivity : ComponentActivity() {
                 if (state.hasCallLogPermission) {
                     state.reloadCallLog()
                 }
+                // People (and others) may have added entries via AddSpeedDialReceiver while
+                // this process stayed alive — reload so the pivot updates without a restart.
+                state.reloadSpeedDial()
                 onDispose { }
             }
 

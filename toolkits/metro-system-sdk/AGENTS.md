@@ -21,7 +21,11 @@ Cross-app system contracts: shared preferences, intents, broadcasts, content pro
 | `font_scale` | `Float` | `1.0` | Font scaling |
 | `nav_bar_color` | `String?` | null | Nav bar override |
 
-Storage: `SharedPreferences` file `metro_system` (MODE_MULTI_PROCESS or ContentProvider-backed).
+Storage: Settings-hosted ContentProvider (`content://com.metro.system`) backed by
+`SharedPreferences` file `metro_system`. Client apps always attempt ContentResolver first,
+then fall back to a mirrored local cache (never gate reads on `resolveContentProvider` —
+Android 11+ package visibility makes that unreliable). SDK manifest declares `<queries>` for
+the provider + `com.metro.settings` so visibility merges into every dependent app.
 
 ### MetroIntents
 
@@ -30,7 +34,8 @@ Storage: `SharedPreferences` file `metro_system` (MODE_MULTI_PROCESS or ContentP
 | `LAUNCH_APP` | `com.metro.action.LAUNCH_APP` | `package` |
 | `SEARCH` | `com.metro.action.SEARCH` | `query` |
 | `SHARE` | `com.metro.action.SHARE` | `uri`, `mime` |
-| `PIN_TILE` | `com.metro.action.PIN_TILE` | `tile_id` |
+| `PIN_TILE` | `com.metro.action.PIN_TILE` | `package`, `tile_id` |
+| `ADD_SPEED_DIAL` | `com.metro.action.ADD_SPEED_DIAL` | `display_name`, `phone_number` |
 
 ### MetroBroadcasts
 

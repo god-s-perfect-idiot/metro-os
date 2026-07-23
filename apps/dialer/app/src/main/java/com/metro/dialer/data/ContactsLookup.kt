@@ -87,4 +87,21 @@ class ContactsLookup(
             return contacts
         }
     }
+
+    /** Resolve a contacts provider id for pin-to-Start secondary tiles. */
+    fun resolveContactId(phoneNumber: String): Long? {
+        val normalized = DialerCallLogic.normalizeNumber(phoneNumber)
+        if (normalized.isEmpty()) return null
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(normalized),
+        )
+        val projection = arrayOf(ContactsContract.PhoneLookup._ID)
+        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                return cursor.getLong(0)
+            }
+        }
+        return null
+    }
 }

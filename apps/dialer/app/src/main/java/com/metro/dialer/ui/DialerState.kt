@@ -20,6 +20,7 @@ import com.metro.dialer.data.ContactsLookup
 import com.metro.dialer.data.DialerCallLogic
 import com.metro.dialer.data.SpeedDialEntry
 import com.metro.dialer.data.SpeedDialStore
+import com.metro.system.MetroIntents
 
 class DialerState(context: Context) {
     private val appContext = context.applicationContext
@@ -202,6 +203,34 @@ class DialerState(context: Context) {
         speedDialStore.add(entry)
         reloadSpeedDial()
         Toast.makeText(appContext, R.string.add_speed_dial, Toast.LENGTH_SHORT).show()
+    }
+
+    fun canPinToStart(group: CallGroup): Boolean =
+        hasContactsPermission && contactsLookup.resolveContactId(group.phoneNumber) != null
+
+    fun canPinToStart(entry: SpeedDialEntry): Boolean =
+        hasContactsPermission && contactsLookup.resolveContactId(entry.phoneNumber) != null
+
+    fun pinToStart(group: CallGroup) {
+        pinContactToStart(group.phoneNumber)
+    }
+
+    fun pinToStart(entry: SpeedDialEntry) {
+        pinContactToStart(entry.phoneNumber)
+    }
+
+    private fun pinContactToStart(phoneNumber: String) {
+        val contactId = contactsLookup.resolveContactId(phoneNumber)
+        if (contactId == null) {
+            Toast.makeText(appContext, R.string.pin_needs_contact, Toast.LENGTH_SHORT).show()
+            return
+        }
+        MetroIntents.requestPinTile(
+            context = appContext,
+            packageName = MetroIntents.PACKAGE_PEOPLE,
+            tileId = "contact:$contactId",
+        )
+        Toast.makeText(appContext, R.string.pinned_to_start, Toast.LENGTH_SHORT).show()
     }
 
     fun removeSpeedDial(entry: SpeedDialEntry) {

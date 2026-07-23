@@ -10,12 +10,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.metro.people.R
 import com.metro.people.data.AccountOption
 import com.metro.people.data.ContactsRepository
 import com.metro.people.data.PeopleContactsLogic
 import com.metro.people.data.PeopleFilter
 import com.metro.people.data.PersonDetail
 import com.metro.people.data.PersonSummary
+import com.metro.people.tiles.PeopleTileLogic
+import com.metro.system.MetroIntents
 
 sealed class PeopleRoute {
     data object Hub : PeopleRoute()
@@ -53,6 +56,10 @@ class PeopleState(context: Context) {
         private set
 
     var searchQuery: String = ""
+        private set
+
+    var searchVisible: Boolean = false
+        private set
 
     var jumpListVisible: Boolean = false
         private set
@@ -104,11 +111,13 @@ class PeopleState(context: Context) {
     }
 
     fun openFilter() {
+        dismissSearch()
         route = PeopleRoute.Filter
         notifyChanged()
     }
 
     fun openAccounts() {
+        dismissSearch()
         route = PeopleRoute.Accounts
         notifyChanged()
     }
@@ -120,8 +129,27 @@ class PeopleState(context: Context) {
     }
 
     fun openDetail(contactId: Long) {
+        dismissSearch()
         selectedDetail = repository.loadDetail(contactId)
         route = PeopleRoute.Detail(contactId)
+        notifyChanged()
+    }
+
+    fun openSearch() {
+        jumpListVisible = false
+        searchVisible = true
+        notifyChanged()
+    }
+
+    fun dismissSearch() {
+        if (!searchVisible && searchQuery.isEmpty()) return
+        searchVisible = false
+        searchQuery = ""
+        notifyChanged()
+    }
+
+    fun updateSearchQuery(query: String) {
+        searchQuery = query
         notifyChanged()
     }
 
@@ -136,6 +164,34 @@ class PeopleState(context: Context) {
         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         appContext.startActivity(intent)
+    }
+
+    fun addToSpeedDial(person: PersonSummary) {
+        val number = person.defaultPhone
+        if (number.isNullOrBlank()) {
+            Toast.makeText(appContext, R.string.speed_dial_needs_phone, Toast.LENGTH_SHORT).show()
+            return
+        }
+        MetroIntents.requestAddSpeedDial(
+            context = appContext,
+            displayName = person.displayName,
+            phoneNumber = number,
+        )
+        Toast.makeText(appContext, R.string.added_to_speed_dial, Toast.LENGTH_SHORT).show()
+    }
+
+    fun pinToStart(person: PersonSummary) {
+        MetroIntents.requestPinTile(
+            context = appContext,
+            packageName = MetroIntents.PACKAGE_PEOPLE,
+            tileId = PeopleTileLogic.contactTileId(person.id),
+        )
+        Toast.makeText(appContext, R.string.pinned_to_start, Toast.LENGTH_SHORT).show()
+    }
+
+    fun openDeepLink(uri: Uri?) {
+        val contactId = PeopleTileLogic.parseContactDeepLink(uri) ?: return
+        openDetail(contactId)
     }
 
     fun textContact(person: PersonSummary) {
@@ -156,6 +212,7 @@ class PeopleState(context: Context) {
     }
 
     fun toggleJumpList() {
+        if (searchVisible) return
         jumpListVisible = !jumpListVisible
         notifyChanged()
     }

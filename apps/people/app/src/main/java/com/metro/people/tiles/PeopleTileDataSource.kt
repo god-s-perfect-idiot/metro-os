@@ -15,7 +15,18 @@ class PeopleTileDataSource(context: Context) {
     private val appContext = context.applicationContext
     private val authority = MetroTileContract.authorityFor(appContext.packageName)
 
-    fun buildTileData(): MetroTileData {
+    fun buildTileData(tileId: String = MetroTileContract.DEFAULT_TILE_ID): MetroTileData? {
+        val contactId = PeopleTileLogic.parseContactTileId(tileId)
+        return if (contactId != null) {
+            buildContactTile(contactId)
+        } else if (tileId == MetroTileContract.DEFAULT_TILE_ID) {
+            buildHubTile()
+        } else {
+            null
+        }
+    }
+
+    private fun buildHubTile(): MetroTileData {
         val accentHex = MetroPreferences(appContext).accentColorHex
         val contacts = if (hasContactsPermission()) {
             runCatching { ContactsRepository(appContext).loadContacts() }.getOrDefault(emptyList())
@@ -32,6 +43,24 @@ class PeopleTileDataSource(context: Context) {
             backgroundColorHex = accentHex,
             photoGrid = MetroTilePhotoGrid(cells),
             deepLinkUri = null,
+        )
+    }
+
+    private fun buildContactTile(contactId: Long): MetroTileData? {
+        if (!hasContactsPermission()) return null
+        val contact = runCatching {
+            ContactsRepository(appContext).loadContacts().firstOrNull { it.id == contactId }
+        }.getOrNull() ?: return null
+        val accentHex = MetroPreferences(appContext).accentColorHex
+        val color = PeopleTileLogic.colorForContact(contactId, accentHex)
+        // Full-bleed contact photo on the front face; launcher flips to the People icon
+        // (no Ken Burns / cycle). 1×1 shows the photo statically without flipping.
+        val photo = contact.photoUri?.let { PeopleTileLogic.photoUri(authority, contactId) }
+        return MetroTileData(
+            title = contact.displayName,
+            backgroundColorHex = color,
+            imageUri = photo,
+            deepLinkUri = PeopleTileLogic.contactDeepLinkUri(contactId),
         )
     }
 

@@ -50,6 +50,21 @@ class PeopleTileLogicTest {
         assertEquals(MetroTileContract.MAX_PHOTO_GRID_CELLS, cells.size)
     }
 
+    @Test
+    fun contactTileId_roundTrips() {
+        assertEquals("contact:42", PeopleTileLogic.contactTileId(42L))
+        assertEquals(42L, PeopleTileLogic.parseContactTileId("contact:42"))
+        assertNull(PeopleTileLogic.parseContactTileId("primary"))
+        assertNull(PeopleTileLogic.parseContactTileId("contact:abc"))
+    }
+
+    @Test
+    fun contactDeepLink_roundTrips() {
+        val uri = android.net.Uri.parse(PeopleTileLogic.contactDeepLinkUri(7L))
+        assertEquals(7L, PeopleTileLogic.parseContactDeepLink(uri))
+        assertNull(PeopleTileLogic.parseContactDeepLink(android.net.Uri.parse("metro://other/contact/7")))
+    }
+
     private fun person(id: Long, photoUri: String?) = PersonSummary(
         id = id,
         displayName = "Test $id",

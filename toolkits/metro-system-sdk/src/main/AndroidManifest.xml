@@ -1,2 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest />
+<!--
+  Merged into every app that depends on metro-system-sdk.
+  Package visibility for Settings is required so ContentResolver can reach the
+  Settings-hosted system preferences authority on API 30+. Use <package> only —
+  a <provider> entry inside <queries> collides with real <provider> merge rules.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="com.metro.settings" />
+    </queries>
+</manifest>

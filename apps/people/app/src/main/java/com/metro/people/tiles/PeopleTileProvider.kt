@@ -5,16 +5,14 @@ import android.content.res.AssetFileDescriptor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.ContactsContract
-import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
 import com.metro.system.MetroTileProvider
 import java.io.File
 
 class PeopleTileProvider : MetroTileProvider() {
     override fun buildTileData(tileId: String): MetroTileData? {
-        if (tileId != MetroTileContract.DEFAULT_TILE_ID) return null
         val ctx = context ?: return null
-        return PeopleTileDataSource(ctx).buildTileData()
+        return PeopleTileDataSource(ctx).buildTileData(tileId)
     }
 
     override fun openAssetFile(uri: Uri, mode: String): AssetFileDescriptor? {

@@ -263,3 +263,56 @@ private fun PhotoGridCell(
         }
     }
 }
+
+/**
+ * Full-bleed static photo face (People contact tiles). No Ken Burns / cycle motion.
+ * Optional [title] overlays bottom-left like other live photo faces.
+ */
+@Composable
+fun StaticPhotoTileContent(
+    imageUri: String,
+    fallbackColor: Color,
+    title: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var bitmap by remember(imageUri) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(imageUri) {
+        bitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                context.contentResolver.openInputStream(Uri.parse(imageUri))?.use { stream ->
+                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                }
+            }.getOrNull()
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .background(fallbackColor),
+    ) {
+        bitmap?.let { image ->
+            Image(
+                bitmap = image,
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (!title.isNullOrBlank()) {
+            MetroText(
+                text = title,
+                style = MetroTextStyle.Body,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+        }
+    }
+}

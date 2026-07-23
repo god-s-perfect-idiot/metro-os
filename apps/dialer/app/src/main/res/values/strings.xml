@@ -39,6 +39,11 @@
     <string name="missed">missed</string>
     <string name="declined">declined</string>
     <string name="add_speed_dial">added to speed dial</string>
+    <string name="add_to_speed_dial">add to speed dial</string>
+    <string name="pin_to_start">pin to start</string>
+    <string name="pinned_to_start">pinned to start</string>
+    <string name="remove_from_speed_dial">remove from speed dial</string>
+    <string name="pin_needs_contact">Save as a contact to pin to Start</string>
     <string name="people_unavailable">People app is not installed</string>
     <string name="save_contact_empty">Enter a number to save</string>
     <string name="settings_stub">Settings not available in v1</string>

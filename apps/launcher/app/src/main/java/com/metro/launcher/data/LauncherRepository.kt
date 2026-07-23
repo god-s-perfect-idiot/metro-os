@@ -30,6 +30,10 @@ data class DisplayTile(
     val backFaceBody: String? = null,
     val photoGrid: MetroTilePhotoGrid? = null,
     val agenda: MetroTileAgenda? = null,
+    /** Full-bleed front-face photo (contact tiles). Distinct from [photoGrid] mosaics/cycles. */
+    val imageUri: String? = null,
+    /** When true, medium/wide tiles flip between [imageUri] and the app icon. */
+    val flipToIcon: Boolean = false,
 )
 
 class LauncherRepository(private val context: Context) {
@@ -113,24 +117,29 @@ class LauncherRepository(private val context: Context) {
         )
         val photoGrid = providerData?.photoGrid
         val agenda = providerData?.agenda?.takeIf { it.hasContent }
-        val hasRichFrontFace = photoGrid?.hasContent == true || agenda != null
+        val imageUri = providerData?.imageUri?.takeIf { it.isNotBlank() }
+        val hasRichFrontFace =
+            photoGrid?.hasContent == true || agenda != null || imageUri != null
         val merged = TileNotificationStore.mergeIntoDisplay(
             packageName = packageName,
             providerCounter = providerData?.counter,
             providerBackFaceTitle = providerData?.backFaceTitle,
             hasRichFrontFace = hasRichFrontFace,
         )
+        val flipToIcon = imageUri != null
         return DisplayTile(
             entry = this,
             title = title,
             backgroundColor = background,
             counter = merged.counter,
             deepLinkUri = providerData?.deepLinkUri,
-            hasFlipFace = merged.hasFlipFace,
+            hasFlipFace = merged.hasFlipFace || flipToIcon,
             backFaceTitle = merged.backFaceTitle,
             backFaceBody = merged.backFaceBody,
             photoGrid = photoGrid,
             agenda = agenda,
+            imageUri = imageUri,
+            flipToIcon = flipToIcon,
         )
     }
 

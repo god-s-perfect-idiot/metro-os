@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -35,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -67,9 +70,11 @@ import com.metro.launcher.data.rowCompactionMap
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 import kotlin.random.Random
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
@@ -77,8 +82,6 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTransitions
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 
 private const val MESSAGING_PACKAGE = "com.metro.messaging"
 
@@ -99,7 +102,12 @@ private const val TILE_FLIP_STAGGER_MAX_MS = 4_000L
 private const val TILE_FLIP_HOLD_JITTER_MS = 1_200L
 /** Camera distance multiplier so rotationX reads as a 3D flip, not a squash. */
 private const val TILE_FLIP_CAMERA_DISTANCE = 16f
+/** Dim / lift settle when entering or leaving edit mode (layout must not reflow). */
+private const val TILE_EDIT_VISUAL_MS = 180
+/** Brief pause before idle float so enter visuals aren't fighting N×2 Animatables. */
+private const val TILE_EDIT_FLOAT_DELAY_MS = 120L
 private val TileResizeAnimation: AnimationSpec<Dp> = tween(
+
     durationMillis = TILE_RESIZE_MS,
     easing = FastOutSlowInEasing,
 )
@@ -314,16 +322,22 @@ fun TileGrid(
         }
     }
 
+    // One shared clock for every idle float — avoids 2 Animatable loops per tile on enter.
+    // Return State so only dimmed cells subscribe; the grid itself must not read every frame.
+    val floatTimeSec = rememberEditModeFloatClock(editMode)
+    val editVisualProgress by animateFloatAsState(
+        targetValue = if (editMode) 1f else 0f,
+        animationSpec = tween(TILE_EDIT_VISUAL_MS, easing = FastOutSlowInEasing),
+        label = "editVisual",
+    )
+    val scrimAlpha = 0.55f * editVisualProgress
+
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        // Edit corner buttons sit half outside the tile; keep enough inset so the discs
-        // are not clipped by the scroll viewport or screen edge.
+        // Corner buttons sit half outside the tile. Keep this inset always (not only in edit
+        // mode) so toggling edit does not change `unit` and reflow-animate every tile.
         val cornerOverhang = TileCornerButtonSize / 2
-        val horizontalPad = if (editMode) {
-            maxOf(TILE_GRID_PADDING, cornerOverhang)
-        } else {
-            TILE_GRID_PADDING
-        }
-        val topPad = if (editMode) maxOf(8.dp, cornerOverhang) else 8.dp
+        val horizontalPad = maxOf(TILE_GRID_PADDING, cornerOverhang)
+        val topPad = maxOf(8.dp, cornerOverhang)
         val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) /
             TILE_GRID_COLUMNS
         val cellStridePx = with(density) { (unit + TILE_GRID_GAP).toPx() }
@@ -340,7 +354,7 @@ fun TileGrid(
         }
         val contentHeight = gridContentHeight(unit, placed)
         val animatedContentHeight by animateDpAsState(
-            targetValue = contentHeight + 16.dp + if (editMode) cornerOverhang else 0.dp,
+            targetValue = contentHeight + 16.dp + cornerOverhang,
             animationSpec = reflowSpec,
             label = "tileGridHeight",
         )
@@ -422,10 +436,15 @@ fun TileGrid(
                 )
                 .size(width = maxWidth, height = animatedContentHeight)
                 .then(
-                    if (editMode) {
+                    if (scrimAlpha > 0.001f) {
+                        Modifier.background(Color.Black.copy(alpha = scrimAlpha))
+                    } else {
                         Modifier
-                            .background(Color.Black.copy(alpha = 0.55f))
-                            .clickable(onClick = onDismissEdit)
+                    },
+                )
+                .then(
+                    if (editMode) {
+                        Modifier.clickable(onClick = onDismissEdit)
                     } else {
                         Modifier
                     },
@@ -570,6 +589,8 @@ fun TileGrid(
                             editMode = editMode,
                             isActive = isActive,
                             isDragging = tileIsDragging,
+                            editVisualProgress = editVisualProgress,
+                            floatTimeSec = floatTimeSec,
                             onClick = {
                                 when {
                                     editMode && isActive -> Unit
@@ -598,6 +619,8 @@ private fun LauncherTileCell(
     editMode: Boolean,
     isActive: Boolean,
     isDragging: Boolean,
+    editVisualProgress: Float,
+    floatTimeSec: State<Float>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onResize: () -> Unit,
@@ -610,9 +633,23 @@ private fun LauncherTileCell(
     val floatSeed = remember(tile.entry.packageName, tile.entry.tileId) {
         tile.entry.packageName.hashCode() * 31 + tile.entry.tileId.hashCode()
     }
-    val idleFloat = rememberTileIdleFloat(enabled = dimmed, seed = floatSeed)
+    val idleFloat =
+        if (dimmed) tileIdleFloatAt(floatSeed, floatTimeSec.value) else TileIdleFloatState.Still
     val floatTx = with(density) { idleFloat.offsetXDp.dp.toPx() }
     val floatTy = with(density) { idleFloat.offsetYDp.dp.toPx() }
+    // Dim/scale follow edit progress only while editMode is true. On exit, editMode clears
+    // (and with it isActive) in the same frame — lerping then would flash the focused tile dim.
+    val tileAlpha = when {
+        isActive || isDragging -> 1f
+        editMode -> 1f - (1f - 0.45f) * editVisualProgress
+        else -> 1f
+    }
+    val tileScale = when {
+        isDragging -> 1.06f
+        isActive -> 1.02f
+        editMode -> 1f - 0.03f * editVisualProgress
+        else -> 1f
+    }
     val iconSize = tileIconSize(width, height, tile.entry.size)
     val contentColor = MetroColors.tileContentColor(tile.backgroundColor)
     val photoGrid = tile.photoGrid
@@ -623,18 +660,21 @@ private fun LauncherTileCell(
     val showCyclePhoto = photoGrid != null && photoGrid.cycle && photoGrid.hasContent &&
         gridDimensions != null
     val showPhotoGrid = photoGrid != null && !photoGrid.cycle && gridDimensions != null
+    val showStaticPhoto = !tile.imageUri.isNullOrBlank()
     val showPhotoContent = showCyclePhoto || showPhotoGrid
     val agenda = tile.agenda?.takeIf { it.hasContent }
-    val showAgenda = agenda != null && !showPhotoContent &&
+    val showAgenda = agenda != null && !showPhotoContent && !showStaticPhoto &&
         tile.entry.size != PinnedTileSize.OneByOne
     val isSmall = tile.entry.size == PinnedTileSize.OneByOne
     val isMessaging = tile.entry.packageName == MESSAGING_PACKAGE
     val messagingUnread = tile.counter?.takeIf { it > 0 && isMessaging }
     // Medium/wide Messaging unread: wink glyph + large count (tile_yellow.jpg), not a corner badge.
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
-        !showPhotoContent && !showAgenda
+        !showPhotoContent && !showStaticPhoto && !showAgenda
+    // Contact photo tiles flip to the app icon; mosaic/cycle photos never flip.
     val canFlip = tile.hasFlipFace &&
-        !showPhotoContent &&
+        !showCyclePhoto &&
+        !showPhotoGrid &&
         !showAgenda &&
         !showMessagingUnreadFace &&
         !isSmall &&
@@ -648,19 +688,9 @@ private fun LauncherTileCell(
         modifier = modifier
             .size(width, height)
             .graphicsLayer {
-                alpha = if (dimmed) 0.45f else 1f
-                scaleX = when {
-                    isDragging -> 1.06f
-                    isActive -> 1.02f
-                    dimmed -> 0.97f
-                    else -> 1f
-                }
-                scaleY = when {
-                    isDragging -> 1.06f
-                    isActive -> 1.02f
-                    dimmed -> 0.97f
-                    else -> 1f
-                }
+                alpha = tileAlpha
+                scaleX = tileScale
+                scaleY = tileScale
             }
             .combinedClickable(
                 onClick = onClick,
@@ -685,7 +715,7 @@ private fun LauncherTileCell(
                     .clipToBounds()
                     .then(
                         when {
-                            showPhotoContent -> Modifier
+                            showPhotoContent || showStaticPhoto -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
                             else -> Modifier
                                 .background(tile.backgroundColor)
@@ -709,6 +739,14 @@ private fun LauncherTileCell(
                                 columns = columns,
                                 rows = rows,
                                 title = tile.title,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        showStaticPhoto -> {
+                            StaticPhotoTileContent(
+                                imageUri = tile.imageUri!!,
+                                fallbackColor = tile.backgroundColor,
+                                title = if (isSmall) null else tile.title,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -776,16 +814,27 @@ private fun LauncherTileCell(
                     LiveTileFlipFace(
                         flipSeed = floatSeed,
                         faceColor = tile.backgroundColor,
+                        edgeToEdge = tile.flipToIcon,
                         front = frontFace,
                         back = {
-                            NotificationPeekTileContent(
-                                title = tile.backFaceTitle,
-                                body = tile.backFaceBody,
-                                footer = tile.title,
-                                wide = tile.entry.size == PinnedTileSize.FourByTwo,
-                                contentColor = contentColor,
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                            if (tile.flipToIcon) {
+                                StaticIconTileContent(
+                                    packageName = tile.entry.packageName,
+                                    title = tile.title,
+                                    iconSize = iconSize,
+                                    contentColor = contentColor,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                NotificationPeekTileContent(
+                                    title = tile.backFaceTitle,
+                                    body = tile.backFaceBody,
+                                    footer = tile.title,
+                                    wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                                    contentColor = contentColor,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         },
                         badge = badgeCount?.let { count ->
                             {
@@ -1113,10 +1162,13 @@ private fun NotificationPeekTileContent(
 }
 
 /**
- * 600ms vertical flip (around the horizontal center axis) between front (icon/title) and
- * back (notification peek) faces. The accent [faceColor] is painted on the rotating face so
- * the black tile slot behind it is revealed mid-flip. [flipSeed] drives a per-tile random
- * stagger so flips don't synchronize across the Start screen.
+ * 600ms vertical flip (around the horizontal center axis) between front (icon/title or photo)
+ * and back (notification peek or app icon) faces. The accent [faceColor] is painted on the
+ * rotating face so the black tile slot behind it is revealed mid-flip. [flipSeed] drives a
+ * per-tile random stagger so flips don't synchronize across the Start screen.
+ *
+ * When [edgeToEdge] is true (contact photo ↔ icon), the front fills the tile; inset is applied
+ * only on the back face so the icon/title layout matches a normal Start tile.
  */
 @Composable
 private fun LiveTileFlipFace(
@@ -1125,6 +1177,7 @@ private fun LiveTileFlipFace(
     front: @Composable () -> Unit,
     back: @Composable () -> Unit,
     badge: (@Composable BoxScope.() -> Unit)? = null,
+    edgeToEdge: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val rotation = remember { Animatable(0f) }
@@ -1152,9 +1205,23 @@ private fun LiveTileFlipFace(
                 cameraDistance = TILE_FLIP_CAMERA_DISTANCE * density
             }
             .background(faceColor)
-            .padding(TILE_CONTENT_INSET),
+            .then(if (edgeToEdge) Modifier else Modifier.padding(TILE_CONTENT_INSET)),
     ) {
-        if (showingBack) back() else front()
+        if (showingBack) {
+            if (edgeToEdge) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(TILE_CONTENT_INSET),
+                ) {
+                    back()
+                }
+            } else {
+                back()
+            }
+        } else {
+            front()
+        }
         badge?.invoke(this)
     }
 }
@@ -1172,6 +1239,8 @@ private fun tileIconSize(tileWidth: Dp, tileHeight: Dp, size: PinnedTileSize): D
 /**
  * Per-tile idle float used in edit mode for every non-active tile.
  * Amplitudes / periods are derived from [seed] so neighboring tiles drift independently.
+ * Motion is driven by a single shared clock in [rememberEditModeFloatClock] — not per-tile
+ * Animatable loops — so entering edit mode stays smooth.
  */
 internal data class TileIdleFloatParams(
     val ampXDp: Float,
@@ -1192,7 +1261,7 @@ internal data class TileIdleFloatParams(
     }
 }
 
-private data class TileIdleFloatState(
+internal data class TileIdleFloatState(
     val offsetXDp: Float,
     val offsetYDp: Float,
 ) {
@@ -1201,53 +1270,35 @@ private data class TileIdleFloatState(
     }
 }
 
+/** Seconds since float started; 0 while edit mode is off or still settling. */
 @Composable
-private fun rememberTileIdleFloat(enabled: Boolean, seed: Int): TileIdleFloatState {
-    val offsetX = remember { Animatable(0f) }
-    val offsetY = remember { Animatable(0f) }
-
-    LaunchedEffect(enabled, seed) {
-        if (!enabled) {
-            offsetX.snapTo(0f)
-            offsetY.snapTo(0f)
+private fun rememberEditModeFloatClock(editMode: Boolean): State<Float> {
+    val timeSec = remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(editMode) {
+        if (!editMode) {
+            timeSec.floatValue = 0f
             return@LaunchedEffect
         }
-        val params = TileIdleFloatParams.fromSeed(seed)
-        val phaseX = (abs(seed) % 100) / 100f
-        val phaseY = ((abs(seed) / 11) % 100) / 100f
-        offsetX.snapTo(params.ampXDp * (phaseX * 2f - 1f))
-        offsetY.snapTo(params.ampYDp * (phaseY * 2f - 1f))
-
-        coroutineScope {
-            launch {
-                var towardPositive = phaseX < 0.5f
-                while (true) {
-                    offsetX.animateTo(
-                        if (towardPositive) params.ampXDp else -params.ampXDp,
-                        animationSpec = tween(params.durationXMs, easing = FastOutSlowInEasing),
-                    )
-                    towardPositive = !towardPositive
-                }
-            }
-            launch {
-                var towardPositive = phaseY < 0.5f
-                while (true) {
-                    offsetY.animateTo(
-                        if (towardPositive) params.ampYDp else -params.ampYDp,
-                        animationSpec = tween(params.durationYMs, easing = FastOutSlowInEasing),
-                    )
-                    towardPositive = !towardPositive
-                }
+        delay(TILE_EDIT_FLOAT_DELAY_MS)
+        val startMs = withFrameMillis { it }
+        while (true) {
+            withFrameMillis { frameMs ->
+                timeSec.floatValue = (frameMs - startMs) / 1000f
             }
         }
     }
+    return timeSec
+}
 
-    return if (enabled) {
-        TileIdleFloatState(
-            offsetXDp = offsetX.value,
-            offsetYDp = offsetY.value,
-        )
-    } else {
-        TileIdleFloatState.Still
-    }
+internal fun tileIdleFloatAt(seed: Int, timeSec: Float): TileIdleFloatState {
+    if (timeSec <= 0f) return TileIdleFloatState.Still
+    val params = TileIdleFloatParams.fromSeed(seed)
+    val phaseX = (abs(seed) % 100) / 100f * (2f * PI.toFloat())
+    val phaseY = ((abs(seed) / 11) % 100) / 100f * (2f * PI.toFloat())
+    val omegaX = (2f * PI.toFloat()) / (params.durationXMs / 1000f)
+    val omegaY = (2f * PI.toFloat()) / (params.durationYMs / 1000f)
+    return TileIdleFloatState(
+        offsetXDp = params.ampXDp * sin(omegaX * timeSec + phaseX),
+        offsetYDp = params.ampYDp * sin(omegaY * timeSec + phaseY),
+    )
 }

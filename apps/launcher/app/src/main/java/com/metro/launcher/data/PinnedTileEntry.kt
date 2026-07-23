@@ -27,7 +27,7 @@ enum class PinnedTileSize(
 data class PinnedTileEntry(
     val packageName: String,
     val tileId: String = "primary",
-    val size: PinnedTileSize = PinnedTileSize.TwoByTwo,
+    val size: PinnedTileSize = PinnedTileSize.OneByOne,
     /** Top-left grid column; assigned on first layout when null. */
     val gridCol: Int? = null,
     /** Top-left grid row; assigned on first layout when null. */
