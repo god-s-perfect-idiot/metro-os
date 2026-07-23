@@ -88,6 +88,8 @@ private const val MESSAGING_PACKAGE = "com.metro.messaging"
 const val TILE_GRID_COLUMNS = 4
 val TILE_GRID_GAP = 8.dp
 val TILE_GRID_PADDING = 12.dp
+/** How far edit corner discs hang past the tile into the side gutter (≤ [TILE_GRID_PADDING]). */
+private val TileCornerSideHang = TILE_GRID_PADDING
 private val TILE_CONTENT_INSET = 8.dp
 private val TILE_SMALL_ICON_INSET = 10.dp
 /** Duration for tile resize / magnet reflow — matches Metro page transition timing. */
@@ -333,10 +335,11 @@ fun TileGrid(
     val scrimAlpha = 0.55f * editVisualProgress
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        // Corner buttons sit half outside the tile. Keep this inset always (not only in edit
-        // mode) so toggling edit does not change `unit` and reflow-animate every tile.
+        // Side gutters stay at TILE_GRID_PADDING (scope.md). Corner discs hang into that gutter
+        // (see TileCornerSideHang) so edit mode never widens the grid or reflows `unit`.
+        // Top keeps half-button room so the unpin disc above row 0 is not clipped by scroll.
         val cornerOverhang = TileCornerButtonSize / 2
-        val horizontalPad = maxOf(TILE_GRID_PADDING, cornerOverhang)
+        val horizontalPad = TILE_GRID_PADDING
         val topPad = maxOf(8.dp, cornerOverhang)
         val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) /
             TILE_GRID_COLUMNS
@@ -862,7 +865,9 @@ private fun LauncherTileCell(
             }
         }
         if (isActive) {
-            val cornerOffset = TileCornerButtonSize / 2
+            // Vertical hang is half the disc; horizontal hang matches the grid gutter so edge
+            // tiles never paint past the screen (scroll clips overflow).
+            val cornerOffsetY = TileCornerButtonSize / 2
             val controlsVisible = !isDragging
             TileEditCornerButton(
                 onClick = onUnpin,
@@ -871,7 +876,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = cornerOffset, y = -cornerOffset)
+                    .offset(x = TileCornerSideHang, y = -cornerOffsetY)
                     // Keep composed while dragging so removing the clickable child cannot
                     // cancel the tile's in-progress pointerInput gesture.
                     .alpha(if (controlsVisible) 1f else 0f),
@@ -883,7 +888,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = cornerOffset, y = cornerOffset)
+                    .offset(x = TileCornerSideHang, y = cornerOffsetY)
                     .alpha(if (controlsVisible) 1f else 0f),
             )
         }
