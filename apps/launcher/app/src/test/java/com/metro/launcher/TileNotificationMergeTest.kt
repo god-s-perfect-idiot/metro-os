@@ -1,7 +1,9 @@
 package com.metro.launcher
 
+import com.metro.launcher.data.MailTilePackages
 import com.metro.launcher.data.TileNotificationInfo
 import com.metro.launcher.data.TileNotificationStore
+import com.metro.launcher.data.resolveMailTilePeek
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -65,6 +67,27 @@ class TileNotificationMergeTest {
     }
 
     @Test
+    fun merge_gmailPeek_keepsSenderSubjectContent() {
+        val merged = TileNotificationStore.mergeIntoDisplay(
+            packageName = "com.google.android.gm",
+            providerCounter = null,
+            providerBackFaceTitle = null,
+            hasRichFrontFace = false,
+            info = info(
+                packageName = "com.google.android.gm",
+                count = 2,
+                title = "Ada Lovelace",
+                body = "Shall we meet at 3?",
+                subtitle = "Project notes",
+            ),
+        )
+        assertEquals("Ada Lovelace", merged.backFaceTitle)
+        assertEquals("Project notes", merged.backFaceSubtitle)
+        assertEquals("Shall we meet at 3?", merged.backFaceBody)
+        assertTrue(merged.hasFlipFace)
+    }
+
+    @Test
     fun changedPackages_detectsDiffs() {
         val previous = mapOf(
             "a" to info("a", 1, "t", "b"),
@@ -78,15 +101,68 @@ class TileNotificationMergeTest {
         assertEquals(setOf("b", "c"), changed)
     }
 
+    @Test
+    fun resolveMailTilePeek_bigTextStyle_mapsSenderSubjectContent() {
+        val peek = resolveMailTilePeek(
+            title = "Ada Lovelace",
+            text = "Project notes",
+            bigText = "Shall we meet at 3?",
+            conversationTitle = null,
+            messageSender = null,
+            messageText = null,
+        )
+        assertEquals("Ada Lovelace", peek.sender)
+        assertEquals("Project notes", peek.subject)
+        assertEquals("Shall we meet at 3?", peek.content)
+    }
+
+    @Test
+    fun resolveMailTilePeek_multilineText_splitsSubjectAndContent() {
+        val peek = resolveMailTilePeek(
+            title = "Grace Hopper",
+            text = "Compiler tips\nDon't forget the docs.",
+            bigText = null,
+            conversationTitle = null,
+            messageSender = null,
+            messageText = null,
+        )
+        assertEquals("Grace Hopper", peek.sender)
+        assertEquals("Compiler tips", peek.subject)
+        assertEquals("Don't forget the docs.", peek.content)
+    }
+
+    @Test
+    fun resolveMailTilePeek_messagingStyle_usesConversationTitle() {
+        val peek = resolveMailTilePeek(
+            title = "Inbox",
+            text = null,
+            bigText = null,
+            conversationTitle = "Weekend plans",
+            messageSender = "Alan Turing",
+            messageText = "See you Saturday.",
+        )
+        assertEquals("Alan Turing", peek.sender)
+        assertEquals("Weekend plans", peek.subject)
+        assertEquals("See you Saturday.", peek.content)
+    }
+
+    @Test
+    fun mailTilePackages_includesGmail() {
+        assertTrue(MailTilePackages.contains("com.google.android.gm"))
+        assertFalse(MailTilePackages.contains("com.whatsapp"))
+    }
+
     private fun info(
         packageName: String,
         count: Int,
         title: String?,
         body: String?,
+        subtitle: String? = null,
     ) = TileNotificationInfo(
         packageName = packageName,
         count = count,
         peekTitle = title,
+        peekSubtitle = subtitle,
         peekBody = body,
         updatedAtMs = 0L,
     )

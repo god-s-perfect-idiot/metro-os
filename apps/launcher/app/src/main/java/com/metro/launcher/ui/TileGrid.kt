@@ -674,14 +674,36 @@ private fun LauncherTileCell(
     // Medium/wide Messaging unread: wink glyph + large count (tile_yellow.jpg), not a corner badge.
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
         !showPhotoContent && !showStaticPhoto && !showAgenda
+    // Custom Chrome face: three brand wedges + blue center (full-bleed, no stock icon).
+    val showChromeFace = isChromeTilePackage(tile.entry.packageName) &&
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace
     // Contact photo tiles flip to the app icon; mosaic/cycle photos never flip.
     val canFlip = tile.hasFlipFace &&
         !showCyclePhoto &&
         !showPhotoGrid &&
         !showAgenda &&
         !showMessagingUnreadFace &&
+        !showChromeFace &&
         !isSmall &&
         !editMode
+    val badgeCount = tile.counter?.takeIf {
+        it > 0 && !showAgenda && !showMessagingUnreadFace
+    }
+    // Center-right badges share the glyph band on 1×1 / 2×2 — nudge the icon left so the
+    // numeral does not sit on top of it. Wider counts need a larger nudge.
+    val tileMinEdge = min(width.value, height.value).dp
+    val iconBadgeShift = when {
+        badgeCount == null -> 0.dp
+        tile.entry.size == PinnedTileSize.FourByTwo -> 0.dp
+        else -> {
+            val digits = if (badgeCount > 99) 3 else badgeCount.toString().length
+            val factor = when (tile.entry.size) {
+                PinnedTileSize.OneByOne -> 0.12f + digits * 0.05f
+                else -> 0.06f + digits * 0.035f
+            }
+            (tileMinEdge.value * factor).dp
+        }
+    }
 
     // Outer box must not clip — edit corner buttons are centered on the tile vertices and
     // intentionally draw half outside the tile (WP8.1). Clip only the tile face below.
@@ -718,7 +740,7 @@ private fun LauncherTileCell(
                     .clipToBounds()
                     .then(
                         when {
-                            showPhotoContent || showStaticPhoto -> Modifier
+                            showPhotoContent || showStaticPhoto || showChromeFace -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
                             else -> Modifier
                                 .background(tile.backgroundColor)
@@ -769,6 +791,12 @@ private fun LauncherTileCell(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        showChromeFace -> {
+                            ChromeTileContent(
+                                title = if (isSmall) null else tile.title,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                         isMessaging && isSmall -> {
                             MessagingGlyph(
                                 unread = messagingUnread != null,
@@ -776,7 +804,8 @@ private fun LauncherTileCell(
                                 contentDescription = tile.title,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(TILE_SMALL_ICON_INSET),
+                                    .padding(TILE_SMALL_ICON_INSET)
+                                    .offset(x = -iconBadgeShift),
                             )
                         }
                         isMessaging -> {
@@ -784,6 +813,7 @@ private fun LauncherTileCell(
                                 title = tile.title,
                                 iconSize = iconSize,
                                 contentColor = contentColor,
+                                iconOffsetX = -iconBadgeShift,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -793,7 +823,8 @@ private fun LauncherTileCell(
                                 size = iconSize,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(TILE_SMALL_ICON_INSET),
+                                    .padding(TILE_SMALL_ICON_INSET)
+                                    .offset(x = -iconBadgeShift),
                                 contentDescription = tile.title,
                                 fallbackLabel = tile.title,
                                 fallbackColor = contentColor,
@@ -805,14 +836,17 @@ private fun LauncherTileCell(
                                 title = tile.title,
                                 iconSize = iconSize,
                                 contentColor = contentColor,
+                                iconOffsetX = -iconBadgeShift,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
                     }
                 }
-                val badgeCount = tile.counter?.takeIf {
-                    it > 0 && !showAgenda && !showMessagingUnreadFace
-                }
+                // Edge-to-edge faces skip TILE_CONTENT_INSET on the container; pad the badge
+                // itself so the numeral keeps the same margin as inset tiles.
+                val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto || showChromeFace ||
+                    (canFlip && tile.flipToIcon)
+                val isWide = tile.entry.size == PinnedTileSize.FourByTwo
                 if (canFlip) {
                     LiveTileFlipFace(
                         flipSeed = floatSeed,
@@ -826,26 +860,37 @@ private fun LauncherTileCell(
                                     title = tile.title,
                                     iconSize = iconSize,
                                     contentColor = contentColor,
+                                    iconOffsetX = -iconBadgeShift,
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
                                 NotificationPeekTileContent(
                                     title = tile.backFaceTitle,
+                                    subtitle = tile.backFaceSubtitle,
                                     body = tile.backFaceBody,
                                     footer = tile.title,
-                                    wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                                    wide = isWide,
                                     contentColor = contentColor,
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             }
                         },
                         badge = badgeCount?.let { count ->
-                            {
-                                MetroText(
-                                    text = count.toString(),
-                                    style = MetroTextStyle.Body,
-                                    color = contentColor,
-                                    modifier = Modifier.align(Alignment.TopEnd),
+                            { showingBack ->
+                                // Wide peek face: app icon sits left of the count (identity + badge).
+                                val peekIconPackage = when {
+                                    showingBack && isWide && !tile.flipToIcon ->
+                                        tile.entry.packageName
+                                    else -> null
+                                }
+                                TileNotificationBadge(
+                                    count = count,
+                                    contentColor = contentColor,
+                                    tileMinEdge = tileMinEdge,
+                                    tileSize = tile.entry.size,
+                                    inset = badgeNeedsOwnInset,
+                                    iconPackageName = peekIconPackage,
+                                    iconTitle = tile.title,
                                 )
                             }
                         },
@@ -854,11 +899,12 @@ private fun LauncherTileCell(
                 } else {
                     frontFace()
                     badgeCount?.let { count ->
-                        MetroText(
-                            text = count.toString(),
-                            style = MetroTextStyle.Body,
-                            color = contentColor,
-                            modifier = Modifier.align(Alignment.TopEnd),
+                        TileNotificationBadge(
+                            count = count,
+                            contentColor = contentColor,
+                            tileMinEdge = tileMinEdge,
+                            tileSize = tile.entry.size,
+                            inset = badgeNeedsOwnInset,
                         )
                     }
                 }
@@ -892,6 +938,73 @@ private fun LauncherTileCell(
                     .alpha(if (controlsVisible) 1f else 0f),
             )
         }
+    }
+}
+
+/**
+ * WP tile notification count: naked content-colored bold numeral, no circle/pill/Material chrome.
+ * 1×1 / 2×2 → center-right; 4×2 → bottom-right. Optional [iconPackageName] draws the app glyph
+ * immediately left of the count (wide notification peek face). Caps at `99+`.
+ */
+@Composable
+private fun BoxScope.TileNotificationBadge(
+    count: Int,
+    contentColor: Color,
+    tileMinEdge: Dp,
+    tileSize: PinnedTileSize,
+    inset: Boolean,
+    iconPackageName: String? = null,
+    iconTitle: String? = null,
+) {
+    val display = if (count > 99) "99+" else count.toString()
+    val digits = display.length
+    // 1×1 shares the full face with the glyph — use a larger numeral so the badge reads clearly.
+    // Multi-digit counts shrink so "12" / "99+" still fit beside the icon.
+    val baseRatio = when (tileSize) {
+        PinnedTileSize.OneByOne -> 0.36f
+        else -> 0.22f
+    }
+    val digitScale = when {
+        digits <= 1 -> 1f
+        digits == 2 -> 0.78f
+        else -> 0.62f
+    }
+    val (minSp, maxSp) = when (tileSize) {
+        PinnedTileSize.OneByOne -> 22f to 48f
+        else -> 16f to 40f
+    }
+    val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
+    val alignment = when (tileSize) {
+        PinnedTileSize.FourByTwo -> Alignment.BottomEnd
+        else -> Alignment.CenterEnd
+    }
+    val badgeIconSize = (tileMinEdge.value * 0.28f).coerceIn(20f, 36f).dp
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .align(alignment)
+            .then(if (inset) Modifier.padding(TILE_CONTENT_INSET) else Modifier),
+    ) {
+        if (iconPackageName != null) {
+            MetroAppIcon(
+                packageName = iconPackageName,
+                size = badgeIconSize,
+                modifier = Modifier.size(badgeIconSize),
+                contentDescription = iconTitle,
+                fallbackLabel = iconTitle,
+                fallbackColor = contentColor,
+            )
+            Spacer(modifier = Modifier.size(6.dp))
+        }
+        BasicText(
+            text = display,
+            style = TextStyle(
+                fontFamily = MetroFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = fontSp.sp,
+                color = contentColor,
+            ),
+        )
     }
 }
 
@@ -971,7 +1084,7 @@ private fun AgendaTileContent(
                     text = dayNumber,
                     style = TextStyle(
                         fontFamily = MetroFontFamily,
-                        fontWeight = FontWeight.Light,
+                        fontWeight = FontWeight.Bold,
                         fontSize = if (wide) 44.sp else 34.sp,
                         color = contentColor,
                     ),
@@ -988,6 +1101,7 @@ private fun StaticIconTileContent(
     iconSize: Dp,
     contentColor: Color,
     modifier: Modifier = Modifier,
+    iconOffsetX: Dp = 0.dp,
 ) {
     Column(modifier = modifier) {
         Box(
@@ -999,7 +1113,9 @@ private fun StaticIconTileContent(
             MetroAppIcon(
                 packageName = packageName,
                 size = iconSize,
-                modifier = Modifier.size(iconSize),
+                modifier = Modifier
+                    .size(iconSize)
+                    .offset(x = iconOffsetX),
                 contentDescription = title,
                 fallbackLabel = title,
                 fallbackColor = contentColor,
@@ -1023,6 +1139,7 @@ private fun MessagingIdleTileContent(
     iconSize: Dp,
     contentColor: Color,
     modifier: Modifier = Modifier,
+    iconOffsetX: Dp = 0.dp,
 ) {
     Column(modifier = modifier) {
         Box(
@@ -1035,7 +1152,9 @@ private fun MessagingIdleTileContent(
                 unread = false,
                 contentColor = contentColor,
                 contentDescription = title,
-                modifier = Modifier.size(iconSize),
+                modifier = Modifier
+                    .size(iconSize)
+                    .offset(x = iconOffsetX),
             )
         }
         MetroText(
@@ -1111,10 +1230,11 @@ private fun MessagingGlyph(
 }
 
 /**
- * WP8.1 notification / peek face: title + body stacked from the top, app name as footer.
+ * WP8.1 notification / peek face: title (+ optional subtitle) + body stacked from the top,
+ * app name as footer.
  *
- * Wide (4×2) tiles wrap title and body across multiple lines so peek copy is readable instead of
- * single-line ellipsis; medium (2×2) stays single-line per field.
+ * Mail / Gmail peeks use three lines (user name, subject, content). Wide (4×2) tiles wrap the
+ * primary and body lines; medium (2×2) stays single-line per field so all three remain visible.
  */
 @Composable
 private fun NotificationPeekTileContent(
@@ -1124,14 +1244,16 @@ private fun NotificationPeekTileContent(
     wide: Boolean,
     contentColor: Color,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
 ) {
     val lines = buildList {
         title?.takeIf { it.isNotBlank() }?.let { add(it) }
+        subtitle?.takeIf { it.isNotBlank() }?.let { add(it) }
         body?.takeIf { it.isNotBlank() }?.let { add(it) }
     }.let { all ->
         when {
             wide -> all.take(3)
-            all.size <= 2 -> all
+            all.size <= 3 -> all
             else -> listOf(all.first(), all.last())
         }
     }
@@ -1139,6 +1261,7 @@ private fun NotificationPeekTileContent(
     Column(modifier = modifier) {
         lines.forEachIndexed { index, line ->
             val isTitle = index == 0
+            val isBody = index == lines.lastIndex && lines.size > 1 && !isTitle
             MetroText(
                 text = line,
                 style = if (isTitle) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
@@ -1148,7 +1271,8 @@ private fun NotificationPeekTileContent(
                     // Sole peek field can fill the face above the footer.
                     lines.size == 1 -> 5
                     isTitle -> 2
-                    else -> 4
+                    isBody -> 3
+                    else -> 1
                 },
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -1181,7 +1305,7 @@ private fun LiveTileFlipFace(
     faceColor: Color,
     front: @Composable () -> Unit,
     back: @Composable () -> Unit,
-    badge: (@Composable BoxScope.() -> Unit)? = null,
+    badge: (@Composable BoxScope.(showingBack: Boolean) -> Unit)? = null,
     edgeToEdge: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -1227,7 +1351,7 @@ private fun LiveTileFlipFace(
         } else {
             front()
         }
-        badge?.invoke(this)
+        badge?.invoke(this, showingBack)
     }
 }
 

@@ -141,7 +141,6 @@ Accent applies **only** to:
 - Progress bar fill
 - Hyperlinks
 - Active / pressed app bar icon tint
-- Tile counter numerals
 - Checkbox checked fill
 - Keyboard caret highlight
 
@@ -173,7 +172,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Wide | 198×198dp |
 | Design asset | 173×173px source image |
 | Title position | Bottom-left, 8dp inset, max 2 lines |
-| Counter | Top-right, accent color, system font |
+| Counter | Content color, Noto Sans Bold; naked numeral (no circle/pill); cap `99+`. 1×1/2×2: center-right; 4×2: bottom-right (app icon left of count on notification peek) |
 | Background | App-provided; **never** pure `#000000` or `#FFFFFF` |
 | Press | No tilt; optional subtle scale only if matching launcher ref |
 | Long press | Pin / resize / unpin (launcher) |

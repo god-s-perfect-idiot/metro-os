@@ -69,8 +69,10 @@ import kotlin.math.roundToInt
 import androidx.core.graphics.drawable.toBitmap
 import android.util.LruCache
 import com.metro.launcher.data.AppLauncherOption
+import com.metro.launcher.data.CustomTileBranding
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
+import androidx.core.content.ContextCompat
 import com.metro.ui.MetroCircleIconButton
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroJumpList
@@ -674,9 +676,20 @@ private fun AppListSquareIcon(
     LaunchedEffect(cacheKey) {
         if (cached != null) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) {
-            val asset = MetroAppBranding.loadAppIconAsset(context, packageName)
-            val bitmap = asset.drawable?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
-            CachedAppIcon(bitmap = bitmap, backgroundColor = asset.backgroundColor)
+            val customBg = CustomTileBranding.resolveBackgroundColor(context, packageName)
+            val customGlyph = CustomTileBranding.glyphResId(packageName)?.let { resId ->
+                ContextCompat.getDrawable(context, resId)
+            }
+            if (customGlyph != null && customBg != null) {
+                CachedAppIcon(
+                    bitmap = customGlyph.toBitmap(pixelSize, pixelSize).asImageBitmap(),
+                    backgroundColor = customBg,
+                )
+            } else {
+                val asset = MetroAppBranding.loadAppIconAsset(context, packageName)
+                val bitmap = asset.drawable?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
+                CachedAppIcon(bitmap = bitmap, backgroundColor = asset.backgroundColor)
+            }
         }
         appListIconCache.put(cacheKey, loaded)
         cached = loaded

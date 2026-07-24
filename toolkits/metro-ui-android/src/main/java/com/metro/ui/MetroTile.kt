@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -59,11 +61,20 @@ fun MetroTile(
             modifier = Modifier.align(Alignment.BottomStart),
         )
         if (counter != null && counter > 0) {
-            MetroText(
-                text = counter.toString(),
-                style = MetroTextStyle.Body,
-                color = contentColor,
-                modifier = Modifier.align(Alignment.TopEnd),
+            // Naked content-colored bold numeral — never a Material/circle badge.
+            // Small/medium: center-right; wide: bottom-right.
+            val display = if (counter > 99) "99+" else counter.toString()
+            val align = when (size) {
+                MetroTileSize.Wide -> Alignment.BottomEnd
+                else -> Alignment.CenterEnd
+            }
+            BasicText(
+                text = display,
+                style = MetroTextStyle.ListItemTitle.toTextStyle().copy(
+                    color = contentColor,
+                    fontWeight = FontWeight.Bold,
+                ),
+                modifier = Modifier.align(align),
             )
         }
     }

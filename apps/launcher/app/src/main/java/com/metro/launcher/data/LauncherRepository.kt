@@ -27,6 +27,8 @@ data class DisplayTile(
     val deepLinkUri: String?,
     val hasFlipFace: Boolean,
     val backFaceTitle: String? = null,
+    /** Middle peek line (e.g. Gmail subject between sender and body). */
+    val backFaceSubtitle: String? = null,
     val backFaceBody: String? = null,
     val photoGrid: MetroTilePhotoGrid? = null,
     val agenda: MetroTileAgenda? = null,
@@ -110,11 +112,12 @@ class LauncherRepository(private val context: Context) {
         }
         val label = resolveAppLabel(packageName)
         val title = providerData?.title ?: label ?: packageName.substringAfterLast('.')
-        val background = MetroAppBranding.resolveTileBackgroundColor(
-            context = context,
-            packageName = packageName,
-            providerBackgroundHex = providerData?.backgroundColorHex,
-        )
+        val background = CustomTileBranding.resolveBackgroundColor(context, packageName)
+            ?: MetroAppBranding.resolveTileBackgroundColor(
+                context = context,
+                packageName = packageName,
+                providerBackgroundHex = providerData?.backgroundColorHex,
+            )
         val photoGrid = providerData?.photoGrid
         val agenda = providerData?.agenda?.takeIf { it.hasContent }
         val imageUri = providerData?.imageUri?.takeIf { it.isNotBlank() }
@@ -135,6 +138,7 @@ class LauncherRepository(private val context: Context) {
             deepLinkUri = providerData?.deepLinkUri,
             hasFlipFace = merged.hasFlipFace || flipToIcon,
             backFaceTitle = merged.backFaceTitle,
+            backFaceSubtitle = merged.backFaceSubtitle,
             backFaceBody = merged.backFaceBody,
             photoGrid = photoGrid,
             agenda = agenda,

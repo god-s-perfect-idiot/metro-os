@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1-style camera glyph (white on transparent). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.96"
+        android:scaleY="0.96">
+        <!-- Viewfinder bump -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M40,34h12v6h-12z" />
+        <!-- Body -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M24,40h60v36h-60zM30,46h48v24h-48z" />
+        <!-- Lens ring + center -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M54,48c6.6,0 12,5.4 12,12s-5.4,12 -12,12s-12,-5.4 -12,-12s5.4,-12 12,-12zM54,52c-4.4,0 -8,3.6 -8,8s3.6,8 8,8s8,-3.6 8,-8s-3.6,-8 -8,-8z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,56c2.2,0 4,1.8 4,4s-1.8,4 -4,4s-4,-1.8 -4,-4s1.8,-4 4,-4z" />
+        <!-- Flash window -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M72,46h8v5h-8z" />
+    </group>
+</vector>

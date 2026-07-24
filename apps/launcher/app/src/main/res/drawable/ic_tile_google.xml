@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- White Google G monogram for Metro Start / app-list tiles (accent fill). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="1.12"
+        android:scaleY="1.12">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,48.5h22.3c0.26,1.84 0.26,3.68 0.26,5.52c0,14.45 -9.72,24.71 -24.43,24.71C37.45,78.73 25.7,66.98 25.7,52.3S37.45,25.87 52.13,25.87c7.88,0 13.4,2.89 17.6,7.09l-7.09,6.83c-2.36,-2.1 -5.52,-3.68 -10.51,-3.68c-8.93,0 -16.03,7.35 -16.03,17.34s7.1,17.34 16.03,17.34c10.24,0 14.18,-7.35 14.71,-11.3H54V48.5z" />
+    </group>
+</vector>

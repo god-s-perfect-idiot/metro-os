@@ -24,7 +24,7 @@ Curated links for WP8.1 Start screen look, layout, and interaction.
 
 - 6-column grid, **4dp** gap between tiles
 - Tile sizes: small 99×99dp, medium 198×99dp, wide 198×198dp (wide behind flag)
-- No pure black/white tile fills; accent-driven counters top-right
+- No pure black/white tile fills; counters are content-colored bold naked numerals (center-right 1×1/2×2, bottom-right 4×2)
 - Left-aligned Metro typography; no centered page chrome
 - Swipe **right** reveals app list (Start is page 0)
 

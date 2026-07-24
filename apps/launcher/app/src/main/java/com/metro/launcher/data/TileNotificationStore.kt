@@ -1,6 +1,7 @@
 package com.metro.launcher.data
 
 import android.app.Notification
+import android.os.Bundle
 import android.service.notification.StatusBarNotification
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -69,20 +70,33 @@ object TileNotificationStore {
             !providerBackFaceTitle.isNullOrBlank() -> providerBackFaceTitle
             hasRichFrontFace -> null
             info?.hasPeek == true -> info.peekTitle?.takeIf { it.isNotBlank() }
+                ?: info.peekSubtitle
                 ?: info.peekBody
+            else -> null
+        }
+        val backFaceSubtitle = when {
+            !providerBackFaceTitle.isNullOrBlank() -> null
+            hasRichFrontFace -> null
+            info?.hasPeek == true && !info.peekTitle.isNullOrBlank() ->
+                info.peekSubtitle?.takeIf { it.isNotBlank() }
             else -> null
         }
         val backFaceBody = when {
             !providerBackFaceTitle.isNullOrBlank() -> null
             hasRichFrontFace -> null
-            info?.hasPeek == true && !info.peekTitle.isNullOrBlank() -> info.peekBody
+            info?.hasPeek != true -> null
+            !info.peekTitle.isNullOrBlank() -> info.peekBody
+            !info.peekSubtitle.isNullOrBlank() -> info.peekBody
             else -> null
         }
         return MergedNotificationFace(
             counter = counter,
             backFaceTitle = backFaceTitle,
+            backFaceSubtitle = backFaceSubtitle,
             backFaceBody = backFaceBody,
-            hasFlipFace = !backFaceTitle.isNullOrBlank() || !backFaceBody.isNullOrBlank(),
+            hasFlipFace = !backFaceTitle.isNullOrBlank() ||
+                !backFaceSubtitle.isNullOrBlank() ||
+                !backFaceBody.isNullOrBlank(),
         )
     }
 
@@ -93,11 +107,7 @@ object TileNotificationStore {
             .groupBy { it.packageName }
         return grouped.mapValues { (packageName, items) ->
             val newest = items.maxByOrNull { it.postTime }!!
-            val extras = newest.notification.extras
-            val title = extras.charSequence(Notification.EXTRA_TITLE)
-            val body = extras.charSequence(Notification.EXTRA_TEXT)
-                ?: extras.charSequence(Notification.EXTRA_BIG_TEXT)
-                ?: extras.charSequence(Notification.EXTRA_SUB_TEXT)
+            val peek = extractPeek(packageName, newest.notification.extras)
             val badge = items.sumOf { item ->
                 val n = item.notification.number
                 if (n > 0) n else 1
@@ -105,8 +115,9 @@ object TileNotificationStore {
             TileNotificationInfo(
                 packageName = packageName,
                 count = badge.coerceAtLeast(1),
-                peekTitle = title,
-                peekBody = body,
+                peekTitle = peek.title,
+                peekSubtitle = peek.subtitle,
+                peekBody = peek.body,
                 updatedAtMs = newest.postTime,
             )
         }
@@ -123,8 +134,52 @@ object TileNotificationStore {
         listeners.forEach { it(packageName) }
     }
 
-    private fun android.os.Bundle.charSequence(key: String): String? =
+    private fun extractPeek(packageName: String, extras: Bundle): PeekLines {
+        val title = extras.charSequence(Notification.EXTRA_TITLE)
+        val text = extras.charSequence(Notification.EXTRA_TEXT)
+        val bigText = extras.charSequence(Notification.EXTRA_BIG_TEXT)
+        if (MailTilePackages.contains(packageName)) {
+            val conversationTitle = extras.charSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            val (messageSender, messageText) = extras.lastMessagingMessage()
+            val mail = resolveMailTilePeek(
+                title = title,
+                text = text,
+                bigText = bigText,
+                conversationTitle = conversationTitle,
+                messageSender = messageSender,
+                messageText = messageText,
+            )
+            return PeekLines(
+                title = mail.sender,
+                subtitle = mail.subject,
+                body = mail.content,
+            )
+        }
+        val body = text ?: bigText ?: extras.charSequence(Notification.EXTRA_SUB_TEXT)
+        return PeekLines(title = title, subtitle = null, body = body)
+    }
+
+    private fun Bundle.lastMessagingMessage(): Pair<String?, String?> {
+        @Suppress("DEPRECATION")
+        val messages = getParcelableArray(Notification.EXTRA_MESSAGES) ?: return null to null
+        val last = messages.lastOrNull() as? Bundle ?: return null to null
+        // MessagingStyle.Message bundle keys ("sender" / "text") — KEY_* constants are not
+        // always public across SDK compile targets.
+        val sender = last.getCharSequence("sender")
+            ?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        val text = last.getCharSequence("text")
+            ?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        return sender to text
+    }
+
+    private fun Bundle.charSequence(key: String): String? =
         getCharSequence(key)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+
+    private data class PeekLines(
+        val title: String?,
+        val subtitle: String?,
+        val body: String?,
+    )
 }
 
 data class MergedNotificationFace(
@@ -132,4 +187,5 @@ data class MergedNotificationFace(
     val backFaceTitle: String?,
     val backFaceBody: String?,
     val hasFlipFace: Boolean,
+    val backFaceSubtitle: String? = null,
 )

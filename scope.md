@@ -166,7 +166,7 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 
 #### Rules
 
-- Accent color applies to: pivot headers (selected), progress bars, toggles (on), links, active app bar icons, tile count badges, keyboard highlight.
+- Accent color applies to: pivot headers (selected), progress bars, toggles (on), links, active app bar icons, keyboard highlight.
 - **Never** use pure black or pure white as a tile background (tiles disappear against theme).
 - Contrast ratio ≥ **4.5:1** for body text; ≥ **7:1** preferred for small labels.
 - App bar and system chrome use theme background at **80% opacity** over content (WP8.1 `ApplicationBar` default).
@@ -279,7 +279,7 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 | Wide | 198×198dp | Shell / OEM only in WP8.1 — gate behind launcher flag |
 
 - Tile images: **173×173px** design asset (scaled by launcher)
-- Counter: Noto Sans, accent color, top-right
+- Counter: Noto Sans Bold, tile content color (not accent); naked numeral only — no circle/pill/Material badge chrome; cap at `99+`. Position: center-right on 1×1 / 2×2, bottom-right on 4×2. Wide (4×2) notification peek face also shows the app icon immediately left of the count.
 - Flip/title animations: match WP8.1 `TileAnimation` timing
 - Deep link: tile tap launches app's default panorama/hub page
 - Secondary tile: long-press → pin to start (launcher handles)

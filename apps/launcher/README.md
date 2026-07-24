@@ -30,6 +30,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - `TILE_UPDATE` and `THEME_CHANGED` broadcasts refresh tile content and shell theme
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
 - System notifications (via `NotificationListenerService`) drive tile badges and WP8.1 flip/peek faces for pinned apps
+- Custom Start faces for select third-party apps (Chrome: three brand wedges + blue center disc)
 - Wallpaper/parallax not yet implemented
 
 ## Screen inventory
@@ -77,6 +78,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Respond to `com.metro.system.TILE_UPDATE`
 - Fall back to static icon and title when an app has no live tile provider yet
 - With notification-listener access granted, merge active Android notifications into badges and flip/peek faces for any pinned package (shell FGS packages excluded)
+- Gmail (`com.google.android.gm`) peeks map notification extras to three live-tile lines: user name (sender), title (subject), content (body preview)
 
 ### Theme and accent propagation
 
@@ -84,6 +86,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Re-render within one frame after preference changes
 - Never hardcode tile accent variants outside the official palette
 - Metro suite and Android system apps use the system accent for Start/app-list tile fills unless `MetroAppRegistry.strongBrandHex` is set; third-party apps keep icon-derived brands
+- Selected third-party packages use `CustomTileBranding` (white Metro glyph + accent or brand fill) or composed faces in `CustomTileFaces` (e.g. Chrome). Includes Google Search (accent), YouTube Music (red), WhatsApp (green), and Camera (accent).
 
 ### Navigation contracts
 
@@ -96,7 +99,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Tile sizes: Small `99x99dp`, Medium `198x99dp`, Wide `198x198dp`
 - Tile grid: 6 columns with `4dp` gap
 - Tile art source asset target: `173x173px`
-- Counter badge: accent-colored, top-right, Noto Sans, never Material badge styling
+- Counter badge: content-colored bold naked numeral; center-right on 1×1/2×2, bottom-right on 4×2; never circle/pill/Material badge styling; cap at `99+`; wide peek shows app icon left of count
 - Never use pure black or pure white tile backgrounds
 - Live tile flip timing: `600ms` turnstile-style motion
 - Start to app list navigation is a horizontal relationship, not a drawer reveal
