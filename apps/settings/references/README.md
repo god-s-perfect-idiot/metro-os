@@ -26,6 +26,7 @@ references/
 | Accents picker | `images/accents_picker_dark.png` | `ACCENTS` title, 4×5 grid (Eight Forums WP8 capture) |
 | Accent palette aid | `images/accent_palette_wp8_dark.png` | Generated 20-colour HEX strip |
 | ease of access | `images/ease_of_access_dark_cyan.png` | Text size Sample + 7-step slider |
+| brightness / storage sense / about | _gap_ | See blueprint Pages 5–7b |
 
 ## Image naming
 

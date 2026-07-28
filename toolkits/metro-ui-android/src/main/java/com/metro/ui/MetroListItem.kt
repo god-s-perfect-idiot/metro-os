@@ -12,10 +12,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
  * WP8.1 list row — full-width rectangle, no separators (METRO-UX-LANGUAGE §6.6).
+ *
+ * Pass smaller [verticalPadding] / min heights for dense lists (e.g. file browser).
+ * Defaults match §6.6 (76dp / 90dp, 12dp vertical padding).
+ *
+ * [leading] is optional content before the title column (e.g. Files folder/file tiles).
  */
 @Composable
 fun MetroListItem(
@@ -23,7 +29,11 @@ fun MetroListItem(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     enabled: Boolean = true,
+    leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
+    verticalPadding: Dp = 12.dp,
+    oneLineMinHeight: Dp = 76.dp,
+    twoLineMinHeight: Dp = 90.dp,
     onClick: (() -> Unit)? = null,
 ) {
     val titleColor = if (enabled) {
@@ -36,7 +46,7 @@ fun MetroListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = if (subtitle == null) 76.dp else 90.dp)
+            .heightIn(min = if (subtitle == null) oneLineMinHeight else twoLineMinHeight)
             .then(
                 if (onClick != null && enabled) {
                     Modifier.clickable(onClick = onClick)
@@ -44,12 +54,19 @@ fun MetroListItem(
                     Modifier
                 },
             )
-            .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = 12.dp),
+            .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        if (leading != null) {
+            leading()
+        }
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (leading != null) Modifier.padding(start = 12.dp) else Modifier,
+                ),
             verticalArrangement = Arrangement.Center,
         ) {
             MetroText(

@@ -3,7 +3,6 @@ package com.metro.ui
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MetroColorsTest {
@@ -44,8 +43,13 @@ class MetroTextStyleTest {
     }
 
     @Test
-    fun body_meetsMinimum15sp() {
-        assertTrue(MetroTextStyle.Body.toTextStyle().fontSize.value >= 15f)
+    fun body_is18sp() {
+        assertEquals(18f, MetroTextStyle.Body.toTextStyle().fontSize.value, 0.01f)
+    }
+
+    @Test
+    fun listItemSubtitle_is18sp() {
+        assertEquals(18f, MetroTextStyle.ListItemSubtitle.toTextStyle().fontSize.value, 0.01f)
     }
 
     @Test

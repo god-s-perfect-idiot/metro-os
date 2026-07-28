@@ -149,10 +149,11 @@ object TileNotificationStore {
                 messageSender = messageSender,
                 messageText = messageText,
             )
+            val (from, content) = mailPeekFaceLines(mail)
             return PeekLines(
-                title = mail.sender,
-                subtitle = mail.subject,
-                body = mail.content,
+                title = from,
+                subtitle = null,
+                body = content,
             )
         }
         val body = text ?: bigText ?: extras.charSequence(Notification.EXTRA_SUB_TEXT)

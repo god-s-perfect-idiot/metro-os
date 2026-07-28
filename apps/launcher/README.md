@@ -78,7 +78,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Respond to `com.metro.system.TILE_UPDATE`
 - Fall back to static icon and title when an app has no live tile provider yet
 - With notification-listener access granted, merge active Android notifications into badges and flip/peek faces for any pinned package (shell FGS packages excluded)
-- Gmail (`com.google.android.gm`) peeks map notification extras to three live-tile lines: user name (sender), title (subject), content (body preview)
+- Gmail (`com.google.android.gm`) peeks map notification extras to two live-tile lines: From (sender, larger/semibold) and email content (body preview; subject is not shown as a middle title)
 
 ### Theme and accent propagation
 
@@ -86,7 +86,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Re-render within one frame after preference changes
 - Never hardcode tile accent variants outside the official palette
 - Metro suite and Android system apps use the system accent for Start/app-list tile fills unless `MetroAppRegistry.strongBrandHex` is set; third-party apps keep icon-derived brands
-- Selected third-party packages use `CustomTileBranding` (white Metro glyph + accent or brand fill) or composed faces in `CustomTileFaces` (e.g. Chrome). Includes Google Search (accent), YouTube Music (red), WhatsApp (green), and Camera (accent).
+- Selected third-party packages use `CustomTileBranding` (white Metro glyph + accent or brand fill) or composed faces in `CustomTileFaces` (e.g. Chrome). Includes Google Search (accent), Gmail (accent M monogram), YouTube Music (red), WhatsApp (green), and Camera (accent).
 
 ### Navigation contracts
 

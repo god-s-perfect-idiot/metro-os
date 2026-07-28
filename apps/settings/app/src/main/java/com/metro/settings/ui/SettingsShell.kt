@@ -31,5 +31,8 @@ fun SettingsShell(
         SettingsRoute.StartTheme -> StartThemeScreen(state = state, modifier = contentModifier)
         SettingsRoute.AccentPicker -> AccentPickerScreen(state = state, modifier = contentModifier)
         SettingsRoute.EaseOfAccess -> EaseOfAccessScreen(state = state, modifier = contentModifier)
+        SettingsRoute.Brightness -> BrightnessScreen(state = state, modifier = contentModifier)
+        SettingsRoute.StorageSense -> StorageSenseScreen(state = state, modifier = contentModifier)
+        SettingsRoute.About -> AboutScreen(state = state, modifier = contentModifier)
     }
 }

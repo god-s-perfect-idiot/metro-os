@@ -1,7 +1,10 @@
 package com.metro.launcher.data
 
 /**
- * WP8.1 Mail-style live-tile peek: sender (user name), subject (title), body (content).
+ * WP8.1 Mail-style live-tile peek fields parsed from a notification.
+ *
+ * The Start face shows [sender] (From) + [content] (email body). [subject] is kept for
+ * parsing/fallback when the notification has no distinct body preview.
  */
 internal data class MailTilePeek(
     val sender: String?,
@@ -12,7 +15,7 @@ internal data class MailTilePeek(
         get() = !sender.isNullOrBlank() || !subject.isNullOrBlank() || !content.isNullOrBlank()
 }
 
-/** Packages whose notifications should render as a three-line mail peek face. */
+/** Packages whose notifications should render as a mail From + content peek face. */
 internal object MailTilePackages {
     private val packages = setOf(
         "com.google.android.gm",
@@ -56,9 +59,17 @@ internal fun resolveMailTilePeek(
         return MailTilePeek(sender = sender, subject = subject, content = content)
     }
 
-    // Classic BigTextStyle: title=sender, text=subject, bigText=body.
+    // Classic BigTextStyle: title=sender, text=subject, bigText=body (sometimes "subject\\nbody").
     if (cleanBig != null && cleanText != null && cleanBig != cleanText) {
-        return MailTilePeek(sender = cleanTitle, subject = cleanText, content = cleanBig)
+        val content = if (cleanBig.startsWith(cleanText)) {
+            cleanBig.removePrefix(cleanText)
+                .trimStart('\n', '\r', ' ')
+                .takeIf { it.isNotEmpty() }
+                ?: cleanBig
+        } else {
+            cleanBig
+        }
+        return MailTilePeek(sender = cleanTitle, subject = cleanText, content = content)
     }
 
     // Subject + snippet packed into EXTRA_TEXT with a newline.
@@ -77,4 +88,14 @@ internal fun resolveMailTilePeek(
 
     // Fallback: title=sender, text=subject, bigText=content (may be null).
     return MailTilePeek(sender = cleanTitle, subject = cleanText, content = cleanBig)
+}
+
+/**
+ * Map a parsed [MailTilePeek] onto the two-line Start face: From + email content.
+ * Subject is never the second title; it is only used when no body preview exists.
+ */
+internal fun mailPeekFaceLines(mail: MailTilePeek): Pair<String?, String?> {
+    val content = mail.content?.takeIf { it.isNotBlank() }
+    val subject = mail.subject?.takeIf { it.isNotBlank() }
+    return mail.sender to (content ?: subject)
 }

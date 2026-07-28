@@ -19,6 +19,16 @@ class CustomTileBrandingTest {
     }
 
     @Test
+    fun gmail_whiteMOnAccent() {
+        val entry = CustomTileBranding.entry("com.google.android.gm")
+        assertNotNull(entry)
+        assertEquals(R.drawable.ic_tile_gmail, entry!!.glyphResId)
+        assertNull(entry.backgroundHex)
+        assertEquals(R.drawable.ic_tile_gmail, CustomTileBranding.glyphResId("com.google.android.gm.lite"))
+        assertEquals(R.drawable.ic_tile_gmail, CustomTileBranding.glyphResId("com.google.android.apps.gmail"))
+    }
+
+    @Test
     fun youtubeMusic_brandRed() {
         val entry = CustomTileBranding.entry("com.google.android.apps.youtube.music")
         assertNotNull(entry)

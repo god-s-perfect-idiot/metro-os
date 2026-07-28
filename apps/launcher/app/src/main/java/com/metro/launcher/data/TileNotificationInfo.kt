@@ -3,11 +3,12 @@ package com.metro.launcher.data
 /**
  * Aggregated Android notification state for one package, mapped onto a WP8.1 live-tile face.
  *
- * [count] drives the naked numeral badge (center-right on 1×1/2×2, bottom-right on 4×2).
+ * [count] drives the naked numeral badge (centered beside the icon on 1×1, center-right on
+ * 2×2, bottom-right on 4×2).
  * [peekTitle] / [peekSubtitle] / [peekBody] become the flip (back) face when the app has no
  * richer tile provider face (agenda / photo grid).
  *
- * Mail / Gmail peeks use all three lines: sender → subject → content preview.
+ * Mail / Gmail peeks use two lines: sender (From) → content preview.
  */
 data class TileNotificationInfo(
     val packageName: String,

@@ -102,8 +102,9 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 | App title | 16sp | Medium | Primary foreground; ALL CAPS overline |
 | Section header | 20sp | SemiBold | Primary foreground |
 | List item title | 24sp | Regular | Primary foreground |
-| List item subtitle | 16sp | Regular | **60%** foreground |
-| Body / interactive minimum | 15sp | Regular | Primary foreground |
+| List item subtitle | 18sp | Regular | **60%** foreground |
+| Body | 18sp | Regular | Primary foreground |
+| Interactive minimum | 15sp | — | No interactive text below this |
 | Dialog title | 24sp | Regular | Primary foreground |
 | Dialog body | 16sp | Regular | Primary foreground |
 | App bar menu item | 15sp | Regular | Primary foreground; **lowercase** |
@@ -293,7 +294,7 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 
 **Standard across all apps.** Empty-state text must be big, left- and top-aligned (matches the WP8.1 Phone app's "no recent calls" treatment). Use `MetroEmptyState` from the toolkit; do not center, shrink, or restyle empty text per-app.
 
-**Don't:** Centered text, `Body` (15sp) size, illustrations, or Material empty-state graphics.
+**Don't:** Centered text, `Body` size, illustrations, or Material empty-state graphics.
 
 ---
 

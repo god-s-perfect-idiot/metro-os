@@ -1,8 +1,10 @@
 package com.metro.launcher
 
 import com.metro.launcher.data.MailTilePackages
+import com.metro.launcher.data.MailTilePeek
 import com.metro.launcher.data.TileNotificationInfo
 import com.metro.launcher.data.TileNotificationStore
+import com.metro.launcher.data.mailPeekFaceLines
 import com.metro.launcher.data.resolveMailTilePeek
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -67,7 +69,7 @@ class TileNotificationMergeTest {
     }
 
     @Test
-    fun merge_gmailPeek_keepsSenderSubjectContent() {
+    fun merge_gmailPeek_keepsSenderAndContent() {
         val merged = TileNotificationStore.mergeIntoDisplay(
             packageName = "com.google.android.gm",
             providerCounter = null,
@@ -78,11 +80,11 @@ class TileNotificationMergeTest {
                 count = 2,
                 title = "Ada Lovelace",
                 body = "Shall we meet at 3?",
-                subtitle = "Project notes",
+                subtitle = null,
             ),
         )
         assertEquals("Ada Lovelace", merged.backFaceTitle)
-        assertEquals("Project notes", merged.backFaceSubtitle)
+        assertNull(merged.backFaceSubtitle)
         assertEquals("Shall we meet at 3?", merged.backFaceBody)
         assertTrue(merged.hasFlipFace)
     }
@@ -107,6 +109,21 @@ class TileNotificationMergeTest {
             title = "Ada Lovelace",
             text = "Project notes",
             bigText = "Shall we meet at 3?",
+            conversationTitle = null,
+            messageSender = null,
+            messageText = null,
+        )
+        assertEquals("Ada Lovelace", peek.sender)
+        assertEquals("Project notes", peek.subject)
+        assertEquals("Shall we meet at 3?", peek.content)
+    }
+
+    @Test
+    fun resolveMailTilePeek_bigTextPrefixedWithSubject_stripsToContent() {
+        val peek = resolveMailTilePeek(
+            title = "Ada Lovelace",
+            text = "Project notes",
+            bigText = "Project notes\nShall we meet at 3?",
             conversationTitle = null,
             messageSender = null,
             messageText = null,
@@ -150,6 +167,32 @@ class TileNotificationMergeTest {
     fun mailTilePackages_includesGmail() {
         assertTrue(MailTilePackages.contains("com.google.android.gm"))
         assertFalse(MailTilePackages.contains("com.whatsapp"))
+    }
+
+    @Test
+    fun mailPeekFaceLines_prefersContentOverSubject() {
+        val (from, body) = mailPeekFaceLines(
+            MailTilePeek(
+                sender = "Ada Lovelace",
+                subject = "Project notes",
+                content = "Shall we meet at 3?",
+            ),
+        )
+        assertEquals("Ada Lovelace", from)
+        assertEquals("Shall we meet at 3?", body)
+    }
+
+    @Test
+    fun mailPeekFaceLines_fallsBackToSubjectWhenContentMissing() {
+        val (from, body) = mailPeekFaceLines(
+            MailTilePeek(
+                sender = "Ada Lovelace",
+                subject = "Project notes",
+                content = null,
+            ),
+        )
+        assertEquals("Ada Lovelace", from)
+        assertEquals("Project notes", body)
     }
 
     private fun info(

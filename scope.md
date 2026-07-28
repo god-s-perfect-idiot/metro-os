@@ -124,7 +124,7 @@ These rules are **non-negotiable** unless a documented Android platform limitati
 | Page title | 64sp Noto Sans Light, flush left |
 | Section header | 20sp Noto Sans SemiBold |
 | List item title | 24sp Noto Sans Regular |
-| List item subtitle | 16sp, 60% foreground opacity |
+| List item subtitle | 18sp, 60% foreground opacity |
 | Text alignment | Flush left for all Latin scripts; respect RTL mirroring |
 | Font variety | Max **2 weights** per screen (e.g. SemiBold headers + Regular body) |
 | Decorative type | No shadows, outlines, or gradients on text |

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">files</string>
+    <string name="setup_title">files</string>
+    <string name="permission_body">Files needs access to all files on this device so you can browse folders and open items in other apps — the same role as the Windows Phone Files app.</string>
+    <string name="grant_access">allow access</string>
+    <string name="empty_folder">folder is empty</string>
+    <string name="empty_volumes">no storage found</string>
+</resources>

@@ -13,11 +13,11 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 class NavbarThemeResolverTest {
   @Test
-  fun alwaysUsesBlackBarWithWhiteIcons() {
+  fun defaultsToBlackBarWithWhiteIcons() {
     val context = RuntimeEnvironment.getApplication()
     val prefs = MetroPreferences(context)
     prefs.themeMode = MetroThemeMode.Dark
-    prefs.navBarColorHex = "#1BA1E2"
+    prefs.navBarColorHex = null
 
     val snapshot = NavbarThemeResolver.resolve(prefs)
 
@@ -27,7 +27,20 @@ class NavbarThemeResolverTest {
   }
 
   @Test
-  fun ignoresLightNavBarPreference() {
+  fun usesAccentOverrideWhenSet() {
+    val context = RuntimeEnvironment.getApplication()
+    val prefs = MetroPreferences(context)
+    prefs.themeMode = MetroThemeMode.Dark
+    prefs.navBarColorHex = "#1BA1E2"
+
+    val snapshot = NavbarThemeResolver.resolve(prefs)
+
+    assertEquals(MetroPreferences.parseAccentHex("#1BA1E2"), snapshot.barColor)
+    assertEquals(Color.White, snapshot.iconColor)
+  }
+
+  @Test
+  fun usesDarkIconsOnLightBar() {
     val context = RuntimeEnvironment.getApplication()
     val prefs = MetroPreferences(context)
     prefs.themeMode = MetroThemeMode.Light
@@ -35,7 +48,7 @@ class NavbarThemeResolverTest {
 
     val snapshot = NavbarThemeResolver.resolve(prefs)
 
-    assertEquals(Color.Black, snapshot.barColor)
-    assertEquals(Color.White, snapshot.iconColor)
+    assertEquals(MetroPreferences.parseAccentHex("#F2F2F2"), snapshot.barColor)
+    assertEquals(Color.Black, snapshot.iconColor)
   }
 }

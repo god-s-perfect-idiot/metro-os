@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,8 +55,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -689,19 +694,17 @@ private fun LauncherTileCell(
     val badgeCount = tile.counter?.takeIf {
         it > 0 && !showAgenda && !showMessagingUnreadFace
     }
-    // Center-right badges share the glyph band on 1×1 / 2×2 — nudge the icon left so the
-    // numeral does not sit on top of it. Wider counts need a larger nudge.
+    // 1×1 icon tiles pair glyph + count in a centered row; 2×2 keeps a center-right badge
+    // and nudges the icon left so the numeral does not sit on top of it.
     val tileMinEdge = min(width.value, height.value).dp
+    val showSmallIconBadge = isSmall && badgeCount != null &&
+        !showPhotoContent && !showStaticPhoto && !showChromeFace
     val iconBadgeShift = when {
         badgeCount == null -> 0.dp
-        tile.entry.size == PinnedTileSize.FourByTwo -> 0.dp
+        tile.entry.size != PinnedTileSize.TwoByTwo -> 0.dp
         else -> {
             val digits = if (badgeCount > 99) 3 else badgeCount.toString().length
-            val factor = when (tile.entry.size) {
-                PinnedTileSize.OneByOne -> 0.12f + digits * 0.05f
-                else -> 0.06f + digits * 0.035f
-            }
-            (tileMinEdge.value * factor).dp
+            (tileMinEdge.value * (0.06f + digits * 0.035f)).dp
         }
     }
 
@@ -797,6 +800,20 @@ private fun LauncherTileCell(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        isMessaging && isSmall && showSmallIconBadge -> {
+                            SmallTileIconBadgeContent(
+                                count = badgeCount!!,
+                                contentColor = contentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            ) { glyphSize ->
+                                MessagingGlyph(
+                                    unread = true,
+                                    contentColor = contentColor,
+                                    contentDescription = tile.title,
+                                    modifier = Modifier.size(glyphSize),
+                                )
+                            }
+                        }
                         isMessaging && isSmall -> {
                             MessagingGlyph(
                                 unread = messagingUnread != null,
@@ -804,8 +821,7 @@ private fun LauncherTileCell(
                                 contentDescription = tile.title,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(TILE_SMALL_ICON_INSET)
-                                    .offset(x = -iconBadgeShift),
+                                    .padding(TILE_SMALL_ICON_INSET),
                             )
                         }
                         isMessaging -> {
@@ -817,14 +833,29 @@ private fun LauncherTileCell(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        isSmall && showSmallIconBadge -> {
+                            SmallTileIconBadgeContent(
+                                count = badgeCount!!,
+                                contentColor = contentColor,
+                                modifier = Modifier.fillMaxSize(),
+                            ) { glyphSize ->
+                                MetroAppIcon(
+                                    packageName = tile.entry.packageName,
+                                    size = glyphSize,
+                                    modifier = Modifier.size(glyphSize),
+                                    contentDescription = tile.title,
+                                    fallbackLabel = tile.title,
+                                    fallbackColor = contentColor,
+                                )
+                            }
+                        }
                         isSmall -> {
                             MetroAppIcon(
                                 packageName = tile.entry.packageName,
                                 size = iconSize,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(TILE_SMALL_ICON_INSET)
-                                    .offset(x = -iconBadgeShift),
+                                    .padding(TILE_SMALL_ICON_INSET),
                                 contentDescription = tile.title,
                                 fallbackLabel = tile.title,
                                 fallbackColor = contentColor,
@@ -898,14 +929,17 @@ private fun LauncherTileCell(
                     )
                 } else {
                     frontFace()
-                    badgeCount?.let { count ->
-                        TileNotificationBadge(
-                            count = count,
-                            contentColor = contentColor,
-                            tileMinEdge = tileMinEdge,
-                            tileSize = tile.entry.size,
-                            inset = badgeNeedsOwnInset,
-                        )
+                    // 1×1 icon faces already draw the count beside the glyph.
+                    if (!showSmallIconBadge) {
+                        badgeCount?.let { count ->
+                            TileNotificationBadge(
+                                count = count,
+                                contentColor = contentColor,
+                                tileMinEdge = tileMinEdge,
+                                tileSize = tile.entry.size,
+                                inset = badgeNeedsOwnInset,
+                            )
+                        }
                     }
                 }
             }
@@ -942,9 +976,129 @@ private fun LauncherTileCell(
 }
 
 /**
+ * 1×1 notification face: glyph + naked count as one centered row. Sizes both from the
+ * available content box (already inset by the tile) so nothing clips, with a fixed gap
+ * between icon and numeral. Multi-digit counts shrink to stay on a single line.
+ */
+@Composable
+private fun SmallTileIconBadgeContent(
+    count: Int,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    icon: @Composable (iconSize: Dp) -> Unit,
+) {
+    val display = if (count > 99) "99+" else count.toString()
+    val digits = display.length
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        val gap = 4.dp
+        val availableW = maxWidth.value
+        val availableH = maxHeight.value
+        val gapV = gap.value
+        // Multi-digit counts need a larger share; glyph takes the rest.
+        val countShare = when {
+            digits <= 1 -> 0.30f
+            digits == 2 -> 0.40f
+            else -> 0.50f
+        }
+        val maxGlyph = min(availableH * 0.68f, 36f)
+        val minGlyph = 14f
+        val maxFont = min(availableH * 0.48f, 28f)
+        val minFont = 9f
+        val preferredGlyph = min(maxGlyph, (availableW - gapV) * (1f - countShare))
+            .coerceAtLeast(minGlyph)
+        val countBudgetPx = with(density) {
+            (availableW - gapV - preferredGlyph).coerceAtLeast(1f).dp.toPx()
+        }
+
+        val (fontSp, glyphDp) = remember(
+            display,
+            countBudgetPx,
+            preferredGlyph,
+            availableW,
+            gapV,
+            maxFont,
+            minFont,
+            minGlyph,
+            density,
+        ) {
+            val measureStyle = TextStyle(
+                fontFamily = MetroFontFamily,
+                fontWeight = FontWeight.Bold,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+            )
+            fun widthOf(sp: Float): Int = textMeasurer.measure(
+                text = display,
+                style = measureStyle.copy(fontSize = sp.sp, lineHeight = sp.sp),
+                maxLines = 1,
+                softWrap = false,
+            ).size.width
+
+            val fittedFont = if (countBudgetPx <= 0f) {
+                minFont
+            } else {
+                var low = minFont
+                var high = maxFont
+                var best = minFont
+                while (low <= high) {
+                    val mid = (low + high) / 2f
+                    if (widthOf(mid) <= countBudgetPx) {
+                        best = mid
+                        low = mid + 0.25f
+                    } else {
+                        high = mid - 0.25f
+                    }
+                }
+                best
+            }
+            val textWidthDp = with(density) { widthOf(fittedFont).toDp().value }
+            val glyph = min(preferredGlyph, availableW - gapV - textWidthDp)
+                .coerceAtLeast(minGlyph)
+            fittedFont to glyph.dp
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(gap),
+            modifier = Modifier.wrapContentSize(align = Alignment.Center),
+        ) {
+            Box(
+                modifier = Modifier.size(glyphDp),
+                contentAlignment = Alignment.Center,
+            ) {
+                icon(glyphDp)
+            }
+            BasicText(
+                text = display,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+                style = TextStyle(
+                    fontFamily = MetroFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = fontSp.sp,
+                    lineHeight = fontSp.sp,
+                    color = contentColor,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false),
+                    lineHeightStyle = LineHeightStyle(
+                        alignment = LineHeightStyle.Alignment.Center,
+                        trim = LineHeightStyle.Trim.Both,
+                    ),
+                ),
+            )
+        }
+    }
+}
+
+/**
  * WP tile notification count: naked content-colored bold numeral, no circle/pill/Material chrome.
- * 1×1 / 2×2 → center-right; 4×2 → bottom-right. Optional [iconPackageName] draws the app glyph
- * immediately left of the count (wide notification peek face). Caps at `99+`.
+ * 2×2 → center-right; 4×2 → bottom-right; 1×1 photo/chrome overlays also use center-right
+ * (icon+count 1×1 faces use [SmallTileIconBadgeContent] instead). Optional [iconPackageName]
+ * draws the app glyph immediately left of the count (wide notification peek face). Caps at `99+`.
  */
 @Composable
 private fun BoxScope.TileNotificationBadge(
@@ -958,22 +1112,20 @@ private fun BoxScope.TileNotificationBadge(
 ) {
     val display = if (count > 99) "99+" else count.toString()
     val digits = display.length
-    // 1×1 shares the full face with the glyph — use a larger numeral so the badge reads clearly.
-    // Multi-digit counts shrink so "12" / "99+" still fit beside the icon.
-    val baseRatio = when (tileSize) {
-        PinnedTileSize.OneByOne -> 0.36f
-        else -> 0.22f
-    }
+    // Multi-digit counts shrink so "12" / "99+" stay on one line beside the icon.
+    val baseRatio = 0.22f
     val digitScale = when {
         digits <= 1 -> 1f
         digits == 2 -> 0.78f
         else -> 0.62f
     }
-    val (minSp, maxSp) = when (tileSize) {
-        PinnedTileSize.OneByOne -> 22f to 48f
-        else -> 16f to 40f
+    // Floor scales with digits — a fixed 16sp minimum forced "99+" to wrap on 1×1 overlays.
+    val minSp = when {
+        digits <= 1 -> 16f
+        digits == 2 -> 13f
+        else -> 11f
     }
-    val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
+    val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, 40f)
     val alignment = when (tileSize) {
         PinnedTileSize.FourByTwo -> Alignment.BottomEnd
         else -> Alignment.CenterEnd
@@ -998,11 +1150,16 @@ private fun BoxScope.TileNotificationBadge(
         }
         BasicText(
             text = display,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
             style = TextStyle(
                 fontFamily = MetroFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = fontSp.sp,
+                lineHeight = fontSp.sp,
                 color = contentColor,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
             ),
         )
     }
@@ -1035,17 +1192,29 @@ private fun AgendaTileContent(
 
     Column(modifier = modifier) {
         shown.forEachIndexed { index, line ->
-            MetroText(
-                text = line,
-                style = if (index == 0) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
-                color = contentColor,
-                maxLines = when {
-                    wide && index == 0 -> 2
-                    else -> 1
-                },
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (index == 0) {
+                BasicText(
+                    text = line,
+                    style = TextStyle(
+                        fontFamily = MetroFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 22.sp,
+                        color = contentColor,
+                    ),
+                    maxLines = if (wide) 2 else 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                MetroText(
+                    text = line,
+                    style = MetroTextStyle.Body,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -1233,8 +1402,8 @@ private fun MessagingGlyph(
  * WP8.1 notification / peek face: title (+ optional subtitle) + body stacked from the top,
  * app name as footer.
  *
- * Mail / Gmail peeks use three lines (user name, subject, content). Wide (4×2) tiles wrap the
- * primary and body lines; medium (2×2) stays single-line per field so all three remain visible.
+ * Mail / Gmail peeks use two lines (From + email content). The From line is larger and
+ * semibold. Wide (4×2) tiles wrap body lines; medium (2×2) stays single-line per field.
  */
 @Composable
 private fun NotificationPeekTileContent(
@@ -1262,21 +1431,44 @@ private fun NotificationPeekTileContent(
         lines.forEachIndexed { index, line ->
             val isTitle = index == 0
             val isBody = index == lines.lastIndex && lines.size > 1 && !isTitle
-            MetroText(
-                text = line,
-                style = if (isTitle) MetroTextStyle.ListItemSubtitle else MetroTextStyle.Body,
-                color = contentColor,
-                maxLines = when {
-                    !wide -> 1
-                    // Sole peek field can fill the face above the footer.
-                    lines.size == 1 -> 5
-                    isTitle -> 2
-                    isBody -> 3
-                    else -> 1
-                },
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            val maxLines = when {
+                !wide -> 1
+                // Sole peek field can fill the face above the footer.
+                lines.size == 1 -> 5
+                isTitle -> 2
+                isBody -> 3
+                else -> 1
+            }
+            if (isTitle) {
+                // From / sender: larger and bolder than the content preview under it.
+                BasicText(
+                    text = line,
+                    style = TextStyle(
+                        fontFamily = MetroFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 22.sp,
+                        lineHeight = 26.sp,
+                        color = contentColor,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.None,
+                        ),
+                    ),
+                    maxLines = maxLines,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                MetroText(
+                    text = line,
+                    style = MetroTextStyle.Body,
+                    color = contentColor,
+                    maxLines = maxLines,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         Spacer(modifier = Modifier.weight(1f))
         MetroText(

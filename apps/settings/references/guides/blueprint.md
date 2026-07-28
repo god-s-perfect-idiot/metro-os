@@ -8,9 +8,15 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ### Page 1 — Settings root (system list)
 
-- **Layout:** Black/white theme background. Small ALL CAPS app overline `SETTINGS` via `MetroAppTitle`, then large lowercase page title `system` (64sp Light). Scrollable list of setting rows (single-line title 24sp; optional subtitle 16sp secondary for current value). 12dp horizontal margins. No separators — whitespace only. List item height 76dp.
+- **Layout:** Black/white theme background. Small ALL CAPS app overline `SETTINGS` via `MetroAppTitle`, then large lowercase page title `system` (64sp Light). Scrollable list of setting rows (single-line title 24sp; optional subtitle 18sp secondary for current value). 12dp horizontal margins. No separators — whitespace only. List item height 76dp.
 - **Navigation:** From app list / Action Center “all settings”. Back exits the app.
-- **Interactions:** Tap a row → push detail page with 300ms horizontal slide. v1 interactive rows: `start+theme`, `ease of access`. Other WP8.1 system rows may appear as disabled/gray placeholders or be omitted — do not invent Material preference categories.
+- **Interactions:** Tap a row → push detail page with 300ms horizontal slide. Interactive rows:
+  - `start+theme`
+  - `storage sense`
+  - `brightness`
+  - `ease of access`
+  - `extras+info`
+- Do not invent Material preference categories. Rows use WP8.1 lowercase titles.
 - **Background:** Theme background (dark `#000000` / light `#FFFFFF`).
 
 ### Page 2 — start+theme
@@ -18,9 +24,8 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Layout:** `SETTINGS` overline + title `start+theme`. Vertical stack:
   1. Intro body: “Change your phone's background and **accent colour** to suit your mood today, this week or all month.” — the words `accent colour` use the current accent colour; the rest is primary text.
   2. **Accent colour** — secondary label, then a full-width bordered combo (1dp primary stroke, 0dp corners) containing a small square swatch (~24dp) + lowercase colour name. Tap opens accent picker (Page 3).
-  3. **Background** dark/light ListPicker — **omitted in v1** (theme stays dark; see known-gaps / platform exceptions).
-  4. **Show more Tiles** — toggle (optional v1; may be deferred if launcher already owns wide-tile config via build flag).
-  5. **Choose photo** / Start background — out of scope for v1.
+  3. **Background** dark/light ListPicker — **omitted** (theme stays dark; see known-gaps / platform exceptions).
+  4. **Show more Tiles** / **Choose photo** — out of scope.
 - **Navigation:** Back → Settings root.
 - **Interactions:** Changing accent writes `MetroPreferences` and broadcasts `THEME_CHANGED` immediately (suite-wide).
 - **Background:** Theme background.
@@ -43,10 +48,34 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   - Bordered **Sample** preview box showing the word `Sample` at the active scale
   - Discrete **7-step** Metro slider (accent fill left of thumb; secondary track)
   - Helper text: changes text size across Metro apps (People, Phone, messaging, etc.)
-  - Other WP8.1 controls (High contrast, Narrator, Screen magnifier, TTY/TDD) are **out of scope for v1** — omit or show disabled with secondary caption.
+  - Other WP8.1 controls (High contrast, Narrator, Screen magnifier, TTY/TDD) remain out of scope — omit.
 - **Navigation:** Back → Settings root.
 - **Interactions:** Slider writes `font_scale` (seven fixed steps) and broadcasts `THEME_CHANGED` (include `font_scale` extra). All Metro apps observe and recompose.
 - **Background:** Theme background.
+- **Reference:** `images/ease_of_access_dark_cyan.png`
+
+### Page 5 — brightness
+
+- **Layout:** Label **Brightness**, continuous `MetroSlider` (0–1). Writes `Settings.System.SCREEN_BRIGHTNESS` (manual mode). Never opens Android Settings.
+- **Navigation:** Back → Settings root.
+
+### Page 6 — storage sense
+
+- **Layout:** Internal storage used / free / total (formatted sizes). Read-only; no Material storage picker.
+- **Navigation:** Back → Settings root.
+
+### Page 7 — extras+info
+
+- **Layout:** `SETTINGS` overline + title `extras+info`. Intro body describing metro-os, then section header **phone information** (accent colour) and stacked label/value fields matching WP About → more info:
+  - Name, Model, Manufacturer, Carrier
+  - **Software** — `metro-os alpha-3` (current suite release tag; bump when cutting a new release)
+  - Total storage, Available storage
+  - OS version, Firmware revision number, Hardware revision number, Radio software version, Bootloader version, Chip SOC version
+  - Build ID, Board, ABI
+- Labels use secondary subtitle colour; values use body primary text (stacked, not side-by-side).
+- Omit privileged identifiers (IMEI, MAC, SIM ID, MDN) unless a documented platform path exists without opening Android Settings.
+- **Navigation:** Back → Settings root.
+- **Interactions:** Read-only snapshot from `Build.*`, storage `StatFs`, and telephony network name when available. No separate more-info page.
 
 ## Images
 
@@ -57,14 +86,14 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | `accents_picker_dark.png` | Page 3 | Eight Forums WP8 accent grid — `ACCENTS` title, 4×5 tiles |
 | `accent_palette_wp8_dark.png` | Page 3 | Generated strip of the 20 official WP8 accent hex values (palette aid) |
 
-Missing device capture for root → see [`known-gaps.md`](../known-gaps.md).
+Missing device captures for root / brightness / storage / extras+info → see [`known-gaps.md`](../known-gaps.md).
 
-## Out of scope (v1)
+## Out of scope
 
-- Full WP8.1 system settings inventory (Wi‑Fi, cellular, backup, kid’s corner, etc.)
-- Navigation bar colour settings
-- Start background photo / parallax wallpaper picker
+- Full WP8.1 system settings inventory (Wi‑Fi, Bluetooth, airplane, battery saver, date+time, ringtones+sounds, navigation bar, cellular, backup, kid’s corner, etc.)
+- start+theme Background ListPicker / Choose photo / Show more Tiles
 - Custom / Color Changer RGB accent picker
 - High contrast, Narrator, Screen magnifier, browser captions
 - Sync my settings / Microsoft account
 - Application-specific settings hubs (IE, photos+camera, …)
+- Launching the Android Settings app from any Settings page

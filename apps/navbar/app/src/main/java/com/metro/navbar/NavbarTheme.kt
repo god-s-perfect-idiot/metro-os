@@ -1,6 +1,7 @@
 package com.metro.navbar
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import com.metro.system.MetroNavBar
 import com.metro.system.MetroPreferences
 
@@ -24,12 +25,19 @@ data class NavbarThemeSnapshot(
 )
 
 object NavbarThemeResolver {
-    private val barColor = Color.Black
+    private val defaultBarColor = Color.Black
 
     fun resolve(preferences: MetroPreferences): NavbarThemeSnapshot {
+        val overrideHex = preferences.navBarColorHex
+        val barColor = if (overrideHex != null) {
+            MetroPreferences.parseAccentHex(overrideHex)
+        } else {
+            defaultBarColor
+        }
+        val iconColor = if (barColor.luminance() > 0.5f) Color.Black else Color.White
         return NavbarThemeSnapshot(
             barColor = barColor,
-            iconColor = Color.White,
+            iconColor = iconColor,
             darkTheme = preferences.isDark,
         )
     }

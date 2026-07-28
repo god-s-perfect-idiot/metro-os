@@ -96,14 +96,14 @@ enum class MetroTextStyle {
         ListItemSubtitle -> TextStyle(
             fontFamily = MetroFontFamily,
             fontWeight = FontWeight.Normal,
-            fontSize = 16.sp,
-            lineHeight = 20.sp,
+            fontSize = 18.sp,
+            lineHeight = 22.sp,
         )
         Body -> TextStyle(
             fontFamily = MetroFontFamily,
             fontWeight = FontWeight.Normal,
-            fontSize = 15.sp,
-            lineHeight = 20.sp,
+            fontSize = 18.sp,
+            lineHeight = 24.sp,
         )
         DialogTitle -> TextStyle(
             fontFamily = MetroFontFamily,

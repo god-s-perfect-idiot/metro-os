@@ -27,7 +27,7 @@ data class DisplayTile(
     val deepLinkUri: String?,
     val hasFlipFace: Boolean,
     val backFaceTitle: String? = null,
-    /** Middle peek line (e.g. Gmail subject between sender and body). */
+    /** Middle peek line when a provider/notification supplies three stacked fields. */
     val backFaceSubtitle: String? = null,
     val backFaceBody: String? = null,
     val photoGrid: MetroTilePhotoGrid? = null,

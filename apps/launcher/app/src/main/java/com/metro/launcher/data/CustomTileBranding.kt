@@ -25,6 +25,11 @@ object CustomTileBranding {
         // Google Search / Google app — white G on accent
         "com.google.android.googlequicksearchbox" to Entry(R.drawable.ic_tile_google),
 
+        // Gmail — white M/envelope monogram on accent
+        "com.google.android.gm" to Entry(R.drawable.ic_tile_gmail),
+        "com.google.android.gm.lite" to Entry(R.drawable.ic_tile_gmail),
+        "com.google.android.apps.gmail" to Entry(R.drawable.ic_tile_gmail),
+
         // YouTube Music — white play/waveform on brand red
         "com.google.android.apps.youtube.music" to Entry(
             glyphResId = R.drawable.ic_tile_yt_music,

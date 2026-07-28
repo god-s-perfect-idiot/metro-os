@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 Files glyph: open folder with raised tab.
+     Scaled into the adaptive-icon safe zone (~72% of the 108dp canvas). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M22,36h28l8,8h28v40H22z" />
+    </group>
+</vector>

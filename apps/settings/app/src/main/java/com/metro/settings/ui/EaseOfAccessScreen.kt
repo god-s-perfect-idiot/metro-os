@@ -34,14 +34,7 @@ fun EaseOfAccessScreen(
     ) {
         MetroSettingsHeader(pageTitle = stringResource(R.string.settings_ease_of_access))
 
-        MetroText(
-            text = stringResource(R.string.settings_text_size),
-            style = MetroTextStyle.SectionHeader,
-            modifier = Modifier.padding(
-                horizontal = MetroDimens.ScreenHorizontalMargin,
-                vertical = 8.dp,
-            ),
-        )
+        SettingsFieldLabel(text = stringResource(R.string.settings_text_size))
 
         Box(
             modifier = Modifier

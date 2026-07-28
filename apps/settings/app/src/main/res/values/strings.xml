@@ -13,4 +13,37 @@
     <string name="settings_text_size">Text size</string>
     <string name="settings_sample">Sample</string>
     <string name="settings_text_size_help">Changes the text size in People, phone, messaging, and other Metro apps.</string>
+
+    <string name="settings_status_unavailable">Unavailable</string>
+
+    <string name="settings_brightness">brightness</string>
+    <string name="settings_brightness_label">Brightness</string>
+    <string name="settings_brightness_help">Adjusts screen brightness for this device.</string>
+
+    <string name="settings_storage_sense">storage sense</string>
+    <string name="settings_storage_used">Used</string>
+    <string name="settings_storage_free">Free</string>
+    <string name="settings_storage_total">Total</string>
+    <string name="settings_storage_unavailable">Storage information unavailable</string>
+
+    <string name="settings_about">extras+info</string>
+    <string name="settings_about_suite">metro-os</string>
+    <string name="settings_about_intro">metro-os recreates the Windows Phone 8.1 experience on this device.</string>
+    <string name="settings_about_phone_information">phone information</string>
+    <string name="settings_about_name">Name</string>
+    <string name="settings_about_model">Model</string>
+    <string name="settings_about_manufacturer">Manufacturer</string>
+    <string name="settings_about_carrier">Carrier</string>
+    <string name="settings_about_software">Software</string>
+    <string name="settings_about_total_storage">Total storage</string>
+    <string name="settings_about_available_storage">Available storage</string>
+    <string name="settings_about_os_version">OS version</string>
+    <string name="settings_about_firmware">Firmware revision number</string>
+    <string name="settings_about_hardware">Hardware revision number</string>
+    <string name="settings_about_radio">Radio software version</string>
+    <string name="settings_about_bootloader">Bootloader version</string>
+    <string name="settings_about_chip_soc">Chip SOC version</string>
+    <string name="settings_about_build_id">Build ID</string>
+    <string name="settings_about_board">Board</string>
+    <string name="settings_about_abi">ABI</string>
 </resources>

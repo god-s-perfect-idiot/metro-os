@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.metro.settings.data.SystemSettingsBridge
 import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
@@ -15,11 +16,17 @@ enum class SettingsRoute {
     StartTheme,
     AccentPicker,
     EaseOfAccess,
+    Brightness,
+    StorageSense,
+    About,
 }
 
-class SettingsState(context: Context) {
+class SettingsState(
+    context: Context,
+) {
     private val appContext = context.applicationContext
     private val prefs = MetroPreferences(appContext)
+    val system = SystemSettingsBridge(appContext)
 
     var route by mutableStateOf(SettingsRoute.Root)
         private set
@@ -28,6 +35,9 @@ class SettingsState(context: Context) {
         private set
 
     var fontScale by mutableFloatStateOf(prefs.fontScale)
+        private set
+
+    var brightness by mutableFloatStateOf(system.brightnessFraction())
         private set
 
     val accentColor: Color
@@ -40,6 +50,7 @@ class SettingsState(context: Context) {
         get() = MetroFontScale.indexOf(fontScale)
 
     fun open(route: SettingsRoute) {
+        refreshSystemReads()
         this.route = route
     }
 
@@ -48,7 +59,11 @@ class SettingsState(context: Context) {
             SettingsRoute.Root -> SettingsRoute.Root
             SettingsRoute.StartTheme -> SettingsRoute.Root
             SettingsRoute.AccentPicker -> SettingsRoute.StartTheme
-            SettingsRoute.EaseOfAccess -> SettingsRoute.Root
+            SettingsRoute.EaseOfAccess,
+            SettingsRoute.Brightness,
+            SettingsRoute.StorageSense,
+            SettingsRoute.About,
+            -> SettingsRoute.Root
         }
     }
 
@@ -60,5 +75,17 @@ class SettingsState(context: Context) {
     fun applyFontScaleIndex(index: Int) {
         fontScale = MetroFontScale.fromIndex(index)
         prefs.applyThemeChange(fontScale = fontScale)
+    }
+
+    fun applyBrightness(fraction: Float) {
+        brightness = fraction.coerceIn(0f, 1f)
+        system.setBrightnessFraction(brightness)
+        brightness = system.brightnessFraction()
+    }
+
+    fun refreshSystemReads() {
+        brightness = system.brightnessFraction()
+        accentHex = prefs.accentColorHex
+        fontScale = prefs.fontScale
     }
 }

@@ -66,16 +66,7 @@ fun StartThemeScreen(
             ),
         )
 
-        MetroText(
-            text = stringResource(R.string.settings_accent_label),
-            style = MetroTextStyle.ListItemSubtitle,
-            color = MetroTheme.colors.secondaryText,
-            modifier = Modifier.padding(
-                start = MetroDimens.ScreenHorizontalMargin,
-                end = MetroDimens.ScreenHorizontalMargin,
-                bottom = 8.dp,
-            ),
-        )
+        SettingsFieldLabel(text = stringResource(R.string.settings_accent_label))
 
         Row(
             modifier = Modifier
