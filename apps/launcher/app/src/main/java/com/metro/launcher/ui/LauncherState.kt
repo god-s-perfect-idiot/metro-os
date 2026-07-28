@@ -14,6 +14,7 @@ import com.metro.launcher.BuildConfig
 import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.LauncherRepository
+import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.compactEmptyRows
@@ -190,6 +191,12 @@ class LauncherState(context: Context) {
     }
 
     fun onTileClick(tile: DisplayTile) {
+        // 1×1 music now-playing face is transport-only (play/pause), matching Xbox Music small tile.
+        val music = tile.musicNowPlaying
+        if (music != null && tile.entry.size == PinnedTileSize.OneByOne) {
+            MusicNowPlayingStore.togglePlayPause(music.packageName)
+            return
+        }
         repository.launchApp(tile.entry.packageName, tile.deepLinkUri)
     }
 

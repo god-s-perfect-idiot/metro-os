@@ -669,19 +669,23 @@ private fun LauncherTileCell(
         gridDimensions != null
     val showPhotoGrid = photoGrid != null && !photoGrid.cycle && gridDimensions != null
     val showStaticPhoto = !tile.imageUri.isNullOrBlank()
+    val musicNowPlaying = tile.musicNowPlaying
+    val showMusicNowPlaying = musicNowPlaying != null
     val showPhotoContent = showCyclePhoto || showPhotoGrid
     val agenda = tile.agenda?.takeIf { it.hasContent }
     val showAgenda = agenda != null && !showPhotoContent && !showStaticPhoto &&
+        !showMusicNowPlaying &&
         tile.entry.size != PinnedTileSize.OneByOne
     val isSmall = tile.entry.size == PinnedTileSize.OneByOne
     val isMessaging = tile.entry.packageName == MESSAGING_PACKAGE
     val messagingUnread = tile.counter?.takeIf { it > 0 && isMessaging }
     // Medium/wide Messaging unread: wink glyph + large count (tile_yellow.jpg), not a corner badge.
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
-        !showPhotoContent && !showStaticPhoto && !showAgenda
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMusicNowPlaying
     // Custom Chrome face: three brand wedges + blue center (full-bleed, no stock icon).
     val showChromeFace = isChromeTilePackage(tile.entry.packageName) &&
-        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
+        !showMusicNowPlaying
     // Contact photo tiles flip to the app icon; mosaic/cycle photos never flip.
     val canFlip = tile.hasFlipFace &&
         !showCyclePhoto &&
@@ -689,16 +693,17 @@ private fun LauncherTileCell(
         !showAgenda &&
         !showMessagingUnreadFace &&
         !showChromeFace &&
+        !showMusicNowPlaying &&
         !isSmall &&
         !editMode
     val badgeCount = tile.counter?.takeIf {
-        it > 0 && !showAgenda && !showMessagingUnreadFace
+        it > 0 && !showAgenda && !showMessagingUnreadFace && !showMusicNowPlaying
     }
     // 1×1 icon tiles pair glyph + count in a centered row; 2×2 keeps a center-right badge
     // and nudges the icon left so the numeral does not sit on top of it.
     val tileMinEdge = min(width.value, height.value).dp
     val showSmallIconBadge = isSmall && badgeCount != null &&
-        !showPhotoContent && !showStaticPhoto && !showChromeFace
+        !showPhotoContent && !showStaticPhoto && !showChromeFace && !showMusicNowPlaying
     val iconBadgeShift = when {
         badgeCount == null -> 0.dp
         tile.entry.size != PinnedTileSize.TwoByTwo -> 0.dp
@@ -743,7 +748,8 @@ private fun LauncherTileCell(
                     .clipToBounds()
                     .then(
                         when {
-                            showPhotoContent || showStaticPhoto || showChromeFace -> Modifier
+                            showPhotoContent || showStaticPhoto || showChromeFace ||
+                                showMusicNowPlaying -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
                             else -> Modifier
                                 .background(tile.backgroundColor)
@@ -753,6 +759,14 @@ private fun LauncherTileCell(
             ) {
                 val frontFace: @Composable () -> Unit = {
                     when {
+                        showMusicNowPlaying -> {
+                            MusicNowPlayingTileContent(
+                                info = musicNowPlaying!!,
+                                size = tile.entry.size,
+                                fallbackColor = tile.backgroundColor,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                         showCyclePhoto -> {
                             CyclingPhotoTileContent(
                                 cells = photoGrid!!.cells,
@@ -876,6 +890,7 @@ private fun LauncherTileCell(
                 // Edge-to-edge faces skip TILE_CONTENT_INSET on the container; pad the badge
                 // itself so the numeral keeps the same margin as inset tiles.
                 val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto || showChromeFace ||
+                    showMusicNowPlaying ||
                     (canFlip && tile.flipToIcon)
                 val isWide = tile.entry.size == PinnedTileSize.FourByTwo
                 if (canFlip) {

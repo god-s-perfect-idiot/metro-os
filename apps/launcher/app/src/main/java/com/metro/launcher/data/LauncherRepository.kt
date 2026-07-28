@@ -36,6 +36,8 @@ data class DisplayTile(
     val imageUri: String? = null,
     /** When true, medium/wide tiles flip between [imageUri] and the app icon. */
     val flipToIcon: Boolean = false,
+    /** Xbox Music–style now-playing face when a music app has an active media session. */
+    val musicNowPlaying: MusicNowPlayingInfo? = null,
 )
 
 class LauncherRepository(private val context: Context) {
@@ -121,29 +123,43 @@ class LauncherRepository(private val context: Context) {
         val photoGrid = providerData?.photoGrid
         val agenda = providerData?.agenda?.takeIf { it.hasContent }
         val imageUri = providerData?.imageUri?.takeIf { it.isNotBlank() }
+        val musicNowPlaying = if (liveContent && MusicTilePackages.isMusicApp(context, packageName)) {
+            MusicNowPlayingStore.snapshot(packageName)?.takeIf { it.hasTrack || it.isPlaying }
+        } else {
+            null
+        }
         val hasRichFrontFace =
-            photoGrid?.hasContent == true || agenda != null || imageUri != null
+            photoGrid?.hasContent == true ||
+                agenda != null ||
+                imageUri != null ||
+                musicNowPlaying != null
         val merged = TileNotificationStore.mergeIntoDisplay(
             packageName = packageName,
             providerCounter = providerData?.counter,
             providerBackFaceTitle = providerData?.backFaceTitle,
             hasRichFrontFace = hasRichFrontFace,
         )
-        val flipToIcon = imageUri != null
+        val flipToIcon = imageUri != null && musicNowPlaying == null
         return DisplayTile(
             entry = this,
             title = title,
             backgroundColor = background,
-            counter = merged.counter,
+            // Now-playing face owns the tile — suppress notification badges.
+            counter = if (musicNowPlaying != null) null else merged.counter,
             deepLinkUri = providerData?.deepLinkUri,
-            hasFlipFace = merged.hasFlipFace || flipToIcon,
-            backFaceTitle = merged.backFaceTitle,
-            backFaceSubtitle = merged.backFaceSubtitle,
-            backFaceBody = merged.backFaceBody,
+            hasFlipFace = if (musicNowPlaying != null) {
+                false
+            } else {
+                merged.hasFlipFace || flipToIcon
+            },
+            backFaceTitle = if (musicNowPlaying != null) null else merged.backFaceTitle,
+            backFaceSubtitle = if (musicNowPlaying != null) null else merged.backFaceSubtitle,
+            backFaceBody = if (musicNowPlaying != null) null else merged.backFaceBody,
             photoGrid = photoGrid,
             agenda = agenda,
             imageUri = imageUri,
             flipToIcon = flipToIcon,
+            musicNowPlaying = musicNowPlaying,
         )
     }
 

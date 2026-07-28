@@ -31,6 +31,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
 - System notifications (via `NotificationListenerService`) drive tile badges and WP8.1 flip/peek faces for pinned apps
 - Custom Start faces for select third-party apps (Chrome: three brand wedges + blue center disc)
+- Music apps (`com.metro.music`, YouTube Music, Spotify, `CATEGORY_AUDIO`, …): when a media session is active, the pinned tile shows an Xbox Music–style now-playing face (album art; 1×1 play/pause; 2×2 / 4×2 song+artist+transport)
 - Wallpaper/parallax not yet implemented
 
 ## Screen inventory
@@ -79,6 +80,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Fall back to static icon and title when an app has no live tile provider yet
 - With notification-listener access granted, merge active Android notifications into badges and flip/peek faces for any pinned package (shell FGS packages excluded)
 - Gmail (`com.google.android.gm`) peeks map notification extras to two live-tile lines: From (sender, larger/semibold) and email content (body preview; subject is not shown as a middle title)
+- Music apps: with the same notification-listener privilege, `MediaSessionManager` drives an Xbox Music–style now-playing face — album art as the tile image; 1×1 is play/pause only; 2×2 and 4×2 show song + artist + prev/play-pause/next. Transport taps do not launch the app; non-control taps on medium/wide still launch.
 
 ### Theme and accent propagation
 
@@ -172,6 +174,7 @@ cd apps/launcher
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | Wide tiles were limited in WP8.1 device/OEM contexts | Device support varies and may not be worth shipping in v1 | Keep wide tiles behind `BuildConfig.WIDE_TILES`, default off |
+| Xbox Music live tile was display-only (art / visualization) | Android Start needs MediaSession transport for play/pause on-tile | Album art + metadata match Xbox Music; 1×1 / medium / wide expose Metro transport controls via the active session |
 
 ## Agent postmortem
 
