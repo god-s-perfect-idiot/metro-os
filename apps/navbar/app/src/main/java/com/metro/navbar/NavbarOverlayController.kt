@@ -49,6 +49,11 @@ object NavbarOverlayController {
     private set
 
   fun activate(context: Context) {
+    if (!SystemNavigationMode.isThreeButton(context)) {
+      isActive = false
+      publishEnabledState(context.applicationContext, enabled = false)
+      return
+    }
     isActive = true
     appContext = context.applicationContext
     val host = NavbarAccessibilityService.getInstance()

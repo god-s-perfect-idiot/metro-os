@@ -490,7 +490,7 @@ WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under let
 | List tilt press | 150ms | Ease-out, 3° |
 | App bar show/hide | 200ms | Slide from bottom |
 | Live tile flip | 600ms | Turnstile |
-| Status tray | 200ms | Auto-hide after 8000ms |
+| Status tray | 200ms/icon staggered R→L | Hold 5000ms then staggered exit up |
 
 Show progress for operations **> 500ms**. No Material shared-element transitions.
 

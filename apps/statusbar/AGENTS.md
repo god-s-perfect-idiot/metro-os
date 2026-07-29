@@ -18,14 +18,14 @@ WP8.1 **System Tray** overlay — clock, expandable status indicators, optional 
 | Surface | Behavior | Reference |
 |---------|----------|-----------|
 | Collapsed tray | Clock only, right-aligned | `references/images/collapsed_dark.png` |
-| Expanded tray | All indicators 8s then collapse | `references/images/expanded_dark.png` |
+| Expanded tray | All indicators 5s then collapse | `references/images/expanded_dark.png` |
 | Progress state | Accent spinner in tray | `references/images/progress_dark.png` |
 
 ## WP8.1 rules
 
 - Height **32dp**; no Material status bar icons
-- Indicator order L→R: cellular, Wi-Fi, Bluetooth, alarm, location, battery
-- Tap tray → expand 200ms; auto-collapse after **8000ms**
+- Indicator order L→R: cellular + data label, Wi-Fi; battery + clock on the right
+- Tap tray / go home → indicators drop in R→L from above; hold **5000ms**; exit upward R→L
 - Per-app: apps request opaque / translucent (0.5) / hidden via `metro-system-sdk` API
 - Stub cellular/Wi-Fi data acceptable in v1 (static icons)
 
@@ -36,7 +36,7 @@ WP8.1 **System Tray** overlay — clock, expandable status indicators, optional 
    system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —
    it is layered below the system status bar.
 2. Clock updates every minute
-3. Tap expands/collapses indicators
+3. Tap tray or Start/home expands indicators (staggered drop); auto-collapse after hold
 4. `ThemeChangeReceiver` updates foreground colors
 
 ## Golden screenshots

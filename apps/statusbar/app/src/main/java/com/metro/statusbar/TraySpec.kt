@@ -11,9 +11,19 @@ object TraySpec {
     const val CELLULAR_DATA_LABEL_GAP_DP = 2
     /** Extra leading space before Wi-Fi so it sits clearly apart from the network group. */
     const val WIFI_LEADING_PADDING_DP = 8
+    /** Per-icon slide duration when dropping in or exiting upward. */
     const val EXPAND_ANIMATION_MS = 200L
     const val COLLAPSE_ANIMATION_MS = 200L
+    /** Delay between successive icons (right → left) on enter and exit. */
+    const val ICON_STAGGER_MS = 45L
+    /** How long icons stay fully visible after the last enter finishes. */
     const val AUTO_COLLAPSE_MS = MetroStatusBar.AUTO_COLLAPSE_MS
+
+    /** Total time for a staggered enter (or exit) of [iconCount] icons. */
+    fun staggerSequenceMs(iconCount: Int, perIconMs: Long = EXPAND_ANIMATION_MS): Long {
+        if (iconCount <= 0) return 0L
+        return perIconMs + (iconCount - 1) * ICON_STAGGER_MS
+    }
 }
 
 enum class TrayVisibilityMode {
@@ -105,36 +115,41 @@ data class TraySnapshot(
 )
 
 object TrayIndicatorOrder {
-    /** Left-side icons shown in the resting (collapsed) tray — common connection indicators. */
-    val collapsed: List<TrayIndicator> = listOf(
+    /** Collapsed resting tray shows clock only — no left-side indicators. */
+    val collapsed: List<TrayIndicator> = emptyList()
+
+    /**
+     * Left-side indicators revealed on tap / home: network (cellular + data label) and Wi-Fi.
+     * Battery and clock live on the right.
+     */
+    val expanded: List<TrayIndicator> = listOf(
         TrayIndicator.Cellular,
         TrayIndicator.DataConnection,
         TrayIndicator.Wifi,
     )
 
     /**
-     * Full WP8.1 left-side indicator row revealed on tap, in
-     * `references/images/image.png` order (battery/clock live on the right, not here).
+     * Left-row glyphs that actually draw for [dataConnectionLabel]. Skips [TrayIndicator.DataConnection]
+     * when there is no label so stagger timing matches visible icons.
      */
-    val expanded: List<TrayIndicator> = listOf(
-        TrayIndicator.Cellular,
-        TrayIndicator.DataConnection,
-        TrayIndicator.CallForwarding,
-        TrayIndicator.Roaming,
-        TrayIndicator.Wifi,
-        TrayIndicator.Bluetooth,
-        TrayIndicator.QuietHours,
-        TrayIndicator.DrivingMode,
-        TrayIndicator.Ringer,
-        TrayIndicator.Location,
-    )
+    fun visibleLeft(dataConnectionLabel: String?): List<TrayIndicator> =
+        expanded.filter { it != TrayIndicator.DataConnection || dataConnectionLabel != null }
 }
 
 object TrayCollapseScheduler {
+    /**
+     * Auto-collapse after the staggered enter finishes plus the hold timeout.
+     * [animatingIconCount] includes left indicators and battery when present.
+     */
     fun shouldAutoCollapse(
         expanded: Boolean,
         lastExpandedAtMs: Long,
         nowMs: Long,
-        timeoutMs: Long = TraySpec.AUTO_COLLAPSE_MS,
-    ): Boolean = expanded && nowMs - lastExpandedAtMs >= timeoutMs
+        animatingIconCount: Int,
+        holdMs: Long = TraySpec.AUTO_COLLAPSE_MS,
+    ): Boolean {
+        if (!expanded) return false
+        val enterMs = TraySpec.staggerSequenceMs(animatingIconCount)
+        return nowMs - lastExpandedAtMs >= enterMs + holdMs
+    }
 }

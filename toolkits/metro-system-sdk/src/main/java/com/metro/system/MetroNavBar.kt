@@ -7,6 +7,9 @@ package com.metro.system
  * receive it as a system window inset. Every app must instead reserve [HEIGHT_DP] of bottom space
  * whenever the navbar is enabled so its content is never occluded by the soft keys. Use
  * `Modifier.metroNavBarPadding()` from `metro-ui-android` rather than hard-coding this value.
+ *
+ * The navbar app only sets enabled when Android system navigation is in 3-button mode. Gesture /
+ * edge-to-edge layouts keep the overlay off so apps are not cut off by conflicting insets.
  */
 object MetroNavBar {
     /** Package that owns and renders the navigation bar overlay. */

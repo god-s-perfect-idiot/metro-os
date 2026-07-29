@@ -21,8 +21,11 @@ object MetroStatusBar {
     /** Height of the WP8.1 system tray strip, in dp (scope.md § Status bar). */
     const val HEIGHT_DP = 32
 
-    /** Auto-collapse timeout after the expanded indicators are revealed, in ms. */
-    const val AUTO_COLLAPSE_MS = 8000L
+    /**
+     * How long indicators stay fully visible after the staggered enter finishes, in ms.
+     * Tap or going home reveals icons; they then exit upward after this hold.
+     */
+    const val AUTO_COLLAPSE_MS = 5000L
 
     /** Background opacity used when an app requests the translucent tray (scope.md § Status bar). */
     const val TRANSLUCENT_OPACITY = 0.5f
@@ -33,13 +36,19 @@ object MetroStatusBar {
     /** Show/hide the indeterminate accent progress affordance in the tray. */
     const val ACTION_SET_PROGRESS = "com.metro.statusbar.action.SET_PROGRESS"
 
-    /** Set the per-app tray visibility mode (see [MODE_OPAQUE]/[MODE_TRANSLUCENT]/[MODE_HIDDEN]). */
+    /** Set the per-app tray visibility mode (see MODE_OPAQUE / MODE_TRANSLUCENT / MODE_HIDDEN). */
     const val ACTION_SET_VISIBILITY = "com.metro.statusbar.action.SET_VISIBILITY"
+
+    /**
+     * Reveal the indicator row (same as tapping the tray). Fired when going home / Start so the
+     * tray briefly shows status icons on the Start screen.
+     */
+    const val ACTION_EXPAND = "com.metro.statusbar.action.EXPAND"
 
     /** Boolean extra for [ACTION_SET_PROGRESS]. */
     const val EXTRA_PROGRESS = "progress"
 
-    /** String extra (one of the `MODE_*` values) for [ACTION_SET_VISIBILITY]. */
+    /** String extra (one of the MODE_* values) for [ACTION_SET_VISIBILITY]. */
     const val EXTRA_VISIBILITY_MODE = "visibility_mode"
 
     /** Opaque theme-colored tray (WP8.1 default). */
@@ -61,9 +70,14 @@ object MetroStatusBar {
         context.sendBroadcast(request(ACTION_SET_PROGRESS).putExtra(EXTRA_PROGRESS, visible))
     }
 
-    /** Ask the tray to switch visibility mode. [mode] must be one of the `MODE_*` constants. */
+    /** Ask the tray to switch visibility mode. [mode] must be one of the MODE_* constants. */
     fun requestVisibility(context: Context, mode: String) {
         context.sendBroadcast(request(ACTION_SET_VISIBILITY).putExtra(EXTRA_VISIBILITY_MODE, mode))
+    }
+
+    /** Ask the tray to reveal indicators (tap-equivalent; used when returning home). */
+    fun requestExpand(context: Context) {
+        context.sendBroadcast(request(ACTION_EXPAND))
     }
 
     private fun request(action: String): Intent =

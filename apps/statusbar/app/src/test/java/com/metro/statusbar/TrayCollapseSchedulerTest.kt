@@ -7,56 +7,63 @@ import org.junit.Test
 
 class TrayCollapseSchedulerTest {
     @Test
-    fun autoCollapse_afterEightSeconds() {
+    fun autoCollapse_afterEnterPlusHold() {
+        val icons = 5
+        val enterMs = TraySpec.staggerSequenceMs(icons)
         assertTrue(
             TrayCollapseScheduler.shouldAutoCollapse(
                 expanded = true,
                 lastExpandedAtMs = 0L,
-                nowMs = TraySpec.AUTO_COLLAPSE_MS,
+                nowMs = enterMs + TraySpec.AUTO_COLLAPSE_MS,
+                animatingIconCount = icons,
             ),
         )
     }
 
     @Test
-    fun noAutoCollapse_beforeTimeout() {
+    fun noAutoCollapse_beforeHoldCompletes() {
+        val icons = 5
+        val enterMs = TraySpec.staggerSequenceMs(icons)
         assertFalse(
             TrayCollapseScheduler.shouldAutoCollapse(
                 expanded = true,
                 lastExpandedAtMs = 0L,
-                nowMs = TraySpec.AUTO_COLLAPSE_MS - 1,
+                nowMs = enterMs + TraySpec.AUTO_COLLAPSE_MS - 1,
+                animatingIconCount = icons,
             ),
         )
     }
 
     @Test
-    fun expandedIndicatorOrder_matchesWp81Breakdown() {
+    fun holdDuration_isFiveSeconds() {
+        assertEquals(5000L, TraySpec.AUTO_COLLAPSE_MS)
+    }
+
+    @Test
+    fun staggerSequence_scalesWithIconCount() {
+        assertEquals(0L, TraySpec.staggerSequenceMs(0))
+        assertEquals(TraySpec.EXPAND_ANIMATION_MS, TraySpec.staggerSequenceMs(1))
+        assertEquals(
+            TraySpec.EXPAND_ANIMATION_MS + TraySpec.ICON_STAGGER_MS,
+            TraySpec.staggerSequenceMs(2),
+        )
+    }
+
+    @Test
+    fun expandedIndicatorOrder_isNetworkWifiOnly() {
         assertEquals(
             listOf(
                 TrayIndicator.Cellular,
                 TrayIndicator.DataConnection,
-                TrayIndicator.CallForwarding,
-                TrayIndicator.Roaming,
                 TrayIndicator.Wifi,
-                TrayIndicator.Bluetooth,
-                TrayIndicator.QuietHours,
-                TrayIndicator.DrivingMode,
-                TrayIndicator.Ringer,
-                TrayIndicator.Location,
             ),
             TrayIndicatorOrder.expanded,
         )
     }
 
     @Test
-    fun collapsedTray_showsBaseConnectionIndicators() {
-        assertEquals(
-            listOf(
-                TrayIndicator.Cellular,
-                TrayIndicator.DataConnection,
-                TrayIndicator.Wifi,
-            ),
-            TrayIndicatorOrder.collapsed,
-        )
+    fun collapsedTray_showsClockOnly_noLeftIndicators() {
+        assertEquals(emptyList<TrayIndicator>(), TrayIndicatorOrder.collapsed)
     }
 
     @Test

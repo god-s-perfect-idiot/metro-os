@@ -2,8 +2,12 @@ package com.metro.statusbar.ui
 
 import android.graphics.Paint
 import android.graphics.Typeface
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -40,16 +45,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.metro.statusbar.BatteryStatus
 import com.metro.statusbar.TrayIndicator
+import com.metro.statusbar.TrayIndicatorOrder
 import com.metro.statusbar.TraySnapshot
 import com.metro.statusbar.TraySpec
 import com.metro.statusbar.TrayVisibilityMode
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTransitions
 
 private val GlyphHeight = 14.dp
 private val GlyphWidth = 16.dp
-private val WifiGlyphHeight = 20.dp
-private val WifiGlyphWidth = 26.dp
+// Cellular signal bars: slightly wider and shorter than the shared glyph box.
+private val CellularGlyphHeight = 13.dp
+private val CellularGlyphWidth = 18.dp
+private val WifiGlyphHeight = GlyphHeight
+private val WifiGlyphWidth = 18.dp
 private val DataGlyphWidth = 22.dp
 // WP8.1 battery sits close to clock cap height, with a slightly longer and shallower silhouette.
 private val BatteryWidth = 29.dp
@@ -58,10 +68,10 @@ private val BatteryHeight = 14.dp
 /**
  * WP8.1 system tray.
  *
- * Left = status indicator row (collapsed shows a small base set; tap reveals the full set).
- * Right = battery + clock (always visible). [barHeightDp] lets the overlay fill the whole system
- * status-bar region (including notch/cutout) so nothing of the Android bar peeks through; defaults
- * to the WP 32dp strip for in-app previews.
+ * Default = clock only (right-aligned). Tap or going home drops the other icons in one-by-one
+ * from above (right → left), holds briefly, then exits upward the same way. [barHeightDp] lets
+ * the overlay fill the whole system status-bar region (including notch/cutout); defaults to the
+ * WP 32dp strip for in-app previews.
  */
 @Composable
 fun StatusTray(
@@ -76,11 +86,19 @@ fun StatusTray(
 
     val foreground = snapshot.theme.foregroundColor
     val background = snapshot.theme.backgroundColor
+    val leftVisible = remember(snapshot.dataConnectionLabel) {
+        TrayIndicatorOrder.visibleLeft(snapshot.dataConnectionLabel)
+    }
+    val batteryPresent = snapshot.battery.present
+    // Right → left: battery (if any) is reverseIndex 0; leftmost left-icon is highest delay.
+    val batteryReverseIndex = 0
+    val leftBatteryOffset = if (batteryPresent) 1 else 0
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(barHeightDp.dp)
+            .clipToBounds()
             .background(background)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -92,19 +110,18 @@ fun StatusTray(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Crossfade(
-            targetState = snapshot.expanded,
-            animationSpec = tween(TraySpec.EXPAND_ANIMATION_MS.toInt()),
-            modifier = Modifier.weight(1f),
-            label = "tray_indicators",
-        ) { _ ->
-            TrayIndicatorRow(
-                indicators = snapshot.indicators,
-                color = foreground,
-                backgroundColor = background,
-                dataConnectionLabel = snapshot.dataConnectionLabel,
-            )
-        }
+        TrayIndicatorRow(
+            indicators = leftVisible,
+            expanded = snapshot.expanded,
+            color = foreground,
+            backgroundColor = background,
+            dataConnectionLabel = snapshot.dataConnectionLabel,
+            reverseIndexOffset = leftBatteryOffset,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clipToBounds(),
+        )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -113,7 +130,11 @@ fun StatusTray(
             if (snapshot.showProgress) {
                 TrayProgressSpinner(color = snapshot.theme.accentColor)
             }
-            if (snapshot.battery.present) {
+            AnimatedVisibility(
+                visible = snapshot.expanded && batteryPresent,
+                enter = trayIconEnter(batteryReverseIndex),
+                exit = trayIconExit(batteryReverseIndex),
+            ) {
                 TrayBatteryGlyph(
                     battery = snapshot.battery,
                     color = foreground,
@@ -122,7 +143,7 @@ fun StatusTray(
             }
             MetroText(
                 text = snapshot.clockText,
-                style = MetroTextStyle.Body,
+                style = MetroTextStyle.DialogBody,
                 color = foreground,
                 modifier = Modifier.semantics { contentDescription = "Clock" },
             )
@@ -130,14 +151,50 @@ fun StatusTray(
     }
 }
 
+/** Drop from above; [reverseIndex] 0 = rightmost icon (starts first). */
+private fun trayIconEnter(reverseIndex: Int) = slideInVertically(
+    animationSpec = tween(
+        durationMillis = MetroTransitions.StatusTrayExpandMs,
+        delayMillis = reverseIndex * MetroTransitions.StatusTrayIconStaggerMs,
+        easing = MetroTransitions.PageEasing,
+    ),
+    initialOffsetY = { fullHeight -> -fullHeight },
+) + fadeIn(
+    animationSpec = tween(
+        durationMillis = MetroTransitions.StatusTrayExpandMs,
+        delayMillis = reverseIndex * MetroTransitions.StatusTrayIconStaggerMs,
+        easing = MetroTransitions.PageEasing,
+    ),
+)
+
+/** Exit upward; same right → left stagger as enter. */
+private fun trayIconExit(reverseIndex: Int) = slideOutVertically(
+    animationSpec = tween(
+        durationMillis = MetroTransitions.StatusTrayCollapseMs,
+        delayMillis = reverseIndex * MetroTransitions.StatusTrayIconStaggerMs,
+        easing = MetroTransitions.PageEasing,
+    ),
+    targetOffsetY = { fullHeight -> -fullHeight },
+) + fadeOut(
+    animationSpec = tween(
+        durationMillis = MetroTransitions.StatusTrayCollapseMs,
+        delayMillis = reverseIndex * MetroTransitions.StatusTrayIconStaggerMs,
+        easing = MetroTransitions.PageEasing,
+    ),
+)
+
 @Composable
 private fun TrayIndicatorRow(
     indicators: List<TrayIndicator>,
+    expanded: Boolean,
     color: Color,
     backgroundColor: Color,
     dataConnectionLabel: String?,
+    reverseIndexOffset: Int,
+    modifier: Modifier = Modifier,
 ) {
     Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
@@ -149,43 +206,69 @@ private fun TrayIndicatorRow(
                 next == TrayIndicator.DataConnection &&
                 dataConnectionLabel != null
             if (showDataLabel) {
+                // Tight cellular+data cluster; each glyph still staggers on its own reverse index.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(TraySpec.CELLULAR_DATA_LABEL_GAP_DP.dp),
                 ) {
-                    TrayIndicatorItem(
-                        indicator = TrayIndicator.Cellular,
-                        color = color,
-                        backgroundColor = backgroundColor,
-                    )
-                    TrayIndicatorItem(
-                        indicator = TrayIndicator.DataConnection,
-                        color = color,
-                        backgroundColor = backgroundColor,
-                        dataConnectionLabel = dataConnectionLabel,
-                    )
+                    StaggeredTrayIcon(
+                        visible = expanded,
+                        reverseIndex = (indicators.size - 1 - index) + reverseIndexOffset,
+                    ) {
+                        TrayIndicatorItem(
+                            indicator = TrayIndicator.Cellular,
+                            color = color,
+                            backgroundColor = backgroundColor,
+                        )
+                    }
+                    StaggeredTrayIcon(
+                        visible = expanded,
+                        reverseIndex = (indicators.size - 1 - (index + 1)) + reverseIndexOffset,
+                    ) {
+                        TrayIndicatorItem(
+                            indicator = TrayIndicator.DataConnection,
+                            color = color,
+                            backgroundColor = backgroundColor,
+                            dataConnectionLabel = dataConnectionLabel,
+                        )
+                    }
                 }
                 index += 2
             } else {
-                if (indicator == TrayIndicator.DataConnection && dataConnectionLabel == null) {
-                    index++
-                    continue
+                StaggeredTrayIcon(
+                    visible = expanded,
+                    reverseIndex = (indicators.size - 1 - index) + reverseIndexOffset,
+                ) {
+                    TrayIndicatorItem(
+                        indicator = indicator,
+                        color = color,
+                        backgroundColor = backgroundColor,
+                        dataConnectionLabel = dataConnectionLabel,
+                        modifier = if (indicator == TrayIndicator.Wifi) {
+                            Modifier.padding(start = TraySpec.WIFI_LEADING_PADDING_DP.dp)
+                        } else {
+                            Modifier
+                        },
+                    )
                 }
-                TrayIndicatorItem(
-                    indicator = indicator,
-                    color = color,
-                    backgroundColor = backgroundColor,
-                    dataConnectionLabel = dataConnectionLabel,
-                    modifier = if (indicator == TrayIndicator.Wifi) {
-                        Modifier.padding(start = TraySpec.WIFI_LEADING_PADDING_DP.dp)
-                    } else {
-                        Modifier
-                    },
-                )
                 index++
             }
         }
     }
+}
+
+@Composable
+private fun StaggeredTrayIcon(
+    visible: Boolean,
+    reverseIndex: Int,
+    content: @Composable () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = trayIconEnter(reverseIndex),
+        exit = trayIconExit(reverseIndex),
+        content = { content() },
+    )
 }
 
 @Composable
@@ -197,6 +280,7 @@ private fun TrayIndicatorItem(
     modifier: Modifier = Modifier,
 ) {
     val (width, height) = when (indicator) {
+        TrayIndicator.Cellular -> CellularGlyphWidth to CellularGlyphHeight
         TrayIndicator.DataConnection -> DataGlyphWidth to GlyphHeight
         TrayIndicator.Wifi -> WifiGlyphWidth to WifiGlyphHeight
         else -> GlyphWidth to GlyphHeight
@@ -263,14 +347,15 @@ private fun DrawScope.drawIndicator(
             drawPath(tri, color)
         }
         TrayIndicator.Wifi -> {
-            // Microsoft WiFi / WP tray glyph: thick quarter-bands, flat ends, bottom-right origin.
-            // Pack: dot | gap | band | gap | band | gap | band (stroke ≈ gap, dot diam ≈ 2× stroke).
+            // WP8.1 tray Wi-Fi: thick quarter-bands, flat ends, bottom-right origin.
+            // Pack: dot | gap | band | gap | band | gap | band (stroke ≈ gap).
+            // Origin diameter matches band stroke — WP references use a small hub, not a fat disc.
             val anchor = Offset(w * 0.94f, h * 0.94f)
             val avail = minOf(anchor.x, anchor.y)
             // Slightly denser than a strict 1:1 pack so bands read as bold as the Microsoft glyph.
             val strokeWidth = avail / 6.0f
             val gap = strokeWidth * 0.85f
-            val dotR = strokeWidth * 0.95f
+            val dotR = strokeWidth * 0.5f
             val band0 = dotR + gap + strokeWidth * 0.5f
             val band1 = band0 + strokeWidth + gap
             val band2 = band1 + strokeWidth + gap

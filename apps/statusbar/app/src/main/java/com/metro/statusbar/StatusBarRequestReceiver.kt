@@ -16,6 +16,7 @@ class StatusBarRequestReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         when (val action = intent?.action) {
             MetroStatusBar.ACTION_REFRESH,
+            MetroStatusBar.ACTION_EXPAND,
             MetroStatusBar.ACTION_SET_PROGRESS,
             MetroStatusBar.ACTION_SET_VISIBILITY,
             -> StatusBarOverlayService.deliver(context, action, intent)

@@ -15,6 +15,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.metro.launcher.ui.LauncherShell
 import com.metro.launcher.ui.LauncherState
 import com.metro.system.MetroIntents
+import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroSystemTheme
 import kotlinx.coroutines.launch
 
@@ -44,6 +45,8 @@ class MainActivity : ComponentActivity() {
                 var skipNextResume = true
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
+                        // Going home / Start: briefly reveal status-tray indicators.
+                        MetroStatusBar.requestExpand(context)
                         if (skipNextResume) {
                             skipNextResume = false
                         } else {

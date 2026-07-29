@@ -59,6 +59,9 @@ class MainActivity : ComponentActivity() {
         onDispose { state.unregisterReceivers(context) }
       }
 
+      val threeButtonNav = remember(permissionTick) {
+        SystemNavigationMode.isThreeButton(context)
+      }
       val overlayGranted = remember(permissionTick) { Settings.canDrawOverlays(context) }
       val accessibilityEnabled = remember(permissionTick) { NavbarAccessibilityService.isEnabled() }
 
@@ -81,14 +84,34 @@ class MainActivity : ComponentActivity() {
               .padding(horizontal = 12.dp)
               .padding(bottom = 12.dp),
           )
+
+          if (!threeButtonNav) {
+            MetroText(
+              text = stringResource(R.string.three_button_required_title),
+              style = MetroTextStyle.SectionHeader,
+              modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
+            )
+            MetroText(
+              text = stringResource(R.string.three_button_required_body),
+              style = MetroTextStyle.DialogBody,
+              modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
+            )
+            MetroBorderButton(
+              text = stringResource(R.string.open_system_navigation),
+              onClick = { SystemNavigationMode.openSystemNavigationSettings(context) },
+              modifier = Modifier.padding(horizontal = 12.dp),
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+          }
+
           MetroText(
             text = stringResource(R.string.permission_overlay_body),
-            style = MetroTextStyle.Body,
+            style = MetroTextStyle.DialogBody,
             modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
           )
           MetroBorderButton(
             text = stringResource(R.string.grant_overlay),
-            enabled = !overlayGranted,
+            enabled = threeButtonNav && !overlayGranted,
             onClick = {
               startActivity(
                 Intent(
@@ -102,14 +125,14 @@ class MainActivity : ComponentActivity() {
           Spacer(modifier = Modifier.height(12.dp))
           MetroBorderButton(
             text = stringResource(R.string.grant_accessibility),
-            enabled = !accessibilityEnabled,
+            enabled = threeButtonNav && !accessibilityEnabled,
             onClick = { NavbarActions.openAccessibilitySettings(context) },
             modifier = Modifier.padding(horizontal = 12.dp),
           )
           Spacer(modifier = Modifier.height(12.dp))
           MetroBorderButton(
             text = stringResource(R.string.start_overlay),
-            enabled = overlayGranted && accessibilityEnabled,
+            enabled = threeButtonNav && overlayGranted && accessibilityEnabled,
             onClick = { NavbarOverlayService.start(context) },
             modifier = Modifier.padding(horizontal = 12.dp),
           )

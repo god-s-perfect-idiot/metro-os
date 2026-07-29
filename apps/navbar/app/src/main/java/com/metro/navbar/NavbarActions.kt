@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import com.metro.system.MetroStatusBar
 
 object NavbarActions {
   fun launchStart(context: Context) {
@@ -14,6 +15,8 @@ object NavbarActions {
       }
     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
     context.startActivity(launchIntent)
+    // WP tray briefly reveals indicators when returning to Start.
+    MetroStatusBar.requestExpand(context)
   }
 
   fun launchGoogleSearch(context: Context) {

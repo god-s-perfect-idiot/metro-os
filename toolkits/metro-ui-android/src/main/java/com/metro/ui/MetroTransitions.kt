@@ -16,7 +16,10 @@ object MetroTransitions {
     const val AppBarSlideMs = 200
     const val StatusTrayExpandMs = 200
     const val StatusTrayCollapseMs = 200
-    const val StatusTrayAutoCollapseMs = 8000
+    /** Per-icon delay when indicators drop in / exit upward (right → left). */
+    const val StatusTrayIconStaggerMs = 45
+    /** Hold after staggered enter before staggered exit. */
+    const val StatusTrayAutoCollapseMs = 5000
     const val TileFlipMs = 600
     /** Jump-list letter tile entrance flip (PlaneProjection RotationX). */
     const val JumpListFlipMs = 300

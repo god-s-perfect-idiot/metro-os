@@ -59,6 +59,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.metro.statusbar.action.REFRESH" />
+                <action android:name="com.metro.statusbar.action.EXPAND" />
                 <action android:name="com.metro.statusbar.action.SET_PROGRESS" />
                 <action android:name="com.metro.statusbar.action.SET_VISIBILITY" />
             </intent-filter>

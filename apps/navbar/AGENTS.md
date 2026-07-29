@@ -29,6 +29,7 @@ WP8.1 **soft key bar** — Back, Start, Search. Theme-colored 48dp bar; swipe-to
 - **Start**: `MetroIntents` → launcher Start screen
 - **Search**: tap → Google Search; long-press → Gemini
 - Swipe up from bottom: hide bar; swipe up again: show
+- Overlay activates only when Android system navigation is **3-button** (gesture / edge-to-edge stays disabled)
 - No Material navigation bar
 
 ## Primary flows
@@ -59,4 +60,5 @@ Prefer `AccessibilityService` or `TYPE_NAVIGATION_BAR` overlay per `scope.md`. D
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
+| Soft keys always present | Gesture / edge-to-edge nav conflicts with overlay insets | Overlay usable only on Android **3-button** navigation |
 | Hide nav bar on all devices | OEM variance | Document supported API levels |

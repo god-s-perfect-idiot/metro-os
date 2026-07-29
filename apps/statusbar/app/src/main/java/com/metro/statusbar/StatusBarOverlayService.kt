@@ -94,6 +94,7 @@ class StatusBarOverlayService :
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             MetroStatusBar.ACTION_REFRESH -> trayState.refreshTheme()
+            MetroStatusBar.ACTION_EXPAND -> trayState.expand()
             MetroStatusBar.ACTION_SET_PROGRESS ->
                 trayState.setProgressVisible(intent.getBooleanExtra(MetroStatusBar.EXTRA_PROGRESS, false))
             MetroStatusBar.ACTION_SET_VISIBILITY ->

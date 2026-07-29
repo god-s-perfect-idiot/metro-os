@@ -52,11 +52,19 @@ class TrayState(context: Context) {
             clockText = clockText,
             expanded = expanded,
             showProgress = showProgress,
-            indicators = if (expanded) TrayIndicatorOrder.expanded else TrayIndicatorOrder.collapsed,
+            // Always the full expanded set so exit animations can run when [expanded] flips false.
+            indicators = TrayIndicatorOrder.expanded,
             dataConnectionLabel = dataConnectionLabel,
             battery = battery,
             theme = theme,
         )
+
+    /** Left icons + battery when present — drives stagger timing for auto-collapse. */
+    fun animatingIconCount(): Int {
+        val left = TrayIndicatorOrder.visibleLeft(dataConnectionLabel).size
+        val batteryIcon = if (battery.present) 1 else 0
+        return left + batteryIcon
+    }
 
     private val themeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -99,16 +107,20 @@ class TrayState(context: Context) {
         expanded = false
     }
 
+    /** Tap / home always (re)starts the reveal; does not toggle closed mid-hold. */
     fun toggleExpanded(nowMs: Long = System.currentTimeMillis()) {
-        if (expanded) {
-            collapse()
-        } else {
-            expand(nowMs)
-        }
+        expand(nowMs)
     }
 
     fun tickAutoCollapse(nowMs: Long = System.currentTimeMillis()) {
-        if (TrayCollapseScheduler.shouldAutoCollapse(expanded, lastExpandedAtMs, nowMs)) {
+        if (
+            TrayCollapseScheduler.shouldAutoCollapse(
+                expanded = expanded,
+                lastExpandedAtMs = lastExpandedAtMs,
+                nowMs = nowMs,
+                animatingIconCount = animatingIconCount(),
+            )
+        ) {
             collapse()
         }
     }

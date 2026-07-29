@@ -81,6 +81,7 @@ The navbar must feel like Windows Phone navigation chrome, not Android gesture n
 - Persist user-selected nav bar color if supported by Settings
 - Maintain current visibility mode, theme snapshot, and latest foreground app state if needed
 - Do not let app-local code own global navbar state
+- Require Android **3-button** system navigation before enabling the overlay; auto-disable (and clear `navBarEnabled`) if the user switches to gesture / 2-button navigation
 
 ## Primary implementation order
 
@@ -132,6 +133,7 @@ cd apps/navbar
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
+| Soft keys always present as OS chrome | Android gesture / edge-to-edge navigation conflicts with a 48dp overlay and cuts off app content | Metro navbar activates only when system navigation is **3-button**; gesture / 2-button modes keep the overlay disabled and `navBarEnabled=false` so apps keep full height |
 | System-level navbar injection behaves like OS chrome everywhere | Android implementations vary by OEM, permissions, and overlay capability | Ship the closest consistent shell overlay/accessibility implementation and document unsupported device classes |
 | Cortana / Bing search | No Cortana on Android | Tap Search opens Google Search; long press opens Gemini |
 

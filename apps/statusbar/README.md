@@ -5,12 +5,12 @@
 
 ## Status
 
-**Implemented** — renders the WP8.1 system tray on top of the Android status bar: collapsed clock,
-tap-to-expand indicator row, minute-boundary clock ticks, 8s auto-collapse, indeterminate progress
-affordance, and per-app opaque/translucent/hidden modes. Battery is real device telemetry
-(`ACTION_BATTERY_CHANGED`) with proportional fill + charging plug; the remaining radio indicators are
-static v1 glyphs. The tray auto-starts on boot once permissions are granted, and exposes its per-app
-contract via `MetroStatusBar` in `metro-system-sdk`.
+**Implemented** — renders the WP8.1 system tray on top of the Android status bar: collapsed clock
+only, tap/home staggered indicator reveal (drop from above R→L, 5s hold, exit upward),
+minute-boundary clock ticks, indeterminate progress affordance, and per-app opaque/translucent/hidden
+modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`) with proportional fill + charging
+plug; the remaining radio indicators are static v1 glyphs. The tray auto-starts on boot once
+permissions are granted, and exposes its per-app contract via `MetroStatusBar` in `metro-system-sdk`.
 
 ### Permissions required (both)
 
@@ -36,6 +36,7 @@ on this app. Requests are broadcasts targeted at the tray's exported `StatusBarR
 MetroStatusBar.requestProgress(context, visible = true)        // show the indeterminate affordance
 MetroStatusBar.requestVisibility(context, MetroStatusBar.MODE_TRANSLUCENT) // 0.5 opacity
 MetroStatusBar.requestVisibility(context, MetroStatusBar.MODE_HIDDEN)
+MetroStatusBar.requestExpand(context)                           // reveal indicators (home / Start)
 MetroStatusBar.requestRefresh(context)                          // re-read theme/accent
 ```
 
@@ -57,15 +58,16 @@ It is not a generic Android notification shade replacement. The goal is the narr
 ### 1. Collapsed tray
 
 - Default resting state
-- Battery glyph + clock always visible on the right; base connection indicators (cellular, Wi-Fi) on the left
+- Clock only, right-aligned (battery and other indicators hidden)
 - Overlay window is sized to the full system status-bar inset (incl. notch/cutout) so the Android bar is fully covered
 - Expected reference: `references/images/collapsed_dark.png`
 
 ### 2. Expanded tray
 
-- Triggered by tap on tray area
-- Reveals the full WP8.1 indicator row (per `references/images/image.png`): cellular, data connection (`4G`), call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving mode, ringer, location — with battery + clock remaining on the right
-- Auto-collapses after 8 seconds
+- Triggered by tap on tray or returning home / Start
+- Reveals network (cellular + data label), Wi-Fi, and battery; clock stays on the right
+- Indicators drop in one-by-one from above, right → left
+- Hold fully visible for 5 seconds, then exit upward one-by-one (same R→L order)
 - Expected reference: `references/images/expanded_dark.png`
 
 ### 3. Progress tray state
@@ -86,8 +88,8 @@ It is not a generic Android notification shade replacement. The goal is the narr
 ### Time and indicator state
 
 - Clock updates every minute with zero visible layout jump
-- Indicator order (left group, per `references/images/image.png`): cellular, data connection, call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving mode, ringer, location; battery + clock are the right group
-- v1 may use static or stubbed data for radio indicators if device telemetry is impractical; battery is real telemetry
+- Indicator order (left): cellular + data connection label, Wi-Fi; battery + clock on the right
+- v1 may use a static Wi-Fi glyph; cellular/data and battery use device telemetry
 
 ### Theme and app integration
 
@@ -104,9 +106,9 @@ It is not a generic Android notification shade replacement. The goal is the narr
 
 - Height: `32dp`
 - Default visual priority: clock first, everything else tucked away
-- Expand animation: `200ms`
-- Collapse animation: `200ms`
-- Auto-collapse timeout: `8000ms`
+- Expand animation: staggered drop from above, **200ms**/icon, **45ms** R→L stagger
+- Collapse animation: staggered exit upward, same timing
+- Auto-collapse hold: **5000ms** after enter finishes
 - No Material status bar styling, dropdown shade affordances, cards, or quick settings metaphors
 - Avoid oversized icons; keep glyphs minimal and monochrome per theme
 - Respect WP8.1 chrome opacity behavior when translucent mode is requested
@@ -128,8 +130,8 @@ It is not a generic Android notification shade replacement. The goal is the narr
 
 ## Test-critical user flows
 
-1. Tray renders at boot/app launch in collapsed state
-2. Tap expands indicators and auto-collapses after 8 seconds
+1. Tray renders at boot/app launch in collapsed state (clock only)
+2. Tap or home expands indicators (staggered drop) and auto-collapses after 5s hold
 3. Theme change updates tray colors without restart
 4. Minute boundary updates clock correctly
 5. Progress request shows and clears progress state predictably
