@@ -55,16 +55,19 @@ Constants from `scope.md` §9 — export as `Duration` and easing objects:
 
 ## Fonts
 
-Bundle **Noto Sans** variants in `src/main/assets/fonts/` (download from [Google Fonts](https://fonts.google.com/noto/specimen/Noto+Sans), OFL):
+Bundle **Noto Sans** static faces in `src/main/res/font/` (DiscoLauncher [NotoCustom](https://github.com/cherryhoax/DiscoLauncher/tree/main/www/assets/fonts/NotoCustom), OFL):
 
-- `NotoSans-Light.ttf`
-- `NotoSans-Regular.ttf`
-- `NotoSans-Medium.ttf`
-- `NotoSans-SemiBold.ttf`
-- `NotoSans-Bold.ttf`
-- `NotoSans-Black.ttf`
+- `noto_sans_thin.ttf`
+- `noto_sans_extralight.ttf`
+- `noto_sans_light.ttf`
+- `noto_sans_regular.ttf`
+- `noto_sans_medium.ttf`
+- `noto_sans_semibold.ttf`
+- `noto_sans_bold.ttf`
+- `noto_sans_extrabold.ttf`
+- `noto_sans_black.ttf`
 
-Map to WP8.1 weight roles: Light → page titles; Medium → app titles; Regular → body/list titles; SemiBold → section headers; Bold/Black sparingly.
+Mapped via `MetroFontFamily` in `MetroTextStyle.kt`. Weight roles: Light → page titles; Medium → app titles; Regular → body/list titles; SemiBold → section headers; Bold/Black sparingly.
 
 ## Rules
 

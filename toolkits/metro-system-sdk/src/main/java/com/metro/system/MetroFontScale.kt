@@ -1,13 +1,19 @@
 package com.metro.system
 
 /**
- * WP8.1 ease-of-access Text size uses a discrete 7-step slider.
+ * WP8.1 ease-of-access Text size uses a discrete slider.
  * Values are absolute Compose/Android fontScale multipliers (1.0 = default).
+ *
+ * The original WP8.1 ladder is the 7 steps from 0.85 upward; metro-os prepends three
+ * smaller steps (same 0.075 spacing) so more content fits on modern high-density panels.
  */
 object MetroFontScale {
     const val DEFAULT = 1.0f
 
     val STEPS: FloatArray = floatArrayOf(
+        0.625f,
+        0.7f,
+        0.775f,
         0.85f,
         0.925f,
         1.0f,
@@ -17,7 +23,7 @@ object MetroFontScale {
         1.6f,
     )
 
-    const val STEP_COUNT: Int = 7
+    const val STEP_COUNT: Int = 10
 
     fun coerceToStep(value: Float): Float {
         var best = STEPS[0]

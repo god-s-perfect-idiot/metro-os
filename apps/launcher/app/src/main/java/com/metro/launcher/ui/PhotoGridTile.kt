@@ -38,8 +38,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroTileGridCell
-import com.metro.ui.MetroText
-import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTransitions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -81,9 +79,9 @@ fun PhotoGridTileContent(
                 )
             }
         }
-        MetroText(
+        TileText(
             text = title,
-            style = MetroTextStyle.Body,
+            style = TileTextStyles.Body,
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -149,9 +147,9 @@ fun CyclingPhotoTileContent(
                 )
             }
         }
-        MetroText(
+        TileText(
             text = title,
-            style = MetroTextStyle.Body,
+            style = TileTextStyles.Body,
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -303,9 +301,9 @@ fun StaticPhotoTileContent(
             )
         }
         if (!title.isNullOrBlank()) {
-            MetroText(
+            TileText(
                 text = title,
-                style = MetroTextStyle.Body,
+                style = TileTextStyles.Body,
                 color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

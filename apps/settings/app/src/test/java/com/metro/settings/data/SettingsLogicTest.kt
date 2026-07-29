@@ -12,11 +12,14 @@ class SettingsLogicTest {
     }
 
     @Test
-    fun snapFontScale_usesSevenSteps() {
+    fun snapFontScale_usesTenSteps() {
         assertEquals(1.0f, SettingsLogic.snapFontScale(1.01f), 0.001f)
         assertEquals(1.6f, SettingsLogic.snapFontScale(1.55f), 0.001f)
-        assertEquals(0, SettingsLogic.fontScaleIndex(0.85f))
-        assertEquals(6, SettingsLogic.fontScaleIndex(1.6f))
+        assertEquals(0.625f, SettingsLogic.snapFontScale(0.6f), 0.001f)
+        assertEquals(0, SettingsLogic.fontScaleIndex(0.625f))
+        assertEquals(3, SettingsLogic.fontScaleIndex(0.85f))
+        assertEquals(5, SettingsLogic.fontScaleIndex(1.0f))
+        assertEquals(9, SettingsLogic.fontScaleIndex(1.6f))
     }
 
     @Test

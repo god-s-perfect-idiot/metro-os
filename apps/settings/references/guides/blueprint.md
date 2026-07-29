@@ -46,11 +46,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Layout:** `SETTINGS` overline + title `ease of access`. First control block:
   - Label **Text size**
   - Bordered **Sample** preview box showing the word `Sample` at the active scale
-  - Discrete **7-step** Metro slider (accent fill left of thumb; secondary track)
+  - Discrete **10-step** Metro slider (accent fill left of thumb; secondary track). WP8.1 shipped the
+    7 steps from 0.85–1.6; metro-os prepends 0.625, 0.7, and 0.775 for smaller text on high-density panels.
   - Helper text: changes text size across Metro apps (People, Phone, messaging, etc.)
   - Other WP8.1 controls (High contrast, Narrator, Screen magnifier, TTY/TDD) remain out of scope — omit.
 - **Navigation:** Back → Settings root.
-- **Interactions:** Slider writes `font_scale` (seven fixed steps) and broadcasts `THEME_CHANGED` (include `font_scale` extra). All Metro apps observe and recompose.
+- **Interactions:** Slider writes `font_scale` (ten fixed steps, default 1.0 at index 5) and broadcasts `THEME_CHANGED` (include `font_scale` extra). All Metro apps observe and recompose.
 - **Background:** Theme background.
 - **Reference:** `images/ease_of_access_dark_cyan.png`
 

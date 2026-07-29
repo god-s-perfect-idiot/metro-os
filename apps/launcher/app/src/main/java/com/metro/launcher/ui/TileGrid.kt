@@ -83,8 +83,6 @@ import kotlin.math.sin
 import kotlin.random.Random
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
-import com.metro.ui.MetroText
-import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTransitions
 import kotlinx.coroutines.delay
 
@@ -1208,22 +1206,18 @@ private fun AgendaTileContent(
     Column(modifier = modifier) {
         shown.forEachIndexed { index, line ->
             if (index == 0) {
-                BasicText(
+                TileText(
                     text = line,
-                    style = TextStyle(
-                        fontFamily = MetroFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 22.sp,
-                        color = contentColor,
-                    ),
+                    style = TileTextStyles.Title,
+                    color = contentColor,
                     maxLines = if (wide) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                MetroText(
+                TileText(
                     text = line,
-                    style = MetroTextStyle.Body,
+                    style = TileTextStyles.Body,
                     color = contentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1239,9 +1233,9 @@ private fun AgendaTileContent(
             verticalAlignment = Alignment.Bottom,
         ) {
             if (footer != null) {
-                MetroText(
+                TileText(
                     text = footer,
-                    style = MetroTextStyle.Body,
+                    style = TileTextStyles.Body,
                     color = contentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1252,14 +1246,10 @@ private fun AgendaTileContent(
             }
 
             if (dayLabel != null) {
-                BasicText(
+                TileText(
                     text = dayLabel,
-                    style = TextStyle(
-                        fontFamily = MetroFontFamily,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 15.sp,
-                        color = contentColor,
-                    ),
+                    style = TileTextStyles.DayLabel,
+                    color = contentColor,
                     modifier = Modifier.padding(end = 4.dp, bottom = if (wide) 6.dp else 4.dp),
                 )
             }
@@ -1269,7 +1259,7 @@ private fun AgendaTileContent(
                     style = TextStyle(
                         fontFamily = MetroFontFamily,
                         fontWeight = FontWeight.Bold,
-                        fontSize = if (wide) 44.sp else 34.sp,
+                        fontSize = if (wide) 40.sp else 30.sp,
                         color = contentColor,
                     ),
                 )
@@ -1305,9 +1295,9 @@ private fun StaticIconTileContent(
                 fallbackColor = contentColor,
             )
         }
-        MetroText(
+        TileText(
             text = title,
-            style = MetroTextStyle.Body,
+            style = TileTextStyles.Body,
             color = contentColor,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -1341,9 +1331,9 @@ private fun MessagingIdleTileContent(
                     .offset(x = iconOffsetX),
             )
         }
-        MetroText(
+        TileText(
             text = title,
-            style = MetroTextStyle.Body,
+            style = TileTextStyles.Body,
             color = contentColor,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -1456,28 +1446,18 @@ private fun NotificationPeekTileContent(
             }
             if (isTitle) {
                 // From / sender: larger and bolder than the content preview under it.
-                BasicText(
+                TileText(
                     text = line,
-                    style = TextStyle(
-                        fontFamily = MetroFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 22.sp,
-                        lineHeight = 26.sp,
-                        color = contentColor,
-                        platformStyle = PlatformTextStyle(includeFontPadding = false),
-                        lineHeightStyle = LineHeightStyle(
-                            alignment = LineHeightStyle.Alignment.Center,
-                            trim = LineHeightStyle.Trim.None,
-                        ),
-                    ),
+                    style = TileTextStyles.Title,
+                    color = contentColor,
                     maxLines = maxLines,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                MetroText(
+                TileText(
                     text = line,
-                    style = MetroTextStyle.Body,
+                    style = TileTextStyles.Body,
                     color = contentColor,
                     maxLines = maxLines,
                     overflow = TextOverflow.Ellipsis,
@@ -1486,9 +1466,9 @@ private fun NotificationPeekTileContent(
             }
         }
         Spacer(modifier = Modifier.weight(1f))
-        MetroText(
+        TileText(
             text = footer,
-            style = MetroTextStyle.Body,
+            style = TileTextStyles.Body,
             color = contentColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

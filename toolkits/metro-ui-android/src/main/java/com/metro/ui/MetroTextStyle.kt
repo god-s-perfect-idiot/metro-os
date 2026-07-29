@@ -1,41 +1,27 @@
 package com.metro.ui
 
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.metro.ui.R
 
 /**
- * Noto Sans variable font instance for [weight].
- *
- * The bundled `noto_sans.ttf` is a single VF (wght 100–900). Without
- * [FontVariation.Settings], Compose falls back to the Regular instance for every
- * [FontWeight], so page titles looked wrong instead of the intended weight.
- */
-@OptIn(ExperimentalTextApi::class)
-private fun metroFont(weight: FontWeight) = Font(
-    resId = R.font.noto_sans,
-    weight = weight,
-    variationSettings = FontVariation.Settings(
-        FontVariation.weight(weight.weight),
-    ),
-)
-
-/**
  * Noto Sans (Segoe WP stand-in) typography roles from scope.md §1.
+ *
+ * Static faces from DiscoLauncher NotoCustom (OFL), not the Google Fonts VF.
  */
 val MetroFontFamily = FontFamily(
-    metroFont(FontWeight.ExtraLight),
-    metroFont(FontWeight.Light),
-    metroFont(FontWeight.Normal),
-    metroFont(FontWeight.Medium),
-    metroFont(FontWeight.SemiBold),
-    metroFont(FontWeight.Bold),
-    metroFont(FontWeight.Black),
+    Font(R.font.noto_sans_thin, FontWeight.Thin),
+    Font(R.font.noto_sans_extralight, FontWeight.ExtraLight),
+    Font(R.font.noto_sans_light, FontWeight.Light),
+    Font(R.font.noto_sans_regular, FontWeight.Normal),
+    Font(R.font.noto_sans_medium, FontWeight.Medium),
+    Font(R.font.noto_sans_semibold, FontWeight.SemiBold),
+    Font(R.font.noto_sans_bold, FontWeight.Bold),
+    Font(R.font.noto_sans_extrabold, FontWeight.ExtraBold),
+    Font(R.font.noto_sans_black, FontWeight.Black),
 )
 
 enum class MetroTextStyle {

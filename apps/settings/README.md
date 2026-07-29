@@ -5,7 +5,7 @@
 
 ## Status
 
-Implemented — Settings root with start+theme (accent colour only), accent picker (20 WP8 colours), ease of access (7-step text size), brightness, storage sense, and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
+Implemented — Settings root with start+theme (accent colour only), accent picker (20 WP8 colours), ease of access (10-step text size), brightness, storage sense, and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
 
 ## App role
 
@@ -46,7 +46,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
 - `theme_mode`
 - `accent_color` (official palette hex)
-- `font_scale` (7 discrete steps)
+- `font_scale` (10 discrete steps, 0.625–1.6, default 1.0)
 
 ## Commands
 
@@ -76,6 +76,7 @@ cd apps/settings
 | Brightness write | Needs `WRITE_SETTINGS` app-op | Write `Settings.System` directly; grant via `adb shell appops set com.metro.settings WRITE_SETTINGS allow` |
 | Never open Android Settings from Metro Settings | Permission grant UIs are system activities | No in-app “open settings” buttons; grant permissions out-of-band (adb / privileged install) |
 | About IMEI / MAC / SIM ID | Need telephony / Wi-Fi MAC permissions | Omitted; more info shows Build.* and storage fields without privileged identifiers |
+| ease of access Text size has 7 steps (0.85–1.6) | Modern panels are far denser than a 4.5" WVGA Lumia, so 0.85 is still large | Slider keeps the 7 WP8.1 steps and prepends 0.625 / 0.7 / 0.775 at the same 0.075 spacing (10 total, default 1.0 unchanged) |
 
 ## Agent postmortem
 

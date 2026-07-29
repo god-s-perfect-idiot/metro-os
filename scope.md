@@ -119,7 +119,7 @@ These rules are **non-negotiable** unless a documented Android platform limitati
 
 | Rule | Value |
 |------|-------|
-| Primary typeface | **Noto Sans** (bundle Light, Regular, Medium, SemiBold, Bold, Black). SIL Open Font License — ship in `metro-ui-android`. Never Roboto in Metro chrome |
+| Primary typeface | **Noto Sans** static faces (Thin–Black, DiscoLauncher NotoCustom). SIL Open Font License — ship in `metro-ui-android`. Never Roboto in Metro chrome |
 | Minimum body size | **15sp** — no smaller text in interactive UI |
 | Page title | 64sp Noto Sans Light, flush left |
 | Section header | 20sp Noto Sans SemiBold |

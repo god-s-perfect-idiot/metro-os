@@ -47,8 +47,6 @@ import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.MusicNowPlayingInfo
 import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileSize
-import com.metro.ui.MetroText
-import com.metro.ui.MetroTextStyle
 import java.io.File
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -218,18 +216,18 @@ private fun MusicTrackMeta(
 ) {
     Column(modifier = modifier) {
         if (!title.isNullOrBlank()) {
-            MetroText(
+            TileText(
                 text = title,
-                style = MetroTextStyle.Body,
+                style = TileTextStyles.Body,
                 color = Color.White,
                 maxLines = maxTitleLines,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         if (!artist.isNullOrBlank()) {
-            MetroText(
+            TileText(
                 text = artist,
-                style = MetroTextStyle.ListItemSubtitle,
+                style = TileTextStyles.Body,
                 color = Color.White.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

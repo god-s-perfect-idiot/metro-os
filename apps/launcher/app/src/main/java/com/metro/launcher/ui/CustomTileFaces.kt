@@ -12,8 +12,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.metro.ui.MetroText
-import com.metro.ui.MetroTextStyle
 import kotlin.math.hypot
 import kotlin.math.min
 
@@ -100,9 +98,9 @@ fun ChromeTileContent(
             )
         }
         if (!title.isNullOrBlank()) {
-            MetroText(
+            TileText(
                 text = title,
-                style = MetroTextStyle.Body,
+                style = TileTextStyles.Body,
                 color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
