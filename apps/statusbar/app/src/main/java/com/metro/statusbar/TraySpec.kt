@@ -15,7 +15,7 @@ object TraySpec {
     const val EXPAND_ANIMATION_MS = 200L
     const val COLLAPSE_ANIMATION_MS = 200L
     /** Delay between successive icons (right → left) on enter and exit. */
-    const val ICON_STAGGER_MS = 45L
+    const val ICON_STAGGER_MS = 90L
     /** How long icons stay fully visible after the last enter finishes. */
     const val AUTO_COLLAPSE_MS = MetroStatusBar.AUTO_COLLAPSE_MS
 

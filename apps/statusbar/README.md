@@ -106,7 +106,7 @@ It is not a generic Android notification shade replacement. The goal is the narr
 
 - Height: `32dp`
 - Default visual priority: clock first, everything else tucked away
-- Expand animation: staggered drop from above, **200ms**/icon, **45ms** R→L stagger
+- Expand animation: staggered drop from above, **200ms**/icon, **90ms** R→L stagger
 - Collapse animation: staggered exit upward, same timing
 - Auto-collapse hold: **5000ms** after enter finishes
 - No Material status bar styling, dropdown shade affordances, cards, or quick settings metaphors

@@ -17,7 +17,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 - Layout: same height; full indicator row left-aligned in WP order; battery + clock on the right
 - Indicator order L→R: cellular + data label, Wi-Fi; battery + clock on the right
-- Interactions: icons drop in one-by-one from above (**200ms**/icon, **45ms** stagger, right → left); hold **5000ms**; exit upward one-by-one (same R→L order)
+- Interactions: icons drop in one-by-one from above (**200ms**/icon, **90ms** stagger, right → left); hold **5000ms**; exit upward one-by-one (same R→L order)
 - v1 may use static/stub Wi-Fi glyph; cellular/data and battery are real telemetry
 
 ### Page 3 — Progress tray state
