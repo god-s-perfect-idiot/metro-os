@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isUnspecified
 import androidx.compose.ui.unit.sp
+import com.metro.ui.MetroListPicker
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.ext.FONTS
 import dev.patrickgold.florisboard.app.ext.IMAGES
@@ -84,7 +85,6 @@ import dev.patrickgold.jetpref.material.ui.ColorRepresentation
 import dev.patrickgold.jetpref.material.ui.ExperimentalJetPrefMaterial3Ui
 import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
 import dev.patrickgold.jetpref.material.ui.JetPrefColorPicker
-import dev.patrickgold.jetpref.material.ui.JetPrefDropdown
 import dev.patrickgold.jetpref.material.ui.JetPrefListItem
 import dev.patrickgold.jetpref.material.ui.JetPrefTextField
 import dev.patrickgold.jetpref.material.ui.rememberJetPrefColorPickerState
@@ -353,7 +353,7 @@ private fun PropertyNameInput(
         val propertiesSelectedIndex = remember(name) {
             possiblePropertyNames.indexOf(name).coerceIn(possiblePropertyNames.indices)
         }
-        JetPrefDropdown(
+        MetroListPicker(
             options = possiblePropertyLabels,
             selectedOptionIndex = propertiesSelectedIndex,
             onSelectOption = { index ->
@@ -396,15 +396,17 @@ private fun PropertyValueEncoderDropdown(
         encoders.indexOf(encoder).coerceIn(encoders.indices)
     }
     val context = LocalContext.current
-    JetPrefDropdown(
-        options = encoders,
+    val optionLabels = remember(encoders, context) {
+        encoders.map { context.translatePropertyValueEncoderName(it) }
+    }
+    MetroListPicker(
+        options = optionLabels,
         selectedOptionIndex = selectedIndex,
         onSelectOption = { index ->
             onEncoderChange(encoders[index])
         },
         enabled = enabled,
         isError = isError,
-        optionsLabelProvider = { context.translatePropertyValueEncoderName(it) },
     )
 }
 
@@ -431,12 +433,11 @@ private fun PropertyValueEditor(
                 variableKeys.indexOf(value.key).coerceIn(variableKeys.indices)
             }
             Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-                JetPrefDropdown(
+                MetroListPicker(
                     modifier = Modifier
                         .padding(end = 12.dp)
                         .weight(1f),
-                    options = variableKeys,
-                    optionsLabelProvider = { context.translatePropertyName(it, level) },
+                    options = variableKeys.map { context.translatePropertyName(it, level) },
                     selectedOptionIndex = selectedIndex,
                     isError = isError,
                     onSelectOption = { index ->
@@ -477,15 +478,14 @@ private fun PropertyValueEditor(
                 ColorPalette.colorNames.indexOf(value.colorName).coerceIn(ColorPalette.colorNames.indices)
             }
             Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-                JetPrefDropdown(
+                MetroListPicker(
                     modifier = Modifier
                         .padding(end = 12.dp)
                         .weight(1f),
-                    options = ColorPalette.colorNames,
+                    options = ColorPalette.colorNames.map { context.translatePropertyName(it, level) },
                     selectedOptionIndex = selectedIndex,
                     onSelectOption = onSelectItem,
                     isError = isError,
-                    optionsLabelProvider = { context.translatePropertyName(it, level) },
                 )
                 SnyggValueIcon(
                     value = value,
@@ -722,15 +722,17 @@ private fun <T> EnumLikeValueEditor(
     onValueChange: (SnyggValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val options = remember(encoder.serializationId) { encoder.serializationMapping.keys.toList() }
+    val options = remember(encoder.serializationId) {
+        encoder.serializationMapping.keys.map { it.toString() }
+    }
     val selectedIndex = remember(value) {
         encoder.serializationMapping.values.indexOf(encoder.destruct(value))
     }
 
-    JetPrefDropdown(
+    MetroListPicker(
         modifier = modifier,
         options = options,
-        selectedOptionIndex = selectedIndex,
+        selectedOptionIndex = selectedIndex.coerceIn(options.indices),
         onSelectOption = { index ->
             val innerValue = encoder.serializationMapping.values.elementAt(index)
             val value = encoder.construct(innerValue)
@@ -759,7 +761,7 @@ private fun CustomFontFamilyValueEditor(
         }
     }
 
-    JetPrefDropdown(
+    MetroListPicker(
         modifier = modifier,
         options = options,
         selectedOptionIndex = selectedIndex,

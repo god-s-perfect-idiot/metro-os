@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
+import com.metro.ui.MetroListPicker
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroToggleSwitch
 import dev.patrickgold.florisboard.R
@@ -95,7 +96,6 @@ import dev.patrickgold.florisboard.lib.rememberValidationResult
 import dev.patrickgold.florisboard.themeManager
 import dev.patrickgold.jetpref.datastore.model.collectAsState
 import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
-import dev.patrickgold.jetpref.material.ui.JetPrefDropdown
 import dev.patrickgold.jetpref.material.ui.JetPrefListItem
 import dev.patrickgold.jetpref.material.ui.JetPrefTextField
 import kotlinx.coroutines.delay
@@ -718,42 +718,33 @@ private fun ComponentMetaEditorDialog(
             }
 
             DialogProperty(text = stringRes(R.string.settings__theme_editor__component_meta_material_you__title)) {
-                JetPrefDropdown(
+                MetroListPicker(
                     modifier = Modifier.padding(bottom = 8.dp),
-                    labelText = stringRes(R.string.settings__theme_editor__component_meta_material_you__palette_style),
-                    optionsLabelProvider = {
-                        it.name
-                    },
-                    options = PaletteStyle.entries,
+                    label = stringRes(R.string.settings__theme_editor__component_meta_material_you__palette_style),
+                    options = PaletteStyle.entries.map { it.name },
                     onSelectOption = {
                         materialYouFlags = materialYouFlags.copy(paletteStyle = PaletteStyle.entries[it])
                     },
-                    selectedOptionIndex = materialYouFlags.paletteStyle.ordinal
+                    selectedOptionIndex = materialYouFlags.paletteStyle.ordinal,
                 )
-                JetPrefDropdown(
+                MetroListPicker(
                     modifier = Modifier.padding(bottom = 8.dp),
-                    labelText = stringRes(R.string.settings__theme_editor__component_meta_material_you__color_contrast),
-                    optionsLabelProvider = {
-                        it.name
-                    },
-                    options = Contrast.entries,
+                    label = stringRes(R.string.settings__theme_editor__component_meta_material_you__color_contrast),
+                    options = Contrast.entries.map { it.name },
                     onSelectOption = {
                         materialYouFlags = materialYouFlags.copy(contrastLevel = Contrast.entries[it])
                     },
-                    selectedOptionIndex = materialYouFlags.contrastLevel.ordinal
+                    selectedOptionIndex = materialYouFlags.contrastLevel.ordinal,
                 )
-                JetPrefDropdown(
+                MetroListPicker(
                     modifier = Modifier.padding(bottom = 8.dp),
-                    labelText = stringRes(R.string.settings__theme_editor__component_meta_material_you__spec_version),
-                    optionsLabelProvider = {
-                        it.name
-                    },
-                    options = ColorSpec.SpecVersion.entries,
+                    label = stringRes(R.string.settings__theme_editor__component_meta_material_you__spec_version),
+                    options = ColorSpec.SpecVersion.entries.map { it.name },
                     onSelectOption = {
                         materialYouFlags =
                             materialYouFlags.copy(specVersion = ColorSpec.SpecVersion.entries[it])
                     },
-                    selectedOptionIndex = materialYouFlags.specVersion.ordinal
+                    selectedOptionIndex = materialYouFlags.specVersion.ordinal,
                 )
             }
         }

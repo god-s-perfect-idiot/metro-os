@@ -267,6 +267,7 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 | `TextBox` | Underline style when focused | Accent underline, no Material TextInputLayout |
 | `ApplicationBar` | `MetroAppBar` | See App bar section |
 | `MessageDialog` | Centered modal | Title 24sp, body 16sp, accent buttons |
+| `ListPicker` | `MetroListPicker` | Bordered field; expands inline to inverted options panel (no Material menu) |
 | `CustomDatePicker` / `TimePicker` | Looping selectors | WP8.1 scroll-wheel style |
 | `LiveTile` | App tile widget → launcher | See Tiles section; apps export data, launcher renders |
 

@@ -21,6 +21,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroPanorama` | Horizontal hub panorama |
 | `MetroListItem` | List row with tilt-on-press |
 | `MetroToggleSwitch` | WP8.1 rectangular toggle (accent fill when on) |
+| `MetroListPicker` | WP8.1 ListPicker — bordered field, inline inverted options panel |
 | `MetroPageHeader` | Large page title |
 | `MetroJumpList` | Find-by-letter overlay (`#`, a–z, globe); accent = active |
 | `MetroLetterTile` | Accent/inactive letter square for list anchors and jump grid |
@@ -68,6 +69,28 @@ if (isLoading) {
 
 // Inline indicator (e.g. inside a pane):
 MetroLoadingDots()
+```
+
+### ListPicker (dropdown)
+
+```kotlin
+MetroListPicker(
+    label = "Background",
+    options = listOf("dark", "light"),
+    selectedOptionIndex = 0,
+    onSelectOption = { /* ... */ },
+)
+
+// Or typed values:
+MetroListPicker(
+    label = "Background",
+    selected = ThemeMode.Dark,
+    options = listOf(
+        MetroListPickerOption(ThemeMode.Dark, "dark"),
+        MetroListPickerOption(ThemeMode.Light, "light"),
+    ),
+    onSelectedChange = { /* ... */ },
+)
 ```
 
 ## Build

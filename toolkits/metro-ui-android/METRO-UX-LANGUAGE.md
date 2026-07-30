@@ -51,6 +51,7 @@ Use **sharp 0dp corner radius** unless a control is listed in §2.2.
 | **Slider thumb** | 10×32dp **rectangle** on a rectangular track |
 | **ToggleSwitch** | **52×20dp rectangle** track, rectangular thumb, 0dp corners |
 | **Message dialog** | Centered rectangle panel; square corners |
+| **ListPicker** | Square-bordered collapsed field; inverted rectangular expanded panel |
 | **Panorama section headers** | Flush-left text blocks over imagery |
 | **Photography** | Full-bleed rectangles; **never** rounded "cards" |
 
@@ -332,8 +333,8 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Property | Spec |
 |----------|------|
 | Shape | **Sharp rectangle** (0dp corners) — not a pill |
-| Track | 52×20dp, 2dp foreground border |
-| Thumb | **14dp-wide rectangle**, slightly taller than the track (±2dp overhang); slides left (off) ↔ right (on) |
+| Track | 52×20dp, 2dp foreground border; accent fill inset by a 2dp **page-background** gutter inside that border |
+| Thumb | **14dp-wide fill** inside a 2dp page-background blend border; outer size overhangs the track (±2dp) so only the edge against the accent reads as a stroke |
 | On | Accent fill left of thumb + white thumb on the right |
 | Off | Transparent fill + foreground thumb on the left |
 | Animation | 250ms ease-in-out (`MetroTransitions.pivotTween`) |
@@ -467,6 +468,30 @@ WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under let
 
 ---
 
+### 6.19 ListPicker / dropdown (`MetroListPicker`)
+
+WP8.1 settings ListPicker — inline expand, **not** a Material menu, dialog radio list, or full-page option sheet for short lists.
+
+| Property | Spec |
+|----------|------|
+| Label | Optional secondary text above the field (`ListItemSubtitle`) |
+| Collapsed field | Full-width rectangle, **2dp** primary-text border, **0dp** corners, transparent fill |
+| Collapsed value | Primary text, body size, left-aligned; **no** chevron / arrow |
+| Touch | Entire bordered rectangle; min height 44dp |
+| Expanded panel | **Inverted** fill (primary text color as background — white on dark, black on light) |
+| Expanded options | Vertical list; selected = **accent** text; unselected = theme **background** color (black on white panel) |
+| Expansion | Inline — pushes content below; does **not** open a dialog or popup page |
+| Expand / collapse motion | Height wipe, **250ms** ease-in-out (`MetroTransitions.PivotSwitchMs` / `PivotEasing`) |
+| Long lists | Scroll within ~6 visible rows |
+| Dismiss | Select an option, or hardware Back |
+| Drill-in | For huge catalogs (e.g. all locales), use collapsed chrome + `onOpen` navigation — still no Material dropdown |
+| Error | 2dp red (`#E51400`) border on the collapsed field |
+| Anti-pattern | `ExposedDropdownMenu`, dialog radio lists, chevron glyphs, rounded menus |
+
+**Agent rule:** Settings and form “dropdowns” must use `MetroListPicker`. Do not wrap options in `MetroMessageDialog` or JetPref/Material menus.
+
+---
+
 ## 7. System chrome (shell apps)
 
 ### 7.1 Status bar
@@ -584,6 +609,7 @@ Need a container shape?
 | §6.16 Hub | `MetroHub` | Planned |
 | §6.17 Page header | `MetroPageHeader` | Implemented |
 | §6.18 Jump list | `MetroJumpList`, `MetroLetterTile`, `MetroJumpListLogic`, `metroStickyLetterHeader` | Implemented |
+| §6.19 ListPicker | `MetroListPicker` | Implemented |
 | Theme / color | `MetroTheme`, `MetroColors` | Implemented |
 | Typography | `MetroText`, `MetroTextStyle` | Implemented |
 | Motion | `MetroTransitions` | Implemented |

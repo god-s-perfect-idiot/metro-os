@@ -28,10 +28,15 @@ import androidx.compose.ui.zIndex
 private val TrackWidth = 52.dp
 private val TrackHeight = 20.dp
 private val BorderWidth = 2.dp
-private val ThumbWidth = 14.dp
-/** WP thumb reads slightly taller than the bordered track. */
-private val ThumbOverhang = 2.dp
-private val ThumbHeight = TrackHeight + ThumbOverhang * 2
+/** Visible white/foreground fill of the thumb (inside the blend border). */
+private val ThumbFillWidth = 14.dp
+/**
+ * Blend-border overhang past the track chrome. On a dark page the black border
+ * reads only where it meets the accent (left when on); top/right/bottom match the bg.
+ */
+private val ThumbOverhang = BorderWidth
+private val ThumbOuterWidth = ThumbFillWidth + BorderWidth * 2
+private val ThumbOuterHeight = TrackHeight + ThumbOverhang * 2
 
 /**
  * WP8.1 toggle — sharp rectangular track, sliding rectangular thumb, accent fill when on
@@ -86,6 +91,7 @@ fun MetroToggleSwitch(
                 enabled = enabled,
                 accent = accent,
                 foreground = foreground,
+                blend = MetroTheme.colors.background,
             )
         }
     }
@@ -97,27 +103,34 @@ private fun MetroToggleTrack(
     enabled: Boolean,
     accent: Color,
     foreground: Color,
+    blend: Color,
 ) {
     val alpha = if (enabled) 1f else 0.4f
     val borderColor = foreground.copy(alpha = foreground.alpha * alpha)
+    val blendColor = blend.copy(alpha = blend.alpha * alpha)
     val thumbColor = if (checked) {
         Color.White.copy(alpha = alpha)
     } else {
         foreground.copy(alpha = foreground.alpha * alpha)
     }
-    val innerWidth = TrackWidth - BorderWidth * 2
-    val travel = (innerWidth - ThumbWidth).coerceAtLeast(0.dp)
+    // Off: blend border hangs past the left track edge.
+    // On: blend border hangs past the right track edge.
+    val thumbOffX = -ThumbOverhang
+    val thumbOnX = TrackWidth - ThumbOuterWidth + ThumbOverhang
     val thumbOffset by animateDpAsState(
-        targetValue = if (checked) travel else 0.dp,
+        targetValue = if (checked) thumbOnX else thumbOffX,
         animationSpec = MetroTransitions.pivotTween(),
         label = "metroToggleThumb",
     )
+    // Accent stops at the thumb fill (inside the blend border), not under it.
+    val accentToThumb = (thumbOffset + BorderWidth).coerceAtLeast(0.dp)
 
-    // Outer box taller than the track so the thumb can overhang top/bottom.
+    // Room for vertical + horizontal thumb overhang outside the white track.
     Box(
         modifier = Modifier
-            .width(TrackWidth)
-            .height(ThumbHeight),
+            .width(TrackWidth + ThumbOverhang * 2)
+            .height(ThumbOuterHeight)
+            .padding(horizontal = ThumbOverhang),
         contentAlignment = Alignment.CenterStart,
     ) {
         Box(
@@ -126,28 +139,49 @@ private fun MetroToggleTrack(
                 .align(Alignment.Center)
                 .border(BorderWidth, borderColor, RectangleShape),
         ) {
-            // Accent fill only to the left of the thumb when on (WP8.1).
-            if (checked) {
+            // Accent inset: white track → equal blend gutter → accent.
+            // Use TopStart + explicit sizes only — no vertical centering (that
+            // doubled the top gutter and collapsed the bottom).
+            if (checked && accentToThumb > BorderWidth * 2) {
+                val gutterWidth = accentToThumb - BorderWidth
+                val gutterHeight = TrackHeight - BorderWidth * 2
+                val accentHeight = gutterHeight - BorderWidth * 2
                 Box(
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(BorderWidth)
-                        .width(thumbOffset + ThumbWidth)
-                        .height(TrackHeight - BorderWidth * 2)
+                        .align(Alignment.TopStart)
+                        .offset(x = BorderWidth, y = BorderWidth)
+                        .width(gutterWidth)
+                        .height(gutterHeight)
+                        .background(blendColor, RectangleShape),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = BorderWidth * 2, y = BorderWidth * 2)
+                        .width(gutterWidth - BorderWidth)
+                        .height(accentHeight)
                         .background(accent.copy(alpha = accent.alpha * alpha), RectangleShape),
                 )
             }
         }
+        // Outer blend rect + inset fill so top/right/bottom match the page bg.
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = BorderWidth)
                 .offset(x = thumbOffset)
-                .width(ThumbWidth)
-                .height(ThumbHeight)
+                .width(ThumbOuterWidth)
+                .height(ThumbOuterHeight)
                 .zIndex(1f)
-                .background(thumbColor, RectangleShape),
-        )
+                .background(blendColor, RectangleShape),
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(ThumbFillWidth)
+                    .height(TrackHeight)
+                    .background(thumbColor, RectangleShape),
+            )
+        }
     }
 }
 

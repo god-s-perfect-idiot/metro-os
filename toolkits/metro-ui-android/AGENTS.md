@@ -39,6 +39,7 @@ Before implementing or changing any composable, read [`METRO-UX-LANGUAGE.md`](ME
 | P2 | `MetroProgressBar` | ProgressBar |
 | P2 | `MetroTextBox` | TextBox underline focus |
 | P2 | `MetroMessageDialog` | MessageDialog |
+| P2 | `MetroListPicker` ✅ | ListPicker — bordered field, inline inverted options |
 | P2 | `MetroHub` | Hub control |
 | P3 | `MetroDatePicker` / `MetroTimePicker` | Looping selectors |
 
