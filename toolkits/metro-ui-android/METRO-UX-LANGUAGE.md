@@ -49,6 +49,7 @@ Use **sharp 0dp corner radius** unless a control is listed in §2.2.
 | **Checkboxes** | 20×20dp **square** outline; filled accent when checked |
 | **Progress bar** | Rectangular track and fill |
 | **Slider thumb** | 10×32dp **rectangle** on a rectangular track |
+| **ToggleSwitch** | **52×20dp rectangle** track, rectangular thumb, 0dp corners |
 | **Message dialog** | Centered rectangle panel; square corners |
 | **Panorama section headers** | Flush-left text blocks over imagery |
 | **Photography** | Full-bleed rectangles; **never** rounded "cards" |
@@ -61,7 +62,6 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 |---------|------------|
 | **App bar icon press affordance** | **Circle** (not rounded-rect) drawn behind icon on press — system-provided in WP, replicated in `MetroAppBar` |
 | **App bar icon glyph area** | 26×26dp icon centered in 48×48dp touch target |
-| **ToggleSwitch** | **Pill** capsule; 38×20dp track, circular thumb |
 | **Radio button** | **Circle** outline with inner dot when selected |
 | **Indeterminate progress** | Accent bar with soft ends (WP system control) |
 
@@ -331,12 +331,14 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 
 | Property | Spec |
 |----------|------|
-| Shape | **Pill** track |
-| Track | 38×20dp |
-| Thumb | Circular, travels full track width |
-| On | Accent fill |
-| Off | 20% foreground stroke on transparent |
-| Label | Sentence caps, 15sp, left of control |
+| Shape | **Sharp rectangle** (0dp corners) — not a pill |
+| Track | 52×20dp, 2dp foreground border |
+| Thumb | **14dp-wide rectangle**, slightly taller than the track (±2dp overhang); slides left (off) ↔ right (on) |
+| On | Accent fill left of thumb + white thumb on the right |
+| Off | Transparent fill + foreground thumb on the left |
+| Animation | 250ms ease-in-out (`MetroTransitions.pivotTween`) |
+| Settings row | Optional description label above (secondary); **On/Off** status (`ListItemTitle`) left of switch |
+| Compact | `showStatus = false` for trailing switch-only rows (e.g. alarms) |
 
 ---
 
@@ -532,7 +534,7 @@ Need an action control?
 ├─ In-page commit / dialog? → Border text button (square corners)
 ├─ In-page icon-only? → Icon button with circular press
 ├─ Navigation to another page? → Hyperlink or list item
-└─ On/off setting? → ToggleSwitch (pill) — not checkbox
+└─ On/off setting? → ToggleSwitch (sharp rectangle) — not checkbox
 
 Need a container shape?
 ├─ Start screen cell? → Tile (sharp rectangle)
@@ -571,14 +573,14 @@ Need a container shape?
 | §6.6 List item | `MetroListItem` | Planned |
 | §6.7 Pivot | `MetroPivot` | Planned |
 | §6.8 Panorama | `MetroPanorama` | Planned |
-| §6.9 Toggle | `MetroToggleSwitch` | Planned |
+| §6.9 Toggle | `MetroToggleSwitch` | Implemented |
 | §6.10 Checkbox | `MetroCheckBox` | Planned |
 | §6.11 Radio | `MetroRadioButton` | Planned |
 | §6.12 Text box | `MetroTextBox` | Planned |
 | §6.13 Slider | `MetroSlider` | Planned |
 | §6.14 Progress | `MetroProgressBar` | Planned |
 | §6.14a Loading screen | `MetroLoadingScreen`, `MetroLoadingDots` | Implemented |
-| §6.15 Dialog | `MetroMessageDialog` | Planned |
+| §6.15 Dialog | `MetroMessageDialog` | Done |
 | §6.16 Hub | `MetroHub` | Planned |
 | §6.17 Page header | `MetroPageHeader` | Implemented |
 | §6.18 Jump list | `MetroJumpList`, `MetroLetterTile`, `MetroJumpListLogic`, `metroStickyLetterHeader` | Implemented |

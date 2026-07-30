@@ -1,16 +1,17 @@
 {
   "$schema": "https://schemas.florisboard.org/snygg/v2/stylesheet",
   "@defines": {
-    "--primary": "#0078D7",
-    "--primary-variant": "#005A9E",
+    "--primary": "dynamic-light-color(primary)",
+    "--primary-variant": "dynamic-light-color(primaryContainer)",
     "--secondary": "#000000",
     "--secondary-variant": "#666666",
     "--background": "#FFFFFF",
     "--background-variant": "#FFFFFF",
     "--surface": "#E5E5E5",
     "--surface-variant": "#CCCCCC",
-    "--popup-surface": "#F2F2F2",
-    "--focused-popup-surface": "#0078D7",
+    "--popup-surface": "#D0D0D0",
+    "--popup-on-surface": "#000000",
+    "--focused-popup-surface": "dynamic-light-color(primary)",
     "--drag-marker": "#E51400",
     "--spacer-color": "rgba(0, 0, 0, 0.12)",
     "--one-hand-background": "#E5E5E5",
@@ -106,22 +107,29 @@
     "text-max-lines": "1"
   },
   "key-popup-box": {
-    "background": "var(--popup-surface)",
-    "foreground": "var(--on-surface)",
+    "background": "var(--primary)",
+    "foreground": "var(--on-primary)",
     "font-size": "22sp",
     "shape": "rectangle()",
     "shadow-elevation": "0dp"
   },
+  "key-popup-element": {
+    "background": "var(--popup-surface)",
+    "foreground": "var(--popup-on-surface)",
+    "shape": "rectangle()"
+  },
   "key-popup-element:focus": {
     "background": "var(--focused-popup-surface)",
-    "shape": "var(--shape)"
+    "foreground": "var(--on-primary)",
+    "shape": "rectangle()"
   },
   "key-popup-element[code=-255]": {
     "font-size": "18sp",
     "text-max-lines": "1"
   },
   "key-popup-extended-indicator": {
-    "font-size": "16sp"
+    "font-size": "16sp",
+    "foreground": "var(--on-primary)"
   },
   "smartbar": {
     "background": "var(--background)",
@@ -408,43 +416,78 @@
     "background": "var(--surface)",
     "foreground": "var(--on-surface)"
   },
+  "media": {
+    "background": "var(--background)",
+    "foreground": "var(--on-background)"
+  },
   "media-emoji-subheader": {
     "font-weight": "bold",
     "margin": "4dp"
   },
   "media-emoji-key": {
-    "background": "transparent",
+    "background": "var(--surface)",
     "foreground": "var(--on-background)",
-    "font-size": "22sp",
-    "shape": "var(--shape)"
+    "font-size": "26sp",
+    "shape": "rectangle()",
+    "border-color": "var(--background)",
+    "border-width": "1dp"
   },
   "media-emoji-key:pressed": {
-    "background": "var(--surface)",
-    "foreground": "var(--on-surface)"
+    "background": "var(--primary)",
+    "foreground": "var(--on-primary)"
   },
   "media-emoji-key-popup-box": {
-    "background": "var(--popup-surface)",
-    "foreground": "var(--on-surface)",
+    "background": "var(--primary)",
+    "foreground": "var(--on-primary)",
     "font-size": "22sp",
-    "shape": "var(--shape)",
-    "shadow-elevation": "2dp"
+    "shape": "rectangle()",
+    "shadow-elevation": "0dp"
+  },
+  "media-emoji-key-popup-element": {
+    "background": "var(--popup-surface)",
+    "foreground": "var(--popup-on-surface)",
+    "shape": "rectangle()"
   },
   "media-emoji-key-popup-element:focus": {
     "background": "var(--focused-popup-surface)",
-    "shape": "var(--shape)"
+    "foreground": "var(--on-primary)",
+    "shape": "rectangle()"
   },
   "media-emoji-tab": {
-    "foreground": "var(--on-background)"
+    "background": "var(--surface)",
+    "foreground": "var(--on-background)",
+    "font-size": "18sp",
+    "shape": "rectangle()",
+    "border-color": "var(--background)",
+    "border-width": "1dp"
   },
   "media-emoji-tab:focus": {
-    "foreground": "var(--primary)"
+    "background": "var(--primary)",
+    "foreground": "var(--on-primary)"
+  },
+  "media-emoji-tab:pressed": {
+    "background": "var(--primary)",
+    "foreground": "var(--on-primary)"
+  },
+  "media-bottom-row": {
+    "background": "var(--background)",
+    "foreground": "var(--on-background)"
   },
   "media-bottom-row-button": {
-    "padding": "16dp 0dp",
-    "shape": "var(--shape)"
+    "background": "var(--surface)",
+    "foreground": "var(--on-surface)",
+    "font-size": "16sp",
+    "padding": "0dp",
+    "shape": "rectangle()",
+    "border-color": "var(--background)",
+    "border-width": "1dp"
+  },
+  "media-bottom-row-button:pressed": {
+    "background": "var(--primary)",
+    "foreground": "var(--on-primary)"
   },
   "media-emoji-key-popup-extended-indicator": {
-    "foreground": "inherit"
+    "foreground": "var(--on-background)"
   },
   "one-handed-panel": {
     "background": "var(--one-hand-background)",

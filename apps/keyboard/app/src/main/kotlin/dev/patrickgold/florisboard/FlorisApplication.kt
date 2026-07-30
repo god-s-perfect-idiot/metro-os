@@ -25,6 +25,7 @@ import android.content.IntentFilter
 import android.os.Handler
 import android.util.Log
 import androidx.core.os.UserManagerCompat
+import androidx.compose.ui.graphics.Color
 import dev.patrickgold.florisboard.app.FlorisPreferenceModel
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.ime.clipboard.ClipboardManager
@@ -36,6 +37,7 @@ import dev.patrickgold.florisboard.ime.media.emoji.FlorisEmojiCompat
 import dev.patrickgold.florisboard.ime.nlp.NlpManager
 import dev.patrickgold.florisboard.ime.text.gestures.GlideTypingManager
 import dev.patrickgold.florisboard.ime.theme.ThemeManager
+import dev.patrickgold.florisboard.ime.theme.extCoreTheme
 import dev.patrickgold.florisboard.lib.cache.CacheManager
 import dev.patrickgold.florisboard.lib.crashutility.CrashUtility
 import dev.patrickgold.florisboard.lib.devtools.Flog
@@ -120,11 +122,36 @@ class FlorisApplication : Application() {
                 datastoreName = FlorisPreferenceModel.NAME,
             )
             Log.i("PREFS", result.toString())
+            normalizeMetroKeyboardTheme()
             preferenceStoreLoaded.value = true
         }
         extensionManager.value.init()
         clipboardManager.value.initializeForContext(this)
         DictionaryManager.init(this)
+    }
+
+    /**
+     * Existing installs may still point at legacy Floris themes, which makes wp81 stylesheet
+     * changes appear to do nothing. Normalize stock Floris selections to the Metro WP8.1 pair.
+     */
+    private suspend fun normalizeMetroKeyboardTheme() {
+        val prefs by FlorisPreferenceStore
+        val dayTheme = prefs.theme.dayThemeId.get()
+        val nightTheme = prefs.theme.nightThemeId.get()
+
+        var migrated = false
+        if (dayTheme.isLegacyFlorisDayTheme()) {
+            prefs.theme.dayThemeId.set(extCoreTheme("wp81_light"))
+            migrated = true
+        }
+        if (nightTheme.isLegacyFlorisNightTheme()) {
+            prefs.theme.nightThemeId.set(extCoreTheme("wp81_dark"))
+            migrated = true
+        }
+        if (migrated) {
+            // Let the IME fall back to the Metro suite accent instead of a stale Floris override.
+            prefs.theme.accentColor.set(Color.Unspecified)
+        }
     }
 
     private inner class BootComplete : BroadcastReceiver() {
@@ -172,3 +199,19 @@ fun Context.nlpManager() = this.florisApplication().nlpManager
 fun Context.subtypeManager() = this.florisApplication().subtypeManager
 
 fun Context.themeManager() = this.florisApplication().themeManager
+
+private fun dev.patrickgold.florisboard.lib.ext.ExtensionComponentName.isLegacyFlorisDayTheme(): Boolean {
+    return extensionId == "org.florisboard.themes" && componentId in setOf(
+        "floris_day",
+        "floris_day_borderless",
+    )
+}
+
+private fun dev.patrickgold.florisboard.lib.ext.ExtensionComponentName.isLegacyFlorisNightTheme(): Boolean {
+    return extensionId == "org.florisboard.themes" && componentId in setOf(
+        "floris_night",
+        "floris_night_borderless",
+        "floris_pure_night",
+        "floris_pure_night_borderless",
+    )
+}

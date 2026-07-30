@@ -67,7 +67,6 @@ import dev.patrickgold.florisboard.ime.input.InputEventDispatcher
 import dev.patrickgold.florisboard.ime.keyboard.ComputingEvaluator
 import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
 import dev.patrickgold.florisboard.ime.keyboard.KeyboardMode
-import dev.patrickgold.florisboard.ime.keyboard.SpaceBarMode
 import dev.patrickgold.florisboard.ime.popup.ExceptionsForKeyCodes
 import dev.patrickgold.florisboard.ime.popup.PopupUiController
 import dev.patrickgold.florisboard.ime.popup.rememberPopupUiController
@@ -344,13 +343,7 @@ private fun TextKeyButton(
         key.label?.let { label ->
             var customLabel = label
             if (key.computedData.code == KeyCode.SPACE) {
-                val prefs by FlorisPreferenceStore
-                val spaceBarMode by prefs.keyboard.spaceBarMode.collectAsState()
-                when (spaceBarMode) {
-                    SpaceBarMode.NOTHING -> return@let
-                    SpaceBarMode.CURRENT_LANGUAGE -> {}
-                    SpaceBarMode.SPACE_BAR_KEY -> customLabel = "␣"
-                }
+                customLabel = TextKeyData.SPACE.label
             }
             SnyggText(
                 modifier = Modifier
@@ -359,7 +352,7 @@ private fun TextKeyButton(
                 text = customLabel,
             )
         }
-        key.hintedLabel?.let { hintedLabel ->
+        key.hintedLabel?.takeIf { isTelPadKey }?.let { hintedLabel ->
             SnyggText(
                 elementName = FlorisImeUi.KeyHint.elementName,
                 attributes = attributes,

@@ -43,7 +43,7 @@ import dev.patrickgold.florisboard.app.Routes
 import dev.patrickgold.florisboard.clipboardManager
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.florisboard.lib.util.launchUrl
-import dev.patrickgold.jetpref.datastore.ui.Preference
+import com.metro.keyboard.ui.prefs.Preference
 import org.florisboard.lib.android.stringRes
 import org.florisboard.lib.compose.FlorisCanvasIcon
 import org.florisboard.lib.compose.stringRes

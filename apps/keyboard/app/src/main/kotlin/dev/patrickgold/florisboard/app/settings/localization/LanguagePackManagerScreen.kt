@@ -52,7 +52,7 @@ import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.florisboard.lib.ext.Extension
 import dev.patrickgold.florisboard.lib.ext.ExtensionComponentName
 import dev.patrickgold.jetpref.datastore.ui.ExperimentalJetPrefDatastoreUi
-import dev.patrickgold.jetpref.datastore.ui.Preference
+import com.metro.keyboard.ui.prefs.Preference
 import dev.patrickgold.jetpref.material.ui.JetPrefListItem
 import org.florisboard.lib.android.showLongToastSync
 import org.florisboard.lib.compose.FlorisOutlinedBox

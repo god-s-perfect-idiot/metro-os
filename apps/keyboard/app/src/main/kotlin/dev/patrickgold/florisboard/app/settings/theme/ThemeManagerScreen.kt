@@ -16,14 +16,7 @@
 
 package dev.patrickgold.florisboard.app.settings.theme
 
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -33,6 +26,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.metro.ui.MetroDimens
+import com.metro.ui.MetroListItem
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.extensionManager
@@ -41,11 +40,7 @@ import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.florisboard.lib.ext.ExtensionComponentName
 import dev.patrickgold.florisboard.themeManager
 import dev.patrickgold.jetpref.datastore.model.collectAsState
-import dev.patrickgold.jetpref.material.ui.JetPrefListItem
 import kotlinx.coroutines.launch
-import org.florisboard.lib.compose.FlorisOutlinedBox
-import org.florisboard.lib.compose.defaultFlorisOutlinedBox
-import org.florisboard.lib.compose.rippleClickable
 import org.florisboard.lib.compose.stringRes
 
 enum class ThemeManagerScreenAction(val id: String) {
@@ -105,41 +100,47 @@ fun ThemeManagerScreen(action: ThemeManagerScreenAction?) = FlorisScreen {
                 themeManager.previewThemeId.value = null
             }
         }
-        val grayColor = LocalContentColor.current.copy(alpha = 0.56f)
         for ((extensionId, configs) in extGroupedThemes) key(extensionId) {
             val ext = extensionManager.getExtensionById(extensionId)!!
-            FlorisOutlinedBox(
-                modifier = Modifier.defaultFlorisOutlinedBox(),
-                title = ext.meta.title,
-                subtitle = extensionId,
-            ) {
-                for (config in configs) key(extensionId, config.id) {
-                    JetPrefListItem(
-                        modifier = Modifier.rippleClickable {
-                            setTheme(extensionId, config.id)
-                        },
-                        icon = {
-                            RadioButton(
-                                selected = activeThemeId.extensionId == extensionId &&
-                                    activeThemeId.componentId == config.id,
-                                onClick = null,
-                            )
-                        },
-                        text = config.label,
-                        trailing = {
-                            Icon(
-                                modifier = Modifier.size(ButtonDefaults.IconSize),
-                                imageVector = if (config.isNightTheme) {
-                                    Icons.Default.DarkMode
-                                } else {
-                                    Icons.Default.LightMode
-                                },
-                                contentDescription = null,
-                                tint = grayColor,
-                            )
-                        },
-                    )
-                }
+            MetroText(
+                text = ext.meta.title.lowercase(),
+                style = MetroTextStyle.SectionHeader,
+                color = MetroTheme.colors.accent,
+                modifier = Modifier.padding(
+                    start = MetroDimens.ScreenHorizontalMargin,
+                    end = MetroDimens.ScreenHorizontalMargin,
+                    top = 12.dp,
+                    bottom = 2.dp,
+                ),
+            )
+            MetroText(
+                text = extensionId,
+                style = MetroTextStyle.ListItemSubtitle,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier.padding(
+                    start = MetroDimens.ScreenHorizontalMargin,
+                    end = MetroDimens.ScreenHorizontalMargin,
+                    bottom = 4.dp,
+                ),
+            )
+            for (config in configs) key(extensionId, config.id) {
+                val selected = activeThemeId.extensionId == extensionId &&
+                    activeThemeId.componentId == config.id
+                MetroListItem(
+                    title = config.label.lowercase(),
+                    subtitle = if (config.isNightTheme) "night" else "day",
+                    trailing = {
+                        MetroText(
+                            text = if (selected) "●" else "○",
+                            style = MetroTextStyle.ListItemTitle,
+                            color = if (selected) MetroTheme.colors.accent else MetroTheme.colors.secondaryText,
+                        )
+                    },
+                    verticalPadding = 8.dp,
+                    oneLineMinHeight = 56.dp,
+                    twoLineMinHeight = 68.dp,
+                    onClick = { setTheme(extensionId, config.id) },
+                )
             }
         }
     }

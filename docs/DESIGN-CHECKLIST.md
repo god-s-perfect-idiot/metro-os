@@ -9,7 +9,7 @@ Use before marking any UI task complete. Every item must pass or be documented a
 - [ ] Tiles and border text buttons use **0dp** corner radius (sharp squares)
 - [ ] App bar icon buttons use **circular** press affordance — circle not baked into asset
 - [ ] No rounded-corner cards, FABs, or Material elevation
-- [ ] ToggleSwitch is the only pill-shaped control in chrome (besides slider thumb / radio)
+- [ ] ToggleSwitch is a sharp rectangle (0dp corners) — never a pill/capsule
 
 ## Typography
 
@@ -50,7 +50,7 @@ Use before marking any UI task complete. Every item must pass or be documented a
 - [ ] Border text buttons: 3dp stroke, square corners, transparent rest (see `METRO-UX-LANGUAGE.md` §6.3)
 - [ ] App bar: use `MetroAppBar` — icon-only row (max 4), `…` reveals labels + text menu list below the icon row (max 5), bottom only
 - [ ] List items use tilt-on-press (3°, 150ms)
-- [ ] ToggleSwitch pill shape with accent fill when on
+- [ ] ToggleSwitch sharp rectangle with accent fill when on, rectangular thumb
 - [ ] No Material buttons, chips, cards, bottom sheets, snackbars
 
 ## Navigation

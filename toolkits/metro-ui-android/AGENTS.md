@@ -11,7 +11,7 @@ Single source of WP8.1 UI components for all metro-os apps. Every control in `sc
 Before implementing or changing any composable, read [`METRO-UX-LANGUAGE.md`](METRO-UX-LANGUAGE.md). It defines:
 
 - **Square family** — tiles, border text buttons, lists, dialogs (0dp corners)
-- **Round family** — app bar icon press circles, toggle pill, slider thumb, radio (exceptions only)
+- **Round family** — app bar icon press circles, radio (exceptions only); toggle is square-family
 - Per-control anatomy, states, and anti-patterns
 
 `scope.md` holds numeric tokens; `METRO-UX-LANGUAGE.md` holds shape and interaction decisions.

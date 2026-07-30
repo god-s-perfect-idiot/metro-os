@@ -157,7 +157,7 @@
     <string name="settings__localization__suggested_subtype_presets_none_found" comment="Suggested presets none found">No suggested presets available. Use below button to view all subtype presets.</string>
     <string name="settings__localization__subtype_presets" comment="Subtype presets dialog title">Subtype presets</string>
     <string name="settings__localization__subtype_presets_view_all" comment="View all presets button">Show all</string>
-    <string name="settings__localization__subtype_no_subtypes_configured_warning" comment="Warning message that no subtype has been defined">It seems that you haven\'t configured any subtypes. As a fallback the subtype English/QWERTY will be used!</string>
+    <string name="settings__localization__subtype_no_subtypes_configured_warning" comment="Warning message that no subtype has been defined">No writing languages yet. English (United States) / QWERTY will be used until you add one.</string>
     <string name="settings__localization__subtype_error_already_exists" comment="Error message shown in subtype dialog when a subtype to add already exists">This subtype already exists!</string>
     <string name="settings__localization__subtype_error_fields_no_value" comment="Error message shown in subtype editor if at least one field is set to '- select -' (means no value specified)">At least one field does not have a value selected. Please choose a value for the field(s).</string>
     <string name="settings__localization__subtype_error_layout_not_installed" comment="Error message shown in subtype list when a layout is not installed, where %s will be replaced by the layout ID">{layout_id} (not installed)</string>

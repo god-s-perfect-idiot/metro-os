@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,12 +45,9 @@ import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +84,7 @@ import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.editorInstance
 import dev.patrickgold.florisboard.ime.input.LocalInputFeedbackController
 import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
+import dev.patrickgold.florisboard.ime.media.KeyboardLikeButton
 import dev.patrickgold.florisboard.ime.text.keyboard.TextKeyData
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import dev.patrickgold.florisboard.keyboardManager
@@ -105,7 +104,18 @@ import org.florisboard.lib.snygg.ui.SnyggText
 import org.florisboard.lib.snygg.ui.rememberSnyggThemeQuery
 import kotlin.math.ceil
 
-private val EmojiCategoryValues = EmojiCategory.entries
+/** WP8.1-style bottom category strip (matches sip_emoji reference). */
+private val WpEmojiCategories = listOf(
+    EmojiCategory.RECENTLY_USED,
+    EmojiCategory.SMILEYS_EMOTION,
+    EmojiCategory.PEOPLE_BODY,
+    EmojiCategory.ACTIVITIES,
+    EmojiCategory.FOOD_DRINK,
+    EmojiCategory.TRAVEL_PLACES,
+    EmojiCategory.ANIMALS_NATURE,
+    EmojiCategory.SYMBOLS,
+)
+
 private val EmojiBaseWidth = 42.dp
 private val EmojiDefaultFontSize = 22.sp
 
@@ -163,12 +173,16 @@ fun EmojiPaletteView(
     val preferredSkinTone by prefs.emoji.preferredSkinTone.collectAsState()
     val emojiHistoryEnabled by prefs.emoji.historyEnabled.collectAsState()
 
-    var activeCategory by remember(emojiHistoryEnabled) {
+    val bottomCategories = remember(emojiHistoryEnabled) {
         if (emojiHistoryEnabled) {
-            mutableStateOf(EmojiCategory.RECENTLY_USED)
+            WpEmojiCategories
         } else {
-            mutableStateOf(EmojiCategory.SMILEYS_EMOTION)
+            WpEmojiCategories.filter { it != EmojiCategory.RECENTLY_USED }
         }
+    }
+
+    var activeCategory by remember(emojiHistoryEnabled) {
+        mutableStateOf(bottomCategories.first())
     }
     var recentlyUsedVersion by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -205,113 +219,114 @@ fun EmojiPaletteView(
         )
     }
 
-    fun calculatePageNumbers(): Int {
-        return when {
-            !emojiHistoryEnabled -> EmojiCategoryValues.size - 1
-            else -> EmojiCategoryValues.size
-        }
+    fun categoryToPageNumber(category: EmojiCategory): Int {
+        return bottomCategories.indexOf(category).coerceAtLeast(0)
     }
 
     fun pageNumberToCategory(pageNumber: Int): EmojiCategory {
-        return when {
-            !emojiHistoryEnabled -> EmojiCategoryValues[pageNumber + 1]
-            else -> EmojiCategoryValues[pageNumber]
-        }
+        return bottomCategories.getOrElse(pageNumber) { bottomCategories.first() }
     }
-
-    fun categoryToPageNumber(category: EmojiCategory): Int {
-        return if (emojiHistoryEnabled) {
-            EmojiCategoryValues.indexOf(category)
-        } else {
-            EmojiCategoryValues.indexOf(category) - 1
-        }
-    }
-
 
     @Composable
-    fun EmojiCategoriesTabRow(
+    fun WpEmojiBottomBar(
         activeCategory: EmojiCategory,
         onCategoryChange: (EmojiCategory) -> Unit,
     ) {
         val inputFeedbackController = LocalInputFeedbackController.current
-        val selectedTabIndex = categoryToPageNumber(activeCategory)
-        val style = rememberSnyggThemeQuery(FlorisImeUi.MediaEmojiTab.elementName)
-        PrimaryTabRow(
+        SnyggRow(
+            elementName = FlorisImeUi.MediaBottomRow.elementName,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(FlorisImeSizing.smartbarHeight),
-            selectedTabIndex = selectedTabIndex,
-            containerColor = Color.Transparent,
-            contentColor = style.foreground(),
-            indicator = {
-                val style = rememberSnyggThemeQuery(
-                    elementName = FlorisImeUi.MediaEmojiTab.elementName,
-                    selector = SnyggSelector.FOCUS,
-                )
-                TabRowDefaults.PrimaryIndicator(
-                    Modifier.tabIndicatorOffset(selectedTabIndex),
-                    height = 4.dp,
-                    color = style.foreground(),
-                )
-            },
+                .height(FlorisImeSizing.keyboardRowBaseHeight * 0.85f),
         ) {
-            for (category in EmojiCategoryValues) {
-                if (category == EmojiCategory.RECENTLY_USED && !emojiHistoryEnabled) {
-                    continue
+            KeyboardLikeButton(
+                elementName = FlorisImeUi.MediaBottomRowButton.elementName,
+                inputEventDispatcher = keyboardManager.inputEventDispatcher,
+                keyData = TextKeyData.IME_UI_MODE_TEXT,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            ) {
+                SnyggText(
+                    text = "abc",
+                    modifier = Modifier,
+                )
+            }
+            for (category in bottomCategories) {
+                val selected = activeCategory == category
+                val selector = if (selected) SnyggSelector.FOCUS else SnyggSelector.NONE
+                SnyggBox(
+                    elementName = FlorisImeUi.MediaEmojiTab.elementName,
+                    selector = selector,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .pointerInput(category) {
+                            detectTapGestures {
+                                inputFeedbackController.keyPress(TextKeyData.UNSPECIFIED)
+                                onCategoryChange(category)
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val glyph = category.wpGlyph()
+                    if (glyph != null) {
+                        SnyggText(text = glyph)
+                    } else {
+                        SnyggIcon(
+                            elementName = FlorisImeUi.MediaEmojiTab.elementName,
+                            selector = selector,
+                            modifier = Modifier.size(22.dp),
+                            imageVector = category.icon(),
+                        )
+                    }
                 }
-                Tab(
-                    onClick = {
-                        inputFeedbackController.keyPress(TextKeyData.UNSPECIFIED)
-                        onCategoryChange(category)
-                    },
-                    selected = activeCategory == category,
-                    icon = { SnyggIcon(
-                        elementName = FlorisImeUi.MediaEmojiTab.elementName,
-                        selector = if (activeCategory == category) SnyggSelector.FOCUS else SnyggSelector.NONE,
-                        modifier = Modifier.size(ButtonDefaults.IconSize),
-                        imageVector = category.icon(),
-                    ) },
+            }
+            KeyboardLikeButton(
+                elementName = FlorisImeUi.MediaBottomRowButton.elementName,
+                inputEventDispatcher = keyboardManager.inputEventDispatcher,
+                keyData = TextKeyData.DELETE,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            ) {
+                SnyggIcon(
+                    imageVector = Icons.AutoMirrored.Outlined.Backspace,
+                    contentDescription = null,
                 )
             }
         }
     }
 
-    Column(
-        modifier = modifier
-    ) {
+    Column(modifier = modifier) {
         val pagerState = rememberPagerState(
-            pageCount = { calculatePageNumbers() }
+            pageCount = { bottomCategories.size },
         )
 
-        // Reset the pager to the first page when emojiHistory is enabled
         LaunchedEffect(emojiHistoryEnabled) {
-            pagerState.animateScrollToPage(0)
+            activeCategory = bottomCategories.first()
+            pagerState.scrollToPage(0)
         }
 
-        EmojiCategoriesTabRow(
-            activeCategory = activeCategory,
-            onCategoryChange = { category ->
-                activeCategory = category
-                scope.launch { pagerState.animateScrollToPage(categoryToPageNumber(activeCategory)) }
-            },
-        )
-        HorizontalPager(pagerState, beyondViewportPageCount = 1) { page ->
-            // Every page needs its own lazyGridState in order to scroll correctly
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            beyondViewportPageCount = 1,
+        ) { page ->
             val lazyGridState = rememberLazyGridState()
 
-            // Update the lazyGridState and active category on scroll
             LaunchedEffect(pagerState) {
-                snapshotFlow { pagerState.currentPage }.collect { page ->
+                snapshotFlow { pagerState.currentPage }.collect { pageIndex ->
                     lazyGridState.scrollToItem(0)
-                    activeCategory = pageNumberToCategory(page)
+                    activeCategory = pageNumberToCategory(pageIndex)
                     recentlyUsedVersion++
                 }
             }
 
             val category = pageNumberToCategory(page)
             val emojiMapping = if (category == EmojiCategory.RECENTLY_USED) {
-                // Purposely using remember here to prevent recomposition, as this would cause rapid
-                // emoji changes for the user when in recently used category.
                 remember(recentlyUsedVersion) {
                     val data = prefs.emoji.historyData.get()
                     EmojiMappingForView(
@@ -324,32 +339,28 @@ fun EmojiPaletteView(
                 EmojiMappingForView(
                     pinned = emptyList(),
                     recent = emptyList(),
-                    simple = emojiMappings[category]!!,
+                    simple = emojiMappings[category].orEmpty(),
                 )
             }
 
             val isEmojiHistoryEmpty = emojiMapping.pinned.isEmpty() && emojiMapping.recent.isEmpty()
-            when (category) {
-                EmojiCategory.RECENTLY_USED if deviceLocked -> {
+            when {
+                category == EmojiCategory.RECENTLY_USED && deviceLocked -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(all = 8.dp),
                     ) {
-                        Text(
-                            text = stringRes(R.string.emoji__history__phone_locked_message),
-                        )
+                        Text(text = stringRes(R.string.emoji__history__phone_locked_message))
                     }
                 }
-                EmojiCategory.RECENTLY_USED if isEmojiHistoryEmpty -> {
+                category == EmojiCategory.RECENTLY_USED && isEmojiHistoryEmpty -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(all = 8.dp),
                     ) {
-                        Text(
-                            text = stringRes(R.string.emoji__history__empty_message),
-                        )
+                        Text(text = stringRes(R.string.emoji__history__empty_message))
                         Text(
                             modifier = Modifier.padding(top = 8.dp),
                             text = stringRes(R.string.emoji__history__usage_tip),
@@ -362,7 +373,7 @@ fun EmojiPaletteView(
                         modifier = Modifier
                             .fillMaxSize()
                             .florisScrollbar(lazyGridState),
-                        columns = GridCells.Adaptive(minSize = EmojiBaseWidth),
+                        columns = GridCells.Fixed(6),
                         state = lazyGridState,
                     ) {
                         if (emojiMapping.pinned.isNotEmpty()) {
@@ -390,7 +401,28 @@ fun EmojiPaletteView(
                 }
             }
         }
+
+        WpEmojiBottomBar(
+            activeCategory = activeCategory,
+            onCategoryChange = { category ->
+                activeCategory = category
+                scope.launch { pagerState.animateScrollToPage(categoryToPageNumber(category)) }
+            },
+        )
     }
+}
+
+/** Compact WP8.1 category glyphs for the emoji bottom strip. */
+private fun EmojiCategory.wpGlyph(): String? = when (this) {
+    EmojiCategory.RECENTLY_USED -> "♥"
+    EmojiCategory.SMILEYS_EMOTION -> ":)"
+    EmojiCategory.PEOPLE_BODY -> "☺"
+    EmojiCategory.ACTIVITIES -> "🎈"
+    EmojiCategory.FOOD_DRINK -> "🍕"
+    EmojiCategory.TRAVEL_PLACES -> "✈"
+    EmojiCategory.ANIMALS_NATURE -> "☁"
+    EmojiCategory.SYMBOLS -> "!?"
+    else -> null
 }
 
 @Composable

@@ -49,7 +49,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -63,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
@@ -73,6 +73,8 @@ import androidx.compose.ui.unit.dp
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
+import com.metro.ui.MetroTheme
+import com.metro.ui.MetroToggleSwitch
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.app.apptheme.Shapes
@@ -685,7 +687,18 @@ private fun ComponentMetaEditorDialog(
                 modifier = Modifier.toggleable(isNightTheme) { isNightTheme = it },
                 text = stringRes(R.string.settings__theme_editor__component_meta_is_night_theme),
                 trailing = {
-                    Switch(checked = isNightTheme, onCheckedChange = null)
+                    MetroTheme(
+                        darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f,
+                        accent = MaterialTheme.colorScheme.primary,
+                    ) {
+                        MetroToggleSwitch(
+                            isNightTheme,
+                            { },
+                            Modifier,
+                            true,
+                            null,
+                        )
+                    }
                 },
                 colors = ListItemDefaults.colors(containerColor = AlertDialogDefaults.containerColor)
             )

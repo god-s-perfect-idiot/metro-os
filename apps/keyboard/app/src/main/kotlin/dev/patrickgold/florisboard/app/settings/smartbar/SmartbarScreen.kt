@@ -24,9 +24,9 @@ import dev.patrickgold.florisboard.ime.smartbar.CandidatesDisplayMode
 import dev.patrickgold.florisboard.ime.smartbar.ExtendedActionsPlacement
 import dev.patrickgold.florisboard.ime.smartbar.SmartbarLayout
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
-import dev.patrickgold.jetpref.datastore.ui.ListPreference
-import dev.patrickgold.jetpref.datastore.ui.PreferenceGroup
-import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
+import com.metro.keyboard.ui.prefs.ListPreference
+import com.metro.keyboard.ui.prefs.PreferenceGroup
+import com.metro.keyboard.ui.SwitchPreference
 import org.florisboard.lib.compose.stringRes
 
 @Composable

@@ -32,9 +32,9 @@ import dev.patrickgold.florisboard.ime.smartbar.quickaction.QuickActionArrangeme
 import dev.patrickgold.florisboard.lib.compose.FlorisConfirmDeleteDialog
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.jetpref.datastore.model.collectAsState
-import dev.patrickgold.jetpref.datastore.ui.Preference
-import dev.patrickgold.jetpref.datastore.ui.PreferenceGroup
-import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
+import com.metro.keyboard.ui.prefs.Preference
+import com.metro.keyboard.ui.prefs.PreferenceGroup
+import com.metro.keyboard.ui.SwitchPreference
 import kotlinx.coroutines.launch
 import org.florisboard.lib.android.AndroidSettings
 import org.florisboard.lib.android.AndroidVersion

@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
@@ -44,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -54,14 +54,14 @@ import androidx.compose.ui.unit.sp
 
 
 object FlorisCardDefaults {
-    val IconRequiredSize = 24.dp
+    val IconRequiredSize = 40.dp
     val IconSpacing = 12.dp
 
-    val ContentPadding = PaddingValues(start = 0.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+    val ContentPadding = PaddingValues(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
 }
 
 object BoxDefaults {
-    val OutlinedBoxShape = RoundedCornerShape(8.dp)
+    val OutlinedBoxShape = RectangleShape
 
     val ContentPadding = PaddingValues(all = 0.dp)
 }
@@ -81,14 +81,13 @@ fun FlorisSimpleCard(
         onClick = onClick ?: { },
         enabled = onClick != null,
         modifier = modifier.fillMaxWidth(),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(
             contentColor = contentColor,
             containerColor = backgroundColor,
             disabledContainerColor = backgroundColor,
             disabledContentColor = contentColor,
-        )
-        //backgroundColor = backgroundColor,
-        //contentColor = contentColor,
+        ),
     ) {
         Row(
             modifier = Modifier.padding(contentPadding),

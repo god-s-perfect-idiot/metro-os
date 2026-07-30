@@ -18,7 +18,7 @@ Metro-os changes:
 
 ## Status
 
-IME + Metro settings scaffolded. Visual chrome via Snygg WP8.1 themes.
+IME + Metro settings. WP8.1 front page (`keyboard`) with setup banners; **advanced** opens the full FlorisBoard settings tree restyled with Metro chrome (`FlorisScreen` → `MetroSettingsHeader`, Metro preference adapters).
 
 ## Commands
 
@@ -59,7 +59,7 @@ FlorisBoard’s `lib:native` needs:
 |----------------|-------------------|------------|
 | Keyboard always available as system SIP | User must enable/select IME | Metro setup banners deep-link to Android IME enabler/picker |
 | Settings → keyboard inside system Settings hub | Separate APK | Dedicated Keyboard settings app with WP8.1 page hierarchy |
-| FlorisBoard Material3 settings | Metro bans Material in app UI | Metro launcher settings only; engine Material retained behind `lint-engine-exception` |
+| FlorisBoard Material3 settings | Metro bans Material in app UI | Floris settings screens hosted under Metro chrome (`FlorisScreen` + Metro preference adapters); residual Material only in niche pickers (color/time) and a few legacy FABs pending MetroAppBar migration |
 
 ## Agent postmortem
 

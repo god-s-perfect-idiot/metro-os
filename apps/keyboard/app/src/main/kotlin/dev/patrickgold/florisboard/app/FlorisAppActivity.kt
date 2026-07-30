@@ -22,12 +22,13 @@ import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -42,8 +43,10 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 import dev.patrickgold.florisboard.R
-import dev.patrickgold.florisboard.app.apptheme.FlorisAppTheme
 import dev.patrickgold.florisboard.app.ext.ExtensionImportScreenType
 import dev.patrickgold.florisboard.app.setup.NotificationPermissionState
 import dev.patrickgold.florisboard.appContext
@@ -125,8 +128,13 @@ class FlorisAppActivity : ComponentActivity() {
                     resourcesContext,
                     appName = R.string.app_name,
                 ) {
-                    FlorisAppTheme(theme = appTheme) {
-                        Surface(color = MaterialTheme.colorScheme.background) {
+                    MetroSystemTheme {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MetroTheme.colors.background)
+                                .metroNavBarPadding(),
+                        ) {
                             AppContent()
                         }
                     }

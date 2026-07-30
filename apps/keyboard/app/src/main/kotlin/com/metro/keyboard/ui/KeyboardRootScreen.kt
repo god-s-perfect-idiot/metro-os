@@ -17,13 +17,21 @@ import com.metro.ui.MetroSettingsHeader
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import dev.patrickgold.florisboard.app.setup.NotificationPermissionState
 import dev.patrickgold.florisboard.lib.util.InputMethodUtils
+import org.florisboard.lib.android.AndroidVersion
 
 private val SettingsRowHeight = 76.dp
 
 @Composable
 fun KeyboardRootScreen(
+    showWelcomeIntro: Boolean = false,
+    showFinishAction: Boolean = false,
+    notificationPermissionState: NotificationPermissionState? = null,
+    onRequestNotification: (() -> Unit)? = null,
+    onSetupComplete: (() -> Unit)? = null,
     onOpenLanguage: (String) -> Unit,
+    onOpenAddKeyboards: () -> Unit,
     onOpenAdvanced: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -33,25 +41,72 @@ fun KeyboardRootScreen(
 
     LazyColumn(modifier = modifier) {
         item {
-            MetroSettingsHeader(pageTitle = "keyboard")
+            MetroSettingsHeader(
+                pageTitle = "keyboard",
+                appTitle = "keyboard",
+            )
+        }
+
+        if (showWelcomeIntro) {
+            item {
+                MetroText(
+                    text = "Choose writing languages and typing options for the Windows Phone 8.1 keyboard on this phone.",
+                    style = MetroTextStyle.Body,
+                    color = MetroTheme.colors.secondaryText,
+                    modifier = Modifier.padding(
+                        start = MetroDimens.ScreenHorizontalMargin,
+                        end = MetroDimens.ScreenHorizontalMargin,
+                        bottom = 12.dp,
+                    ),
+                )
+            }
         }
 
         if (!imeEnabled) {
             item {
                 SetupBanner(
-                    title = "Enable Keyboard",
-                    body = "Turn on Metro Keyboard in Android input settings to type with the WP8.1 SIP.",
+                    title = "enable keyboard",
+                    body = "Turn on Keyboard in Android input settings so it can appear as an input method.",
                     action = "enable",
                     onAction = { InputMethodUtils.showImeEnablerActivity(context) },
                 )
             }
-        } else if (!imeSelected) {
+        }
+
+        if (imeEnabled && !imeSelected) {
             item {
                 SetupBanner(
-                    title = "Select Keyboard",
-                    body = "Choose Metro Keyboard as your current input method.",
+                    title = "select keyboard",
+                    body = "Choose Keyboard as your current input method to start typing with the WP8.1 SIP.",
                     action = "select",
                     onAction = { InputMethodUtils.showImePicker(context) },
+                )
+            }
+        }
+
+        val needsNotificationPermission =
+            AndroidVersion.ATLEAST_API33_T && notificationPermissionState == NotificationPermissionState.NOT_SET
+        if (imeEnabled && imeSelected && needsNotificationPermission && onRequestNotification != null) {
+            item {
+                SetupBanner(
+                    title = "allow notifications",
+                    body = "Allow notifications so crash reports can open if the keyboard fails.",
+                    action = "allow",
+                    onAction = onRequestNotification,
+                )
+            }
+        }
+
+        val canFinishSetup = imeEnabled &&
+            imeSelected &&
+            (!AndroidVersion.ATLEAST_API33_T || notificationPermissionState != NotificationPermissionState.NOT_SET)
+        if (showFinishAction && canFinishSetup && onSetupComplete != null) {
+            item {
+                SetupBanner(
+                    title = "ready",
+                    body = "Keyboard is enabled and selected. Open a text field to use the WP8.1 SIP.",
+                    action = "continue",
+                    onAction = onSetupComplete,
                 )
             }
         }
@@ -71,24 +126,24 @@ fun KeyboardRootScreen(
         }
         item {
             MetroListItem(
-                title = "English (United States)",
-                subtitle = if (imeEnabled && imeSelected) "on" else "not selected",
+                title = "english (united states)",
+                subtitle = if (imeEnabled && imeSelected) "suggest text and typing options" else "not selected",
                 modifier = Modifier.height(SettingsRowHeight),
-                onClick = { onOpenLanguage("English (United States)") },
+                onClick = { onOpenLanguage("english (united states)") },
             )
         }
         item {
             MetroListItem(
                 title = "add keyboards",
-                subtitle = "install more writing languages",
+                subtitle = "writing languages available in this build",
                 modifier = Modifier.height(SettingsRowHeight),
-                onClick = { onOpenLanguage("add keyboards") },
+                onClick = onOpenAddKeyboards,
             )
         }
         item {
             MetroListItem(
                 title = "advanced",
-                subtitle = "comma key and more",
+                subtitle = "languages, typing, theme, gestures, and more",
                 modifier = Modifier.height(SettingsRowHeight),
                 onClick = onOpenAdvanced,
             )

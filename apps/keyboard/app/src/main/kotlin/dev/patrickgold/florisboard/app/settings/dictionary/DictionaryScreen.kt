@@ -21,8 +21,8 @@ import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
-import dev.patrickgold.jetpref.datastore.ui.Preference
-import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
+import com.metro.keyboard.ui.prefs.Preference
+import com.metro.keyboard.ui.SwitchPreference
 import org.florisboard.lib.compose.stringRes
 
 @Composable

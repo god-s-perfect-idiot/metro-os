@@ -40,10 +40,10 @@ import dev.patrickgold.florisboard.lib.FlorisLocale
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.jetpref.datastore.model.collectAsState
 import dev.patrickgold.jetpref.datastore.ui.ColorPickerPreference
-import dev.patrickgold.jetpref.datastore.ui.ListPreference
-import dev.patrickgold.jetpref.datastore.ui.Preference
-import dev.patrickgold.jetpref.datastore.ui.PreferenceGroup
-import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
+import com.metro.keyboard.ui.prefs.ListPreference
+import com.metro.keyboard.ui.prefs.Preference
+import com.metro.keyboard.ui.prefs.PreferenceGroup
+import com.metro.keyboard.ui.SwitchPreference
 import dev.patrickgold.jetpref.datastore.ui.isMaterialYou
 import dev.patrickgold.jetpref.datastore.ui.listPrefEntries
 import org.florisboard.lib.android.AndroidVersion

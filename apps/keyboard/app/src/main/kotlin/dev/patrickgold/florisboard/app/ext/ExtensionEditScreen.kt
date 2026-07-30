@@ -80,7 +80,7 @@ import dev.patrickgold.florisboard.lib.io.FlorisRef
 import dev.patrickgold.florisboard.lib.io.ZipUtils
 import dev.patrickgold.florisboard.lib.rememberValidationResult
 import dev.patrickgold.florisboard.themeManager
-import dev.patrickgold.jetpref.datastore.ui.Preference
+import com.metro.keyboard.ui.prefs.Preference
 import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
 import dev.patrickgold.jetpref.material.ui.JetPrefTextField
 import java.util.*

@@ -41,7 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import dev.patrickgold.florisboard.app.FlorisAppActivity
+import com.metro.keyboard.MainActivity
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.ime.ImeUiMode
 import dev.patrickgold.florisboard.ime.editor.EditorRange
@@ -100,12 +100,12 @@ class FlorisImeService : LifecycleInputMethodService() {
         }
 
         /**
-         * Hides the IME and launches [FlorisAppActivity].
+         * Hides the IME and launches the Metro keyboard settings shell.
          */
         fun launchSettings() {
             val ims = FlorisImeServiceReference.get() ?: return
             ims.requestHideSelf(0)
-            ims.launchActivity(FlorisAppActivity::class) {
+            ims.launchActivity(MainActivity::class) {
                 it.flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP

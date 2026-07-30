@@ -47,10 +47,10 @@ import dev.patrickgold.florisboard.keyboardManager
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.florisboard.subtypeManager
 import dev.patrickgold.jetpref.datastore.model.collectAsState
-import dev.patrickgold.jetpref.datastore.ui.ListPreference
-import dev.patrickgold.jetpref.datastore.ui.Preference
-import dev.patrickgold.jetpref.datastore.ui.PreferenceGroup
-import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
+import com.metro.keyboard.ui.prefs.ListPreference
+import com.metro.keyboard.ui.prefs.Preference
+import com.metro.keyboard.ui.prefs.PreferenceGroup
+import com.metro.keyboard.ui.SwitchPreference
 import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
 import kotlinx.serialization.json.Json
 import org.florisboard.lib.compose.FlorisWarningCard
@@ -102,7 +102,7 @@ fun LocalizationScreen() = FlorisScreen {
             title = stringRes(R.string.settings__localization__display_language_names_in__label),
             entries = enumDisplayEntriesOf(DisplayLanguageNamesIn::class),
         )
-        SwitchPreference(
+            SwitchPreference(
             prefs.localization.displayKeyboardLabelsInSubtypeLanguage,
             title = stringRes(R.string.settings__localization__display_keyboard_labels_in_subtype_language),
         )

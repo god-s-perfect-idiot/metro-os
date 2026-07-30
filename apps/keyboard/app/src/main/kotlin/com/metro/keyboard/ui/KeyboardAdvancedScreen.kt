@@ -39,11 +39,14 @@ fun KeyboardAdvancedScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 24.dp),
     ) {
-        MetroSettingsHeader(pageTitle = "advanced")
+        MetroSettingsHeader(
+            pageTitle = "advanced",
+            appTitle = "keyboard",
+        )
         MetroToggleSwitch(
             checked = showCommaKey,
             onCheckedChange = { showCommaKey = it },
-            label = "Show a comma key when available",
+            label = "show a comma key when available",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
@@ -62,7 +65,7 @@ fun KeyboardAdvancedScreen(
             onCheckedChange = { enabled ->
                 scope.launch { prefs.keyboard.utilityKeyEnabled.set(enabled) }
             },
-            label = "Show emoji key",
+            label = "show emoji key",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(

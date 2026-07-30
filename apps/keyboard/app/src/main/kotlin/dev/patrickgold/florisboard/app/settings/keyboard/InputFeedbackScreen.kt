@@ -23,11 +23,11 @@ import dev.patrickgold.florisboard.app.enumDisplayEntriesOf
 import dev.patrickgold.florisboard.ime.input.HapticVibrationMode
 import dev.patrickgold.florisboard.ime.input.InputFeedbackActivationMode
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
-import dev.patrickgold.jetpref.datastore.ui.DialogSliderPreference
+import com.metro.keyboard.ui.prefs.DialogSliderPreference
 import dev.patrickgold.jetpref.datastore.ui.ExperimentalJetPrefDatastoreUi
-import dev.patrickgold.jetpref.datastore.ui.ListPreference
-import dev.patrickgold.jetpref.datastore.ui.PreferenceGroup
-import dev.patrickgold.jetpref.datastore.ui.SwitchPreference
+import com.metro.keyboard.ui.prefs.ListPreference
+import com.metro.keyboard.ui.prefs.PreferenceGroup
+import com.metro.keyboard.ui.SwitchPreference
 import org.florisboard.lib.android.systemVibratorOrNull
 import org.florisboard.lib.android.vibrate
 import org.florisboard.lib.compose.stringRes

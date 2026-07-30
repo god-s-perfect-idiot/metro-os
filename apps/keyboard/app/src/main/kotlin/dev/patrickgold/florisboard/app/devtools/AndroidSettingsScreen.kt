@@ -28,7 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
-import dev.patrickgold.jetpref.datastore.ui.Preference
+import com.metro.keyboard.ui.prefs.Preference
 import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
 import org.florisboard.lib.android.AndroidSettings
 import org.florisboard.lib.compose.stringRes

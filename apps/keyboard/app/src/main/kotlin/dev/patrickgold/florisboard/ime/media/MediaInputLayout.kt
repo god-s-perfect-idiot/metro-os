@@ -20,19 +20,12 @@ import android.annotation.SuppressLint
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Backspace
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,20 +36,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import dev.patrickgold.florisboard.ime.input.InputEventDispatcher
 import dev.patrickgold.florisboard.ime.input.LocalInputFeedbackController
 import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
 import dev.patrickgold.florisboard.ime.keyboard.KeyData
 import dev.patrickgold.florisboard.ime.media.emoji.EmojiData
 import dev.patrickgold.florisboard.ime.media.emoji.EmojiPaletteView
-import dev.patrickgold.florisboard.ime.text.keyboard.TextKeyData
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
-import dev.patrickgold.florisboard.keyboardManager
 import org.florisboard.lib.snygg.SnyggSelector
 import org.florisboard.lib.snygg.ui.SnyggBox
 import org.florisboard.lib.snygg.ui.SnyggColumn
-import org.florisboard.lib.snygg.ui.SnyggRow
 
 @SuppressLint("MutableCollectionMutableState")
 @Composable
@@ -64,8 +53,6 @@ fun MediaInputLayout(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val keyboardManager by context.keyboardManager()
-
     var emojiLayoutDataMap by remember { mutableStateOf(EmojiData.Fallback) }
     LaunchedEffect(Unit) {
         emojiLayoutDataMap = EmojiData.get(context, "ime/media/emoji/root.txt")
@@ -78,36 +65,12 @@ fun MediaInputLayout(
             .height(FlorisImeSizing.imeUiHeight()),
     ) {
         EmojiPaletteView(
-            modifier = Modifier.weight(1f),
-            fullEmojiMappings = emojiLayoutDataMap,
-        )
-        SnyggRow(
-            elementName = FlorisImeUi.MediaBottomRow.elementName,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(FlorisImeSizing.keyboardRowBaseHeight * 0.8f),
-        ) {
-            KeyboardLikeButton(
-                elementName = FlorisImeUi.MediaBottomRowButton.elementName,
-                inputEventDispatcher = keyboardManager.inputEventDispatcher,
-                keyData = TextKeyData.IME_UI_MODE_TEXT,
-                modifier = Modifier.fillMaxHeight(),
-            ) {
-                Text(
-                    text = "ABC",
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            KeyboardLikeButton(
-                elementName = FlorisImeUi.MediaBottomRowButton.elementName,
-                inputEventDispatcher = keyboardManager.inputEventDispatcher,
-                keyData = TextKeyData.DELETE,
-                modifier = Modifier.fillMaxHeight(),
-            ) {
-                Icon(imageVector = Icons.AutoMirrored.Outlined.Backspace, contentDescription = null)
-            }
-        }
+                .weight(1f)
+                .fillMaxSize(),
+            fullEmojiMappings = emojiLayoutDataMap,
+        )
     }
 }
 
@@ -117,12 +80,13 @@ internal fun KeyboardLikeButton(
     inputEventDispatcher: InputEventDispatcher,
     keyData: KeyData,
     elementName: String = FlorisImeUi.MediaEmojiKey.elementName,
+    selectorOverride: SnyggSelector? = null,
     content: @Composable () -> Unit,
 ) {
     val inputFeedbackController = LocalInputFeedbackController.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val selector = if (isPressed) {
+    val selector = selectorOverride ?: if (isPressed) {
         SnyggSelector.PRESSED
     } else {
         SnyggSelector.NONE
@@ -133,7 +97,6 @@ internal fun KeyboardLikeButton(
         attributes = mapOf(FlorisImeUi.Attr.Code to keyData.code),
         selector = selector,
         clickAndSemanticsModifier = modifier
-            .indication(interactionSource, ripple())
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false).also {

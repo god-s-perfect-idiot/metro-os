@@ -31,6 +31,7 @@ import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroToggleSwitch
 
 @Composable
 fun FilterScreen(
@@ -55,23 +56,17 @@ fun FilterScreen(
             style = MetroTextStyle.SectionHeader,
             modifier = Modifier.padding(top = 24.dp, bottom = 24.dp),
         )
-        MetroText(
-            text = stringResource(R.string.hide_no_phone),
-            style = MetroTextStyle.Body,
-            color = MetroTheme.colors.secondaryText,
-        )
-        MetroText(
-            text = if (hideNoPhone) "On" else "Off",
-            style = MetroTextStyle.ListItemTitle,
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { hideNoPhone = !hideNoPhone },
+        MetroToggleSwitch(
+            checked = hideNoPhone,
+            onCheckedChange = { hideNoPhone = it },
+            label = stringResource(R.string.hide_no_phone),
+            modifier = Modifier.fillMaxWidth(),
         )
         MetroText(
             text = stringResource(R.string.hide_no_phone_hint),
             style = MetroTextStyle.ListItemSubtitle,
             color = MetroTheme.colors.secondaryText,
-            modifier = Modifier.padding(bottom = 24.dp),
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
         )
         MetroText(
             text = stringResource(R.string.show_contacts_from),

@@ -260,7 +260,7 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 
 | WP8.1 control | Android implementation | Notes |
 |---------------|------------------------|-------|
-| `ToggleSwitch` | Custom switch | Pill shape, accent fill when on, 38×20dp thumb travel |
+| `ToggleSwitch` | Custom switch | Sharp rectangle 52×20dp, accent fill when on, rectangular thumb |
 | `Slider` | Custom slider | Accent track, 24dp thumb |
 | `ProgressBar` | Indeterminate: accent bar sweep; Determinate: accent fill | |
 | `ListBox` / `LongListSelector` | `MetroListView` | Tilt-on-press animation (3° Z-rotate, 150ms) |

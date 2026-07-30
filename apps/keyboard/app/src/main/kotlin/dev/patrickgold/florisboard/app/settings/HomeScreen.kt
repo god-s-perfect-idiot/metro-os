@@ -16,149 +16,136 @@
 
 package dev.patrickgold.florisboard.app.settings
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Assignment
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Gesture
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
-import androidx.compose.material.icons.filled.SmartButton
-import androidx.compose.material.icons.filled.Spellcheck
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.metro.keyboard.ui.prefs.Preference
+import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroDimens
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.florisboard.lib.util.InputMethodUtils
-import dev.patrickgold.jetpref.datastore.model.collectAsState
-import dev.patrickgold.jetpref.datastore.ui.Preference
-import org.florisboard.lib.compose.FlorisErrorCard
-import org.florisboard.lib.compose.FlorisWarningCard
 import org.florisboard.lib.compose.stringRes
 
 @Composable
 fun HomeScreen() = FlorisScreen {
-    title = stringRes(R.string.settings__home__title)
+    title = "advanced"
     navigationIconVisible = false
     previewFieldVisible = true
+    iconSpaceReserved = false
 
     val navController = LocalNavController.current
     val context = LocalContext.current
 
     content {
-        val isCollapsed by prefs.internal.homeIsBetaToolboxCollapsed.collectAsState()
-
         val isFlorisBoardEnabled by InputMethodUtils.observeIsFlorisboardEnabled(foregroundOnly = true)
         val isFlorisBoardSelected by InputMethodUtils.observeIsFlorisboardSelected(foregroundOnly = true)
         if (!isFlorisBoardEnabled) {
-            FlorisErrorCard(
-                modifier = Modifier.padding(8.dp),
-                showIcon = false,
-                text = stringRes(R.string.settings__home__ime_not_enabled),
-                onClick = { InputMethodUtils.showImeEnablerActivity(context) },
+            MetroSetupBanner(
+                title = "enable keyboard",
+                body = stringRes(R.string.settings__home__ime_not_enabled),
+                action = "enable",
+                onAction = { InputMethodUtils.showImeEnablerActivity(context) },
             )
         } else if (!isFlorisBoardSelected) {
-            FlorisWarningCard(
-                modifier = Modifier.padding(8.dp),
-                showIcon = false,
-                text = stringRes(R.string.settings__home__ime_not_selected),
-                onClick = { InputMethodUtils.showImePicker(context) },
+            MetroSetupBanner(
+                title = "select keyboard",
+                body = stringRes(R.string.settings__home__ime_not_selected),
+                action = "select",
+                onAction = { InputMethodUtils.showImePicker(context) },
             )
         }
 
-        /*Card(modifier = Modifier.padding(8.dp)) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Welcome to the 0.4 alpha series!",
-                        style = MaterialTheme.typography.subtitle1,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.weight(1.0f))
-                    IconButton(onClick = { this@content.prefs.internal.homeIsBetaToolboxCollapsed.set(!isCollapsed) }) {
-                        Icon(
-                            painter = painterResource(if (isCollapsed) {
-                                R.drawable.ic_keyboard_arrow_down
-                            } else {
-                                R.drawable.ic_keyboard_arrow_up
-                            }),
-                            contentDescription = null,
-                        )
-                    }
-                }
-                if (!isCollapsed) {
-                    Text("0.4 will be quite a big release and finally work on adding support for word suggestion and inline autocorrect within the keyboard UI, at first for Latin-based languages. Additionally general improvements and bug fixes will also be made.\n")
-                    Text("Currently the alpha releases are preparations for the suggestions implementation and general improvements and bug fixes.\n")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Note that this release does not contain support for word suggestions (will show the current word plus numbers as a placeholder).", color = Color.Red)
-                    Text("Please DO NOT file an issue for this. It is already more than known and a major goal for implementation in 0.4.0. Thank you!\n")
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
-        }*/
         Preference(
-            icon = Icons.Default.Language,
             title = stringRes(R.string.settings__localization__title),
+            summary = "writing languages and layouts",
             onClick = { navController.navigate(Routes.Settings.Localization) },
         )
         Preference(
-            icon = Icons.Outlined.Palette,
             title = stringRes(R.string.settings__theme__title),
+            summary = "day and night keyboard look",
             onClick = { navController.navigate(Routes.Settings.Theme) },
         )
         Preference(
-            icon = Icons.Outlined.Keyboard,
             title = stringRes(R.string.settings__keyboard__title),
+            summary = "keys, spacing, and long-press",
             onClick = { navController.navigate(Routes.Settings.Keyboard) },
         )
         Preference(
-            icon = Icons.Default.SmartButton,
             title = stringRes(R.string.settings__smartbar__title),
+            summary = "suggestion bar layout",
             onClick = { navController.navigate(Routes.Settings.Smartbar) },
         )
         Preference(
-            icon = Icons.Default.Spellcheck,
             title = stringRes(R.string.settings__typing__title),
+            summary = "suggestions, correction, and spelling",
             onClick = { navController.navigate(Routes.Settings.Typing) },
         )
         Preference(
-            icon = Icons.Default.Gesture,
             title = stringRes(R.string.settings__gestures__title),
+            summary = "swipes and glide typing",
             onClick = { navController.navigate(Routes.Settings.Gestures) },
         )
         Preference(
-            icon = Icons.AutoMirrored.Outlined.Assignment,
             title = stringRes(R.string.settings__clipboard__title),
+            summary = "clipboard history and suggestions",
             onClick = { navController.navigate(Routes.Settings.Clipboard) },
         )
         Preference(
-            icon = Icons.Default.SentimentSatisfiedAlt,
             title = stringRes(R.string.settings__media__title),
+            summary = "emoji history and suggestions",
             onClick = { navController.navigate(Routes.Settings.Media) },
         )
         Preference(
-            icon = Icons.Default.Extension,
             title = stringRes(R.string.ext__home__title),
+            summary = "themes, layouts, and language packs",
             onClick = { navController.navigate(Routes.Ext.Home) },
         )
         Preference(
-            icon = Icons.Outlined.Build,
             title = stringRes(R.string.settings__other__title),
+            summary = "backup, restore, and developer tools",
             onClick = { navController.navigate(Routes.Settings.Other) },
         )
         Preference(
-            icon = Icons.Outlined.Info,
             title = stringRes(R.string.about__title),
+            summary = "version and licenses",
             onClick = { navController.navigate(Routes.Settings.About) },
         )
+    }
+}
+
+@Composable
+private fun MetroSetupBanner(
+    title: String,
+    body: String,
+    action: String,
+    onAction: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = MetroDimens.ScreenHorizontalMargin,
+                vertical = 12.dp,
+            ),
+    ) {
+        MetroText(text = title, style = MetroTextStyle.ListItemTitle)
+        MetroText(
+            text = body,
+            style = MetroTextStyle.ListItemSubtitle,
+            color = MetroTheme.colors.secondaryText,
+            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+        )
+        MetroBorderButton(text = action, onClick = onAction)
     }
 }
