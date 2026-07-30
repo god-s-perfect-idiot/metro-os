@@ -67,6 +67,9 @@ class MainActivity : ComponentActivity() {
 
             val overlayGranted = remember(permissionTick) { Settings.canDrawOverlays(context) }
             val accessibilityEnabled = remember(permissionTick) { StatusBarAccessibilityService.isEnabled() }
+            val notificationAccess = remember(permissionTick) {
+                ActionNotificationListenerService.isEnabled(context)
+            }
             val phoneStateGranted = remember(permissionTick) {
                 ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
                     PackageManager.PERMISSION_GRANTED
@@ -133,6 +136,19 @@ class MainActivity : ComponentActivity() {
                         onClick = {
                             startActivity(
                                 Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                },
+                            )
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    MetroBorderButton(
+                        text = stringResource(R.string.grant_notifications),
+                        enabled = !notificationAccess,
+                        onClick = {
+                            startActivity(
+                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 },
                             )

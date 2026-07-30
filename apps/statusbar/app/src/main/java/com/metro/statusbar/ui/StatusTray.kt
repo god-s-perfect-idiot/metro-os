@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -141,12 +142,38 @@ fun StatusTray(
                     backgroundColor = background,
                 )
             }
-            MetroText(
-                text = snapshot.clockText,
-                style = MetroTextStyle.DialogBody,
-                color = foreground,
-                modifier = Modifier.semantics { contentDescription = "Clock" },
-            )
+            if (snapshot.actionCenterOpen) {
+                // WP8.1 Action Center clock cluster: time on top, battery % + date below.
+                Column(horizontalAlignment = Alignment.End) {
+                    MetroText(
+                        text = snapshot.clockText,
+                        style = MetroTextStyle.DialogBody,
+                        color = foreground,
+                        modifier = Modifier.semantics { contentDescription = "Clock" },
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (batteryPresent) {
+                            MetroText(
+                                text = "${snapshot.battery.percent}%",
+                                style = MetroTextStyle.DialogBody,
+                                color = foreground,
+                            )
+                        }
+                        MetroText(
+                            text = snapshot.dateText,
+                            style = MetroTextStyle.DialogBody,
+                            color = foreground,
+                        )
+                    }
+                }
+            } else {
+                MetroText(
+                    text = snapshot.clockText,
+                    style = MetroTextStyle.DialogBody,
+                    color = foreground,
+                    modifier = Modifier.semantics { contentDescription = "Clock" },
+                )
+            }
         }
     }
 }

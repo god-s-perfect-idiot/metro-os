@@ -20,6 +20,9 @@ object MetroTransitions {
     const val StatusTrayIconStaggerMs = 90
     /** Hold after staggered enter before staggered exit. */
     const val StatusTrayAutoCollapseMs = 5000
+    /** Action Center shade open / close. */
+    const val ActionCenterOpenMs = 280
+    const val ActionCenterCloseMs = 240
     const val TileFlipMs = 600
     /** Jump-list letter tile entrance flip (PlaneProjection RotationX). */
     const val JumpListFlipMs = 300

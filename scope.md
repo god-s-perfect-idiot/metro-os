@@ -28,8 +28,9 @@ Each app is an independent Android project. Package name: `com.metro.<app>`.
 | **Launcher** | `com.metro.launcher` | Start screen, live tiles (fed by app tile widgets), app list, wallpaper, tile pinning |
 | **Status bar** | `com.metro.statusbar` | System tray overlay: clock, signal, battery, expandable indicators |
 | **Navigation bar** | `com.metro.navbar` | Soft keys: Back, Start, Search; theme-colored bar; swipe-to-hide on supported layouts |
+| **Keyboard** | `com.metro.keyboard` | WP8.1 SIP / Word Flow–style touch keyboard IME + keyboard settings |
 
-These three apps form the **Metro Shell**. Consumer apps assume the shell is installed and expose WP8.1-standard intents/contracts.
+These apps form the **Metro Shell** (launcher, status bar, navigation bar) plus system input. Consumer apps assume the shell is installed and expose WP8.1-standard intents/contracts.
 
 ### Tier 1 — Core apps (first wave)
 
@@ -196,6 +197,7 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 - Indicator order (left → right): cellular signal, Wi-Fi, Bluetooth, alarm, location, battery
 - Supports: opaque, translucent (`backgroundOpacity` 0.5), or hidden per-app
 - Progress: indeterminate accent spinner in tray during long operations
+- **Action Center:** swipe down from the tray opens the WP8.1 notification shade (quick-action tiles + grouped notifications); swipe up closes. Owned by `com.metro.statusbar`
 - **Must not** use Material status bar styling
 
 #### Navigation bar (soft keys)
@@ -495,7 +497,7 @@ All screenshot tests run against `lumia-925` profile unless app README specifies
 ```
 Phase 1: toolkits (metro-ui-android, metro-system-sdk, metro-test-harness)
     ↓
-Phase 2: Tier 0 shell (launcher → statusbar → navbar)
+Phase 2: Tier 0 shell (launcher → statusbar → navbar → keyboard)
     ↓
 Phase 3: Tier 1 apps (browser, notes, music) — parallel allowed
     ↓

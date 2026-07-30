@@ -112,6 +112,10 @@ data class TraySnapshot(
     val dataConnectionLabel: String?,
     val battery: BatteryStatus,
     val theme: TrayThemeSnapshot,
+    /** Action Center open — clock cluster shows battery % + date under the time. */
+    val actionCenterOpen: Boolean = false,
+    /** Date under the clock while Action Center is open (e.g. `5/25`). */
+    val dateText: String = "",
 )
 
 object TrayIndicatorOrder {

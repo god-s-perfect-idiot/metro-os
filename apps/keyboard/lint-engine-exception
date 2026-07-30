@@ -1,0 +1,3 @@
+# FlorisBoard-derived IME engine retains Material3 in settings internals.
+# User-facing Metro UI lives under com.metro.keyboard and is still linted.
+# See apps/keyboard/README.md § Platform exceptions.

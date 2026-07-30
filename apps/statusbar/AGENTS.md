@@ -4,7 +4,8 @@
 
 ## App role
 
-WP8.1 **System Tray** overlay — clock, expandable status indicators, optional in-tray progress. Runs as overlay service.
+WP8.1 **System Tray** + **Action Center** overlay — clock, expandable status indicators, swipe-down
+notification shade with quick actions, optional in-tray progress. Runs as overlay service.
 
 ## Build phase gate
 
@@ -20,12 +21,14 @@ WP8.1 **System Tray** overlay — clock, expandable status indicators, optional 
 | Collapsed tray | Clock only, right-aligned | `references/images/collapsed_dark.png` |
 | Expanded tray | All indicators 5s then collapse | `references/images/expanded_dark.png` |
 | Progress state | Accent spinner in tray | `references/images/progress_dark.png` |
+| Action Center | Quick actions + notifications | `references/images/action_center_dark_cyan.png` |
 
 ## WP8.1 rules
 
 - Height **32dp**; no Material status bar icons
 - Indicator order L→R: cellular + data label, Wi-Fi; battery + clock on the right
 - Tap tray / go home → indicators drop in R→L from above; hold **5000ms**; exit upward R→L
+- Swipe down → Action Center; swipe up → close
 - Per-app: apps request opaque / translucent (0.5) / hidden via `metro-system-sdk` API
 - Stub cellular/Wi-Fi data acceptable in v1 (static icons)
 
@@ -37,7 +40,8 @@ WP8.1 **System Tray** overlay — clock, expandable status indicators, optional 
    it is layered below the system status bar.
 2. Clock updates every minute
 3. Tap tray or Start/home expands indicators (staggered drop); auto-collapse after hold
-4. `ThemeChangeReceiver` updates foreground colors
+4. Swipe down opens Action Center (notifications + quick actions)
+5. `ThemeChangeReceiver` updates foreground colors
 
 ## Golden screenshots
 
@@ -50,6 +54,7 @@ screenshots/golden/expanded_dark_blue.png
 
 - `SYSTEM_ALERT_WINDOW` (overlay)
 - Accessibility service (`BIND_ACCESSIBILITY_SERVICE`) — required to draw over the system status bar
+- Notification listener (`BIND_NOTIFICATION_LISTENER_SERVICE`) — Action Center list / Clear All
 - Foreground service type: `specialUse`
 
 ## Verify
@@ -63,3 +68,4 @@ screenshots/golden/expanded_dark_blue.png
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | True signal strength | Privileged APIs | Static icon set; document in README |
+| Instant radio toggles | Restricted APIs on Android 10+ | Open Settings panels when toggle blocked |

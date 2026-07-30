@@ -209,10 +209,13 @@ PY
   if [[ -z "${activity:-}" ]]; then
     activity=".MainActivity"
   fi
+  # am start -n requires package/component. Fully-qualified activity names still need the package prefix.
   if [[ "$activity" == .* ]]; then
     echo "${pkg}/${activity}"
+  elif [[ "$activity" == "${pkg}."* ]]; then
+    echo "${pkg}/${activity}"
   elif [[ "$activity" == *.* ]]; then
-    echo "${activity}"
+    echo "${pkg}/${activity}"
   else
     echo "${pkg}/.${activity}"
   fi

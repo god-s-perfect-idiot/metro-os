@@ -44,20 +44,36 @@ class TrayState(context: Context) {
     var lastExpandedAtMs by mutableLongStateOf(0L)
         private set
 
+    /** When Action Center is open, keep indicators revealed and skip auto-collapse. */
+    var actionCenterOpen by mutableStateOf(false)
+        private set
+
+    var dateText by mutableStateOf(ActionCenterDateFormatter.format())
+        private set
+
     private var telephonyManager: TelephonyManager? = null
     private var telephonyCallback: TelephonyCallback? = null
 
     val snapshot: TraySnapshot
         get() = TraySnapshot(
             clockText = clockText,
-            expanded = expanded,
+            expanded = expanded || actionCenterOpen,
             showProgress = showProgress,
             // Always the full expanded set so exit animations can run when [expanded] flips false.
             indicators = TrayIndicatorOrder.expanded,
             dataConnectionLabel = dataConnectionLabel,
             battery = battery,
             theme = theme,
+            actionCenterOpen = actionCenterOpen,
+            dateText = dateText,
         )
+
+    fun updateActionCenterOpen(open: Boolean) {
+        actionCenterOpen = open
+        if (open) {
+            expand()
+        }
+    }
 
     /** Left icons + battery when present — drives stagger timing for auto-collapse. */
     fun animatingIconCount(): Int {
@@ -88,6 +104,7 @@ class TrayState(context: Context) {
 
     fun refreshClock(now: ZonedDateTime = ZonedDateTime.now()) {
         clockText = TrayClockFormatter.format(now)
+        dateText = ActionCenterDateFormatter.format(now)
     }
 
     fun refreshBattery() {
@@ -113,6 +130,7 @@ class TrayState(context: Context) {
     }
 
     fun tickAutoCollapse(nowMs: Long = System.currentTimeMillis()) {
+        if (actionCenterOpen) return
         if (
             TrayCollapseScheduler.shouldAutoCollapse(
                 expanded = expanded,

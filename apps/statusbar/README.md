@@ -9,14 +9,22 @@
 only, tap/home staggered indicator reveal (drop from above R→L, 5s hold, exit upward),
 minute-boundary clock ticks, indeterminate progress affordance, and per-app opaque/translucent/hidden
 modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`) with proportional fill + charging
-plug; the remaining radio indicators are static v1 glyphs. The tray auto-starts on boot once
-permissions are granted, and exposes its per-app contract via `MetroStatusBar` in `metro-system-sdk`.
+plug; the remaining radio indicators are static v1 glyphs.
 
-### Permissions required (both)
+**Action Center** — swipe down from the tray opens the WP8.1 shade: four quick-action tiles
+(Wi-Fi / Bluetooth / Airplane / Internet sharing), Clear All + All Settings, and notifications
+grouped by app (via `NotificationListenerService`). Swipe up or tap the open tray closes it.
+
+The tray auto-starts on boot once permissions are granted, and exposes its per-app contract via
+`MetroStatusBar` in `metro-system-sdk`.
+
+### Permissions required
 
 1. **Display over other apps** (`SYSTEM_ALERT_WINDOW`) — granted from `MainActivity`.
 2. **Accessibility service** (`StatusBarAccessibilityService`) — enabled from `MainActivity` →
    Accessibility settings.
+3. **Notification access** (`ActionNotificationListenerService`) — enabled from `MainActivity` →
+   Notification access settings (required for Action Center list / Clear All).
 
 The accessibility service is **mandatory for visibility**: a plain `TYPE_APPLICATION_OVERLAY` window
 is always layered *below* the system status bar (window layer ~111000 vs the system bar's ~151000),
@@ -42,9 +50,9 @@ MetroStatusBar.requestRefresh(context)                          // re-read theme
 
 ## App role
 
-This app recreates the WP8.1 **system tray** on Android: the compact tray line, tap-to-expand indicator reveal, clock surface, temporary progress indication, and per-app tray visibility behavior.
-
-It is not a generic Android notification shade replacement. The goal is the narrow WP tray behavior described in `scope.md`: a 32dp strip, mostly-hidden indicators, and a short-lived expanded state.
+This app recreates the WP8.1 **system tray** and **Action Center** on Android: the compact tray
+line, tap-to-expand indicator reveal, swipe-down notification shade with quick actions, clock
+surface, temporary progress indication, and per-app tray visibility behavior.
 
 ## Build gate
 
@@ -77,6 +85,13 @@ It is not a generic Android notification shade replacement. The goal is the narr
 - Should coexist with theme and indicator rules rather than replace the tray design entirely
 - Expected reference: `references/images/progress_dark.png`
 
+### 4. Action Center
+
+- Swipe down from the tray (distinct from tap-to-expand)
+- Four quick-action tiles, Clear All / All Settings, notification groups, accent handle
+- Overlay expands to full-screen while open; collapses to tray strip when closed
+- Expected references: `references/images/action_center_dark_cyan.png`, `references/images/expanded_dark.png`
+
 ## System functions and contracts
 
 ### Overlay architecture
@@ -102,20 +117,28 @@ It is not a generic Android notification shade replacement. The goal is the narr
 - Long operations may request a tray progress state
 - Any API for per-app tray styling should live in `metro-system-sdk`, not in direct app imports
 
+### Action Center
+
+- Notifications via `ActionNotificationListenerService` → `ActionNotificationStore`
+- Quick actions via `QuickActionController` (status from public APIs; toggles open system panels when Android blocks radios)
+- All settings launches `com.metro.settings`
+
 ## UI and interaction guardrails
 
-- Height: `32dp`
+- Height: `32dp` (tray); Action Center uses full-screen shade under the tray
 - Default visual priority: clock first, everything else tucked away
 - Expand animation: staggered drop from above, **200ms**/icon, **90ms** R→L stagger
 - Collapse animation: staggered exit upward, same timing
-- Auto-collapse hold: **5000ms** after enter finishes
-- No Material status bar styling, dropdown shade affordances, cards, or quick settings metaphors
+- Auto-collapse hold: **5000ms** after enter finishes (suspended while Action Center is open)
+- Action Center open/close: **280ms** / **240ms** ease-out
+- No Material status bar styling, cards, or Android quick-settings metaphors
 - Avoid oversized icons; keep glyphs minimal and monochrome per theme
 - Respect WP8.1 chrome opacity behavior when translucent mode is requested
 
 ## Data and state model
 
 - Maintain a small in-memory tray state object: visibility mode, expanded/collapsed state, theme snapshot, indicator snapshot, progress state, last interaction time
+- Action Center state: open fraction, quick-action slots, notification groups
 - Auto-collapse timer should be shell-owned and cancelable on repeated interactions
 - Keep indicator logic decoupled from rendering so static-v1 and dynamic-future sources can swap cleanly
 
@@ -127,6 +150,7 @@ It is not a generic Android notification shade replacement. The goal is the narr
 4. Add indicator ordering and placeholder indicator sources
 5. Add tray progress state
 6. Add per-app visibility/translucency requests via `metro-system-sdk`
+7. Add Action Center shade (gesture, quick actions, notifications)
 
 ## Test-critical user flows
 
@@ -136,11 +160,14 @@ It is not a generic Android notification shade replacement. The goal is the narr
 4. Minute boundary updates clock correctly
 5. Progress request shows and clears progress state predictably
 6. Hidden/translucent tray modes honor app requests
+7. Swipe down opens Action Center; swipe up closes
+8. Clear All / notification tap / All Settings behave as specified
 
 ## Reference and golden expectations
 
 - `references/images/collapsed_dark.png`
 - `references/images/expanded_dark.png`
+- `references/images/action_center_dark_cyan.png`
 - `references/images/progress_dark.png`
 - `screenshots/golden/collapsed_dark_blue.png`
 - `screenshots/golden/expanded_dark_blue.png`
@@ -171,6 +198,8 @@ cd apps/statusbar
 |----------------|-------------------|------------|
 | Real carrier/radio signal behavior mirrors system internals | Android app-level access to all shell telemetry can be restricted or OEM-specific | Radio indicators (cellular, data, call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving, ringer, location) use static v1 glyphs; battery uses real `ACTION_BATTERY_CHANGED` telemetry. Tray layout and timing are exact. |
 | Status bar is a true system-reserved region | An installed app can only overlay via `SYSTEM_ALERT_WINDOW`, which is layered below the system status bar | The tray is hosted as a `TYPE_ACCESSIBILITY_OVERLAY` (via `StatusBarAccessibilityService`) so it draws above the system status bar; requires enabling the accessibility service. Falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the system bar) when not enabled. |
+| Quick actions toggle radios instantly | Android 10+ blocks app-level Wi-Fi / Airplane / hotspot toggles without privileged permissions | Show real on/off + SSID/name when readable; tap opens the matching `Settings.Panel` / settings screen when a direct toggle is blocked. |
+| Action Center lists every toast | Requires notification listener access | `ActionNotificationListenerService` + user grant from setup; shell FGS packages filtered out. |
 
 ## Agent postmortem
 

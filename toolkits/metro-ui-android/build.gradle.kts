@@ -2,6 +2,7 @@ plugins {
     id("com.android.library") version "8.7.3"
     id("org.jetbrains.kotlin.android") version "2.0.21"
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
+    id("maven-publish")
 }
 
 group = "com.metro.ui"
@@ -52,4 +53,17 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("org.robolectric:robolectric:4.14.1")
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            groupId = "com.metro.ui"
+            artifactId = "metro-ui-android"
+            version = "1.0.0"
+            afterEvaluate {
+                from(components["release"])
+            }
+        }
+    }
 }

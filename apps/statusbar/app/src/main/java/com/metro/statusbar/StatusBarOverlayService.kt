@@ -5,9 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
-import android.graphics.Color as AndroidColor
 import android.content.Intent
-import android.graphics.Rect
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -30,7 +28,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.metro.statusbar.ui.StatusTray
+import com.metro.statusbar.ui.StatusShell
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroTheme
 import java.time.ZonedDateTime
@@ -55,14 +53,17 @@ class StatusBarOverlayService :
     private var overlayView: ComposeView? = null
     private var overlayManager: WindowManager? = null
     private var currentWindowType: Int? = null
+    private var shadeExpandedLayout: Boolean = false
     // Lazily created so it is only built after the service's base context is attached (onCreate),
     // never in the constructor where `this` is not yet a usable Context.
     private val trayState by lazy { TrayState(this) }
+    private val actionCenterState by lazy { ActionCenterState(this) }
     private val handler = Handler(Looper.getMainLooper())
     private val clockRunnable = object : Runnable {
         override fun run() {
             trayState.refreshClock()
             trayState.refreshDataConnectionLabel()
+            actionCenterState.refreshDate()
             scheduleNextClockTick()
         }
     }
@@ -82,10 +83,12 @@ class StatusBarOverlayService :
         startForeground(NOTIFICATION_ID, buildNotification())
         rehostOverlay()
         trayState.registerReceivers(this)
+        actionCenterState.register(this)
         trayState.refreshTheme()
         trayState.refreshClock()
         trayState.refreshBattery()
         trayState.refreshDataConnectionLabel()
+        actionCenterState.refreshQuickActions()
         scheduleNextClockTick()
         handler.post(autoCollapseRunnable)
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
@@ -112,6 +115,7 @@ class StatusBarOverlayService :
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         removeOverlay()
         trayState.unregisterReceivers(this)
+        actionCenterState.unregister(this)
         viewModelStore.clear()
         super.onDestroy()
     }
@@ -140,7 +144,7 @@ class StatusBarOverlayService :
         val barHeightDp = statusBarInsetDp()
         val horizontalPadding = statusBarHorizontalPaddingDp()
         val composeView = ComposeView(hostContext).apply {
-            setBackgroundColor(AndroidColor.TRANSPARENT)
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
             suppressSystemBarInsets()
             setViewTreeLifecycleOwner(this@StatusBarOverlayService)
             setViewTreeSavedStateRegistryOwner(this@StatusBarOverlayService)
@@ -150,9 +154,15 @@ class StatusBarOverlayService :
                     darkTheme = trayState.theme.darkTheme,
                     accent = trayState.theme.accentColor,
                 ) {
-                    StatusTray(
-                        snapshot = trayState.snapshot,
+                    StatusShell(
+                        traySnapshot = trayState.snapshot,
+                        actionCenter = actionCenterState,
                         onTrayTap = { trayState.toggleExpanded() },
+                        onOpenFractionChanged = { fraction ->
+                            actionCenterState.updateOpenFraction(fraction)
+                            trayState.updateActionCenterOpen(fraction > 0.5f)
+                            updateOverlayHeight(expanded = fraction > 0.01f)
+                        },
                         barHeightDp = barHeightDp,
                         startPaddingDp = horizontalPadding.start,
                         endPaddingDp = horizontalPadding.end,
@@ -162,7 +172,8 @@ class StatusBarOverlayService :
         }
 
         val manager = hostContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        manager.addView(composeView, createLayoutParams(windowType))
+        shadeExpandedLayout = false
+        manager.addView(composeView, createLayoutParams(windowType, expanded = false))
         overlayView = composeView
         overlayManager = manager
         currentWindowType = windowType
@@ -173,12 +184,36 @@ class StatusBarOverlayService :
         overlayView = null
         overlayManager = null
         currentWindowType = null
+        shadeExpandedLayout = false
     }
 
-    private fun createLayoutParams(windowType: Int): WindowManager.LayoutParams =
+    /**
+     * Expands the overlay to full-screen while Action Center is open/dragging so the shade can
+     * fill below the tray. Collapses back to wrap-content (tray strip only) when closed so touches
+     * pass through to apps underneath.
+     */
+    private fun updateOverlayHeight(expanded: Boolean) {
+        if (shadeExpandedLayout == expanded) return
+        val view = overlayView ?: return
+        val manager = overlayManager ?: return
+        val windowType = currentWindowType ?: return
+        shadeExpandedLayout = expanded
+        runCatching {
+            manager.updateViewLayout(view, createLayoutParams(windowType, expanded = expanded))
+        }
+    }
+
+    private fun createLayoutParams(
+        windowType: Int,
+        expanded: Boolean,
+    ): WindowManager.LayoutParams =
         WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (expanded) {
+                WindowManager.LayoutParams.MATCH_PARENT
+            } else {
+                WindowManager.LayoutParams.WRAP_CONTENT
+            },
             windowType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
