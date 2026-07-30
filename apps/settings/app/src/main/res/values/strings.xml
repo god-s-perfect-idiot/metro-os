@@ -26,6 +26,9 @@
     <string name="settings_storage_total">Total</string>
     <string name="settings_storage_unavailable">Storage information unavailable</string>
 
+    <string name="settings_keyboard">keyboard</string>
+    <string name="settings_keyboard_subtitle">touch keyboard</string>
+
     <string name="settings_about">extras+info</string>
     <string name="settings_about_suite">metro-os</string>
     <string name="settings_about_intro">metro-os recreates the Windows Phone 8.1 experience on this device.</string>

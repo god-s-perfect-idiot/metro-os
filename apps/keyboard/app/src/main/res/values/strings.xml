@@ -577,7 +577,9 @@
 
     <!-- About UI strings -->
     <string name="about__title" comment="Title of About activity">About</string>
-    <string name="about__app_icon_content_description" comment="Content description of app icon in About">App icon of FlorisBoard</string>
+    <string name="about__display_name" comment="Product name shown on the About screen">Metro Keyboard</string>
+    <string name="about__fork_attribution" comment="Attribution line under the product name on About">FlorisBoard fork</string>
+    <string name="about__app_icon_content_description" comment="Content description of app icon in About">App icon of Metro Keyboard</string>
     <string name="about__view_licenses" comment="Label of View licenses button in About">Open source licenses</string>
     <string name="about__view_privacy_policy" comment="Label of View privacy policy button in About">Privacy policy</string>
     <string name="about__view_source_code" comment="Label of View source code button in About">Source code</string>

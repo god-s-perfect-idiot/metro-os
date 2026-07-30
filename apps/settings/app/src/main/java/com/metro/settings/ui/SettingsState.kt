@@ -1,6 +1,7 @@
 package com.metro.settings.ui
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,11 @@ class SettingsState(
     private val appContext = context.applicationContext
     private val prefs = MetroPreferences(appContext)
     val system = SystemSettingsBridge(appContext)
+
+    companion object {
+        /** Suite keyboard settings (`com.metro.keyboard`), not Android Settings. */
+        const val KEYBOARD_PACKAGE = "com.metro.keyboard"
+    }
 
     var route by mutableStateOf(SettingsRoute.Root)
         private set
@@ -81,6 +87,13 @@ class SettingsState(
         brightness = fraction.coerceIn(0f, 1f)
         system.setBrightnessFraction(brightness)
         brightness = system.brightnessFraction()
+    }
+
+    /** Opens the metro-os keyboard settings app (WP8.1 Settings → keyboard). */
+    fun openKeyboardSettings() {
+        val launch = appContext.packageManager.getLaunchIntentForPackage(KEYBOARD_PACKAGE) ?: return
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        appContext.startActivity(launch)
     }
 
     fun refreshSystemReads() {

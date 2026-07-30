@@ -64,6 +64,14 @@ fun SettingsRootScreen(
         }
         item {
             MetroListItem(
+                title = stringResource(R.string.settings_keyboard),
+                subtitle = stringResource(R.string.settings_keyboard_subtitle),
+                modifier = Modifier.height(SettingsRowHeight),
+                onClick = { state.openKeyboardSettings() },
+            )
+        }
+        item {
+            MetroListItem(
                 title = stringResource(R.string.settings_about),
                 subtitle = stringResource(R.string.settings_about_suite),
                 modifier = Modifier.height(SettingsRowHeight),

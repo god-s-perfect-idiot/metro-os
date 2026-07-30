@@ -10,11 +10,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 - **Layout:** Black/white theme background. Small ALL CAPS app overline `SETTINGS` via `MetroAppTitle`, then large lowercase page title `system` (64sp Light). Scrollable list of setting rows (single-line title 24sp; optional subtitle 18sp secondary for current value). 12dp horizontal margins. No separators — whitespace only. List item height 76dp.
 - **Navigation:** From app list / Action Center “all settings”. Back exits the app.
-- **Interactions:** Tap a row → push detail page with 300ms horizontal slide. Interactive rows:
+- **Interactions:** Tap a row → push detail page with 300ms horizontal slide (except `keyboard`, which launches the suite keyboard settings app). Interactive rows:
   - `start+theme`
   - `storage sense`
   - `brightness`
   - `ease of access`
+  - `keyboard` — launches `com.metro.keyboard` MainActivity directly (WP8.1 Settings → keyboard lives in a separate APK; see keyboard README platform exceptions). Does **not** open Android Settings.
   - `extras+info`
 - Do not invent Material preference categories. Rows use WP8.1 lowercase titles.
 - **Background:** Theme background (dark `#000000` / light `#FFFFFF`).
@@ -97,4 +98,4 @@ Missing device captures for root / brightness / storage / extras+info → see [`
 - High contrast, Narrator, Screen magnifier, browser captions
 - Sync my settings / Microsoft account
 - Application-specific settings hubs (IE, photos+camera, …)
-- Launching the Android Settings app from any Settings page
+- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard` are allowed)
