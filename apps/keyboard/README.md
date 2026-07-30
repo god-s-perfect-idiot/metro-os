@@ -16,6 +16,10 @@ Metro-os changes:
 - Suggestions-only prediction bar; suggestions enabled by default
 - Metro Compose settings launcher (`com.metro.keyboard.MainActivity`)
 
+## Credits
+
+- **FlorisBoard** — the keyboard engine and upstream Android IME foundation for this app. Project: [florisboard/florisboard](https://github.com/florisboard/florisboard)
+
 ## Status
 
 IME + Metro settings. WP8.1 front page (`keyboard`) with setup banners; **advanced** opens the full FlorisBoard settings tree restyled with Metro chrome (`FlorisScreen` → `MetroSettingsHeader`, Metro preference adapters).
