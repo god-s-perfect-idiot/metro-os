@@ -34,11 +34,15 @@ class ActionCenterState(context: Context) {
     var notificationGroups by mutableStateOf(ActionNotificationStore.all())
         private set
 
+    var activeCallBanner by mutableStateOf(ActionNotificationStore.activeCallBanner())
+        private set
+
     var dateText by mutableStateOf(ActionCenterDateFormatter.format())
         private set
 
     private val notificationListener: () -> Unit = {
         notificationGroups = ActionNotificationStore.all()
+        activeCallBanner = ActionNotificationStore.activeCallBanner()
     }
 
     private val radioReceiver = object : BroadcastReceiver() {
@@ -60,6 +64,7 @@ class ActionCenterState(context: Context) {
 
     fun refreshNotifications() {
         notificationGroups = ActionNotificationStore.all()
+        activeCallBanner = ActionNotificationStore.activeCallBanner()
     }
 
     fun updateOpenFraction(fraction: Float) {
@@ -97,6 +102,12 @@ class ActionCenterState(context: Context) {
 
     fun openNotification(item: ActionNotificationItem) {
         ActionNotificationListenerService.openNotification(item.key)
+        close()
+    }
+
+    fun openActiveCallBanner() {
+        val banner = ActionNotificationStore.activeCallBanner() ?: return
+        ActionNotificationListenerService.openNotification(banner.key, cancelAfterOpen = false)
         close()
     }
 

@@ -48,7 +48,7 @@ class ActionNotificationListenerService : NotificationListenerService() {
             ActionNotificationStore.clear()
         }
 
-        fun openNotification(itemKey: String) {
+        fun openNotification(itemKey: String, cancelAfterOpen: Boolean = true) {
             val service = instance ?: return
             val active = runCatching { service.activeNotifications }.getOrNull() ?: return
             val match = active.firstOrNull { sbn ->
@@ -57,7 +57,9 @@ class ActionNotificationListenerService : NotificationListenerService() {
             val intent = match.notification.contentIntent
             runCatching {
                 intent?.send()
-                service.cancelNotification(match.key)
+                if (cancelAfterOpen) {
+                    service.cancelNotification(match.key)
+                }
             }
         }
 

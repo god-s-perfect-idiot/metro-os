@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.ContactsContract
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -43,10 +44,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.dialer.R
 import com.metro.dialer.data.ActiveCall
 import com.metro.dialer.data.DialerCallLogic
+import com.metro.dialer.telecom.MetroCallSession
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -60,6 +63,7 @@ private val InCallTileBackground = Color(0xFF252525)
 private val InCallTileDisabled = Color(0xFF5A5A5A)
 private val InCallTileGap = 6.dp
 private val InCallTileHeight = 78.dp
+private val InCallKeyHeight = 64.dp
 
 @Composable
 fun InCallScreen(
@@ -68,12 +72,25 @@ fun InCallScreen(
     onConnected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(onBack = onEndCall)
-
     val context = LocalContext.current
     var elapsedSeconds by remember(call.startedAtMillis) { mutableLongStateOf(0L) }
     var connected by remember(call.phoneNumber) { mutableStateOf(call.connected) }
     var photo by remember(call.phoneNumber) { mutableStateOf<ImageBitmap?>(null) }
+    var showKeypad by remember { mutableStateOf(false) }
+    var dtmfDigits by remember(call.phoneNumber) { mutableStateOf("") }
+
+    val muted by MetroCallSession.muted
+    val speakerOn by MetroCallSession.speakerOn
+    val bluetoothOn by MetroCallSession.bluetoothOn
+    val onHold by MetroCallSession.onHold
+    val bluetoothAvailable by MetroCallSession.bluetoothAvailable
+
+    BackHandler {
+        when {
+            showKeypad -> showKeypad = false
+            else -> onEndCall()
+        }
+    }
 
     LaunchedEffect(call.phoneNumber) {
         photo = loadContactPhoto(context, call.phoneNumber)
@@ -87,6 +104,10 @@ fun InCallScreen(
         }
     }
 
+    LaunchedEffect(call.connected) {
+        if (call.connected) connected = true
+    }
+
     LaunchedEffect(connected) {
         if (!connected) return@LaunchedEffect
         while (true) {
@@ -96,10 +117,10 @@ fun InCallScreen(
         }
     }
 
-    val statusText = if (connected) {
-        DialerCallLogic.formatDuration(elapsedSeconds.toInt())
-    } else {
-        stringResource(R.string.dialling)
+    val statusText = when {
+        onHold -> stringResource(R.string.on_hold)
+        connected -> DialerCallLogic.formatDuration(elapsedSeconds.toInt())
+        else -> stringResource(R.string.dialling)
     }
 
     Column(
@@ -152,10 +173,12 @@ fun InCallScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                    .padding(start = 12.dp, top = 16.dp, bottom = 16.dp),
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -175,17 +198,27 @@ fun InCallScreen(
 
                 MetroText(
                     text = call.displayName,
-                    style = MetroTextStyle.PageTitle,
+                    style = MetroTextStyle.PivotTab,
                     color = Color.White,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
                 )
 
                 MetroText(
-                    text = stringResource(
-                        R.string.mobile_label,
-                        DialerCallLogic.formatDisplayNumber(call.phoneNumber),
-                    ),
+                    text = if (showKeypad && dtmfDigits.isNotEmpty()) {
+                        dtmfDigits
+                    } else {
+                        stringResource(
+                            R.string.mobile_label,
+                            DialerCallLogic.formatDisplayNumber(call.phoneNumber),
+                        )
+                    },
                     style = MetroTextStyle.ListItemTitle,
                     color = Color.White.copy(alpha = 0.9f),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -199,34 +232,112 @@ fun InCallScreen(
                 .padding(InCallTileGap),
             verticalArrangement = Arrangement.spacedBy(InCallTileGap),
         ) {
-            InCallControlRow(
-                controls = listOf(
-                    InCallControl(stringResource(R.string.speaker), InCallIcon.Speaker, enabled = true),
-                    InCallControl(stringResource(R.string.mute), InCallIcon.Mute, enabled = true),
-                    InCallControl(stringResource(R.string.bluetooth), InCallIcon.Bluetooth, enabled = true),
-                ),
-            )
-            InCallControlRow(
-                controls = listOf(
-                    InCallControl(stringResource(R.string.hold), InCallIcon.Hold, enabled = false),
-                    InCallControl(stringResource(R.string.video), InCallIcon.Video, enabled = true),
-                    InCallControl(stringResource(R.string.add_call), InCallIcon.AddCall, enabled = false),
-                ),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(InCallTileGap),
-            ) {
-                EndCallTile(
-                    onEndCall = onEndCall,
-                    modifier = Modifier.weight(2f),
+            if (showKeypad) {
+                InCallDtmfKeypad(
+                    onDigit = { digit ->
+                        dtmfDigits += digit
+                        MetroCallSession.playDtmf(digit)
+                    },
                 )
-                InCallControlTile(
-                    label = stringResource(R.string.keypad),
-                    icon = InCallIcon.Keypad,
-                    enabled = true,
-                    modifier = Modifier.weight(1f),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(InCallTileGap),
+                ) {
+                    EndCallTile(
+                        onEndCall = onEndCall,
+                        modifier = Modifier.weight(2f),
+                    )
+                    InCallControlTile(
+                        label = stringResource(R.string.hide),
+                        icon = InCallIcon.Keypad,
+                        enabled = true,
+                        active = true,
+                        onClick = { showKeypad = false },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
+                InCallControlRow(
+                    controls = listOf(
+                        InCallControl(
+                            label = stringResource(R.string.speaker),
+                            icon = InCallIcon.Speaker,
+                            enabled = true,
+                            active = speakerOn,
+                            onClick = {
+                                MetroCallSession.setSpeaker(context, !speakerOn)
+                            },
+                        ),
+                        InCallControl(
+                            label = stringResource(R.string.mute),
+                            icon = InCallIcon.Mute,
+                            enabled = true,
+                            active = muted,
+                            onClick = {
+                                MetroCallSession.setMuted(context, !muted)
+                            },
+                        ),
+                        InCallControl(
+                            label = stringResource(R.string.bluetooth),
+                            icon = InCallIcon.Bluetooth,
+                            enabled = bluetoothAvailable,
+                            active = bluetoothOn,
+                            onClick = {
+                                MetroCallSession.setBluetooth(context, !bluetoothOn)
+                            },
+                        ),
+                    ),
                 )
+                InCallControlRow(
+                    controls = listOf(
+                        InCallControl(
+                            label = stringResource(R.string.hold),
+                            icon = InCallIcon.Hold,
+                            enabled = connected,
+                            active = onHold,
+                            onClick = {
+                                MetroCallSession.setOnHold(!onHold)
+                            },
+                        ),
+                        InCallControl(
+                            label = stringResource(R.string.video),
+                            icon = InCallIcon.Video,
+                            enabled = true,
+                            active = false,
+                            onClick = {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.video_stub),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
+                        ),
+                        InCallControl(
+                            label = stringResource(R.string.add_call),
+                            icon = InCallIcon.AddCall,
+                            enabled = false,
+                            active = false,
+                            onClick = {},
+                        ),
+                    ),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(InCallTileGap),
+                ) {
+                    EndCallTile(
+                        onEndCall = onEndCall,
+                        modifier = Modifier.weight(2f),
+                    )
+                    InCallControlTile(
+                        label = stringResource(R.string.keypad),
+                        icon = InCallIcon.Keypad,
+                        enabled = true,
+                        active = false,
+                        onClick = { showKeypad = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
@@ -246,6 +357,8 @@ private data class InCallControl(
     val label: String,
     val icon: InCallIcon,
     val enabled: Boolean,
+    val active: Boolean = false,
+    val onClick: () -> Unit = {},
 )
 
 @Composable
@@ -262,6 +375,8 @@ private fun InCallControlRow(
                 label = control.label,
                 icon = control.icon,
                 enabled = control.enabled,
+                active = control.active,
+                onClick = control.onClick,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -273,13 +388,36 @@ private fun InCallControlTile(
     label: String,
     icon: InCallIcon,
     enabled: Boolean,
+    active: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val contentColor = if (enabled) Color.White else InCallTileDisabled
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val background = when {
+        !enabled -> InCallTileBackground
+        active || isPressed -> MetroTheme.colors.accent
+        else -> InCallTileBackground
+    }
+    val contentColor = when {
+        !enabled -> InCallTileDisabled
+        else -> Color.White
+    }
     Box(
         modifier = modifier
             .height(InCallTileHeight)
-            .background(InCallTileBackground),
+            .then(
+                if (enabled) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .background(background),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -320,6 +458,69 @@ private fun EndCallTile(
         MetroText(
             text = stringResource(R.string.end_call),
             style = MetroTextStyle.ListItemSubtitle,
+            color = Color.White,
+        )
+    }
+}
+
+@Composable
+private fun InCallDtmfKeypad(
+    onDigit: (Char) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(InCallTileGap),
+    ) {
+        InCallDtmfRow(listOf('1', '2', '3'), onDigit)
+        InCallDtmfRow(listOf('4', '5', '6'), onDigit)
+        InCallDtmfRow(listOf('7', '8', '9'), onDigit)
+        InCallDtmfRow(listOf('*', '0', '#'), onDigit)
+    }
+}
+
+@Composable
+private fun InCallDtmfRow(
+    digits: List<Char>,
+    onDigit: (Char) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(InCallTileGap),
+    ) {
+        digits.forEach { digit ->
+            InCallDtmfKey(
+                digit = digit,
+                onClick = { onDigit(digit) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun InCallDtmfKey(
+    digit: Char,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val background = if (isPressed) MetroTheme.colors.accent else InCallTileBackground
+    Box(
+        modifier = modifier
+            .height(InCallKeyHeight)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .background(background),
+        contentAlignment = Alignment.Center,
+    ) {
+        MetroText(
+            text = digit.toString(),
+            style = MetroTextStyle.PivotTab,
             color = Color.White,
         )
     }

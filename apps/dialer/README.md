@@ -111,6 +111,9 @@ cd apps/dialer
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | System telephony stack integration | Emulator may lack SIM | Use `ACTION_DIAL` fallback; in-call timer simulated when `CALL_PHONE` unavailable |
+| Green return-to-call banner under status tray | Requires notification-listener access in Status Bar | Phone posts an ongoing call notification; Status Bar draws the Metro green banner when notification access is granted |
+| Incoming call UI over lock screen | Background activity starts blocked when locked/screen-off | `InCallActivity` uses `showWhenLocked`/`turnScreenOn`; Phone posts a high-priority `CATEGORY_CALL` notification with full-screen intent |
+| Proximity screen-off on ear | Emulator / devices without proximity sensor | `PROXIMITY_SCREEN_OFF_WAKE_LOCK` while in-call UI is resumed on earpiece; no-ops when unsupported or on speaker/Bluetooth |
 | Visual voicemail | Carrier-specific | Omitted in v1 |
 | Dual-SIM smart switcher | Multi-SIM APIs vary | Omitted in v1 |
 

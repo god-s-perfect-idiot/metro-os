@@ -3,6 +3,7 @@ package com.metro.dialer
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -121,13 +122,15 @@ class MainActivity : ComponentActivity() {
                                 permissionResult = { callLog, contacts, callPhone ->
                                     state.onPermissionResult(callLog, contacts, callPhone)
                                 }
-                                requestPermissions.launch(
-                                    arrayOf(
-                                        Manifest.permission.READ_CALL_LOG,
-                                        Manifest.permission.READ_CONTACTS,
-                                        Manifest.permission.CALL_PHONE,
-                                    ),
-                                )
+                                val permissions = buildList {
+                                    add(Manifest.permission.READ_CALL_LOG)
+                                    add(Manifest.permission.READ_CONTACTS)
+                                    add(Manifest.permission.CALL_PHONE)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        add(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                }
+                                requestPermissions.launch(permissions.toTypedArray())
                             },
                             onRequestDefaultDialer = {
                                 MetroTelecomSetup.createDefaultDialerRequestIntent(context)?.let { roleIntent ->

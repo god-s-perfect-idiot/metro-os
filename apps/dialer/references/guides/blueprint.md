@@ -90,9 +90,16 @@ Target: **Windows Phone 8.1 GDR2+** Phone app on a portrait phone (768×1280 / x
     - **End call** — large circular red control centred above system nav (`#E51400`).
     - Optional **video** stub icon (grey, disabled in v1).
   - No in-app back button; End ends call and returns to previous route.
-- **Navigation:** End call → previous screen. System Back same as End during outgoing ring.
+- **Navigation:** End call → previous screen. System Back same as End during outgoing ring. Start/Home minimizes to the green return-to-call banner (Status Bar overlay).
 - **Background:** Black.
 - **Reference:** `images/in_call_dark_blue.png`
+
+### Page 4b — Active call banner (minimized)
+
+- **Layout:** Solid green strip (`#107C10`) directly under the system tray, full width, ~36dp.
+- Contact/display name (left) + `calling…` or elapsed `mm:ss` (right), white Metro body text.
+- Tap → restore full in-call screen. Banner clears when the call ends.
+- Owned by Status Bar overlay; driven by Phone’s ongoing call notification.
 
 ### Page 5 — Speed dial (pivot pane 1)
 

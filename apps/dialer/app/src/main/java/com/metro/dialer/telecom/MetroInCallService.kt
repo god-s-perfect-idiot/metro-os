@@ -2,6 +2,7 @@ package com.metro.dialer.telecom
 
 import android.content.Intent
 import android.telecom.Call
+import android.telecom.CallAudioState
 import android.telecom.InCallService
 import com.metro.dialer.InCallActivity
 import com.metro.dialer.data.CallLogRepository
@@ -10,15 +11,18 @@ import com.metro.dialer.data.DialerCallLogic
 class MetroInCallService : InCallService() {
     private val callCallback = object : Call.Callback() {
         override fun onStateChanged(call: Call, state: Int) {
-            when (state) {
-                Call.STATE_ACTIVE -> MetroCallSession.markConnected()
-                Call.STATE_DISCONNECTED -> {
-                    if (MetroCallSession.hasActiveCall()) {
-                        MetroCallSession.clear()
-                    }
-                }
-            }
+            MetroCallSession.onCallStateChanged(state)
         }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        MetroCallSession.bindInCallService(this)
+    }
+
+    override fun onDestroy() {
+        MetroCallSession.unbindInCallService(this)
+        super.onDestroy()
     }
 
     override fun onCallAdded(call: Call) {
@@ -34,10 +38,12 @@ class MetroInCallService : InCallService() {
             else -> call.state == Call.STATE_RINGING
         }
         if (isIncoming && call.state != Call.STATE_ACTIVE) {
+            MetroCallSession.activeCall.value?.let { IncomingCallNotifier.show(this, it) }
             val intent = Intent(this, InCallActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
-            startActivity(intent)
+            // Unlocked/interactive: start directly. Locked/screen-off: FSI notification above.
+            runCatching { startActivity(intent) }
         }
     }
 
@@ -47,6 +53,11 @@ class MetroInCallService : InCallService() {
         if (MetroCallSession.hasActiveCall()) {
             MetroCallSession.clear()
         }
+    }
+
+    override fun onCallAudioStateChanged(audioState: CallAudioState?) {
+        super.onCallAudioStateChanged(audioState)
+        MetroCallSession.onCallAudioStateChanged(audioState)
     }
 
     private fun resolveDisplayName(number: String): String {

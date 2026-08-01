@@ -3,7 +3,9 @@ package com.metro.dialer
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,15 +14,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
 import com.metro.dialer.data.DialerCallLogic
 import com.metro.dialer.telecom.MetroCallSession
+import com.metro.dialer.telecom.ProximityScreenController
 import com.metro.dialer.ui.InCallScreen
 import com.metro.dialer.ui.IncomingCallScreen
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 
 class InCallActivity : ComponentActivity() {
+    private val proximityScreen by lazy { ProximityScreenController(this) }
+    private var proximityWanted = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableShowWhenLocked()
         enableEdgeToEdge()
 
         if (!MetroCallSession.hasActiveCall()) {
@@ -34,12 +42,23 @@ class InCallActivity : ComponentActivity() {
 
         setContent {
             val call by MetroCallSession.activeCall
+            val speakerOn by MetroCallSession.speakerOn
+            val bluetoothOn by MetroCallSession.bluetoothOn
 
             LaunchedEffect(call) {
                 if (call == null) finish()
             }
 
-            MetroTheme {
+            LaunchedEffect(call, speakerOn, bluetoothOn) {
+                val active = call
+                proximityWanted = active != null &&
+                    !DialerCallLogic.isIncomingRinging(active) &&
+                    !speakerOn &&
+                    !bluetoothOn
+                syncProximityScreen()
+            }
+
+            MetroSystemTheme {
                 call?.let { activeCall ->
                     if (DialerCallLogic.isIncomingRinging(activeCall)) {
                         IncomingCallScreen(
@@ -61,7 +80,7 @@ class InCallActivity : ComponentActivity() {
                         InCallScreen(
                             call = activeCall,
                             onEndCall = {
-                                MetroCallSession.endCall()
+                                MetroCallSession.endCall(this@InCallActivity)
                                 finish()
                             },
                             onConnected = MetroCallSession::markConnected,
@@ -73,9 +92,55 @@ class InCallActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Full in-call UI visible — hide the WP green return-to-call banner.
+        MetroCallSession.hideMinimizedNotification(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncProximityScreen()
+    }
+
+    override fun onPause() {
+        proximityScreen.setEnabled(false)
+        super.onPause()
+    }
+
+    override fun onStop() {
+        // Start / Home minimizes an answered/outgoing call to the Metro green banner.
+        // While still ringing, keep the incoming full-screen-intent notification instead.
+        val call = MetroCallSession.activeCall.value
+        if (call != null && !isFinishing && !DialerCallLogic.isIncomingRinging(call)) {
+            MetroCallSession.showMinimizedNotification(this)
+        }
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        proximityWanted = false
+        proximityScreen.setEnabled(false)
         MetroCallSession.setOnCallEndedListener(null)
         super.onDestroy()
+    }
+
+    private fun syncProximityScreen() {
+        val resumeReady = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        proximityScreen.setEnabled(proximityWanted && resumeReady)
+    }
+
+    private fun enableShowWhenLocked() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+            )
+        }
     }
 
     private fun launchTextReply(phoneNumber: String) {

@@ -129,6 +129,14 @@ fun StatusShell(
                 },
         )
 
+        val callBanner = actionCenter.activeCallBanner
+        if (callBanner != null && !shadeVisible) {
+            ActiveCallBannerBar(
+                banner = callBanner,
+                onClick = { actionCenter.openActiveCallBanner() },
+            )
+        }
+
         if (shadeVisible) {
             Box(
                 modifier = Modifier

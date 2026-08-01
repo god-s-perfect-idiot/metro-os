@@ -25,6 +25,13 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Layout: collapsed or expanded tray with accent indeterminate spinner left of clock row
 - Interactions: shell or app requests progress via service intent; clears when operation completes
 
+### Page 4b — Active call banner
+
+- Layout: solid green strip (`#107C10`) directly under the system tray (~36dp) while Phone has an active call
+- Content: display name (left) + `calling…` / elapsed timer (right), white text
+- Interactions: tap restores Phone in-call UI; dismisses when the call ends
+- Source: Phone posts an ongoing `CATEGORY_CALL` notification (tag `active_call`); not listed as a toast-style Action Center row
+
 ### Page 4 — Action Center
 
 - Layout (top → bottom):

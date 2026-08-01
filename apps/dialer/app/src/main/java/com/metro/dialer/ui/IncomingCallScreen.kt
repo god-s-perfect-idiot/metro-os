@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.dialer.R
 import com.metro.dialer.data.ActiveCall
@@ -56,7 +57,7 @@ fun IncomingCallScreen(
                 .fillMaxWidth()
                 .weight(1f)
                 .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 16.dp),
+                .padding(start = 12.dp, top = 16.dp, bottom = 16.dp),
         ) {
             MetroText(
                 text = stringResource(R.string.carrier_unknown),
@@ -74,8 +75,11 @@ fun IncomingCallScreen(
 
             MetroText(
                 text = call.displayName,
-                style = MetroTextStyle.PageTitle,
+                style = MetroTextStyle.PivotTab,
                 color = Color.White,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier.padding(top = 12.dp),
             )
 
@@ -86,6 +90,9 @@ fun IncomingCallScreen(
                 ),
                 style = MetroTextStyle.ListItemTitle,
                 color = Color.White.copy(alpha = 0.9f),
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier.padding(top = 8.dp),
             )
         }

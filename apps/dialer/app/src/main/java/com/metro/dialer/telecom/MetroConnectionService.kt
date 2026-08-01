@@ -66,4 +66,20 @@ private class MetroConnection(
         setDisconnected(DisconnectCause(DisconnectCause.CANCELED))
         destroy()
     }
+
+    override fun onHold() {
+        setOnHold()
+    }
+
+    override fun onUnhold() {
+        setActive()
+    }
+
+    override fun onPlayDtmfTone(c: Char) {
+        // Self-managed stub — tones are handled by the platform when available.
+    }
+
+    override fun onStopDtmfTone() {
+        // no-op for stub connection
+    }
 }

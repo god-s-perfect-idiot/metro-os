@@ -33,6 +33,12 @@ class ActionNotificationStoreTest {
     }
 
     @Test
+    fun activeCallConstants_matchDialerContract() {
+        assertEquals("com.metro.dialer", ActionNotificationStore.DIALER_PACKAGE)
+        assertEquals("active_call", ActionNotificationStore.ACTIVE_CALL_TAG)
+    }
+
+    @Test
     fun quickActionLabels_matchWpDefaults() {
         assertEquals("WI-FI", QuickActionController.labelFor(QuickActionType.Wifi))
         assertEquals("BLUETOOTH", QuickActionController.labelFor(QuickActionType.Bluetooth))

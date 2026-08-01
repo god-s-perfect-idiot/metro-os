@@ -6,6 +6,16 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-feature
+        android:name="android.hardware.sensor.proximity"
+        android:required="false" />
 
     <queries>
         <package android:name="com.metro.people" />
@@ -65,7 +75,7 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:launchMode="singleTop"
-            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:theme="@style/Theme.MetroDialer" />
 
@@ -98,6 +108,14 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.metro.action.ADD_SPEED_DIAL" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".telecom.EndCallActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.metro.dialer.action.END_ACTIVE_CALL" />
             </intent-filter>
         </receiver>
     </application>

@@ -200,6 +200,7 @@ cd apps/statusbar
 | Status bar is a true system-reserved region | An installed app can only overlay via `SYSTEM_ALERT_WINDOW`, which is layered below the system status bar | The tray is hosted as a `TYPE_ACCESSIBILITY_OVERLAY` (via `StatusBarAccessibilityService`) so it draws above the system status bar; requires enabling the accessibility service. Falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the system bar) when not enabled. |
 | Quick actions toggle radios instantly | Android 10+ blocks app-level Wi-Fi / Airplane / hotspot toggles without privileged permissions | Show real on/off + SSID/name when readable; tap opens the matching `Settings.Panel` / settings screen when a direct toggle is blocked. |
 | Action Center lists every toast | Requires notification listener access | `ActionNotificationListenerService` + user grant from setup; shell FGS packages filtered out. |
+| WP8.1 green return-to-call banner | Owned by Phone, rendered in shell | Status Bar draws banner from Phone’s ongoing call notification when notification access is granted. |
 
 ## Agent postmortem
 

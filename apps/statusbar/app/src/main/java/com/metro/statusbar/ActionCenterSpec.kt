@@ -75,3 +75,12 @@ data class ActionNotificationGroup(
     val appLabel: String,
     val items: List<ActionNotificationItem>,
 )
+
+/**
+ * WP8.1 green return-to-call strip shown under the system tray while Phone has an active call.
+ */
+data class ActiveCallBanner(
+    val key: String,
+    val title: String,
+    val statusText: String,
+)

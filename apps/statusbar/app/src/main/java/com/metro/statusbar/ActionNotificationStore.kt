@@ -23,10 +23,19 @@ object ActionNotificationStore {
         "com.metro.launcher",
     )
 
+    /** Phone package that owns the WP8.1 active-call banner. */
+    const val DIALER_PACKAGE = "com.metro.dialer"
+    const val ACTIVE_CALL_TAG = "active_call"
+
     private val groups = CopyOnWriteArrayList<ActionNotificationGroup>()
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
+    @Volatile
+    private var activeCallBanner: ActiveCallBanner? = null
+
     fun all(): List<ActionNotificationGroup> = groups.toList()
+
+    fun activeCallBanner(): ActiveCallBanner? = activeCallBanner
 
     fun addListener(listener: () -> Unit) {
         listeners += listener
@@ -38,10 +47,12 @@ object ActionNotificationStore {
 
     fun clear() {
         groups.clear()
+        activeCallBanner = null
         notifyListeners()
     }
 
     fun replaceAll(context: Context, active: Array<StatusBarNotification>?) {
+        activeCallBanner = extractActiveCallBanner(active)
         groups.clear()
         groups.addAll(aggregate(context, active))
         notifyListeners()
@@ -72,8 +83,37 @@ object ActionNotificationStore {
         if (sbn.packageName in IgnoredPackages) return false
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return false
         // Ongoing / FGS chrome is not toast-style Action Center content.
+        // Active call is shown as the Metro green banner instead.
         if (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT != 0) return false
         return true
+    }
+
+    internal fun isActiveCallNotification(sbn: StatusBarNotification): Boolean {
+        // Only the minimized active-call notification drives the green banner —
+        // incoming full-screen-intent notifications use a different tag.
+        return sbn.packageName == DIALER_PACKAGE && sbn.tag == ACTIVE_CALL_TAG
+    }
+
+    internal fun extractActiveCallBanner(
+        active: Array<StatusBarNotification>?,
+    ): ActiveCallBanner? {
+        if (active.isNullOrEmpty()) return null
+        val sbn = active
+            .filter { isActiveCallNotification(it) }
+            .maxByOrNull { it.postTime }
+            ?: return null
+        val extras = sbn.notification.extras
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+            .ifEmpty { extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim().orEmpty() }
+        val body = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
+            ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim()
+            ?: ""
+        return ActiveCallBanner(
+            key = "${sbn.packageName}:${sbn.id}:${sbn.tag.orEmpty()}",
+            title = title.ifEmpty { "Phone" },
+            statusText = body.ifEmpty { "calling…" },
+        )
     }
 
     internal fun formatTime(postedAtMs: Long, now: ZonedDateTime = ZonedDateTime.now()): String {
