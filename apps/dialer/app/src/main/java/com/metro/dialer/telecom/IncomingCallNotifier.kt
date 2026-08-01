@@ -1,5 +1,6 @@
 package com.metro.dialer.telecom
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.metro.dialer.InCallActivity
@@ -15,10 +17,11 @@ import com.metro.dialer.data.ActiveCall
 import com.metro.system.MetroPreferences
 
 /**
- * High-priority incoming-call notification with a full-screen intent.
+ * Incoming-call notification used only when the Metro incoming UI cannot be started directly
+ * (locked / screen-off). It carries a full-screen intent so [InCallActivity] can still appear.
  *
- * On a locked or screen-off device, Android blocks [android.app.Service] activity starts;
- * the full-screen intent is what brings up [InCallActivity] / the WP incoming-call page.
+ * Never posted while the device is unlocked and interactive — that path would produce an Android
+ * heads-up over the WP incoming-call page.
  */
 object IncomingCallNotifier {
     const val NOTIFICATION_ID = 0xC412
@@ -67,6 +70,14 @@ object IncomingCallNotifier {
     fun stop(context: Context) {
         NotificationManagerCompat.from(context.applicationContext)
             .cancel(NOTIFICATION_TAG, NOTIFICATION_ID)
+    }
+
+    /** True when a service activity-start is likely blocked and FSI is required. */
+    fun needsFullScreenIntent(context: Context): Boolean {
+        val keyguard = context.getSystemService(KeyguardManager::class.java)
+        if (keyguard?.isKeyguardLocked == true) return true
+        val power = context.getSystemService(PowerManager::class.java)
+        return power?.isInteractive == false
     }
 
     private fun ensureChannel(context: Context) {

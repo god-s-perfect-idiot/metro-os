@@ -108,7 +108,6 @@ object ActiveCallNotifier {
             .setContentTitle(call.displayName)
             .setContentText(statusText)
             .setSubText(context.getString(R.string.active_call_notification_label))
-            .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -132,6 +131,8 @@ object ActiveCallNotifier {
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        // Drop the temporary quiet channel from an earlier heads-up fix.
+        manager.deleteNotificationChannel("metro_active_call_quiet")
         val existing = manager.getNotificationChannel(CHANNEL_ID)
         if (existing != null) return
         manager.createNotificationChannel(

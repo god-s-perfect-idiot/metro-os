@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import com.metro.dialer.data.DialerCallLogic
+import com.metro.dialer.telecom.IncomingCallNotifier
 import com.metro.dialer.telecom.MetroCallSession
 import com.metro.dialer.telecom.ProximityScreenController
 import com.metro.dialer.ui.InCallScreen
@@ -94,7 +95,8 @@ class InCallActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // Full in-call UI visible — hide the WP green return-to-call banner.
+        // Metro incoming / in-call UI is visible — dismiss Android notification chrome.
+        IncomingCallNotifier.stop(this)
         MetroCallSession.hideMinimizedNotification(this)
     }
 
@@ -110,10 +112,16 @@ class InCallActivity : ComponentActivity() {
 
     override fun onStop() {
         // Start / Home minimizes an answered/outgoing call to the Metro green banner.
-        // While still ringing, keep the incoming full-screen-intent notification instead.
+        // While still ringing on a locked/off screen, keep the FSI notification for wake-up.
         val call = MetroCallSession.activeCall.value
-        if (call != null && !isFinishing && !DialerCallLogic.isIncomingRinging(call)) {
-            MetroCallSession.showMinimizedNotification(this)
+        if (call != null && !isFinishing) {
+            if (DialerCallLogic.isIncomingRinging(call)) {
+                if (IncomingCallNotifier.needsFullScreenIntent(this)) {
+                    IncomingCallNotifier.show(this, call)
+                }
+            } else {
+                MetroCallSession.showMinimizedNotification(this)
+            }
         }
         super.onStop()
     }

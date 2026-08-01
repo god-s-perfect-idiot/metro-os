@@ -38,11 +38,14 @@ class MetroInCallService : InCallService() {
             else -> call.state == Call.STATE_RINGING
         }
         if (isIncoming && call.state != Call.STATE_ACTIVE) {
-            MetroCallSession.activeCall.value?.let { IncomingCallNotifier.show(this, it) }
             val intent = Intent(this, InCallActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
-            // Unlocked/interactive: start directly. Locked/screen-off: FSI notification above.
+            // Unlocked/interactive: Metro incoming UI only (no Android heads-up).
+            // Locked/screen-off: FSI notification brings up InCallActivity.
+            if (IncomingCallNotifier.needsFullScreenIntent(this)) {
+                MetroCallSession.activeCall.value?.let { IncomingCallNotifier.show(this, it) }
+            }
             runCatching { startActivity(intent) }
         }
     }
