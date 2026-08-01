@@ -19,35 +19,26 @@ package dev.patrickgold.florisboard.app.settings.advanced
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adb
 import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Preview
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
+import com.metro.keyboard.ui.SwitchPreference
+import com.metro.keyboard.ui.prefs.ListPreference
+import com.metro.keyboard.ui.prefs.Preference
+import com.metro.keyboard.ui.prefs.PreferenceGroup
 import dev.patrickgold.florisboard.R
-import dev.patrickgold.florisboard.app.AppTheme
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
-import dev.patrickgold.florisboard.app.enumDisplayEntriesOf
 import dev.patrickgold.florisboard.ime.core.DisplayLanguageNamesIn
 import dev.patrickgold.florisboard.lib.FlorisLocale
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.jetpref.datastore.model.collectAsState
-import dev.patrickgold.jetpref.datastore.ui.ColorPickerPreference
-import com.metro.keyboard.ui.prefs.ListPreference
-import com.metro.keyboard.ui.prefs.Preference
-import com.metro.keyboard.ui.prefs.PreferenceGroup
-import com.metro.keyboard.ui.SwitchPreference
-import dev.patrickgold.jetpref.datastore.ui.isMaterialYou
 import dev.patrickgold.jetpref.datastore.ui.listPrefEntries
 import org.florisboard.lib.android.AndroidVersion
-import org.florisboard.lib.color.ColorMappings
 import org.florisboard.lib.compose.stringRes
 
 
@@ -57,31 +48,8 @@ fun OtherScreen() = FlorisScreen {
     previewFieldVisible = false
 
     val navController = LocalNavController.current
-    val context = LocalContext.current
 
     content {
-        ListPreference(
-            prefs.other.settingsTheme,
-            icon = Icons.Default.Palette,
-            title = stringRes(R.string.pref__other__settings_theme__label),
-            entries = enumDisplayEntriesOf(AppTheme::class),
-        )
-        ColorPickerPreference(
-            pref = prefs.other.accentColor,
-            title = stringRes(R.string.pref__other__settings_accent_color__label),
-            defaultValueLabel = stringRes(R.string.action__default),
-            icon = Icons.Default.FormatColorFill,
-            defaultColors = ColorMappings.colors,
-            showAlphaSlider = false,
-            enableAdvancedLayout = true,
-            colorOverride = {
-                if (it.isMaterialYou(context)) {
-                    Color.Unspecified
-                } else {
-                    it
-                }
-            }
-        )
         ListPreference(
             prefs.other.settingsLanguage,
             icon = Icons.Default.Language,

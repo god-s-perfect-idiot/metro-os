@@ -24,6 +24,5 @@ package dev.patrickgold.florisboard.ime.theme
 enum class ThemeMode {
     ALWAYS_DAY,
     ALWAYS_NIGHT,
-    FOLLOW_SYSTEM,
-    FOLLOW_TIME;
+    FOLLOW_SYSTEM;
 }

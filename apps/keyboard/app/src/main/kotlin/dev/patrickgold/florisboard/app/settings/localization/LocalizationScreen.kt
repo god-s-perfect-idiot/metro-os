@@ -19,11 +19,6 @@ package dev.patrickgold.florisboard.app.settings.localization
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -36,6 +31,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.metro.keyboard.ui.prefs.ListPreference
+import com.metro.keyboard.ui.prefs.Preference
+import com.metro.keyboard.ui.prefs.PreferenceGroup
+import com.metro.keyboard.ui.SwitchPreference
+import com.metro.ui.MetroBorderButton
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
@@ -47,10 +47,6 @@ import dev.patrickgold.florisboard.keyboardManager
 import dev.patrickgold.florisboard.lib.compose.FlorisScreen
 import dev.patrickgold.florisboard.subtypeManager
 import dev.patrickgold.jetpref.datastore.model.collectAsState
-import com.metro.keyboard.ui.prefs.ListPreference
-import com.metro.keyboard.ui.prefs.Preference
-import com.metro.keyboard.ui.prefs.PreferenceGroup
-import com.metro.keyboard.ui.SwitchPreference
 import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
 import kotlinx.serialization.json.Json
 import org.florisboard.lib.compose.FlorisWarningCard
@@ -79,19 +75,8 @@ fun LocalizationScreen() = FlorisScreen {
     var chosenSubtypeToDelete: Subtype? by rememberSaveable(saver = SubtypeSaver) { mutableStateOf(null) }
 
     floatingActionButton {
-        ExtendedFloatingActionButton(
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringRes(R.string.settings__localization__subtype_add_title),
-                )
-            },
-            text = {
-                Text(
-                    text = stringRes(R.string.settings__localization__subtype_add_title),
-                )
-            },
-            shape = FloatingActionButtonDefaults.extendedFabShape,
+        MetroBorderButton(
+            text = stringRes(R.string.settings__localization__subtype_add_title),
             onClick = { navController.navigate(Routes.Settings.SubtypeAdd) },
         )
     }

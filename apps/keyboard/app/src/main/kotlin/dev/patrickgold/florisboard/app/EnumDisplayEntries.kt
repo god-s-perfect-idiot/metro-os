@@ -707,10 +707,6 @@ private val ENUM_DISPLAY_ENTRIES = mapOf<Pair<KClass<*>, String>, @Composable ()
                 key = ThemeMode.FOLLOW_SYSTEM,
                 label = stringRes(R.string.enum__theme_mode__follow_system),
             )
-            entry(
-                key = ThemeMode.FOLLOW_TIME,
-                label = stringRes(R.string.enum__theme_mode__follow_time),
-            )
         }
     },
     UtilityKeyAction::class to DEFAULT to {

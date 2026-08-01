@@ -58,7 +58,6 @@ import dev.patrickgold.florisboard.lib.ext.ExtensionComponentName
 import dev.patrickgold.florisboard.lib.util.VersionName
 import dev.patrickgold.jetpref.datastore.annotations.Preferences
 import dev.patrickgold.jetpref.datastore.jetprefDataStoreOf
-import dev.patrickgold.jetpref.datastore.model.LocalTime
 import dev.patrickgold.jetpref.datastore.model.PreferenceData
 import dev.patrickgold.jetpref.datastore.model.PreferenceMigrationEntry
 import dev.patrickgold.jetpref.datastore.model.PreferenceModel
@@ -726,14 +725,6 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
             default = Color.Unspecified,
             serializer = ColorPreferenceSerializer,
         )
-        val sunriseTime = localTime(
-            key = "theme__sunrise_time",
-            default = LocalTime(6, 0),
-        )
-        val sunsetTime = localTime(
-            key = "theme__sunset_time",
-            default = LocalTime(18, 0),
-        )
         val editorColorRepresentation = enum(
             key = "theme__editor_color_representation",
             default = ColorRepresentation.HEX,
@@ -914,6 +905,18 @@ abstract class FlorisPreferenceModel : PreferenceModel() {
                 } else {
                     entry.keepAsIs()
                 }
+            }
+
+            // Drop follow-time theme mode and sunrise/sunset prefs
+            "theme__mode" -> {
+                if (entry.rawValue == "FOLLOW_TIME") {
+                    entry.transform(rawValue = ThemeMode.FOLLOW_SYSTEM.name)
+                } else {
+                    entry.keepAsIs()
+                }
+            }
+            "theme__sunrise_time", "theme__sunset_time" -> {
+                entry.reset()
             }
 
             // Default: keep entry
