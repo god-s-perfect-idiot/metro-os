@@ -31,7 +31,7 @@ install_app() {
 echo "==> install-shell: Tier 0 Metro Shell"
 
 # Order matters: launcher sets home, overlays depend on it
-for app in launcher statusbar navbar; do
+for app in launcher statusbar navbar volume; do
   install_app "$app"
 done
 
@@ -41,5 +41,10 @@ echo "  adb shell cmd package set-home-activity com.metro.launcher/.MainActivity
 echo ""
 echo "Grant overlay permission (status bar):"
 echo "  adb shell appops set com.metro.statusbar SYSTEM_ALERT_WINDOW allow"
+echo ""
+echo "Grant overlay permission (volume HUD):"
+echo "  adb shell appops set com.metro.volume SYSTEM_ALERT_WINDOW allow"
+echo ""
+echo "Enable Volume accessibility (volume keys + overlay layer) from the Volume app setup screen."
 echo ""
 echo "install-shell: done"

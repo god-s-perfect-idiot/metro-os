@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Volume</string>
+    <string name="setup_title">controls</string>
+    <string name="setup_body">Grant overlay and enable the Volume accessibility service so hardware volume keys show the WP8.1 volume HUD instead of Android\'s stock panel.</string>
+    <string name="grant_overlay">grant overlay permission</string>
+    <string name="enable_accessibility">enable accessibility</string>
+    <string name="start_overlay">start volume HUD</string>
+    <string name="setup_ready">Ready. Press Volume Up or Down to show the Metro volume controls.</string>
+    <string name="accessibility_service_description">Metro Volume listens for volume keys and draws the WP8.1 volume HUD above other apps.</string>
+    <string name="overlay_notification_title">Metro Volume</string>
+    <string name="overlay_notification_body">Volume HUD is active</string>
+</resources>

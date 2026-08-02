@@ -98,7 +98,7 @@ See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) for common failures.
 
 ```
 Phase 1: toolkits (metro-ui-android → metro-system-sdk → metro-test-harness)
-Phase 2: launcher → statusbar → navbar
+Phase 2: launcher → statusbar → navbar → volume
 Phase 3: browser, notes, music (parallel OK)
 Phase 4: Tier 2 apps (parallel OK)
 ```

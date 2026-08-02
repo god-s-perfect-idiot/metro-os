@@ -18,6 +18,8 @@ Verification toolkit for metro-os apps.
 
 `check-ux-language.sh` verifies [`metro-ui-android/METRO-UX-LANGUAGE.md`](../metro-ui-android/METRO-UX-LANGUAGE.md) exists and is linked from agent docs. It runs in `verify-app.sh` and `verify-toolkit.sh`.
 
+`lint-metro.sh` also enforces flush-left setup chrome: no `fillMaxWidth()` on `MetroBorderButton`, and no horizontally padded `Column` wrapping `MetroAppTitle` (see UX language §6.3 / §12).
+
 ## Agent entrypoint
 
 [`AGENTS.md`](AGENTS.md)

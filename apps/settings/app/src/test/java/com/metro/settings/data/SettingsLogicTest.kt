@@ -37,6 +37,13 @@ class SettingsLogicTest {
     }
 
     @Test
+    fun storageSnapshot_usedFraction() {
+        assertEquals(0.25f, StorageSnapshot(totalBytes = 100, freeBytes = 75).usedFraction, 0.001f)
+        assertEquals(0f, StorageSnapshot(totalBytes = 0, freeBytes = 0).usedFraction, 0.001f)
+        assertEquals(1f, StorageSnapshot(totalBytes = 50, freeBytes = 0).usedFraction, 0.001f)
+    }
+
+    @Test
     fun displayOrDash_blankBecomesDash() {
         assertEquals("—", SettingsLogic.displayOrDash(null))
         assertEquals("—", SettingsLogic.displayOrDash("  "))
@@ -47,5 +54,39 @@ class SettingsLogicTest {
     @Test
     fun metroOsVersion_isLatestRelease() {
         assertEquals("alpha-3", SettingsLogic.METRO_OS_VERSION)
+    }
+
+    @Test
+    fun filterInstalledApplicationSettings_keepsCatalogOrder() {
+        val installed = setOf("com.metro.store", "com.metro.browser", "com.metro.people")
+        val filtered = SettingsLogic.filterInstalledApplicationSettings(installed)
+        assertEquals(
+            listOf("Internet Explorer", "people", "store"),
+            filtered.map { it.title },
+        )
+    }
+
+    @Test
+    fun filterInstalledApplicationSettings_emptyWhenNothingInstalled() {
+        assertEquals(
+            emptyList<ApplicationSettingEntry>(),
+            SettingsLogic.filterInstalledApplicationSettings(emptySet()),
+        )
+    }
+
+    @Test
+    fun canUninstallApp_blocksSystemAndSelf() {
+        assertEquals(
+            false,
+            SettingsLogic.canUninstallApp("com.android.phone", isSystemApp = true, selfPackageName = "com.metro.settings"),
+        )
+        assertEquals(
+            false,
+            SettingsLogic.canUninstallApp("com.metro.settings", isSystemApp = false, selfPackageName = "com.metro.settings"),
+        )
+        assertEquals(
+            true,
+            SettingsLogic.canUninstallApp("com.example.game", isSystemApp = false, selfPackageName = "com.metro.settings"),
+        )
     }
 }

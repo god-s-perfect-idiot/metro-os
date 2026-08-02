@@ -18,6 +18,14 @@ Add one `##` section per screen or feature. Keep URLs stable; use archive.org mi
 | Resource | URL | Notes |
 |----------|-----|-------|
 | Change accent / background (WP8) | https://www.eightforums.com/threads/windows-phone-8-accent-color-and-background-theme-change.36664/ | Settings list → theme / start+theme; includes `ACCENTS` 4×5 picker capture |
+| Panasonic WEH 8.1 Settings list | (link in General) | Pivot: system + Applications settings; canonical lowercase / Title Case row labels |
+
+## applications
+
+| Resource | URL | Notes |
+|----------|-----|-------|
+| Panasonic WEH 8.1 Applications settings | (link in General) | Catalog: Cortana, Internet Explorer, maps, messaging, Office, people, phone, photos+camera, search, store, wallet |
+| WP Experience — Applications → IE / Photos | https://blogs.windows.com/windowsexperience/2013/02/13/8-hidden-windows-phone-8-settings-youll-actually-use/ | Confirms Applications hub embeds per-app settings pages |
 
 ## start+theme
 

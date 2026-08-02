@@ -2,10 +2,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
-    <!-- Package visibility for launching suite keyboard settings. -->
+    <!-- Package visibility for launching suite apps from Settings (API 30+). -->
     <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DELETE" />
+            <data android:scheme="package" />
+        </intent>
         <package android:name="com.metro.keyboard" />
+        <package android:name="com.metro.files" />
+        <package android:name="com.metro.browser" />
+        <package android:name="com.metro.messaging" />
+        <package android:name="com.metro.people" />
+        <package android:name="com.metro.dialer" />
+        <package android:name="com.metro.photos" />
+        <package android:name="com.metro.store" />
     </queries>
 
     <application

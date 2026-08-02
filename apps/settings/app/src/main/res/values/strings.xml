@@ -1,7 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Settings</string>
+    <string name="settings_app_title">settings</string>
     <string name="settings_system_title">system</string>
+    <string name="settings_applications_title">applications</string>
+    <string name="settings_applications_empty">No applications found.</string>
+    <string name="settings_applications_section_apps">apps</string>
+    <string name="settings_applications_section_system">system apps</string>
+    <string name="settings_app_missing">This app is no longer installed.</string>
+    <string name="settings_app_version">Version</string>
+    <string name="settings_app_size">Size</string>
+    <string name="settings_app_type">Type</string>
+    <string name="settings_app_package">Package</string>
+    <string name="settings_app_background">Allow app to run in the background</string>
+    <string name="settings_app_background_help">Stores a metro-os preference for this app. Suite apps honor it when background agents are available.</string>
+    <string name="settings_app_notifications">Notifications</string>
+    <string name="settings_app_notifications_help">Stores a metro-os preference for this app. Suite apps honor it when posting notifications.</string>
+    <string name="settings_app_open">open</string>
+    <string name="settings_app_uninstall">uninstall</string>
+    <string name="settings_app_uninstall_title">uninstall app?</string>
+    <string name="settings_app_uninstall_body">Do you want to uninstall %1$s?</string>
+    <string name="settings_app_uninstall_cancel">cancel</string>
+    <string name="settings_app_uninstall_blocked">System apps can\'t be uninstalled.</string>
     <string name="settings_start_theme">start+theme</string>
     <string name="settings_ease_of_access">ease of access</string>
     <string name="settings_accent_colour">accent colour</string>
@@ -25,6 +45,7 @@
     <string name="settings_storage_free">Free</string>
     <string name="settings_storage_total">Total</string>
     <string name="settings_storage_unavailable">Storage information unavailable</string>
+    <string name="settings_storage_open_files">open files</string>
 
     <string name="settings_keyboard">keyboard</string>
     <string name="settings_keyboard_subtitle">touch keyboard</string>

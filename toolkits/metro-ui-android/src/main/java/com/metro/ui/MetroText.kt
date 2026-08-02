@@ -69,6 +69,10 @@ fun MetroText(
  *
  * Always rendered ALL CAPS so every app presents its name consistently. Use this instead of a
  * raw [MetroText] whenever you need the app-title line.
+ *
+ * Owns the **12dp start inset** — place it in an unpadded parent and apply the same margin to
+ * sibling content per-child. Do not wrap it in a Column with `padding(horizontal = …)` (that
+ * double-indents the overline; harness lint-metro enforces this).
  */
 @Composable
 fun MetroAppTitle(

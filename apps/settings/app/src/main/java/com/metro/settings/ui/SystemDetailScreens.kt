@@ -1,15 +1,22 @@
 package com.metro.settings.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.settings.R
 import com.metro.settings.data.SettingsLogic
+import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroDimens
 import com.metro.ui.MetroSlider
 import com.metro.ui.MetroText
@@ -48,6 +55,13 @@ fun StorageSenseScreen(
         if (storage == null) {
             SettingsBodyText(text = stringResource(R.string.settings_storage_unavailable))
         } else {
+            StorageUsageBar(
+                usedFraction = storage.usedFraction,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MetroDimens.ScreenHorizontalMargin)
+                    .padding(bottom = 16.dp),
+            )
             SettingsStatusRow(
                 label = stringResource(R.string.settings_storage_used),
                 value = SettingsLogic.formatBytes(storage.usedBytes),
@@ -61,6 +75,38 @@ fun StorageSenseScreen(
                 value = SettingsLogic.formatBytes(storage.totalBytes),
             )
         }
+
+        SettingsSpacer(height = 24)
+        MetroBorderButton(
+            text = stringResource(R.string.settings_storage_open_files),
+            onClick = state::openFiles,
+            modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+        )
+    }
+}
+
+/** WP8.1 Storage Sense–style determinate bar: accent used fill on a muted track. */
+@Composable
+private fun StorageUsageBar(
+    usedFraction: Float,
+    modifier: Modifier = Modifier,
+) {
+    val fraction = usedFraction.coerceIn(0f, 1f)
+    Box(
+        modifier = modifier
+            .height(8.dp)
+            .background(
+                color = MetroTheme.colors.secondaryText.copy(alpha = 0.35f),
+                shape = RectangleShape,
+            ),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(fraction)
+                .background(MetroTheme.colors.accent, RectangleShape),
+        )
     }
 }
 
@@ -146,7 +192,7 @@ fun AboutScreen(
 }
 
 @Composable
-private fun AboutInfoField(
+internal fun AboutInfoField(
     label: String,
     value: String,
     modifier: Modifier = Modifier,

@@ -34,5 +34,6 @@ fun SettingsShell(
         SettingsRoute.Brightness -> BrightnessScreen(state = state, modifier = contentModifier)
         SettingsRoute.StorageSense -> StorageSenseScreen(state = state, modifier = contentModifier)
         SettingsRoute.About -> AboutScreen(state = state, modifier = contentModifier)
+        SettingsRoute.AppDetail -> AppDetailScreen(state = state, modifier = contentModifier)
     }
 }

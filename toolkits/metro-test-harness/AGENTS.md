@@ -21,12 +21,14 @@ Automated verification: Metro lint, screenshot diff, motion timing. Consumed by 
 
 ## lint-metro rules
 
-See [`metro-ui-android/METRO-UX-LANGUAGE.md`](../metro-ui-android/METRO-UX-LANGUAGE.md) §11–§12 for control choice and anti-patterns.
+See [`metro-ui-android/METRO-UX-LANGUAGE.md`](../metro-ui-android/METRO-UX-LANGUAGE.md) §6.3, §11–§12 for control choice and anti-patterns.
 
 1. Fail on `com.google.android.material` in `apps/*/app/src/**`
 2. Fail on `androidx.compose.material3` in app UI (not toolkit internals)
 3. Warn on text size < 15sp in composable literals
 4. Fail on touch targets < 44dp where detectable via lint API
+5. Fail when `MetroBorderButton` uses `fillMaxWidth()` — buttons are flush-left and hug the label
+6. Fail when a `Column` with `padding(horizontal=…)` hosts `MetroAppTitle` — the app title owns the 12dp start inset; pad siblings per-child
 
 ## screenshot-diff
 

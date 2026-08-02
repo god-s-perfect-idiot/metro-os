@@ -227,11 +227,17 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Background (disabled) | Transparent; border + text @ 40% | Same |
 | Min height | **44dp** touch target around chrome (not extra inset inside the border) | Same |
 | Padding (inside border) | **10dp** horizontal, **4dp** vertical (WP Button `10,3,10,5`) | Same |
+| Alignment | **Flush left** — chrome hugs the label; never centered in the row |
+| Width | Intrinsic to label — **do not** `fillMaxWidth()` |
 | Label | Max 2 words; verb-first ("save", "delete", "connect") |
 
 **Dialog button order:** Affirmative (**ok**, **yes**, **save**) on the **left**; dismissive (**cancel**, **no**) on the **right**.
 
-**Don't:** Rounded corners, filled accent background (that's a link or pivot selection), icons inside border buttons unless using a separate icon-button pattern.
+**Setup / permission screens:** Apply the 12dp content margin on the button itself
+(`Modifier = Modifier.padding(horizontal = 12.dp)`). Do **not** put `padding(horizontal)` on a
+parent `Column` that also hosts `MetroAppTitle` — the app title already owns that start inset.
+
+**Don't:** Rounded corners, filled accent background (that's a link or pivot selection), icons inside border buttons unless using a separate icon-button pattern, full-width stretched border chrome, horizontally centered border buttons.
 
 **Toolkit:** `MetroBorderButton`.
 
@@ -583,6 +589,8 @@ Need a container shape?
 | Roboto in chrome | Noto Sans via `MetroText` |
 | Text-only button in app bar icon row | Move to menu or use border button in content |
 | Pure black/white tile | Tinted tile color from palette |
+| `MetroBorderButton(…, modifier = Modifier.fillMaxWidth())` | Hug-label + flush left (`padding(horizontal = 12.dp)` on setup screens) |
+| `Column(Modifier.padding(horizontal)) { MetroAppTitle(…) }` | Unpadded Column; `MetroAppTitle` owns 12dp start; pad siblings per-child |
 
 ---
 

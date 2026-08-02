@@ -6,19 +6,32 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ## Pages
 
-### Page 1 — Settings root (system list)
+### Page 1 — Settings root (system | applications pivot)
 
-- **Layout:** Black/white theme background. Small ALL CAPS app overline `SETTINGS` via `MetroAppTitle`, then large lowercase page title `system` (64sp Light). Scrollable list of setting rows (single-line title 24sp; optional subtitle 18sp secondary for current value). 12dp horizontal margins. No separators — whitespace only. List item height 76dp.
-- **Navigation:** From app list / Action Center “all settings”. Back exits the app.
-- **Interactions:** Tap a row → push detail page with 300ms horizontal slide (except `keyboard`, which launches the suite keyboard settings app). Interactive rows:
+- **Layout:** Black/white theme background. Small ALL CAPS app overline `SETTINGS` via `MetroAppTitle`, then WP8.1 **pivot** titles `system` | `applications` (64sp Light selected; inactive adjacent title visible). Each pivot page is a scrollable list of setting rows (single-line title 24sp; optional subtitle 18sp secondary for current value on system rows). 12dp horizontal margins. No separators — whitespace only. List item height 76dp.
+- **Navigation:** From app list / Action Center “all settings”. Back exits the app. Swipe or tap pivot headers to switch system ↔ applications.
+- **Interactions — system:** Tap a row → push detail page with 300ms horizontal slide (except `keyboard`, which launches the suite keyboard settings app). Interactive rows:
   - `start+theme`
   - `storage sense`
   - `brightness`
   - `ease of access`
   - `keyboard` — launches `com.metro.keyboard` MainActivity directly (WP8.1 Settings → keyboard lives in a separate APK; see keyboard README platform exceptions). Does **not** open Android Settings.
   - `extras+info`
-- Do not invent Material preference categories. Rows use WP8.1 lowercase titles.
+- **Interactions — applications:** Alphabetical lists of **all launchable apps**, grouped as `apps` (user-installed) then `system apps` (Android system + metro suite). Subtitles show size (user) or `system`. Tap opens **in-Settings app detail** (Page 1b) — does **not** launch the app and does **not** open Android Settings.
+- Do not invent Material preference categories. Rows use WP8.1 lowercase / Title Case titles as on device.
 - **Background:** Theme background (dark `#000000` / light `#FFFFFF`).
+- **Reference gap:** `root_dark_blue.png` — see known-gaps.
+
+### Page 1b — application detail
+
+- **Layout:** `SETTINGS` overline + page title = app display name. Stacked label/value fields: Version, Size, Type (`system` / `app`), Package. Then Battery Saver–style toggles:
+  - **Allow app to run in the background** (`MetroToggleSwitch`)
+  - **Notifications** (`MetroToggleSwitch`)
+  Then border buttons: `open` (launches the app), `uninstall` (user apps only). System / suite-protected apps show helper text instead of uninstall.
+- **Navigation:** Back → applications pivot (root). After uninstall, returning from the package installer refreshes the list; missing package pops to applications.
+- **Interactions:** Toggles write Settings-owned `metro_app_policy` prefs per package. Uninstall shows `MetroMessageDialog` then `ACTION_DELETE` (system package installer UI — not Android Settings). Never open Android Settings.
+- **Background:** Theme background.
+- **Reference gap:** `applications_detail_dark.png` — see known-gaps.
 
 ### Page 2 — start+theme
 
@@ -63,8 +76,8 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ### Page 6 — storage sense
 
-- **Layout:** Internal storage used / free / total (formatted sizes). Read-only; no Material storage picker.
-- **Navigation:** Back → Settings root.
+- **Layout:** Determinate usage bar (accent fill = used, muted track = free) above internal storage used / free / total (formatted sizes). `MetroBorderButton` **open files** launches `com.metro.files`. Read-only sizes; no Material storage picker / Android Settings deep-link.
+- **Navigation:** Back → Settings root. Open files → Files app.
 
 ### Page 7 — extras+info
 
@@ -97,5 +110,6 @@ Missing device captures for root / brightness / storage / extras+info → see [`
 - Custom / Color Changer RGB accent picker
 - High contrast, Narrator, Screen magnifier, browser captions
 - Sync my settings / Microsoft account
-- Application-specific settings hubs (IE, photos+camera, …)
-- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard` are allowed)
+- In-Settings application hubs (IE advanced, photos+camera auto-upload, people filter options, …) — applications pivot uses a shared app-detail page for all launchable packages
+- OS-level notification / background enforcement for third-party apps (requires privileged AppOps); toggles persist metro-os policy prefs
+- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard` are allowed; package installer uninstall UI is allowed)

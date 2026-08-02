@@ -28,7 +28,8 @@ import androidx.compose.ui.unit.sp
  * theme text, transparent rest fill. See [METRO-UX-LANGUAGE.md] §6.3.
  *
  * Visual chrome sizes to the label (WP Button padding 10×3–5); the 44dp min height is the
- * touch target around the border, not extra inset inside it.
+ * touch target around the border, not extra inset inside it. Always **flush left** — do not
+ * stretch with `fillMaxWidth()` (harness lint-metro enforces this).
  */
 @Composable
 fun MetroBorderButton(
@@ -57,7 +58,7 @@ fun MetroBorderButton(
                 enabled = enabled,
                 onClick = onClick,
             ),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.CenterStart,
     ) {
         Box(
             modifier = Modifier

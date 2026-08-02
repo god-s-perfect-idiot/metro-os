@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 soft-key Back glyph — left-pointing arrow, adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M78,48 H52 V36 L30,54 L52,72 V60 H78 Z" />
+</vector>

@@ -11,11 +11,47 @@ import com.metro.system.MetroThemeMode
 import kotlin.math.roundToInt
 
 /**
+ * One row on Settings → applications (WP8.1 Applications settings).
+ * Kept for catalog helpers / unit tests; the live list uses [InstalledAppEntry].
+ */
+data class ApplicationSettingEntry(
+    val packageName: String,
+    val title: String,
+)
+
+/**
  * Pure helpers for settings preference validation (unit-tested).
  */
 object SettingsLogic {
     /** Suite release tag shown on extras+info (Software). */
     const val METRO_OS_VERSION = "alpha-3"
+
+    /**
+     * WP8.1 Applications settings catalog labels (Panasonic WEH / Lumia order).
+     * Used as preferred titles when the matching suite package is present.
+     */
+    val APPLICATION_SETTINGS_CATALOG: List<ApplicationSettingEntry> = listOf(
+        ApplicationSettingEntry("com.metro.browser", "Internet Explorer"),
+        ApplicationSettingEntry("com.metro.messaging", "messaging"),
+        ApplicationSettingEntry("com.metro.people", "people"),
+        ApplicationSettingEntry("com.metro.dialer", "phone"),
+        ApplicationSettingEntry("com.metro.photos", "photos+camera"),
+        ApplicationSettingEntry("com.metro.store", "store"),
+    )
+
+    /** Keeps catalog order; drops packages not present in [installedPackages]. */
+    fun filterInstalledApplicationSettings(
+        installedPackages: Set<String>,
+        catalog: List<ApplicationSettingEntry> = APPLICATION_SETTINGS_CATALOG,
+    ): List<ApplicationSettingEntry> =
+        catalog.filter { it.packageName in installedPackages }
+
+    /** User apps may uninstall; system / self may not. */
+    fun canUninstallApp(
+        packageName: String,
+        isSystemApp: Boolean,
+        selfPackageName: String,
+    ): Boolean = !isSystemApp && packageName != selfPackageName
 
     fun normalizeTheme(storage: String?): MetroThemeMode =
         MetroThemeMode.fromStorage(storage)
@@ -60,6 +96,8 @@ data class StorageSnapshot(
     val freeBytes: Long,
 ) {
     val usedBytes: Long get() = (totalBytes - freeBytes).coerceAtLeast(0L)
+    val usedFraction: Float
+        get() = if (totalBytes <= 0L) 0f else (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
 }
 
 /**
