@@ -34,14 +34,15 @@ notification shade with quick actions, optional in-tray progress. Runs as overla
 
 ## Primary flows
 
-1. Overlay draws **above the system status bar** via `TYPE_ACCESSIBILITY_OVERLAY`
+1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag
+2. Overlay draws **above the system status bar** via `TYPE_ACCESSIBILITY_OVERLAY`
    (`StatusBarAccessibilityService`); falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the
    system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —
    it is layered below the system status bar.
-2. Clock updates every minute
-3. Tap tray or Start/home expands indicators (staggered drop); auto-collapse after hold
-4. Swipe down opens Action Center (notifications + quick actions)
-5. `ThemeChangeReceiver` updates foreground colors
+3. Clock updates every minute
+4. Tap tray or Start/home expands indicators (staggered drop); auto-collapse after hold
+5. Swipe down opens Action Center (notifications + quick actions)
+6. `ThemeChangeReceiver` updates foreground colors
 
 ## Golden screenshots
 

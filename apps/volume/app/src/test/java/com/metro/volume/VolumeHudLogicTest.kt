@@ -29,6 +29,39 @@ class VolumeHudLogicTest {
     }
 
     @Test
+    fun androidToWpConsistent_keepsPreferredWhenMappedEqual() {
+        // androidMax=5: WP 8 and 7 both map to android 4; keep the HUD tick.
+        assertEquals(8, VolumeHudLogic.androidToWpConsistent(4, 5, 10, preferredWp = 8))
+        assertEquals(7, VolumeHudLogic.androidToWpConsistent(4, 5, 10, preferredWp = 7))
+        // External change away from preferred → remap.
+        assertEquals(10, VolumeHudLogic.androidToWpConsistent(5, 5, 10, preferredWp = 8))
+        assertEquals(0, VolumeHudLogic.androidToWpConsistent(0, 5, 10, preferredWp = 8))
+    }
+
+    @Test
+    fun stepWpAcrossAndroid_coarseRingScaleDoesNotFloorOrJump() {
+        // Regression: max=5 used to floor at 8/10 and jump to 10 on a single up.
+        var level = 10
+        for (expected in 9 downTo 0) {
+            level = VolumeHudLogic.stepWpAcrossAndroid(level, -1, androidMax = 5, wpMax = 10)
+            assertEquals(expected, level)
+        }
+        for (expected in 1..10) {
+            level = VolumeHudLogic.stepWpAcrossAndroid(level, 1, androidMax = 5, wpMax = 10)
+            assertEquals(expected, level)
+        }
+    }
+
+    @Test
+    fun stepWpAcrossAndroid_typicalRingMaxSeven() {
+        var level = 10
+        for (expected in 9 downTo 0) {
+            level = VolumeHudLogic.stepWpAcrossAndroid(level, -1, androidMax = 7, wpMax = 10)
+            assertEquals(expected, level)
+        }
+    }
+
+    @Test
     fun selectDefaultStream_priority() {
         assertEquals(
             VolumeStreamKind.Call,
@@ -104,5 +137,17 @@ class VolumeHudLogicTest {
     @Test
     fun dismissMs_isTwoPointFiveSeconds() {
         assertEquals(2500L, VolumeHudSpec.DISMISS_MS)
+    }
+
+    @Test
+    fun showHideAndExpandTiming_areSnappyEaseOutFamily() {
+        assertEquals(200, VolumeHudSpec.SHOW_HIDE_MS)
+        assertEquals(200, VolumeHudSpec.EXPAND_COLLAPSE_MS)
+    }
+
+    @Test
+    fun keyRepeatTiming_matchesHoldToStepSpec() {
+        assertEquals(400L, VolumeHudSpec.KEY_REPEAT_INITIAL_MS)
+        assertEquals(100L, VolumeHudSpec.KEY_REPEAT_INTERVAL_MS)
     }
 }

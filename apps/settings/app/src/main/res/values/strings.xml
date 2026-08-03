@@ -47,6 +47,13 @@
     <string name="settings_storage_unavailable">Storage information unavailable</string>
     <string name="settings_storage_open_files">open files</string>
 
+    <string name="settings_navigation_bar">navigation bar</string>
+    <string name="settings_navigation_bar_subtitle">soft keys</string>
+    <string name="settings_status_bar">status bar</string>
+    <string name="settings_status_bar_subtitle">system tray</string>
+    <string name="settings_volume">volume</string>
+    <string name="settings_volume_subtitle">ringer + media</string>
+
     <string name="settings_keyboard">keyboard</string>
     <string name="settings_keyboard_subtitle">touch keyboard</string>
 

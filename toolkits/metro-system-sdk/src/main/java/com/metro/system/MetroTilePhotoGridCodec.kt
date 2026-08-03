@@ -14,6 +14,7 @@ internal object MetroTilePhotoGridCodec {
                 JSONObject().apply {
                     cell.colorHex?.let { put("color", it) }
                     cell.imageUri?.let { put("image", it) }
+                    cell.label?.let { put("label", it) }
                 },
             )
         }
@@ -44,6 +45,7 @@ internal object MetroTilePhotoGridCodec {
                         MetroTileGridCell(
                             colorHex = obj.optString("color").takeIf { it.isNotBlank() },
                             imageUri = obj.optString("image").takeIf { it.isNotBlank() },
+                            label = obj.optString("label").takeIf { it.isNotBlank() },
                         ),
                     )
                 }

@@ -11,15 +11,17 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -61,6 +63,10 @@ class VolumeOverlayService :
     private var overlayManager: WindowManager? = null
     private var currentWindowType: Int? = null
     private var hostContext: Context? = null
+    /** Fixed overlay height in px — snapped at expand/collapse boundaries, never per-frame. */
+    private var overlayHeightPx: Int = 0
+    /** Status-bar / cutout inset; window includes this, charcoal content is padded below it. */
+    private var topInsetPx: Int = 0
 
     private val controller by lazy { VolumeHudController(this) }
     private val handler = Handler(Looper.getMainLooper())
@@ -138,7 +144,10 @@ class VolumeOverlayService :
                 applicationOverlayWindowType()
             }
 
-        val topOffsetPx = statusBarInsetPx()
+        // Window at y=0 spans the tray/cutout; charcoal content is padded below the inset
+        // so the tray stays visible and nothing is clipped by the notch.
+        topInsetPx = statusBarInsetPx()
+        overlayHeightPx = topInsetPx + dpToPx(VolumeHudSpec.COLLAPSED_HEIGHT_DP)
         val composeView = ComposeView(host).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             suppressSystemBarInsets()
@@ -147,13 +156,8 @@ class VolumeOverlayService :
             setViewTreeViewModelStoreOwner(this@VolumeOverlayService)
             setContent {
                 val snapshot = controller.snapshot
-                LaunchedEffect(snapshot.visible) {
-                    if (!snapshot.visible) {
-                        // Drop the window once the HUD auto-dismisses so nothing remains
-                        // that can steal touches or leave a zombie overlay.
-                        handler.post { removeOverlayIfHidden() }
-                    }
-                }
+                val density = LocalDensity.current
+                val topInsetDp = with(density) { topInsetPx.toDp() }
                 VolumeHud(
                     snapshot = snapshot,
                     onToggleExpanded = { controller.toggleExpanded() },
@@ -164,14 +168,29 @@ class VolumeOverlayService :
                     onToggleRingerMute = { controller.toggleRingerMute() },
                     onToggleMediaMute = { controller.toggleMediaMute() },
                     onToggleVibrate = { controller.toggleVibrate() },
-                    modifier = Modifier.fillMaxWidth(),
+                    onWindowHeightDp = { heightDp ->
+                        // Compose is on the main thread — update synchronously so the
+                        // overlay grows before the wipe starts (handler.post races).
+                        updateOverlayContentHeightDp(heightDp)
+                    },
+                    onExitFinished = {
+                        // Drop the window after the hide wipe so nothing remains that can
+                        // steal touches or leave a zombie overlay.
+                        handler.post { removeOverlayIfHidden() }
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = topInsetDp),
                 )
             }
         }
 
         val manager = host.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         try {
-            manager.addView(composeView, createLayoutParams(windowType, topOffsetPx))
+            manager.addView(
+                composeView,
+                createLayoutParams(windowType, overlayHeightPx),
+            )
             overlayView = composeView
             overlayManager = manager
             currentWindowType = windowType
@@ -183,6 +202,8 @@ class VolumeOverlayService :
             overlayManager = null
             currentWindowType = null
             hostContext = null
+            overlayHeightPx = 0
+            topInsetPx = 0
         }
     }
 
@@ -199,19 +220,45 @@ class VolumeOverlayService :
         overlayManager = null
         currentWindowType = null
         hostContext = null
+        overlayHeightPx = 0
+        topInsetPx = 0
         if (view != null && manager != null) {
             runCatching { manager.removeView(view) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
         }
     }
 
+    /**
+     * Snap overlay height at expand/collapse boundaries only. Per-frame WRAP_CONTENT
+     * updates during the wipe make WindowManager jitter.
+     *
+     * [contentHeightDp] is the charcoal panel height; the window also includes [topInsetPx].
+     */
+    private fun updateOverlayContentHeightDp(contentHeightDp: Int) {
+        val view = overlayView ?: return
+        val manager = overlayManager ?: return
+        val windowType = currentWindowType ?: return
+        val heightPx = (topInsetPx + dpToPx(contentHeightDp)).coerceAtLeast(1)
+        if (heightPx == overlayHeightPx) return
+        overlayHeightPx = heightPx
+        runCatching {
+            manager.updateViewLayout(
+                view,
+                createLayoutParams(windowType, heightPx),
+            )
+        }.onFailure { Log.w(TAG, "updateViewLayout failed", it) }
+    }
+
+    private fun dpToPx(dp: Int): Int =
+        (dp * resources.displayMetrics.density + 0.5f).toInt()
+
     private fun createLayoutParams(
         windowType: Int,
-        topOffsetPx: Int,
+        heightPx: Int,
     ): WindowManager.LayoutParams =
         WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            heightPx,
             windowType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -219,7 +266,7 @@ class VolumeOverlayService :
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = topOffsetPx
+            y = 0
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -316,6 +363,7 @@ class VolumeOverlayService :
         }
 
         fun start(context: Context) {
+            if (!VolumeHudPreferences(context).enabled) return
             val intent = Intent(context, VolumeOverlayService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -324,7 +372,29 @@ class VolumeOverlayService :
             }
         }
 
+        fun stop(context: Context) {
+            context.stopService(Intent(context, VolumeOverlayService::class.java))
+        }
+
+        /**
+         * Starts or stops the overlay to match [VolumeHudPreferences.enabled], when overlay +
+         * accessibility permissions allow it.
+         */
+        fun applyMasterToggle(context: Context, enabled: Boolean) {
+            val prefs = VolumeHudPreferences(context)
+            prefs.enabled = enabled
+            if (!enabled) {
+                stop(context)
+                return
+            }
+            if (!Settings.canDrawOverlays(context) || !VolumeAccessibilityService.isEnabled()) {
+                return
+            }
+            start(context)
+        }
+
         fun requestRefresh(context: Context) {
+            if (!VolumeHudPreferences(context).enabled || instance == null) return
             val intent = Intent(context, VolumeOverlayService::class.java).apply {
                 action = ACTION_REFRESH
             }

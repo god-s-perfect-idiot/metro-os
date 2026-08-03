@@ -9,11 +9,11 @@
     <string name="permission_overlay_body">Required to draw the Metro navigation bar above other apps.</string>
     <string name="permission_accessibility_title">Accessibility service</string>
     <string name="permission_accessibility_body">Required to draw above the system navigation bar and for Back key navigation.</string>
-    <string name="start_overlay">Start navigation bar</string>
+    <string name="master_toggle">Navigation bar</string>
     <string name="grant_overlay">Grant overlay permission</string>
     <string name="grant_accessibility">Enable Back key service</string>
     <string name="three_button_required_title">3-button navigation required</string>
-    <string name="three_button_required_body">The Metro navigation bar only works with Android\'s 3-button layout. Gesture navigation uses edge-to-edge display and would cut off app content. Switch System navigation to 3-button, then start the overlay.</string>
+    <string name="three_button_required_body">The Metro navigation bar only works with Android\'s 3-button layout. Gesture navigation uses edge-to-edge display and would cut off app content. Switch System navigation to 3-button, then enable the navigation bar.</string>
     <string name="open_system_navigation">Open system navigation settings</string>
     <string name="key_back">Back</string>
     <string name="key_start">Start</string>

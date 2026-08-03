@@ -35,7 +35,7 @@ Before implementing or changing any composable, read [`METRO-UX-LANGUAGE.md`](ME
 | P1 | `MetroPanorama` | Panorama control |
 | P1 | `MetroListItem` | LongListSelector + tilt animation |
 | P1 | `MetroToggleSwitch` | ToggleSwitch |
-| P2 | `MetroSlider` | Slider |
+| P2 | `MetroSlider` / `MetroStepSlider` / `MetroBarStepSlider` | Slider (ticks / continuous bar) |
 | P2 | `MetroProgressBar` | ProgressBar |
 | P2 | `MetroTextBox` | TextBox underline focus |
 | P2 | `MetroMessageDialog` | MessageDialog |

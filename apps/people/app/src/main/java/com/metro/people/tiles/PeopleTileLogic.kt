@@ -5,9 +5,12 @@ import com.metro.people.data.PersonSummary
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileGridCell
 import com.metro.system.MetroPreferences
+import kotlin.random.Random
 
 object PeopleTileLogic {
     const val MAX_CELLS = MetroTileContract.MAX_PHOTO_GRID_CELLS
+    /** Contacts exported for hub mosaic rotation (launcher shows ≤ 4 at once). */
+    const val LIVE_POOL_SIZE = 40
     const val CONTACT_TILE_PREFIX = "contact:"
     const val DEEP_LINK_SCHEME = "metro"
     const val DEEP_LINK_HOST = "people"
@@ -46,33 +49,52 @@ object PeopleTileLogic {
     }
 
     fun colorForIndex(index: Int, accentHex: String): String =
-        accentShades(accentHex, MAX_CELLS)[index % MAX_CELLS]
+        accentShades(accentHex, MAX_CELLS)[index.floorMod(MAX_CELLS)]
 
     fun colorForContact(contactId: Long, accentHex: String): String =
-        colorForIndex(contactId.toInt(), accentHex)
+        colorForIndex((contactId % MAX_CELLS).toInt(), accentHex)
 
     fun photoUri(authority: String, contactId: Long): String =
         "content://$authority/photo/$contactId"
 
+    /** Single capital letter for mosaic faces without a photo bitmap. */
+    fun tileLabel(displayName: String): String {
+        val ch = displayName.trim().firstOrNull { it.isLetterOrDigit() } ?: '#'
+        return ch.uppercaseChar().toString()
+    }
+
     fun fallbackCells(count: Int, accentHex: String): List<MetroTileGridCell> =
         accentShades(accentHex, count).map { MetroTileGridCell(colorHex = it) }
 
+    /**
+     * Contact pool for the People hub mosaic. Every contact gets a stable photo URI + letter
+     * label (bitmap when available, letter otherwise). Shuffled on each export so the launcher
+     * receives a rotating sample. Launcher shows ≤ 4 at once and live-flips through the pool.
+     */
     fun cellsFromContacts(
         contacts: List<PersonSummary>,
         authority: String,
         accentHex: String,
+        random: Random = Random.Default,
     ): List<MetroTileGridCell> {
-        val contactCells = contacts.take(MAX_CELLS).map { contact ->
+        // Prefer photo-backed contacts, but shuffle within each group so the same first-4
+        // alphabetical contacts are not sticky across provider reads.
+        val withPhoto = contacts.filter { !it.photoUri.isNullOrBlank() }.shuffled(random)
+        val withoutPhoto = contacts.filter { it.photoUri.isNullOrBlank() }.shuffled(random)
+        val ordered = (withPhoto + withoutPhoto).take(LIVE_POOL_SIZE)
+        val contactCells = ordered.map { contact ->
             MetroTileGridCell(
                 colorHex = colorForContact(contact.id, accentHex),
-                imageUri = contact.photoUri?.let { photoUri(authority, contact.id) },
+                imageUri = photoUri(authority, contact.id),
+                label = tileLabel(contact.displayName),
             )
         }
-        return if (contactCells.size >= MAX_CELLS) {
-            contactCells
-        } else {
-            contactCells + fallbackCells(MAX_CELLS - contactCells.size, accentHex)
-        }
+        return contactCells + fallbackCells(MAX_CELLS, accentHex)
+    }
+
+    private fun Int.floorMod(mod: Int): Int {
+        val r = this % mod
+        return if (r >= 0) r else r + mod
     }
 
     private fun toHex(hue: Float, saturation: Float, value: Float): String {

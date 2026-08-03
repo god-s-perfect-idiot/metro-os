@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroToggleSwitch
 import com.metro.ui.metroNavBarPadding
 
 class MainActivity : ComponentActivity() {
@@ -42,11 +44,13 @@ class MainActivity : ComponentActivity() {
       val context = LocalContext.current
       val state = remember { NavbarState(context) }
       var permissionTick by remember { mutableIntStateOf(0) }
+      var overlayEnabled by remember { mutableStateOf(NavbarOverlayController.isActive) }
 
       DisposableEffect(this@MainActivity) {
         val observer = LifecycleEventObserver { _, event ->
           if (event == Lifecycle.Event.ON_RESUME) {
             permissionTick++
+            overlayEnabled = NavbarOverlayController.isActive
           }
         }
         lifecycle.addObserver(observer)
@@ -64,6 +68,8 @@ class MainActivity : ComponentActivity() {
       }
       val overlayGranted = remember(permissionTick) { Settings.canDrawOverlays(context) }
       val accessibilityEnabled = remember(permissionTick) { NavbarAccessibilityService.isEnabled() }
+      val canEnableOverlay = threeButtonNav && overlayGranted && accessibilityEnabled
+      val toggleInteractive = overlayEnabled || canEnableOverlay
 
       MetroTheme(
         darkTheme = state.theme.darkTheme,
@@ -83,6 +89,24 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier
               .padding(horizontal = 12.dp)
               .padding(bottom = 12.dp),
+          )
+
+          MetroToggleSwitch(
+            checked = overlayEnabled && threeButtonNav,
+            onCheckedChange = { enabled ->
+              if (enabled) {
+                overlayEnabled = NavbarOverlayService.start(context)
+              } else {
+                NavbarOverlayService.stop(context)
+                overlayEnabled = false
+              }
+            },
+            enabled = toggleInteractive,
+            label = stringResource(R.string.master_toggle),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 12.dp)
+              .padding(bottom = 24.dp),
           )
 
           if (!threeButtonNav) {
@@ -127,13 +151,6 @@ class MainActivity : ComponentActivity() {
             text = stringResource(R.string.grant_accessibility),
             enabled = threeButtonNav && !accessibilityEnabled,
             onClick = { NavbarActions.openAccessibilitySettings(context) },
-            modifier = Modifier.padding(horizontal = 12.dp),
-          )
-          Spacer(modifier = Modifier.height(12.dp))
-          MetroBorderButton(
-            text = stringResource(R.string.start_overlay),
-            enabled = threeButtonNav && overlayGranted && accessibilityEnabled,
-            onClick = { NavbarOverlayService.start(context) },
             modifier = Modifier.padding(horizontal = 12.dp),
           )
           Spacer(modifier = Modifier.height(32.dp))

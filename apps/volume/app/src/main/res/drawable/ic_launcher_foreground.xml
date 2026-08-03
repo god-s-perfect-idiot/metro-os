@@ -1,11 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WP8.1 soft-key Back glyph — left-pointing arrow, adaptive-icon safe zone. -->
+<!-- WP8.1 speaker / volume glyph.
+     Scaled into the adaptive-icon safe zone (~72% of the 108dp canvas). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#1A1A1A"
-        android:pathData="M78,48 H52 V36 L30,54 L52,72 V60 H78 Z" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <!-- Speaker body + cone (facing right). -->
+        <path
+            android:fillColor="#1A1A1A"
+            android:pathData="M28,44 H42 V36 L62,22 V86 L42,72 V64 H28 Z" />
+        <!-- Inner sound wave. -->
+        <path
+            android:pathData="M70,40 C76,46 76,62 70,68"
+            android:strokeWidth="5"
+            android:strokeColor="#1A1A1A"
+            android:strokeLineCap="square"
+            android:fillColor="#00000000" />
+        <!-- Outer sound wave. -->
+        <path
+            android:pathData="M78,30 C88,42 88,66 78,78"
+            android:strokeWidth="5"
+            android:strokeColor="#1A1A1A"
+            android:strokeLineCap="square"
+            android:fillColor="#00000000" />
+    </group>
 </vector>

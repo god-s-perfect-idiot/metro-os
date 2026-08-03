@@ -27,9 +27,9 @@ import androidx.compose.ui.unit.sp
  * WP8.1 rectangular outlined text button — white (dark) / black (light) square border,
  * theme text, transparent rest fill. See [METRO-UX-LANGUAGE.md] §6.3.
  *
- * Visual chrome sizes to the label (WP Button padding 10×3–5); the 44dp min height is the
- * touch target around the border, not extra inset inside it. Always **flush left** — do not
- * stretch with `fillMaxWidth()` (harness lint-metro enforces this).
+ * Visual chrome hugs the label (WP Button padding 10×5–6, 16sp); the 44dp min height is
+ * the touch target around the border, not extra inset inside it. Always **flush left** —
+ * do not stretch with `fillMaxWidth()` (harness lint-metro enforces this).
  */
 @Composable
 fun MetroBorderButton(
@@ -64,7 +64,7 @@ fun MetroBorderButton(
             modifier = Modifier
                 .background(background, RectangleShape)
                 .border(width = 2.dp, color = borderColor, shape = RectangleShape)
-                .padding(horizontal = 10.dp, vertical = 4.dp),
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
             BasicText(
@@ -72,8 +72,8 @@ fun MetroBorderButton(
                 style = TextStyle(
                     fontFamily = MetroFontFamily,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    lineHeight = 20.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
                     color = textColor,
                     textAlign = TextAlign.Center,
                 ),

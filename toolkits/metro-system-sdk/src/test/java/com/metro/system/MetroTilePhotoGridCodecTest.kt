@@ -73,12 +73,30 @@ class MetroTilePhotoGridCodecTest {
     }
 
     @Test
-    fun tileData_hasPhotoGridWhenCellsPresent() {
-        val data = MetroTileData(
-            title = "People",
-            backgroundColorHex = "#0078D7",
-            photoGrid = MetroTilePhotoGrid(listOf(MetroTileGridCell(colorHex = "#E86B4A"))),
+    fun encodeDecode_roundTripsLabel() {
+        val grid = MetroTilePhotoGrid(
+            cells = listOf(
+                MetroTileGridCell(colorHex = "#E86B4A", imageUri = "content://p/1", label = "A"),
+            ),
         )
-        assertTrue(data.hasPhotoGrid)
+        val decoded = MetroTilePhotoGridCodec.decode(MetroTilePhotoGridCodec.encode(grid))
+        assertEquals("A", decoded!!.cells[0].label)
+        assertEquals("content://p/1", decoded.cells[0].imageUri)
+    }
+
+    @Test
+    fun encodeDecode_roundTripsLargePool() {
+        val cells = (1..40).map { id ->
+            MetroTileGridCell(
+                colorHex = "#112233",
+                imageUri = "content://com.metro.people.tiles/photo/$id",
+                label = id.toString().first().toString(),
+            )
+        } + listOf(MetroTileGridCell(colorHex = "#000000"))
+        val decoded = MetroTilePhotoGridCodec.decode(
+            MetroTilePhotoGridCodec.encode(MetroTilePhotoGrid(cells)),
+        )
+        assertEquals(41, decoded!!.cells.size)
+        assertEquals(40, decoded.cells.count { !it.imageUri.isNullOrBlank() })
     }
 }

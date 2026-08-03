@@ -10,11 +10,14 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 - **Layout:** Black/white theme background. Small ALL CAPS app overline `SETTINGS` via `MetroAppTitle`, then WP8.1 **pivot** titles `system` | `applications` (64sp Light selected; inactive adjacent title visible). Each pivot page is a scrollable list of setting rows (single-line title 24sp; optional subtitle 18sp secondary for current value on system rows). 12dp horizontal margins. No separators — whitespace only. List item height 76dp.
 - **Navigation:** From app list / Action Center “all settings”. Back exits the app. Swipe or tap pivot headers to switch system ↔ applications.
-- **Interactions — system:** Tap a row → push detail page with 300ms horizontal slide (except `keyboard`, which launches the suite keyboard settings app). Interactive rows:
+- **Interactions — system:** Tap a row → push detail page with 300ms horizontal slide (except shell/input rows that launch suite setup apps). Interactive rows:
   - `start+theme`
   - `storage sense`
   - `brightness`
   - `ease of access`
+  - `navigation bar` — launches `com.metro.navbar` MainActivity (soft-key overlay setup / permissions). Does **not** open Android Settings.
+  - `status bar` — launches `com.metro.statusbar` MainActivity (system tray overlay setup / permissions). Does **not** open Android Settings.
+  - `volume` — launches `com.metro.volume` MainActivity (volume HUD setup / permissions). Does **not** open Android Settings.
   - `keyboard` — launches `com.metro.keyboard` MainActivity directly (WP8.1 Settings → keyboard lives in a separate APK; see keyboard README platform exceptions). Does **not** open Android Settings.
   - `extras+info`
 - **Interactions — applications:** Alphabetical lists of **all launchable apps**, grouped as `apps` (user-installed) then `system apps` (Android system + metro suite). Subtitles show size (user) or `system`. Tap opens **in-Settings app detail** (Page 1b) — does **not** launch the app and does **not** open Android Settings.
@@ -105,11 +108,12 @@ Missing device captures for root / brightness / storage / extras+info → see [`
 
 ## Out of scope
 
-- Full WP8.1 system settings inventory (Wi‑Fi, Bluetooth, airplane, battery saver, date+time, ringtones+sounds, navigation bar, cellular, backup, kid’s corner, etc.)
+- Full WP8.1 system settings inventory (Wi‑Fi, Bluetooth, airplane, battery saver, date+time, ringtones+sounds content, cellular, backup, kid’s corner, etc.)
+- In-Settings chrome preference pages for navigation bar / status bar / volume (setup lives in each shell APK; Settings root launches those apps)
 - start+theme Background ListPicker / Choose photo / Show more Tiles
 - Custom / Color Changer RGB accent picker
 - High contrast, Narrator, Screen magnifier, browser captions
 - Sync my settings / Microsoft account
 - In-Settings application hubs (IE advanced, photos+camera auto-upload, people filter options, …) — applications pivot uses a shared app-detail page for all launchable packages
 - OS-level notification / background enforcement for third-party apps (requires privileged AppOps); toggles persist metro-os policy prefs
-- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard` are allowed; package installer uninstall UI is allowed)
+- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard`, `com.metro.navbar`, `com.metro.statusbar`, and `com.metro.volume` are allowed; package installer uninstall UI is allowed)

@@ -15,7 +15,8 @@ plug; the remaining radio indicators are static v1 glyphs.
 (Wi-Fi / Bluetooth / Airplane / Internet sharing), Clear All + All Settings, and notifications
 grouped by app (via `NotificationListenerService`). Swipe up or tap the open tray closes it.
 
-The tray auto-starts on boot once permissions are granted, and exposes its per-app contract via
+The setup screen’s **Show status bar** master toggle starts and stops the overlay. Boot auto-starts
+only when that toggle is on and permissions are granted. Per-app tray styling goes through
 `MetroStatusBar` in `metro-system-sdk`.
 
 ### Permissions required
@@ -25,6 +26,8 @@ The tray auto-starts on boot once permissions are granted, and exposes its per-a
    Accessibility settings.
 3. **Notification access** (`ActionNotificationListenerService`) — enabled from `MainActivity` →
    Notification access settings (required for Action Center list / Clear All).
+4. **Show status bar** master toggle — On/Off via `MetroToggleSwitch` once overlay + accessibility
+   are granted; Off stops the overlay and blocks boot / contract revive.
 
 The accessibility service is **mandatory for visibility**: a plain `TYPE_APPLICATION_OVERLAY` window
 is always layered *below* the system status bar (window layer ~111000 vs the system bar's ~151000),

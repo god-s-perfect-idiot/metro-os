@@ -134,6 +134,30 @@ private fun SystemSettingsList(
         }
         item {
             MetroListItem(
+                title = stringResource(R.string.settings_navigation_bar),
+                subtitle = stringResource(R.string.settings_navigation_bar_subtitle),
+                modifier = Modifier.height(SettingsRowHeight),
+                onClick = { state.openNavbarSettings() },
+            )
+        }
+        item {
+            MetroListItem(
+                title = stringResource(R.string.settings_status_bar),
+                subtitle = stringResource(R.string.settings_status_bar_subtitle),
+                modifier = Modifier.height(SettingsRowHeight),
+                onClick = { state.openStatusbarSettings() },
+            )
+        }
+        item {
+            MetroListItem(
+                title = stringResource(R.string.settings_volume),
+                subtitle = stringResource(R.string.settings_volume_subtitle),
+                modifier = Modifier.height(SettingsRowHeight),
+                onClick = { state.openVolumeSettings() },
+            )
+        }
+        item {
+            MetroListItem(
                 title = stringResource(R.string.settings_keyboard),
                 subtitle = stringResource(R.string.settings_keyboard_subtitle),
                 modifier = Modifier.height(SettingsRowHeight),

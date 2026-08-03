@@ -3,9 +3,11 @@ package com.metro.system
 /**
  * Photo-grid live tile payload.
  *
- * When [cycle] is false the launcher renders a static mosaic: it chooses a column/row
- * layout from the pinned tile size (e.g. 3×3 on 2×2, 6×3 on 4×2) and draws the first
- * [columns × rows] cells (People hub style).
+ * When [cycle] is false the launcher renders a People-hub mosaic: it chooses a column/row
+ * layout from the pinned tile size (e.g. 3×3 on 2×2, 6×3 on 4×2). Cells with [MetroTileGridCell.imageUri]
+ * form a contact/photo pool; the launcher shows at most four at once, shuffles which sub-tiles
+ * display them, and 600ms-flips individual cells on live refresh. Color-only cells are accent
+ * fillers.
  *
  * When [cycle] is true the launcher renders a single photo that slowly pans up, then slides
  * up as the next image enters from below (WP8.1 Photos tile style), regardless of tile size.

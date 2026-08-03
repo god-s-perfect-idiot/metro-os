@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroToggleSwitch
 import com.metro.ui.metroNavBarPadding
 
 class MainActivity : ComponentActivity() {
@@ -46,12 +48,23 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             val state = remember { TrayState(context) }
+            val trayPrefs = remember { StatusTrayPreferences(context) }
             var permissionTick by remember { mutableIntStateOf(0) }
+            var trayEnabled by remember { mutableStateOf(trayPrefs.enabled) }
 
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         permissionTick++
+                        trayEnabled = trayPrefs.enabled
+                        // Keep overlay aligned with the master toggle after returning from Settings.
+                        if (trayPrefs.enabled &&
+                            Settings.canDrawOverlays(context) &&
+                            StatusBarAccessibilityService.isEnabled() &&
+                            !StatusBarOverlayService.isRunning()
+                        ) {
+                            StatusBarOverlayService.start(context)
+                        }
                     }
                 }
                 lifecycle.addObserver(observer)
@@ -82,6 +95,7 @@ class MainActivity : ComponentActivity() {
                     state.refreshDataConnectionLabel()
                 }
             }
+            val canToggleTray = overlayGranted && accessibilityEnabled
 
             MetroTheme(
                 darkTheme = state.theme.darkTheme,
@@ -155,13 +169,29 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    MetroBorderButton(
-                        text = stringResource(R.string.start_overlay),
-                        enabled = overlayGranted && accessibilityEnabled,
-                        onClick = { StatusBarOverlayService.start(context) },
-                        modifier = Modifier.padding(horizontal = 12.dp),
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MetroToggleSwitch(
+                        checked = trayEnabled,
+                        onCheckedChange = { enabled ->
+                            StatusBarOverlayService.applyMasterToggle(context, enabled)
+                            trayEnabled = trayPrefs.enabled
+                        },
+                        enabled = canToggleTray || trayEnabled,
+                        label = stringResource(R.string.show_status_tray),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
                     )
+                    if (!canToggleTray && !trayEnabled) {
+                        MetroText(
+                            text = stringResource(R.string.show_status_tray_hint),
+                            style = MetroTextStyle.ListItemSubtitle,
+                            color = MetroTheme.colors.secondaryText,
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .padding(top = 8.dp),
+                        )
+                    }
                     Spacer(modifier = Modifier.height(32.dp))
                     MetroText(
                         text = "Preview",

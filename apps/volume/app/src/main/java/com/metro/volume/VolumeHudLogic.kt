@@ -20,6 +20,42 @@ object VolumeHudLogic {
             .coerceIn(0, androidMax)
     }
 
+    /**
+     * Prefer the HUD's current WP level when it still maps to the live Android index.
+     * Android stream maxima are often coarser than WP scales (e.g. ring 0–7 vs 0–10), so a
+     * naive rematch collapses several WP ticks onto one hardware step and makes rockers stick
+     * or jump (e.g. floor at 8/10, then a single up to 10/10).
+     */
+    fun androidToWpConsistent(
+        androidLevel: Int,
+        androidMax: Int,
+        wpMax: Int,
+        preferredWp: Int,
+    ): Int {
+        if (wpMax <= 0 || androidMax <= 0) return 0
+        val level = androidLevel.coerceIn(0, androidMax)
+        val preferred = preferredWp.coerceIn(0, wpMax)
+        if (wpToAndroid(preferred, androidMax, wpMax) == level) {
+            return preferred
+        }
+        return androidToWp(level, androidMax, wpMax)
+    }
+
+    /**
+     * Simulate rocker steps while keeping the displayed WP level as source of truth whenever
+     * the underlying Android index is unchanged (lossy scale).
+     */
+    fun stepWpAcrossAndroid(
+        currentWp: Int,
+        delta: Int,
+        androidMax: Int,
+        wpMax: Int,
+    ): Int {
+        val nextWp = stepLevel(currentWp, delta, wpMax)
+        val androidLevel = wpToAndroid(nextWp, androidMax, wpMax)
+        return androidToWpConsistent(androidLevel, androidMax, wpMax, nextWp)
+    }
+
     fun selectDefaultStream(inCall: Boolean, musicActive: Boolean): VolumeStreamKind = when {
         inCall -> VolumeStreamKind.Call
         musicActive -> VolumeStreamKind.Media

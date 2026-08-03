@@ -3,6 +3,7 @@ package com.metro.launcher.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -58,8 +59,10 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -91,6 +94,8 @@ private val SearchColumnGap = 20.dp
 private val IconInnerPadding = 5.dp
 private val IconTextGap = 12.dp
 private val ListRowVerticalPadding = 4.dp
+/** Letter marker row: icon square + vertical padding above/below. */
+private val LetterMarkerRowHeight = AppListIconSize + ListRowVerticalPadding * 2
 private val ListBottomScrollPadding = 180.dp
 private val ContextMenuGapBelowIcon = 4.dp
 private val ContextMenuHorizontalPadding = 16.dp
@@ -109,6 +114,8 @@ private val SearchFieldBorderWidth = 3.dp
 private val SearchFieldHorizontalPadding = 10.dp
 private val SearchFieldBottomSpacing = 8.dp
 private val AppListHorizontalStartPadding = 12.dp
+/** Fade + height wipe when letter markers hide/show with search mode. */
+private val LetterMarkerVisibilityMs = MetroTransitions.AppBarSlideMs
 
 /** Mutable holder so layout callbacks can update without triggering recomposition. */
 private class RectRef {
@@ -156,6 +163,7 @@ fun AppListScreen(
     val contextMenuVisible = remember { MutableTransitionState(false) }
     val popupRootBounds = remember { RectRef() }
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
     val listState = rememberLazyListState()
     val searchFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -163,6 +171,8 @@ fun AppListScreen(
     var imeWasVisibleWhileSearching by remember { mutableStateOf(false) }
     val menuGapPx = with(density) { ContextMenuGapBelowIcon.roundToPx() }
     val openContextMenu: (MetroAppInfo, Rect) -> Unit = { app, iconBounds ->
+        // WP8.1 app list: short buzz when long-press opens the context menu.
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         contextMenuIconBounds = iconBounds
         contextMenuRootBounds = popupRootBounds.value
         contextMenuApp = app
@@ -185,22 +195,30 @@ fun AppListScreen(
         label = "focusFraction",
     ) { visible -> if (visible) 1f else 0f }
     val showLetterMarkers = MetroJumpListLogic.showSectionMarkers(searchActive)
+    val letterMarkerVisibility by animateFloatAsState(
+        targetValue = if (showLetterMarkers) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = LetterMarkerVisibilityMs,
+            easing = MetroTransitions.PageEasing,
+        ),
+        label = "letterMarkerVisibility",
+    )
     val grouped = remember(apps) {
         apps.groupBy { MetroJumpListLogic.sortKey(it.label) }.toSortedMap()
     }
     val activeLetters = remember(grouped) { MetroJumpListLogic.activeLetters(grouped.keys) }
-    val headerIndices = remember(grouped, showLetterMarkers) {
+    // Sticky header slots stay in the list (height wipe) so indices are stable across search.
+    val headerIndices = remember(grouped) {
         var index = 0
         buildMap {
             grouped.forEach { (letter, sectionApps) ->
-                if (showLetterMarkers) {
-                    put(letter, index)
-                    index += 1 + sectionApps.size
-                } else {
-                    index += sectionApps.size
-                }
+                put(letter, index)
+                index += 1 + sectionApps.size
             }
         }
+    }
+    LaunchedEffect(searchActive) {
+        if (searchActive) jumpListVisible = false
     }
     val dismissSearch: () -> Unit = {
         onSearchActiveChange(false)
@@ -303,47 +321,39 @@ fun AppListScreen(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(bottom = ListBottomScrollPadding),
                 ) {
-                    if (showLetterMarkers) {
-                        grouped.forEach { (letter, sectionApps) ->
-                            metroStickyLetterHeader(letter = letter) {
-                                // Opaque bg so app rows do not show through while pinned.
+                    grouped.forEach { (letter, sectionApps) ->
+                        metroStickyLetterHeader(letter = letter) {
+                            // Opaque bg so app rows do not show through while pinned.
+                            // Height wipe + fade when entering/exiting search mode.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(LetterMarkerRowHeight * letterMarkerVisibility)
+                                    .clipToBounds()
+                                    .graphicsLayer { alpha = letterMarkerVisibility }
+                                    .background(Color.Black),
+                            ) {
                                 AppListRowLayout(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(Color.Black),
+                                    modifier = Modifier.fillMaxWidth(),
                                     iconContent = {
                                         LetterHeader(
                                             letter = letter,
+                                            enabled = showLetterMarkers,
                                             onClick = { jumpListVisible = true },
                                         )
                                     },
                                     labelContent = {},
                                 )
                             }
-                            items(
-                                items = sectionApps,
-                                key = { it.packageName },
-                                contentType = { "app" },
-                            ) { app ->
-                                AppListAppRow(
-                                    app = app,
-                                    highlightQuery = "",
-                                    contextMenuTarget = contextMenuApp?.packageName == app.packageName,
-                                    contextMenuFocusFraction = contextMenuFocusFraction,
-                                    onAppClick = { onAppClick(app) },
-                                    onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
-                                )
-                            }
                         }
-                    } else {
                         items(
-                            items = apps,
+                            items = sectionApps,
                             key = { it.packageName },
                             contentType = { "app" },
                         ) { app ->
                             AppListAppRow(
                                 app = app,
-                                highlightQuery = searchQuery,
+                                highlightQuery = if (searchActive) searchQuery else "",
                                 contextMenuTarget = contextMenuApp?.packageName == app.packageName,
                                 contextMenuFocusFraction = contextMenuFocusFraction,
                                 onAppClick = { onAppClick(app) },
@@ -634,6 +644,7 @@ private fun AppListRowLayout(
 private fun LetterHeader(
     letter: Char,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     Box(
         modifier = Modifier
@@ -642,6 +653,7 @@ private fun LetterHeader(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                enabled = enabled,
                 onClick = onClick,
             ),
         contentAlignment = Alignment.BottomStart,

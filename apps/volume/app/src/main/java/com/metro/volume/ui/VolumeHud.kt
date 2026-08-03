@@ -1,38 +1,53 @@
 package com.metro.volume.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import com.metro.ui.MetroStepSlider
+import com.metro.ui.MetroBarStepSlider
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroTransitions
 import com.metro.volume.VolumeHudLogic
 import com.metro.volume.VolumeHudSnapshot
 import com.metro.volume.VolumeHudSpec
 import com.metro.volume.VolumeStreamKind
 
-/** WP8.1 volume control HUD — collapsed strip or expanded dual-slider panel. */
+/**
+ * WP8.1 volume control HUD — collapsed strip or expanded dual-slider panel.
+ *
+ * Show / hide and expand / collapse both use a top-anchored height wipe inside a
+ * fixed-size overlay window (see [onWindowHeightDp]). Animating `WRAP_CONTENT`
+ * overlay height every frame is jittery on WindowManager. Call [onExitFinished]
+ * after the hide wipe so the host can drop the WindowManager view.
+ */
 @Composable
 fun VolumeHud(
     snapshot: VolumeHudSnapshot,
@@ -44,33 +59,95 @@ fun VolumeHud(
     onToggleRingerMute: () -> Unit,
     onToggleMediaMute: () -> Unit,
     onToggleVibrate: () -> Unit,
+    onWindowHeightDp: (Int) -> Unit = {},
+    onExitFinished: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    if (!snapshot.visible) return
-
     MetroTheme(darkTheme = true, accent = snapshot.accentColor) {
-        Column(
-            modifier = modifier
-                .fillMaxWidth()
-                .background(VolumeHudSpec.PanelBackground),
-        ) {
-            if (snapshot.expanded) {
-                ExpandedVolumePanel(
-                    snapshot = snapshot,
-                    accent = snapshot.accentColor,
-                    onCollapse = onCollapse,
-                    onRingerLevel = onRingerLevel,
-                    onMediaLevel = onMediaLevel,
-                    onCallLevel = onCallLevel,
-                    onToggleRingerMute = onToggleRingerMute,
-                    onToggleMediaMute = onToggleMediaMute,
-                    onToggleVibrate = onToggleVibrate,
+        val targetHeightDp = if (snapshot.visible) {
+            VolumeHudSpec.panelHeightDp(
+                expanded = snapshot.expanded,
+                inCall = snapshot.inCall,
+            )
+        } else {
+            0
+        }
+        val heightAnim = remember { Animatable(0f) }
+
+        LaunchedEffect(snapshot.visible, targetHeightDp, snapshot.expanded) {
+            if (snapshot.visible) {
+                val panelDp = VolumeHudSpec.panelHeightDp(
+                    expanded = snapshot.expanded,
+                    inCall = snapshot.inCall,
                 )
+                val entering = heightAnim.value < 0.5f
+                // Grow the overlay before expand / enter wipes. Keep the tall window
+                // during collapse so the wipe is not clipped by WindowManager.
+                if (snapshot.expanded || entering) {
+                    onWindowHeightDp(panelDp)
+                }
+                heightAnim.animateTo(
+                    targetValue = panelDp.toFloat(),
+                    animationSpec = tween(
+                        durationMillis = if (entering) {
+                            VolumeHudSpec.SHOW_HIDE_MS
+                        } else {
+                            VolumeHudSpec.EXPAND_COLLAPSE_MS
+                        },
+                        easing = MetroTransitions.PageEasing,
+                    ),
+                )
+                if (!snapshot.expanded) {
+                    onWindowHeightDp(VolumeHudSpec.COLLAPSED_HEIGHT_DP)
+                }
+            } else if (heightAnim.value > 0.5f) {
+                heightAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(
+                        durationMillis = VolumeHudSpec.SHOW_HIDE_MS,
+                        easing = MetroTransitions.PageEasing,
+                    ),
+                )
+                onExitFinished()
             } else {
-                CollapsedVolumeStrip(
-                    snapshot = snapshot,
-                    onExpand = onToggleExpanded,
-                )
+                // Already at zero height while hidden — drop any leftover window.
+                onExitFinished()
+            }
+        }
+
+        if (heightAnim.value <= 0.5f && !snapshot.visible) return@MetroTheme
+
+        // Keep showing expanded chrome while collapsing / exiting so the wipe hides real content.
+        val showExpandedContent =
+            snapshot.expanded || heightAnim.value > VolumeHudSpec.COLLAPSED_HEIGHT_DP + 0.5f
+
+        Box(modifier = modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heightAnim.value.dp)
+                    .align(Alignment.TopStart)
+                    .clipToBounds()
+                    .background(VolumeHudSpec.PanelBackground),
+            ) {
+                if (showExpandedContent) {
+                    ExpandedVolumePanel(
+                        snapshot = snapshot,
+                        accent = snapshot.accentColor,
+                        onCollapse = onCollapse,
+                        onRingerLevel = onRingerLevel,
+                        onMediaLevel = onMediaLevel,
+                        onCallLevel = onCallLevel,
+                        onToggleRingerMute = onToggleRingerMute,
+                        onToggleMediaMute = onToggleMediaMute,
+                        onToggleVibrate = onToggleVibrate,
+                    )
+                } else {
+                    CollapsedVolumeStrip(
+                        snapshot = snapshot,
+                        onExpand = onToggleExpanded,
+                    )
+                }
             }
         }
     }
@@ -93,22 +170,10 @@ private fun CollapsedVolumeStrip(
             .padding(horizontal = VolumeHudSpec.HORIZONTAL_PADDING_DP.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MetroText(
-            text = VolumeHudLogic.formatLevelDigits(snapshot.collapsedLevel),
-            style = MetroTextStyle.ListItemTitle,
-            color = VolumeHudSpec.PrimaryText,
-        )
-        MetroText(
-            text = VolumeHudLogic.formatMaxSuffix(snapshot.collapsedMax),
-            style = MetroTextStyle.ListItemSubtitle,
-            color = VolumeHudSpec.SecondaryText,
-            modifier = Modifier.padding(start = 2.dp, end = 10.dp),
-        )
-        MetroText(
-            text = snapshot.collapsedLabel,
-            style = MetroTextStyle.ListItemSubtitle,
-            color = VolumeHudSpec.PrimaryText,
-            maxLines = 1,
+        VolumeLevelLabel(
+            level = snapshot.collapsedLevel,
+            max = snapshot.collapsedMax,
+            streamLabel = snapshot.collapsedLabel,
             modifier = Modifier.weight(1f),
         )
         ChevronIcon(pointingDown = true, color = VolumeHudSpec.PrimaryText)
@@ -149,7 +214,7 @@ private fun ExpandedVolumePanel(
                 onLevel = onRingerLevel,
                 onToggleMute = onToggleRingerMute,
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             VolumeStreamRow(
                 kind = VolumeStreamKind.Media,
                 level = snapshot.mediaLevel,
@@ -167,15 +232,10 @@ private fun ExpandedVolumePanel(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             if (!snapshot.inCall) {
-                MetroText(
-                    text = if (snapshot.vibrateOn) "VIBRATE" else "vibrate off",
-                    style = MetroTextStyle.ListItemSubtitle,
-                    color = if (snapshot.vibrateOn) accent else VolumeHudSpec.SecondaryText,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onToggleVibrate,
-                    ),
+                VibrateToggle(
+                    vibrateOn = snapshot.vibrateOn,
+                    accent = accent,
+                    onToggle = onToggleVibrate,
                 )
             } else {
                 Spacer(modifier = Modifier.width(1.dp))
@@ -193,6 +253,41 @@ private fun ExpandedVolumePanel(
     }
 }
 
+/** `NN` large white + `/max` muted + stream label muted gray — matches WP8.1 volume chrome. */
+@Composable
+private fun VolumeLevelLabel(
+    level: Int,
+    max: Int,
+    streamLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        MetroText(
+            text = VolumeHudLogic.formatLevelDigits(level),
+            style = MetroTextStyle.ListItemTitle,
+            color = VolumeHudSpec.PrimaryText,
+        )
+        MetroText(
+            text = VolumeHudLogic.formatMaxSuffix(max),
+            style = MetroTextStyle.DialogBody,
+            color = VolumeHudSpec.SecondaryText,
+            modifier = Modifier.padding(start = 1.dp, end = 10.dp, bottom = 2.dp),
+        )
+        MetroText(
+            text = streamLabel,
+            style = MetroTextStyle.DialogBody,
+            color = VolumeHudSpec.SecondaryText,
+            maxLines = 1,
+            modifier = Modifier
+                .weight(1f)
+                .padding(bottom = 2.dp),
+        )
+    }
+}
+
 @Composable
 private fun VolumeStreamRow(
     kind: VolumeStreamKind,
@@ -202,28 +297,16 @@ private fun VolumeStreamRow(
     onToggleMute: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        VolumeLevelLabel(
+            level = level,
+            max = kind.wpMax,
+            streamLabel = kind.label,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MetroText(
-                text = VolumeHudLogic.formatLevelDigits(level),
-                style = MetroTextStyle.ListItemTitle,
-                color = VolumeHudSpec.PrimaryText,
-            )
-            MetroText(
-                text = VolumeHudLogic.formatMaxSuffix(kind.wpMax),
-                style = MetroTextStyle.ListItemSubtitle,
-                color = VolumeHudSpec.SecondaryText,
-                modifier = Modifier.padding(start = 2.dp, end = 8.dp),
-            )
-            MetroText(
-                text = kind.label,
-                style = MetroTextStyle.ListItemSubtitle,
-                color = VolumeHudSpec.PrimaryText,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
             StreamMuteIcon(
                 kind = kind,
                 muted = muted,
@@ -236,12 +319,42 @@ private fun VolumeStreamRow(
                         onClick = onToggleMute,
                     ),
             )
+            MetroBarStepSlider(
+                index = level,
+                onIndexChange = onLevel,
+                stepCount = kind.wpMax + 1,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 4.dp),
+            )
         }
-        MetroStepSlider(
-            index = level,
-            onIndexChange = onLevel,
-            stepCount = kind.wpMax + 1,
-            modifier = Modifier.fillMaxWidth(),
+    }
+}
+
+@Composable
+private fun VibrateToggle(
+    vibrateOn: Boolean,
+    accent: Color,
+    onToggle: () -> Unit,
+) {
+    val color = if (vibrateOn) accent else VolumeHudSpec.SecondaryText
+    Row(
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onToggle,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        VibrateIcon(
+            color = color,
+            modifier = Modifier.size(22.dp),
+        )
+        MetroText(
+            text = if (vibrateOn) "VIBRATE ON" else "vibrate off",
+            style = MetroTextStyle.DialogBody,
+            color = color,
+            modifier = Modifier.padding(start = 8.dp),
         )
     }
 }
@@ -264,6 +377,37 @@ private fun ChevronIcon(
         } else {
             drawLine(color, Offset(midX - wing, bot), Offset(midX, top), strokeWidth, StrokeCap.Square)
             drawLine(color, Offset(midX + wing, bot), Offset(midX, top), strokeWidth, StrokeCap.Square)
+        }
+    }
+}
+
+@Composable
+private fun VibrateIcon(
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val stroke = size.minDimension * 0.12f
+        val midY = size.height / 2f
+        val amp = size.height * 0.28f
+        val xs = listOf(size.width * 0.22f, size.width * 0.5f, size.width * 0.78f)
+        xs.forEach { x ->
+            val path = Path().apply {
+                moveTo(x, midY - amp)
+                cubicTo(
+                    x + stroke * 1.6f, midY - amp * 0.45f,
+                    x - stroke * 1.6f, midY + amp * 0.45f,
+                    x, midY + amp,
+                )
+            }
+            drawPath(
+                path = path,
+                color = color,
+                style = Stroke(
+                    width = stroke,
+                    cap = StrokeCap.Round,
+                ),
+            )
         }
     }
 }

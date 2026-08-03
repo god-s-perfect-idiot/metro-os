@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -14,26 +15,29 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.system.MetroPreferences
@@ -42,41 +46,120 @@ import com.metro.ui.MetroTransitions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 /** Slow Ken-Burns pan while a photo is on-screen (WP8.1 Photos live tile). */
 private const val CYCLE_PAN_MS = 3_000
 /** Vertical wipe that carries the current photo out and the next in from below. */
 private const val CYCLE_SLIDE_MS = 600
-/** Extra height fraction so the image can drift upward without empty edges. */
+/** Extra scale so the cropped photo can drift upward without empty edges. */
 private const val CYCLE_PAN_OVERFLOW = 0.18f
 
+/** How long a People mosaic cell stays before the next flip attempt. */
+private const val MOSAIC_FLIP_HOLD_MS = 3_200L
+private const val MOSAIC_FLIP_HOLD_JITTER_MS = 1_400L
+private const val MOSAIC_FLIP_STAGGER_MAX_MS = 2_500L
+private const val MOSAIC_FLIP_CAMERA_DISTANCE = 16f
+
+private val MosaicFlipHalfAnimation = tween<Float>(
+    durationMillis = MetroTransitions.TileFlipMs / 2,
+    easing = FastOutSlowInEasing,
+)
+
+/**
+ * WP8.1 People hub mosaic (3×3 on medium, 6×3 on wide): live flip refresh on each sub-tile.
+ * At most [PhotoGridLiveLogic.MAX_VISIBLE_CONTACTS] cells show contacts; the rest are
+ * accent color. When [animate] is false (edit mode), the layout stays static.
+ */
 @Composable
 fun PhotoGridTileContent(
     cells: List<MetroTileGridCell>,
     columns: Int,
     rows: Int,
     title: String,
+    animate: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val displayCells = if (cells.size >= columns * rows) {
-        cells.take(columns * rows)
-    } else {
-        cells + List(columns * rows - cells.size) { MetroTileGridCell() }
+    val cellCount = columns * rows
+    val pool = remember(cells) { PhotoGridLiveLogic.contactPool(cells) }
+    val accents = remember(cells) { PhotoGridLiveLogic.accentTemplates(cells) }
+    val poolState = rememberUpdatedState(pool)
+    val accentsState = rememberUpdatedState(accents)
+    val seed = remember(cells, cellCount) {
+        cells.hashCode() * 31 + cellCount
+    }
+    var displayCells by remember(cells, cellCount) {
+        mutableStateOf(
+            PhotoGridLiveLogic.initialLayout(pool, accents, cellCount, Random(seed.toLong())),
+        )
+    }
+
+    LaunchedEffect(cells, cellCount, animate, pool.size) {
+        val rng = Random(seed.toLong() xor System.nanoTime())
+        displayCells = PhotoGridLiveLogic.initialLayout(
+            poolState.value,
+            accentsState.value,
+            cellCount,
+            rng,
+        )
+        if (!animate || poolState.value.isEmpty()) return@LaunchedEffect
+        delay(rng.nextLong(0L, MOSAIC_FLIP_STAGGER_MAX_MS + 1))
+        var ticks = 0
+        while (true) {
+            val jitter = rng.nextLong(-MOSAIC_FLIP_HOLD_JITTER_MS, MOSAIC_FLIP_HOLD_JITTER_MS + 1)
+            delay((MOSAIC_FLIP_HOLD_MS + jitter).coerceAtLeast(1_800L))
+            val currentPool = poolState.value
+            val currentAccents = accentsState.value
+            if (currentPool.isEmpty()) continue
+
+            // Every few ticks, rebuild a fresh random 4-from-pool layout so the mosaic
+            // cannot stick on the same faces even if single-cell swaps stall.
+            ticks += 1
+            if (ticks % 5 == 0 && currentPool.size > PhotoGridLiveLogic.MAX_VISIBLE_CONTACTS) {
+                val fresh = PhotoGridLiveLogic.initialLayout(
+                    currentPool,
+                    currentAccents,
+                    cellCount,
+                    rng,
+                )
+                displayCells = fresh
+                continue
+            }
+
+            val flip = PhotoGridLiveLogic.nextFlip(
+                displayCells,
+                currentPool,
+                currentAccents,
+                rng,
+            ) ?: continue
+            val (index, newCell) = flip
+            if (PhotoGridLiveLogic.contactKey(displayCells.getOrNull(index) ?: MetroTileGridCell()) ==
+                PhotoGridLiveLogic.contactKey(newCell)
+            ) {
+                continue
+            }
+            displayCells = displayCells.toMutableList().also { it[index] = newCell }
+        }
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         for (row in 0 until rows) {
             for (col in 0 until columns) {
+                val index = row * columns + col
                 val left = maxWidth * col / columns
                 val top = maxHeight * row / rows
                 val right = maxWidth * (col + 1) / columns
                 val bottom = maxHeight * (row + 1) / rows
-                PhotoGridCell(
-                    cell = displayCells[row * columns + col],
-                    modifier = Modifier
-                        .offset(x = left, y = top)
-                        .size(width = right - left, height = bottom - top),
-                )
+                key(index) {
+                    FlippingPhotoGridCell(
+                        cell = displayCells.getOrElse(index) { MetroTileGridCell() },
+                        animate = animate,
+                        flipSeed = seed + index * 17,
+                        modifier = Modifier
+                            .offset(x = left, y = top)
+                            .size(width = right - left, height = bottom - top),
+                    )
+                }
             }
         }
         TileText(
@@ -160,7 +243,11 @@ fun CyclingPhotoTileContent(
     }
 }
 
-/** Draws [cell] oversized and drifts it upward over [CYCLE_PAN_MS]. */
+/**
+ * Draws [cell] full-bleed (Crop) then zooms slightly and drifts upward over [CYCLE_PAN_MS].
+ * Scale+translate (not a taller Fit/height layout) so the tile stays filled with photo
+ * pixels — no accent strip below while panning.
+ */
 @Composable
 private fun PanningPhotoCell(
     cell: MetroTileGridCell,
@@ -199,31 +286,78 @@ private fun PanningPhotoCell(
         )
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .clipToBounds()
             .background(background),
-        contentAlignment = Alignment.TopCenter,
     ) {
         val image = bitmap
         if (image != null) {
-            val overflow = maxHeight * CYCLE_PAN_OVERFLOW
-            val imageHeight = maxHeight + overflow
             Image(
                 bitmap = image,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .width(maxWidth)
-                    .height(imageHeight)
-                    .offset(y = -overflow * panProgress.value),
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val scale = 1f + CYCLE_PAN_OVERFLOW
+                        scaleX = scale
+                        scaleY = scale
+                        // Extra pixels hang below the top edge; pan consumes that overflow.
+                        transformOrigin = TransformOrigin(0.5f, 0f)
+                        translationY = -size.height * CYCLE_PAN_OVERFLOW * panProgress.value
+                    },
             )
         }
     }
 }
 
+/**
+ * 600ms vertical flip when [cell] content changes. Mid-flip the Start black behind the cell
+ * shows through (accent/photo rides on the rotating face).
+ */
 @Composable
-private fun PhotoGridCell(
+private fun FlippingPhotoGridCell(
+    cell: MetroTileGridCell,
+    animate: Boolean,
+    flipSeed: Int,
+    modifier: Modifier = Modifier,
+) {
+    var displayed by remember(flipSeed) { mutableStateOf(cell) }
+    val rotation = remember(flipSeed) { Animatable(0f) }
+    val density = LocalDensity.current.density
+
+    LaunchedEffect(cell, animate) {
+        if (cell == displayed) return@LaunchedEffect
+        if (!animate) {
+            displayed = cell
+            rotation.snapTo(0f)
+            return@LaunchedEffect
+        }
+        rotation.animateTo(90f, animationSpec = MosaicFlipHalfAnimation)
+        displayed = cell
+        rotation.snapTo(-90f)
+        rotation.animateTo(0f, animationSpec = MosaicFlipHalfAnimation)
+    }
+
+    Box(
+        modifier = modifier
+            .clipToBounds()
+            .graphicsLayer {
+                rotationX = rotation.value
+                transformOrigin = TransformOrigin(0.5f, 0.5f)
+                cameraDistance = MOSAIC_FLIP_CAMERA_DISTANCE * density
+            },
+    ) {
+        PhotoGridCellFace(
+            cell = displayed,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+private fun PhotoGridCellFace(
     cell: MetroTileGridCell,
     modifier: Modifier = Modifier,
 ) {
@@ -251,12 +385,21 @@ private fun PhotoGridCell(
         modifier = modifier.background(background),
         contentAlignment = Alignment.Center,
     ) {
-        bitmap?.let { image ->
+        val image = bitmap
+        val label = cell.label
+        if (image != null) {
             Image(
                 bitmap = image,
-                contentDescription = null,
+                contentDescription = label,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
+            )
+        } else if (!label.isNullOrBlank()) {
+            TileText(
+                text = label,
+                style = TileTextStyles.Title,
+                color = Color.White,
+                maxLines = 1,
             )
         }
     }

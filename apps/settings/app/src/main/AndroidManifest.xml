@@ -15,6 +15,9 @@
             <data android:scheme="package" />
         </intent>
         <package android:name="com.metro.keyboard" />
+        <package android:name="com.metro.navbar" />
+        <package android:name="com.metro.statusbar" />
+        <package android:name="com.metro.volume" />
         <package android:name="com.metro.files" />
         <package android:name="com.metro.browser" />
         <package android:name="com.metro.messaging" />

@@ -28,7 +28,11 @@ import kotlin.math.roundToInt
  * WP8.1 slider — accent fill, thick rectangular track/thumb (METRO-UX-LANGUAGE §6.13).
  * Discrete ticks use the page background so they read as empty notches in the fill.
  * [steps] follows Compose Slider semantics: number of discrete intermediate ticks
- * (tick count = steps + 2 including endpoints). Prefer [MetroStepSlider] for N positions.
+ * (tick count = steps + 2 including endpoints). Prefer [MetroStepSlider] for N positions
+ * with notches, or [MetroBarStepSlider] for a continuous fill that still snaps.
+ *
+ * @param showTicks when [steps] > 0, draw 2dp empty notches through the fill.
+ *   Set false for a solid accent bar (volume HUD).
  */
 @Composable
 fun MetroSlider(
@@ -38,6 +42,7 @@ fun MetroSlider(
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int = 0,
     enabled: Boolean = true,
+    showTicks: Boolean = true,
 ) {
     val accent = MetroTheme.colors.accent
     val trackColor = MetroTheme.colors.secondaryText.copy(alpha = 0.45f)
@@ -118,7 +123,7 @@ fun MetroSlider(
                 )
             }
 
-            if (tickCount > 2) {
+            if (showTicks && tickCount > 2) {
                 for (i in 1 until tickCount - 1) {
                     val tickFraction = i / (tickCount - 1).toFloat()
                     Box(
@@ -150,7 +155,7 @@ fun MetroSlider(
     }
 }
 
-/** Discrete slider for a fixed number of positions (e.g. 7 text-size steps). */
+/** Discrete slider for a fixed number of positions (e.g. 7 text-size steps) with tick notches. */
 @Composable
 fun MetroStepSlider(
     index: Int,
@@ -167,5 +172,30 @@ fun MetroStepSlider(
         valueRange = 0f..max.toFloat(),
         steps = (stepCount - 2).coerceAtLeast(0),
         enabled = enabled,
+        showTicks = true,
+    )
+}
+
+/**
+ * Discrete slider with a continuous accent fill — no step-separation notches.
+ * Snaps to [stepCount] integer positions; used by the volume HUD.
+ */
+@Composable
+fun MetroBarStepSlider(
+    index: Int,
+    onIndexChange: (Int) -> Unit,
+    stepCount: Int,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val max = (stepCount - 1).coerceAtLeast(1)
+    MetroSlider(
+        value = index.coerceIn(0, max).toFloat(),
+        onValueChange = { v -> onIndexChange(v.roundToInt().coerceIn(0, max)) },
+        modifier = modifier,
+        valueRange = 0f..max.toFloat(),
+        steps = (stepCount - 2).coerceAtLeast(0),
+        enabled = enabled,
+        showTicks = false,
     )
 }

@@ -41,6 +41,15 @@ class SettingsState(
         /** Suite Files app (`com.metro.files`), not Android DocumentsUI / Settings. */
         const val FILES_PACKAGE = "com.metro.files"
 
+        /** Suite navigation bar setup (`com.metro.navbar`), not Android Settings. */
+        const val NAVBAR_PACKAGE = "com.metro.navbar"
+
+        /** Suite status bar / system tray setup (`com.metro.statusbar`), not Android Settings. */
+        const val STATUSBAR_PACKAGE = "com.metro.statusbar"
+
+        /** Suite volume HUD setup (`com.metro.volume`), not Android Settings. */
+        const val VOLUME_PACKAGE = "com.metro.volume"
+
         const val PIVOT_SYSTEM = 0
         const val PIVOT_APPLICATIONS = 1
     }
@@ -133,6 +142,21 @@ class SettingsState(
     /** Opens the metro-os keyboard settings app (WP8.1 Settings → keyboard). */
     fun openKeyboardSettings() {
         launchPackage(KEYBOARD_PACKAGE)
+    }
+
+    /** Opens the metro-os navigation bar setup app (soft keys / overlay grants). */
+    fun openNavbarSettings() {
+        launchPackage(NAVBAR_PACKAGE)
+    }
+
+    /** Opens the metro-os status bar setup app (system tray / overlay grants). */
+    fun openStatusbarSettings() {
+        launchPackage(STATUSBAR_PACKAGE)
+    }
+
+    /** Opens the metro-os volume HUD setup app (rocker HUD / overlay grants). */
+    fun openVolumeSettings() {
+        launchPackage(VOLUME_PACKAGE)
     }
 
     /** Opens the metro-os Files app from Storage Sense. */

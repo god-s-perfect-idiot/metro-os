@@ -20,6 +20,10 @@ volume key ownership and HUD lifecycle stay independent of the system tray.
 2. **Accessibility service** (`VolumeAccessibilityService`) — required for volume key filter
    **and** `TYPE_ACCESSIBILITY_OVERLAY` hosting above the system status bar
 
+The setup screen’s **Show volume controls** master toggle starts and stops the overlay FGS.
+Boot auto-starts only when the toggle is on. Off stops the overlay and lets volume rockers fall
+through to Android’s stock HUD.
+
 ## Surface inventory
 
 ### 1. Collapsed HUD
@@ -58,6 +62,7 @@ cd apps/volume
 | Native HUD never shows | Consuming keys suppresses it | Intentional **only while overlay FGS is running**; otherwise rockers fall through to the system so volume never bricks |
 | Accessory-specific streams | Complex routing | v1: ringer / media / in-call only |
 | Always-on system volume chrome | Empty overlay windows can steal input after crashes | HUD WindowManager view is attached only while visible |
+| Ringer/call UI is 0–10 | `AudioManager` maxima are often 5–7 | Keep WP ticks as HUD source of truth when they still map to the live Android index; several WP steps may share one hardware step |
 
 ## Agent postmortem
 

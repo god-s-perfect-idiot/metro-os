@@ -222,11 +222,11 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Corner radius | **0dp** | **0dp** |
 | Border | 2dp stroke, `#FFFFFF` | 2dp stroke, `#000000` |
 | Background (rest) | Transparent | Transparent |
-| Text | 15sp SemiBold, `#FFFFFF` | 15sp SemiBold, `#000000` |
+| Text | 16sp SemiBold, `#FFFFFF` | 16sp SemiBold, `#000000` |
 | Background (pressed) | `#33FFFFFF` (20% white) | `#33000000` (20% black) |
 | Background (disabled) | Transparent; border + text @ 40% | Same |
 | Min height | **44dp** touch target around chrome (not extra inset inside the border) | Same |
-| Padding (inside border) | **10dp** horizontal, **4dp** vertical (WP Button `10,3,10,5`) | Same |
+| Padding (inside border) | **10dp** horizontal, **6dp** vertical (WP Button `10,3,10,5`, slight vertical room) | Same |
 | Alignment | **Flush left** — chrome hugs the label; never centered in the row |
 | Width | Intrinsic to label — **do not** `fillMaxWidth()` |
 | Label | Max 2 words; verb-first ("save", "delete", "connect") |
@@ -382,14 +382,14 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 
 ---
 
-### 6.13 Slider (`MetroSlider`)
+### 6.13 Slider (`MetroSlider` / `MetroStepSlider` / `MetroBarStepSlider`)
 
 | Property | Spec |
 |----------|------|
 | Track | 10dp height, secondary foreground |
 | Fill | Accent (left of thumb) |
 | Thumb | **10×32dp rectangle** (WP8.1; not a circle) |
-| Ticks | Discrete steps draw 2dp vertical notches in **page background** (empty gaps through the fill) |
+| Ticks | `MetroStepSlider`: discrete steps draw 2dp vertical notches in **page background** (empty gaps through the fill). `MetroBarStepSlider`: same snap semantics, **solid continuous fill** (no notches) — volume HUD |
 | Value bubble | Optional accent label above thumb while dragging |
 
 ---
@@ -610,7 +610,7 @@ Need a container shape?
 | §6.10 Checkbox | `MetroCheckBox` | Planned |
 | §6.11 Radio | `MetroRadioButton` | Planned |
 | §6.12 Text box | `MetroTextBox` | Planned |
-| §6.13 Slider | `MetroSlider` | Planned |
+| §6.13 Slider | `MetroSlider`, `MetroStepSlider`, `MetroBarStepSlider` | Implemented |
 | §6.14 Progress | `MetroProgressBar` | Planned |
 | §6.14a Loading screen | `MetroLoadingScreen`, `MetroLoadingDots` | Implemented |
 | §6.15 Dialog | `MetroMessageDialog` | Done |

@@ -7,7 +7,8 @@ See also: [web-resources.md § Tile edit](../web-resources.md#tile-edit-and-pinn
 
 ## Entering edit mode
 
-Press and hold any Live Tile for about one second.
+Press and hold any Live Tile for about one second. A short haptic buzz confirms entry
+(system long-press feedback).
 
 Three immediate visual cues:
 
@@ -47,6 +48,7 @@ Tiles snap flat; live updates resume; layout persists.
 
 | WP8.1 | Android (`TileGrid` edit mode) |
 |-------|--------------------------------|
+| Long-press haptic on enter | `HapticFeedbackType.LongPress` in `LauncherTileCell` `onLongClick` |
 | Dimmed Start behind | Scrim + dimmed non-active tiles in grid |
 | Floating idle tiles | Non-active tiles drift via shared float clock (`tileIdleFloatAt`) |
 | Lifted tile | Active tile `scale 1.02` in place (stationary) |

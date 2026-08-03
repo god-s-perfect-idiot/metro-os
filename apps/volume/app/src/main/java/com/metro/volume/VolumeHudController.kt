@@ -52,9 +52,13 @@ class VolumeHudController(context: Context) {
 
     private val dismissRunnable = Runnable { dismiss() }
 
+    /** True while we are writing AudioManager so VOLUME_CHANGED does not remap our WP ticks. */
+    private var writingStream = false
+
     private val volumeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action != "android.media.VOLUME_CHANGED_ACTION") return
+            if (writingStream) return
             syncFromAudioManager()
         }
     }
@@ -222,7 +226,8 @@ class VolumeHudController(context: Context) {
     fun dismiss() {
         handler.removeCallbacks(dismissRunnable)
         visible = false
-        applyExpanded(false)
+        // Leave [expanded] as-is so the exit wipe keeps the current chrome;
+        // [show] resets to collapsed when the HUD next creeps in.
     }
 
     fun tickDismiss(nowMs: Long = System.currentTimeMillis()) {
@@ -232,7 +237,11 @@ class VolumeHudController(context: Context) {
     }
 
     private fun show() {
+        val wasHidden = !visible
         visible = true
+        if (wasHidden) {
+            applyExpanded(false)
+        }
         touch()
     }
 
@@ -267,31 +276,43 @@ class VolumeHudController(context: Context) {
         val stream = androidStream(kind)
         val max = audioManager.getStreamMaxVolume(stream).coerceAtLeast(1)
         val level = audioManager.getStreamVolume(stream)
-        return VolumeHudLogic.androidToWp(level, max, kind.wpMax)
+        val preferred = when (kind) {
+            VolumeStreamKind.Ringer -> ringerLevel
+            VolumeStreamKind.Media -> mediaLevel
+            VolumeStreamKind.Call -> callLevel
+        }
+        return VolumeHudLogic.androidToWpConsistent(level, max, kind.wpMax, preferred)
     }
 
     private fun setWpLevel(kind: VolumeStreamKind, wpLevel: Int) {
         val stream = androidStream(kind)
         val max = audioManager.getStreamMaxVolume(stream).coerceAtLeast(1)
-        val androidLevel = VolumeHudLogic.wpToAndroid(wpLevel, max, kind.wpMax)
+        val clampedWp = wpLevel.coerceIn(0, kind.wpMax)
+        val androidLevel = VolumeHudLogic.wpToAndroid(clampedWp, max, kind.wpMax)
+        writingStream = true
         try {
-            audioManager.setStreamVolume(stream, androidLevel, 0)
-        } catch (_: SecurityException) {
-        }
-        when (kind) {
-            VolumeStreamKind.Ringer -> ringerLevel = wpLevel.coerceIn(0, kind.wpMax)
-            VolumeStreamKind.Media -> mediaLevel = wpLevel.coerceIn(0, kind.wpMax)
-            VolumeStreamKind.Call -> callLevel = wpLevel.coerceIn(0, kind.wpMax)
-        }
-        if (kind == VolumeStreamKind.Ringer) {
             try {
-                audioManager.ringerMode = when {
-                    wpLevel <= 0 && vibrateOn -> AudioManager.RINGER_MODE_VIBRATE
-                    wpLevel <= 0 -> AudioManager.RINGER_MODE_SILENT
-                    else -> AudioManager.RINGER_MODE_NORMAL
-                }
+                audioManager.setStreamVolume(stream, androidLevel, 0)
             } catch (_: SecurityException) {
             }
+            when (kind) {
+                VolumeStreamKind.Ringer -> ringerLevel = clampedWp
+                VolumeStreamKind.Media -> mediaLevel = clampedWp
+                VolumeStreamKind.Call -> callLevel = clampedWp
+            }
+            if (kind == VolumeStreamKind.Ringer) {
+                try {
+                    audioManager.ringerMode = when {
+                        clampedWp <= 0 && vibrateOn -> AudioManager.RINGER_MODE_VIBRATE
+                        clampedWp <= 0 -> AudioManager.RINGER_MODE_SILENT
+                        else -> AudioManager.RINGER_MODE_NORMAL
+                    }
+                } catch (_: SecurityException) {
+                }
+            }
+        } finally {
+            // Clear after the VOLUME_CHANGED broadcast has been delivered on this looper.
+            handler.post { writingStream = false }
         }
     }
 

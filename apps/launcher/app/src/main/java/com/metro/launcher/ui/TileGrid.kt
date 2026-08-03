@@ -684,7 +684,8 @@ private fun LauncherTileCell(
     val showChromeFace = isChromeTilePackage(tile.entry.packageName) &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
         !showMusicNowPlaying
-    // Contact photo tiles flip to the app icon; mosaic/cycle photos never flip.
+    // Contact photo tiles flip to the app icon; mosaic photos live-flip per sub-tile;
+    // cycle photos never flip as a whole tile.
     val canFlip = tile.hasFlipFace &&
         !showCyclePhoto &&
         !showPhotoGrid &&
@@ -779,6 +780,7 @@ private fun LauncherTileCell(
                                 columns = columns,
                                 rows = rows,
                                 title = tile.title,
+                                animate = !editMode,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }

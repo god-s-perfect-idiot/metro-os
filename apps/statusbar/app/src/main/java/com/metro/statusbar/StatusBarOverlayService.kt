@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
@@ -358,6 +359,8 @@ class StatusBarOverlayService :
             instance?.let { svc -> svc.handler.post { svc.rehostOverlay() } }
         }
 
+        fun isRunning(): Boolean = instance != null
+
         fun start(context: Context) {
             val intent = Intent(context, StatusBarOverlayService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -367,11 +370,34 @@ class StatusBarOverlayService :
             }
         }
 
+        fun stop(context: Context) {
+            context.stopService(Intent(context, StatusBarOverlayService::class.java))
+        }
+
+        /**
+         * Starts or stops the overlay to match [StatusTrayPreferences.enabled], when overlay +
+         * accessibility permissions allow it.
+         */
+        fun applyMasterToggle(context: Context, enabled: Boolean) {
+            val prefs = StatusTrayPreferences(context)
+            prefs.enabled = enabled
+            if (!enabled) {
+                stop(context)
+                return
+            }
+            if (!Settings.canDrawOverlays(context) || !StatusBarAccessibilityService.isEnabled()) {
+                return
+            }
+            start(context)
+        }
+
         /**
          * Forwards a [MetroStatusBar] contract request (received as a broadcast from another app)
-         * to the running overlay service so the tray updates in place.
+         * to the running overlay service so the tray updates in place. No-op when the master
+         * toggle is off so broadcasts cannot revive a hidden tray.
          */
         fun deliver(context: Context, action: String, source: Intent) {
+            if (!StatusTrayPreferences(context).enabled) return
             val intent = Intent(context, StatusBarOverlayService::class.java).apply {
                 this.action = action
                 putExtras(source)
