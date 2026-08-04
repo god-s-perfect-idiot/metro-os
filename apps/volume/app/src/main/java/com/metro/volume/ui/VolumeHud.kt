@@ -1,12 +1,12 @@
 package com.metro.volume.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -34,7 +34,6 @@ import com.metro.ui.MetroBarStepSlider
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
-import com.metro.ui.MetroTransitions
 import com.metro.volume.VolumeHudLogic
 import com.metro.volume.VolumeHudSnapshot
 import com.metro.volume.VolumeHudSpec
@@ -44,9 +43,10 @@ import com.metro.volume.VolumeStreamKind
  * WP8.1 volume control HUD — collapsed strip or expanded dual-slider panel.
  *
  * Show / hide and expand / collapse both use a top-anchored height wipe inside a
- * fixed-size overlay window (see [onWindowHeightDp]). Animating `WRAP_CONTENT`
- * overlay height every frame is jittery on WindowManager. Call [onExitFinished]
- * after the hide wipe so the host can drop the WindowManager view.
+ * fixed-size overlay window (see [onWindowHeightDp]). The collapsed header row is
+ * always the real top-bar chrome; expand only reveals the body beneath it.
+ * Animating `WRAP_CONTENT` overlay height every frame is jittery on WindowManager.
+ * Call [onExitFinished] after the hide wipe so the host can drop the WindowManager view.
  */
 @Composable
 fun VolumeHud(
@@ -72,6 +72,11 @@ fun VolumeHud(
         } else {
             0
         }
+        val expandedRestingDp = VolumeHudSpec.panelHeightDp(
+            expanded = true,
+            inCall = snapshot.inCall,
+        )
+        val bodyRestingDp = expandedRestingDp - VolumeHudSpec.COLLAPSED_HEIGHT_DP
         val heightAnim = remember { Animatable(0f) }
 
         LaunchedEffect(snapshot.visible, targetHeightDp, snapshot.expanded) {
@@ -94,7 +99,7 @@ fun VolumeHud(
                         } else {
                             VolumeHudSpec.EXPAND_COLLAPSE_MS
                         },
-                        easing = MetroTransitions.PageEasing,
+                        easing = EaseOutCubic,
                     ),
                 )
                 if (!snapshot.expanded) {
@@ -105,7 +110,7 @@ fun VolumeHud(
                     targetValue = 0f,
                     animationSpec = tween(
                         durationMillis = VolumeHudSpec.SHOW_HIDE_MS,
-                        easing = MetroTransitions.PageEasing,
+                        easing = EaseOutCubic,
                     ),
                 )
                 onExitFinished()
@@ -117,9 +122,8 @@ fun VolumeHud(
 
         if (heightAnim.value <= 0.5f && !snapshot.visible) return@MetroTheme
 
-        // Keep showing expanded chrome while collapsing / exiting so the wipe hides real content.
-        val showExpandedContent =
-            snapshot.expanded || heightAnim.value > VolumeHudSpec.COLLAPSED_HEIGHT_DP + 0.5f
+        val bodyRevealDp = (heightAnim.value - VolumeHudSpec.COLLAPSED_HEIGHT_DP)
+            .coerceAtLeast(0f)
 
         Box(modifier = modifier.fillMaxSize()) {
             Column(
@@ -128,35 +132,48 @@ fun VolumeHud(
                     .height(heightAnim.value.dp)
                     .align(Alignment.TopStart)
                     .clipToBounds()
-                    .background(VolumeHudSpec.PanelBackground),
+                    .background(VolumeHudSpec.PanelBackground)
+                    .padding(horizontal = VolumeHudSpec.HORIZONTAL_PADDING_DP.dp),
             ) {
-                if (showExpandedContent) {
-                    ExpandedVolumePanel(
-                        snapshot = snapshot,
-                        accent = snapshot.accentColor,
-                        onCollapse = onCollapse,
-                        onRingerLevel = onRingerLevel,
-                        onMediaLevel = onMediaLevel,
-                        onCallLevel = onCallLevel,
-                        onToggleRingerMute = onToggleRingerMute,
-                        onToggleMediaMute = onToggleMediaMute,
-                        onToggleVibrate = onToggleVibrate,
-                    )
-                } else {
-                    CollapsedVolumeStrip(
-                        snapshot = snapshot,
-                        onExpand = onToggleExpanded,
-                    )
+                // Always the real collapsed top bar — never a clipped slice of the body.
+                VolumeHeader(
+                    snapshot = snapshot,
+                    onToggleExpanded = onToggleExpanded,
+                    onCollapse = onCollapse,
+                )
+
+                if (bodyRevealDp > 0.5f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(bodyRevealDp.dp)
+                            .clipToBounds(),
+                    ) {
+                        VolumeBody(
+                            snapshot = snapshot,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .requiredHeight(bodyRestingDp.dp),
+                            onRingerLevel = onRingerLevel,
+                            onMediaLevel = onMediaLevel,
+                            onCallLevel = onCallLevel,
+                            onToggleRingerMute = onToggleRingerMute,
+                            onToggleMediaMute = onToggleMediaMute,
+                            onToggleVibrate = onToggleVibrate,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/** Collapsed top-bar chrome: level label + chevron. Stable across expand / collapse. */
 @Composable
-private fun CollapsedVolumeStrip(
+private fun VolumeHeader(
     snapshot: VolumeHudSnapshot,
-    onExpand: () -> Unit,
+    onToggleExpanded: () -> Unit,
+    onCollapse: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -165,9 +182,10 @@ private fun CollapsedVolumeStrip(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onExpand,
-            )
-            .padding(horizontal = VolumeHudSpec.HORIZONTAL_PADDING_DP.dp),
+                onClick = {
+                    if (snapshot.expanded) onCollapse() else onToggleExpanded()
+                },
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         VolumeLevelLabel(
@@ -176,81 +194,111 @@ private fun CollapsedVolumeStrip(
             streamLabel = snapshot.collapsedLabel,
             modifier = Modifier.weight(1f),
         )
-        ChevronIcon(pointingDown = true, color = VolumeHudSpec.PrimaryText)
+        ChevronIcon(
+            pointingDown = !snapshot.expanded,
+            color = VolumeHudSpec.PrimaryText,
+        )
     }
 }
 
+/**
+ * Content revealed under the header when expanded. Primary stream matches the
+ * header label so the slider appears directly below the text the user already sees.
+ */
 @Composable
-private fun ExpandedVolumePanel(
+private fun VolumeBody(
     snapshot: VolumeHudSnapshot,
-    accent: Color,
-    onCollapse: () -> Unit,
     onRingerLevel: (Int) -> Unit,
     onMediaLevel: (Int) -> Unit,
     onCallLevel: (Int) -> Unit,
     onToggleRingerMute: () -> Unit,
     onToggleMediaMute: () -> Unit,
     onToggleVibrate: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = VolumeHudSpec.HORIZONTAL_PADDING_DP.dp)
-            .padding(top = 8.dp, bottom = 4.dp),
-    ) {
-        if (snapshot.inCall) {
-            VolumeStreamRow(
-                kind = VolumeStreamKind.Call,
-                level = snapshot.callLevel,
-                muted = snapshot.callLevel <= 0,
-                onLevel = onCallLevel,
-                onToggleMute = { onCallLevel(if (snapshot.callLevel <= 0) 5 else 0) },
-            )
-        } else {
-            VolumeStreamRow(
-                kind = VolumeStreamKind.Ringer,
-                level = snapshot.ringerLevel,
-                muted = snapshot.ringerLevel <= 0,
-                onLevel = onRingerLevel,
-                onToggleMute = onToggleRingerMute,
-            )
+    val headerKind = snapshot.activeStream
+    val headerLevel = snapshot.collapsedLevel
+    val otherKind = when {
+        snapshot.inCall -> null
+        headerKind == VolumeStreamKind.Ringer -> VolumeStreamKind.Media
+        else -> VolumeStreamKind.Ringer
+    }
+
+    Column(modifier = modifier) {
+        StreamSliderRow(
+            kind = headerKind,
+            level = headerLevel,
+            muted = headerLevel <= 0,
+            onLevel = levelHandler(headerKind, onRingerLevel, onMediaLevel, onCallLevel),
+            onToggleMute = muteHandler(
+                kind = headerKind,
+                level = headerLevel,
+                onRingerMute = onToggleRingerMute,
+                onMediaMute = onToggleMediaMute,
+                onCallLevel = onCallLevel,
+            ),
+        )
+
+        if (otherKind != null) {
             Spacer(modifier = Modifier.height(8.dp))
             VolumeStreamRow(
-                kind = VolumeStreamKind.Media,
-                level = snapshot.mediaLevel,
-                muted = snapshot.mediaLevel <= 0,
-                onLevel = onMediaLevel,
-                onToggleMute = onToggleMediaMute,
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(VolumeHudSpec.BOTTOM_ROW_HEIGHT_DP.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            if (!snapshot.inCall) {
-                VibrateToggle(
-                    vibrateOn = snapshot.vibrateOn,
-                    accent = accent,
-                    onToggle = onToggleVibrate,
-                )
-            } else {
-                Spacer(modifier = Modifier.width(1.dp))
-            }
-            ChevronIcon(
-                pointingDown = false,
-                color = VolumeHudSpec.PrimaryText,
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onCollapse,
+                kind = otherKind,
+                level = levelOf(otherKind, snapshot),
+                muted = levelOf(otherKind, snapshot) <= 0,
+                onLevel = levelHandler(otherKind, onRingerLevel, onMediaLevel, onCallLevel),
+                onToggleMute = muteHandler(
+                    kind = otherKind,
+                    level = levelOf(otherKind, snapshot),
+                    onRingerMute = onToggleRingerMute,
+                    onMediaMute = onToggleMediaMute,
+                    onCallLevel = onCallLevel,
                 ),
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(VolumeHudSpec.BOTTOM_ROW_HEIGHT_DP.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                VibrateToggle(
+                    vibrateOn = snapshot.vibrateOn,
+                    accent = snapshot.accentColor,
+                    onToggle = onToggleVibrate,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
+}
+
+private fun levelOf(kind: VolumeStreamKind, snapshot: VolumeHudSnapshot): Int = when (kind) {
+    VolumeStreamKind.Ringer -> snapshot.ringerLevel
+    VolumeStreamKind.Media -> snapshot.mediaLevel
+    VolumeStreamKind.Call -> snapshot.callLevel
+}
+
+private fun levelHandler(
+    kind: VolumeStreamKind,
+    onRingerLevel: (Int) -> Unit,
+    onMediaLevel: (Int) -> Unit,
+    onCallLevel: (Int) -> Unit,
+): (Int) -> Unit = when (kind) {
+    VolumeStreamKind.Ringer -> onRingerLevel
+    VolumeStreamKind.Media -> onMediaLevel
+    VolumeStreamKind.Call -> onCallLevel
+}
+
+private fun muteHandler(
+    kind: VolumeStreamKind,
+    level: Int,
+    onRingerMute: () -> Unit,
+    onMediaMute: () -> Unit,
+    onCallLevel: (Int) -> Unit,
+): () -> Unit = when (kind) {
+    VolumeStreamKind.Ringer -> onRingerMute
+    VolumeStreamKind.Media -> onMediaMute
+    VolumeStreamKind.Call -> ({ onCallLevel(if (level <= 0) 5 else 0) })
 }
 
 /** `NN` large white + `/max` muted + stream label muted gray — matches WP8.1 volume chrome. */
@@ -303,31 +351,48 @@ private fun VolumeStreamRow(
             streamLabel = kind.label,
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StreamMuteIcon(
-                kind = kind,
-                muted = muted,
-                color = if (muted) VolumeHudSpec.SecondaryText else VolumeHudSpec.PrimaryText,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onToggleMute,
-                    ),
-            )
-            MetroBarStepSlider(
-                index = level,
-                onIndexChange = onLevel,
-                stepCount = kind.wpMax + 1,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 4.dp),
-            )
-        }
+        StreamSliderRow(
+            kind = kind,
+            level = level,
+            muted = muted,
+            onLevel = onLevel,
+            onToggleMute = onToggleMute,
+        )
+    }
+}
+
+@Composable
+private fun StreamSliderRow(
+    kind: VolumeStreamKind,
+    level: Int,
+    muted: Boolean,
+    onLevel: (Int) -> Unit,
+    onToggleMute: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StreamMuteIcon(
+            kind = kind,
+            muted = muted,
+            color = if (muted) VolumeHudSpec.SecondaryText else VolumeHudSpec.PrimaryText,
+            modifier = Modifier
+                .size(36.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onToggleMute,
+                ),
+        )
+        MetroBarStepSlider(
+            index = level,
+            onIndexChange = onLevel,
+            stepCount = kind.wpMax + 1,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp),
+        )
     }
 }
 

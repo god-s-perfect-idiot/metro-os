@@ -10,8 +10,8 @@ object VolumeHudSpec {
     /** Interval between auto-steps while a rocker is held. */
     const val KEY_REPEAT_INTERVAL_MS = 100L
     /**
-     * Collapsed ↔ expanded height wipe. Snappy ease-out (not the slower
-     * 250ms pivot switch) so the overlay feels immediate.
+     * Collapsed ↔ expanded height wipe. Snappy ease-out cubic so the overlay
+     * feels immediate; content is a single clipped panel (no chrome swap).
      */
     const val EXPAND_COLLAPSE_MS = 200
     /**
@@ -20,10 +20,10 @@ object VolumeHudSpec {
      */
     const val SHOW_HIDE_MS = 200
     const val COLLAPSED_HEIGHT_DP = 48
-    /** Dual-slider expanded panel (padding + two stream rows + vibrate row). */
-    const val EXPANDED_HEIGHT_DP = 200
-    /** Single call-slider expanded panel. */
-    const val EXPANDED_IN_CALL_HEIGHT_DP = 128
+    /** Dual-slider expanded panel (header + primary slider + other stream + vibrate). */
+    const val EXPANDED_HEIGHT_DP = 220
+    /** Single call-slider expanded panel (header + slider). */
+    const val EXPANDED_IN_CALL_HEIGHT_DP = 92
     const val BOTTOM_ROW_HEIGHT_DP = 44
     const val HORIZONTAL_PADDING_DP = 12
 
