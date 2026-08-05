@@ -6,7 +6,7 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 
 ## App role
 
-**Xbox Music** — artists / albums / songs pivots, now playing, playlists hub.
+**Xbox Music** — panorama hub (now playing / collection / radio / explore), artists/albums/songs pivots, now playing, playlists. Streaming = **YouTube Music**.
 
 ## Build phase gate
 
@@ -19,24 +19,26 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 
 | Screen | Pattern | Reference |
 |--------|---------|-----------|
-| Collection hub | `MetroHub` | `references/images/hub_dark_blue.png` |
-| Artists / Albums / Songs | Pivot | `references/images/pivot_dark_blue.png` |
-| Now playing | Full page | `references/images/nowplaying_dark_blue.png` |
+| Hub / Now playing | `MetroPanorama` + panoramic `metro music` brand (no app overline) | `references/images/hub_fullpage.png` |
+| Artists / Albums / Songs | `MetroPivot` + `MetroShowingLabel` | `references/images/artists_showing_dark_teal.jpg` |
+| Album / artist detail | Full page | `references/images/album_detail_dark_teal.jpg` |
+| Settings / YT connect | Full page | `references/images/settings_dark_teal.jpg` |
 
 ## WP8.1 rules
 
-- Hub with hero album art at top
-- Pivot for artists, albums, songs (max 5 items)
-- Now playing: large art, progress `MetroSlider`, play/pause in app bar
-- Scan local audio via `MediaStore` only v1
+- Hub panorama; collection uses pivots (≤ 5 primary: artists, albums, songs, playlists, genres)
+- Now playing: large square art, `MediaCircleSeekBar` scrubber (art-width, elapsed/remaining times on either side, hollow ring thumb — not `MetroSlider`), circular prev/play/next, up next line
+- Swipe art up = next, down = previous
+- `showing …` filter via `MetroShowingLabel`
+- Local via MediaStore; streaming via YouTube Music connect
 - List items use `MetroListItem` tilt
 
 ## Primary flows
 
-1. Scan library; populate pivots
+1. Scan local library; populate pivots
 2. Tap song → now playing
-3. Play/pause/seek
-4. Background playback with system media notification (minimal WP-styled)
+3. Play/pause/seek + background notification
+4. Settings → connect YouTube Music → search/play in explore or Showing=youtube music
 
 ## Golden screenshots
 
@@ -55,4 +57,4 @@ screenshots/golden/nowplaying_dark_blue.png
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
-| Xbox Music cloud | Out of scope | Local files only |
+| Xbox Music cloud | Defunct | YouTube Music |

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -43,6 +44,8 @@ fun MetroPivot(
                 .weight(1f),
             beyondViewportPageCount = 1,
             userScrollEnabled = userScrollEnabled,
+            // Pages hang from the title row, never centre in the viewport.
+            verticalAlignment = Alignment.Top,
         ) { page ->
             pageContent(page)
         }

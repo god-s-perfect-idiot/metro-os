@@ -102,6 +102,7 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 | Page title | 64sp | Light | Primary foreground; flush left |
 | App title | 16sp | Medium | Primary foreground; ALL CAPS overline |
 | Section header | 20sp | SemiBold | Primary foreground |
+| Hub pane link | 34sp | Light | Primary foreground; hub pane link lists |
 | List item title | 24sp | Regular | Primary foreground |
 | List item subtitle | 18sp | Regular | **60%** foreground |
 | Body | 18sp | Regular | Primary foreground |
@@ -282,6 +283,7 @@ parent `Column` that also hosts `MetroAppTitle` — the app title already owns t
 | Press | **Tilt** 3° Z-rotation, 150ms ease-out |
 | Separator | None between items — whitespace bands only |
 | Margins | 12dp horizontal |
+| Overflow | Default wraps to 2 lines with ellipsis. Dense media lists (Xbox Music collection) pass `singleLine = true`: one line, no wrap, clipping mid-glyph at the **screen** edge (start inset only, no end margin). |
 
 **Don't:** Card elevation, rounded corners, swipe actions (WP8.1 uses app bar for row actions).
 
@@ -331,6 +333,8 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Parallax | Background scrolls at **0.5×** content speed |
 | App bar | **Minimized only** |
 | Content | Summaries and entry points — not long lists |
+| Pane alignment | **Top** — panes hang from the pane title; never vertically centred in the viewport |
+| Pane link lists | `MetroListItem` with `titleStyle = HubLink` (34sp Light), ~56dp rows, 12dp margin — aligned with the pane title |
 
 ---
 

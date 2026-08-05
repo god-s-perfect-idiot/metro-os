@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Music</string>
+    <string name="permission_audio_title">music library access</string>
+    <string name="permission_audio_body">Music needs access to audio files on this device to build your collection.</string>
+    <string name="grant_audio">allow access</string>
+    <string name="library_empty">No songs found.</string>
+    <string name="library_permission_denied">Collection unavailable without permission.</string>
+    <string name="showing_all">showing all music</string>
+    <string name="showing_device">showing on this device</string>
+    <string name="showing_yt">showing youtube music</string>
+    <string name="connect_streaming">Connect to YouTube Music</string>
+    <string name="yt_account">YouTube Music account</string>
+    <string name="yt_connect_prompt">Sign in to browse and play YouTube Music.</string>
+    <string name="yt_search_hint">search youtube music</string>
+    <string name="up_next">Up next:</string>
+    <string name="now_playing">NOW PLAYING</string>
+    <string name="playback_channel_name">Now playing</string>
+    <string name="playback_channel_description">Shows while music is playing</string>
+    <string name="sync_now">Sync now</string>
+    <string name="settings_title">music</string>
+</resources>

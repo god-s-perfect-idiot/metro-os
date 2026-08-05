@@ -32,6 +32,8 @@ enum class MetroTextStyle {
     PivotTab,
     /** App-name overline above a page/hub title (`MetroAppTitle`). */
     AppTitle,
+    /** Hub pane link lists (WP8.1 `PhoneTextExtraLargeStyle`) — e.g. music collection links. */
+    HubLink,
     SectionHeader,
     ListItemTitle,
     ListItemSubtitle,
@@ -66,6 +68,12 @@ enum class MetroTextStyle {
             fontWeight = FontWeight.Medium,
             fontSize = 16.sp,
             lineHeight = 20.sp,
+        )
+        HubLink -> TextStyle(
+            fontFamily = MetroFontFamily,
+            fontWeight = FontWeight.Light,
+            fontSize = 34.sp,
+            lineHeight = 40.sp,
         )
         SectionHeader -> TextStyle(
             fontFamily = MetroFontFamily,

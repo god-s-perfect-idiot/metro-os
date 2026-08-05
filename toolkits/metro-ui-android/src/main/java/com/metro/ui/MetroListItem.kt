@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -22,6 +24,9 @@ import androidx.compose.ui.unit.dp
  * Defaults match §6.6 (76dp / 90dp, 12dp vertical padding).
  *
  * [leading] is optional content before the title column (e.g. Files folder/file tiles).
+ *
+ * With [singleLine], title and subtitle never wrap: long text runs past the row's end margin and
+ * clips mid-glyph at the screen edge, matching WP8.1 dense lists (e.g. Xbox Music collection).
  */
 @Composable
 fun MetroListItem(
@@ -31,9 +36,11 @@ fun MetroListItem(
     enabled: Boolean = true,
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
+    titleStyle: MetroTextStyle = MetroTextStyle.ListItemTitle,
     verticalPadding: Dp = 12.dp,
     oneLineMinHeight: Dp = 76.dp,
     twoLineMinHeight: Dp = 90.dp,
+    singleLine: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     val titleColor = if (enabled) {
@@ -42,6 +49,12 @@ fun MetroListItem(
         MetroTheme.colors.secondaryText
     }
     val subtitleColor = MetroTheme.colors.secondaryText
+    // Only overrun the end margin when nothing sits to the right of the text.
+    val textWidthModifier = if (singleLine && trailing == null) {
+        Modifier.wrapContentWidth(unbounded = true, align = Alignment.Start)
+    } else {
+        Modifier
+    }
 
     Row(
         modifier = modifier
@@ -54,6 +67,9 @@ fun MetroListItem(
                     Modifier
                 },
             )
+            // Overrunning text must stop at the row edge, not bleed into the neighbouring
+            // pivot/panorama pane.
+            .then(if (singleLine) Modifier.clipToBounds() else Modifier)
             .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -71,19 +87,22 @@ fun MetroListItem(
         ) {
             MetroText(
                 text = title,
-                style = MetroTextStyle.ListItemTitle,
+                style = titleStyle,
                 color = titleColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = if (singleLine) 1 else 2,
+                softWrap = !singleLine,
+                overflow = if (singleLine) TextOverflow.Clip else TextOverflow.Ellipsis,
+                modifier = textWidthModifier,
             )
             if (subtitle != null) {
                 MetroText(
                     text = subtitle,
                     style = MetroTextStyle.ListItemSubtitle,
                     color = subtitleColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
+                    maxLines = if (singleLine) 1 else 2,
+                    softWrap = !singleLine,
+                    overflow = if (singleLine) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    modifier = textWidthModifier.padding(top = 2.dp),
                 )
             }
         }

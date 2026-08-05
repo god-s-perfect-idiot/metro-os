@@ -16,19 +16,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 private val PivotTabSpacing = 20.dp
+private val PanoramaTitleSpacing = 24.dp
 /** Content margin for the active title; inactive titles bleed past screen edges. */
 private val HubTitleStartInset = MetroDimens.ScreenHorizontalMargin
 
 enum class MetroHubTitleMode {
     /** Active tab flush-left; earlier tabs scroll off to the left. */
     Pivot,
-    /** Active title flush-left; next pane title peeks from the right edge. */
+    /** Same layout at hub-title scale; next pane title peeks in when it fits. */
     Panorama,
 }
 
@@ -44,35 +45,43 @@ fun MetroHubTitleRow(
     mode: MetroHubTitleMode = MetroHubTitleMode.Pivot,
     onTitleClick: ((Int) -> Unit)? = null,
 ) {
-    if (mode == MetroHubTitleMode.Panorama) {
-        PanoramaTitleRow(
-            titles = titles,
-            selectedIndex = selectedIndex,
-            modifier = modifier,
-            onTitleClick = onTitleClick,
-        )
-        return
+    val style = when (mode) {
+        MetroHubTitleMode.Pivot -> MetroTextStyle.PivotTab
+        MetroHubTitleMode.Panorama -> MetroTextStyle.HubTitle
+    }
+    val spacing = when (mode) {
+        MetroHubTitleMode.Pivot -> PivotTabSpacing
+        MetroHubTitleMode.Panorama -> PanoramaTitleSpacing
     }
 
-    PivotTitleRow(
+    ScrollingTitleRow(
         titles = titles,
         selectedIndex = selectedIndex,
+        style = style,
+        spacing = spacing,
         modifier = modifier,
         onTitleClick = onTitleClick,
     )
 }
 
+/**
+ * Titles laid out sequentially on one line and translated so the selected title sits at the
+ * content margin. Neighbouring titles bleed past the screen edges instead of stacking on top of
+ * each other, so a long title never overlaps the next one.
+ */
 @Composable
-private fun PivotTitleRow(
+private fun ScrollingTitleRow(
     titles: List<String>,
     selectedIndex: Int,
+    style: MetroTextStyle,
+    spacing: Dp,
     modifier: Modifier = Modifier,
     onTitleClick: ((Int) -> Unit)? = null,
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val textStyle = MetroTextStyle.PivotTab.toTextStyle()
-    val spacingPx = remember(density) { with(density) { PivotTabSpacing.roundToPx() } }
+    val textStyle = style.toTextStyle()
+    val spacingPx = remember(density, spacing) { with(density) { spacing.roundToPx() } }
     val tabContentWidthsPx = remember(titles, textStyle, textMeasurer) {
         titles.map { title ->
             textMeasurer.measure(title, style = textStyle).size.width
@@ -110,12 +119,13 @@ private fun PivotTitleRow(
             verticalAlignment = Alignment.Bottom,
         ) {
             titles.forEachIndexed { index, title ->
-                PivotTitle(
+                HubTitle(
                     title = title,
+                    style = style,
                     active = index == selectedIndex,
                     onClick = onTitleClick?.let { { it(index) } },
                     modifier = Modifier.padding(
-                        end = if (index < titles.lastIndex) PivotTabSpacing else 0.dp,
+                        end = if (index < titles.lastIndex) spacing else 0.dp,
                     ),
                 )
             }
@@ -124,47 +134,9 @@ private fun PivotTitleRow(
 }
 
 @Composable
-private fun PanoramaTitleRow(
-    titles: List<String>,
-    selectedIndex: Int,
-    modifier: Modifier = Modifier,
-    onTitleClick: ((Int) -> Unit)? = null,
-) {
-    val activeTitle = titles.getOrElse(selectedIndex) { "" }
-    val peekIndex = selectedIndex + 1
-    val peekTitle = titles.getOrNull(peekIndex)
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clipToBounds(),
-    ) {
-        PanoramaTitle(
-            title = activeTitle,
-            active = true,
-            onClick = onTitleClick?.let { { it(selectedIndex) } },
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = HubTitleStartInset),
-        )
-        if (peekTitle != null) {
-            PanoramaTitle(
-                title = peekTitle,
-                active = false,
-                onClick = onTitleClick?.let { { it(peekIndex) } },
-                textAlign = TextAlign.End,
-                overflow = TextOverflow.Clip,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .fillMaxWidth(0.5f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PivotTitle(
+private fun HubTitle(
     title: String,
+    style: MetroTextStyle,
     active: Boolean,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
@@ -173,34 +145,11 @@ private fun PivotTitle(
 
     MetroText(
         text = title,
-        style = MetroTextStyle.PivotTab,
+        style = style,
         color = if (active) MetroTheme.colors.primaryText else MetroTheme.colors.secondaryText,
         maxLines = 1,
         softWrap = false,
         overflow = TextOverflow.Clip,
-        modifier = modifier.then(clickModifier),
-    )
-}
-
-@Composable
-private fun PanoramaTitle(
-    title: String,
-    active: Boolean,
-    onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-    textAlign: TextAlign = TextAlign.Start,
-    overflow: TextOverflow = TextOverflow.Clip,
-) {
-    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
-
-    MetroText(
-        text = title,
-        style = MetroTextStyle.HubTitle,
-        color = if (active) MetroTheme.colors.primaryText else MetroTheme.colors.secondaryText,
-        textAlign = textAlign,
-        maxLines = 1,
-        softWrap = false,
-        overflow = overflow,
         modifier = modifier.then(clickModifier),
     )
 }

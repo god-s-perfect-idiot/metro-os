@@ -48,6 +48,8 @@ fun MetroPanorama(
                 .fillMaxSize()
                 .padding(top = MetroPanoramaTitleHeight),
             beyondViewportPageCount = 1,
+            // Panes hang from the title, never centre in the viewport.
+            verticalAlignment = Alignment.Top,
         ) { page ->
             pageContent(page)
         }
