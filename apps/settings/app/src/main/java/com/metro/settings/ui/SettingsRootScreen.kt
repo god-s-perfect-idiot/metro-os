@@ -150,6 +150,14 @@ private fun SystemSettingsList(
         }
         item {
             MetroListItem(
+                title = stringResource(R.string.settings_notifications),
+                subtitle = stringResource(R.string.settings_notifications_subtitle),
+                modifier = Modifier.height(SettingsRowHeight),
+                onClick = { state.openNotificationsSettings() },
+            )
+        }
+        item {
+            MetroListItem(
                 title = stringResource(R.string.settings_volume),
                 subtitle = stringResource(R.string.settings_volume_subtitle),
                 modifier = Modifier.height(SettingsRowHeight),

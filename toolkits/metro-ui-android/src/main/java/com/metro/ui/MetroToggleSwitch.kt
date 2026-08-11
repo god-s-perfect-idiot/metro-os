@@ -55,6 +55,8 @@ fun MetroToggleSwitch(
     showStatus: Boolean = true,
     statusOn: String = "On",
     statusOff: String = "Off",
+    labelStyle: MetroTextStyle = MetroTextStyle.ListItemSubtitle,
+    statusStyle: MetroTextStyle = MetroTextStyle.ListItemTitle,
 ) {
     val accent = MetroTheme.colors.accent
     val foreground = MetroTheme.colors.primaryText
@@ -69,7 +71,7 @@ fun MetroToggleSwitch(
         if (label != null) {
             MetroText(
                 text = label,
-                style = MetroTextStyle.ListItemSubtitle,
+                style = labelStyle,
                 color = secondary.copy(alpha = secondary.alpha * alpha),
                 modifier = Modifier.padding(bottom = 2.dp),
             )
@@ -81,7 +83,7 @@ fun MetroToggleSwitch(
             if (showStatus) {
                 MetroText(
                     text = if (checked) statusOn else statusOff,
-                    style = MetroTextStyle.ListItemTitle,
+                    style = statusStyle,
                     color = foreground.copy(alpha = foreground.alpha * alpha),
                 )
                 Spacer(modifier = Modifier.weight(1f))

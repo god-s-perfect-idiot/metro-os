@@ -26,12 +26,13 @@ Each app is an independent Android project. Package name: `com.metro.<app>`.
 | App | Package | Role |
 |-----|---------|------|
 | **Launcher** | `com.metro.launcher` | Start screen, live tiles (fed by app tile widgets), app list, wallpaper, tile pinning |
-| **Status bar** | `com.metro.statusbar` | System tray overlay: clock, signal, battery, expandable indicators |
+| **Status bar** | `com.metro.statusbar` | System tray overlay: clock, signal, battery, expandable indicators (tray strip only) |
+| **Notifications** | `com.metro.notifications` | WP8.1 toast banners; replaces Android heads-up (light overlay, like volume) |
 | **Navigation bar** | `com.metro.navbar` | Soft keys: Back, Start, Search; theme-colored bar; swipe-to-hide on supported layouts |
 | **Volume** | `com.metro.volume` | WP8.1 volume HUD overlay (ringer / media / call); hardware rocker → charcoal panel |
 | **Keyboard** | `com.metro.keyboard` | WP8.1 SIP / Word Flow–style touch keyboard IME + keyboard settings |
 
-These apps form the **Metro Shell** (launcher, status bar, navigation bar, volume) plus system input. Consumer apps assume the shell is installed and expose WP8.1-standard intents/contracts.
+These apps form the **Metro Shell** (launcher, status bar, notifications, navigation bar, volume) plus system input. Consumer apps assume the shell is installed and expose WP8.1-standard intents/contracts.
 
 ### Tier 1 — Core apps (first wave)
 
@@ -198,8 +199,16 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 - Indicator order (left → right): cellular signal, Wi-Fi, Bluetooth, alarm, location, battery
 - Supports: opaque, translucent (`backgroundOpacity` 0.5), or hidden per-app
 - Progress: indeterminate accent spinner in tray during long operations
-- **Action Center:** swipe down from the tray opens the WP8.1 notification shade (quick-action tiles + grouped notifications); swipe up closes. Owned by `com.metro.statusbar`
 - **Must not** use Material status bar styling
+
+#### Notifications (toasts)
+
+- Owned by `com.metro.notifications` — a light overlay like volume, not tray chrome and not Action Center
+- **Toast:** full-width accent bar below the status-bar / cutout inset (clears the notch); square app logo + one truncated line (no clock — the tray already shows time); tile-flip enter / reverse-flip exit; 3/5/10s timeout (setup ListPicker, default 5s); tap opens the app; swipe right dismisses
+- Overlay window is attached **only while** a toast is visible — never an always-on hit target
+- Stock Android heads-up is suppressed while the overlay service runs (`heads_up_notifications_enabled=0` when `WRITE_SECURE_SETTINGS` is granted)
+- Does not open, hide, or otherwise drive the status tray
+- **Must not** use Material notification cards, FABs, or the Android notification shade chrome
 
 #### Navigation bar (soft keys)
 
@@ -385,6 +394,7 @@ Reusable scaffolding so animations and UX stay consistent across apps.
 | Default launcher | Android `ROLE_HOME` | Launcher app |
 | Live tile content | App tile widget provider (`MetroTileContract`) | Each pin-capable app writes; launcher reads |
 | Status bar overlay | `SYSTEM_ALERT_WINDOW` | Status bar app |
+| Toast banners | `SYSTEM_ALERT_WINDOW` + notification listener | Notifications app |
 | Navigation bar injection | Accessibility service or `TYPE_NAVIGATION_BAR` overlay | Navbar app |
 
 All apps register a `ThemeChangeReceiver` and re-render within **1 frame** of preference change.

@@ -22,8 +22,9 @@ object MetroStatusBar {
     const val HEIGHT_DP = 32
 
     /**
-     * How long indicators stay fully visible after the staggered enter finishes, in ms.
-     * Tap or going home reveals icons; they then exit upward after this hold.
+     * Default how long indicators stay fully visible after the staggered enter finishes, in ms.
+     * Tap or going home reveals icons; they then exit upward after this hold. The status bar
+     * setup screen can override this with 3s / 5s / 10s.
      */
     const val AUTO_COLLAPSE_MS = 5000L
 

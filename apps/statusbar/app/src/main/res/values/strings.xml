@@ -6,15 +6,17 @@
     <string name="overlay_notification_title">Metro status tray</string>
     <string name="overlay_notification_body">WP8.1 system tray is active</string>
     <string name="permission_overlay_title">Display over other apps</string>
-    <string name="permission_overlay_body">Grant overlay permission, enable the accessibility service so the Metro tray draws over the system status bar, then allow notification access for Action Center.</string>
+    <string name="permission_overlay_body">Grant overlay permission and enable the accessibility service so the Metro tray draws over the system status bar.</string>
     <string name="permission_accessibility_title">Accessibility service</string>
     <string name="permission_accessibility_body">Required to draw above the system status bar.</string>
-    <string name="permission_notifications_body">Required so Action Center can list and clear notifications.</string>
     <string name="show_status_tray">Show status bar</string>
     <string name="show_status_tray_hint">Grant overlay permission and enable the accessibility service first.</string>
+    <string name="icon_hide_timeout_label">Hide icons after</string>
+    <string name="icon_hide_timeout_3s">3 seconds</string>
+    <string name="icon_hide_timeout_5s">5 seconds</string>
+    <string name="icon_hide_timeout_10s">10 seconds</string>
     <string name="grant_overlay">Grant overlay permission</string>
     <string name="grant_phone_state">Allow mobile network label</string>
     <string name="grant_accessibility">Enable status tray service</string>
-    <string name="grant_notifications">Allow notification access</string>
     <string name="tray_clock">Clock</string>
 </resources>

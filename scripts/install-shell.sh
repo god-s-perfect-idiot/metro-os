@@ -31,7 +31,7 @@ install_app() {
 echo "==> install-shell: Tier 0 Metro Shell"
 
 # Order matters: launcher sets home, overlays depend on it
-for app in launcher statusbar navbar volume; do
+for app in launcher statusbar notifications navbar volume; do
   install_app "$app"
 done
 
@@ -45,6 +45,12 @@ echo ""
 echo "Grant overlay permission (volume HUD):"
 echo "  adb shell appops set com.metro.volume SYSTEM_ALERT_WINDOW allow"
 echo ""
+echo "Grant overlay permission (toast banners):"
+echo "  adb shell appops set com.metro.notifications SYSTEM_ALERT_WINDOW allow"
+echo "Suppress Android heads-up (AOSP) so Metro toasts can replace them:"
+echo "  adb shell pm grant com.metro.notifications android.permission.WRITE_SECURE_SETTINGS"
+echo ""
 echo "Enable Volume accessibility (volume keys + overlay layer) from the Volume app setup screen."
+echo "Enable Notifications accessibility + notification access from the Notifications app setup screen."
 echo ""
 echo "install-shell: done"

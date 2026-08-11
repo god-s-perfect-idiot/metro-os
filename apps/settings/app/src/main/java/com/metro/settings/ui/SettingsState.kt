@@ -50,6 +50,9 @@ class SettingsState(
         /** Suite volume HUD setup (`com.metro.volume`), not Android Settings. */
         const val VOLUME_PACKAGE = "com.metro.volume"
 
+        /** Suite toast-banner setup (`com.metro.notifications`), not Android Settings. */
+        const val NOTIFICATIONS_PACKAGE = "com.metro.notifications"
+
         const val PIVOT_SYSTEM = 0
         const val PIVOT_APPLICATIONS = 1
     }
@@ -157,6 +160,11 @@ class SettingsState(
     /** Opens the metro-os volume HUD setup app (rocker HUD / overlay grants). */
     fun openVolumeSettings() {
         launchPackage(VOLUME_PACKAGE)
+    }
+
+    /** Opens the metro-os notifications setup app (toast banners). */
+    fun openNotificationsSettings() {
+        launchPackage(NOTIFICATIONS_PACKAGE)
     }
 
     /** Opens the metro-os Files app from Storage Sense. */

@@ -51,6 +51,8 @@
     <string name="settings_navigation_bar_subtitle">soft keys</string>
     <string name="settings_status_bar">status bar</string>
     <string name="settings_status_bar_subtitle">system tray</string>
+    <string name="settings_notifications">notifications</string>
+    <string name="settings_notifications_subtitle">toast banners</string>
     <string name="settings_volume">volume</string>
     <string name="settings_volume_subtitle">ringer + media</string>
 

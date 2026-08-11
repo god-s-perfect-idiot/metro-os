@@ -74,6 +74,8 @@ fun <T> MetroListPicker(
     expanded: Boolean? = null,
     onExpandedChange: ((Boolean) -> Unit)? = null,
     onOpen: (() -> Unit)? = null,
+    labelStyle: MetroTextStyle = MetroTextStyle.ListItemSubtitle,
+    optionStyle: MetroTextStyle = MetroTextStyle.Body,
 ) {
     val selectedLabel = options.find { it.value == selected }?.label
         ?: placeholder.takeIf { it.isNotEmpty() }
@@ -93,6 +95,8 @@ fun <T> MetroListPicker(
         onExpandedChange = onExpandedChange,
         onOpen = onOpen,
         canExpand = options.isNotEmpty() && onOpen == null,
+        labelStyle = labelStyle,
+        optionStyle = optionStyle,
     )
 }
 
@@ -112,6 +116,8 @@ fun MetroListPicker(
     expanded: Boolean? = null,
     onExpandedChange: ((Boolean) -> Unit)? = null,
     onOpen: (() -> Unit)? = null,
+    labelStyle: MetroTextStyle = MetroTextStyle.ListItemSubtitle,
+    optionStyle: MetroTextStyle = MetroTextStyle.Body,
 ) {
     val safeIndex = selectedOptionIndex.coerceIn(
         minimumValue = if (options.isEmpty()) 0 else 0,
@@ -135,6 +141,8 @@ fun MetroListPicker(
         onExpandedChange = onExpandedChange,
         onOpen = onOpen,
         canExpand = options.isNotEmpty() && onOpen == null,
+        labelStyle = labelStyle,
+        optionStyle = optionStyle,
     )
 }
 
@@ -151,6 +159,8 @@ private fun MetroListPickerChrome(
     onExpandedChange: ((Boolean) -> Unit)?,
     onOpen: (() -> Unit)?,
     canExpand: Boolean,
+    labelStyle: MetroTextStyle,
+    optionStyle: MetroTextStyle,
 ) {
     var internalExpanded by remember { mutableStateOf(false) }
     val isExpanded = expanded ?: internalExpanded
@@ -187,7 +197,7 @@ private fun MetroListPickerChrome(
         if (label != null) {
             MetroText(
                 text = label,
-                style = MetroTextStyle.ListItemSubtitle,
+                style = labelStyle,
                 color = secondary.copy(alpha = secondary.alpha * alpha),
                 modifier = Modifier.padding(bottom = 4.dp),
             )
@@ -242,7 +252,7 @@ private fun MetroListPickerChrome(
                         ) {
                             MetroText(
                                 text = text,
-                                style = MetroTextStyle.Body,
+                                style = optionStyle,
                                 color = if (selected) accent else panelUnselectedText,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -270,7 +280,7 @@ private fun MetroListPickerChrome(
                 ) {
                     MetroText(
                         text = valueLabel,
-                        style = MetroTextStyle.Body,
+                        style = optionStyle,
                         color = foreground.copy(alpha = foreground.alpha * alpha),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

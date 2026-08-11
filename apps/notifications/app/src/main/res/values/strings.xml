@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Notifications</string>
+    <string name="setup_title">toasts</string>
+    <string name="setup_body">Grant overlay, enable the accessibility service so Metro toasts draw over the system status bar, then allow notification access. The overlay window exists only while a toast is visible.</string>
+    <string name="grant_overlay">grant overlay permission</string>
+    <string name="grant_accessibility">enable accessibility</string>
+    <string name="grant_notifications">allow notification access</string>
+    <string name="show_notifications">Show notifications</string>
+    <string name="show_notifications_hint">Grant overlay permission and enable the accessibility service first.</string>
+    <string name="toast_timeout">toast timeout</string>
+    <string name="toast_timeout_3s">3 seconds</string>
+    <string name="toast_timeout_5s">5 seconds</string>
+    <string name="toast_timeout_10s">10 seconds</string>
+    <string name="show_test_toast">show test toast</string>
+    <string name="test_toast_title">This is a test toast.</string>
+    <string name="test_toast_body"></string>
+    <string name="accessibility_service_description">Draws WP8.1 toast banners above other apps. The overlay is shown only while a toast is visible.</string>
+    <string name="overlay_notification_title">Metro notifications</string>
+    <string name="overlay_notification_body">Toast banners are active</string>
+</resources>

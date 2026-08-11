@@ -20,6 +20,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -37,6 +38,7 @@ fun MetroBorderButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    fontSize: TextUnit = 16.sp,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -72,8 +74,8 @@ fun MetroBorderButton(
                 style = TextStyle(
                     fontFamily = MetroFontFamily,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp,
+                    fontSize = fontSize,
+                    lineHeight = (fontSize.value * 22f / 16f).sp,
                     color = textColor,
                     textAlign = TextAlign.Center,
                 ),

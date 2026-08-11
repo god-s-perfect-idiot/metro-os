@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.system.MetroPreferences
@@ -84,7 +85,7 @@ class MainActivity : ComponentActivity() {
                     MetroAppTitle(title = stringResource(R.string.app_name))
                     MetroText(
                         text = stringResource(R.string.setup_title),
-                        style = MetroTextStyle.HubTitle,
+                        style = MetroTextStyle.PivotTab,
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
@@ -107,6 +108,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
+                        fontSize = 15.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
@@ -116,6 +118,7 @@ class MainActivity : ComponentActivity() {
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
+                        fontSize = 15.sp,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -127,6 +130,8 @@ class MainActivity : ComponentActivity() {
                         },
                         enabled = canToggleHud || hudEnabled,
                         label = stringResource(R.string.show_volume_hud),
+                        labelStyle = MetroTextStyle.DialogBody,
+                        statusStyle = MetroTextStyle.Body,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
@@ -134,7 +139,7 @@ class MainActivity : ComponentActivity() {
                     if (!canToggleHud && !hudEnabled) {
                         MetroText(
                             text = stringResource(R.string.show_volume_hud_hint),
-                            style = MetroTextStyle.ListItemSubtitle,
+                            style = MetroTextStyle.DialogBody,
                             color = MetroTheme.colors.secondaryText,
                             modifier = Modifier
                                 .padding(horizontal = 12.dp)
@@ -145,7 +150,7 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(16.dp))
                         MetroText(
                             text = stringResource(R.string.setup_ready),
-                            style = MetroTextStyle.ListItemSubtitle,
+                            style = MetroTextStyle.DialogBody,
                             color = MetroTheme.colors.secondaryText,
                             modifier = Modifier.padding(horizontal = 12.dp),
                         )

@@ -16,6 +16,8 @@ object TileNotificationStore {
         "com.metro.launcher",
         "com.metro.statusbar",
         "com.metro.navbar",
+        "com.metro.notifications",
+        "com.metro.volume",
     )
 
     private val byPackage = ConcurrentHashMap<String, TileNotificationInfo>()

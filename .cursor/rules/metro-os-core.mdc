@@ -23,7 +23,7 @@ Read before any code change:
 
 ## Build order
 
-toolkits → launcher → statusbar → navbar → Tier 1 apps → Tier 2 apps
+toolkits → launcher → statusbar → notifications → navbar → Tier 1 apps → Tier 2 apps
 
 ## Commit format
 

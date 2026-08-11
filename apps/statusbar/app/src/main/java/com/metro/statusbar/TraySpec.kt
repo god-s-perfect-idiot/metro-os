@@ -16,7 +16,7 @@ object TraySpec {
     const val COLLAPSE_ANIMATION_MS = 200L
     /** Delay between successive icons (right → left) on enter and exit. */
     const val ICON_STAGGER_MS = 90L
-    /** How long icons stay fully visible after the last enter finishes. */
+    /** WP8.1 default hold after the last enter finishes; setup can choose 3s / 5s / 10s. */
     const val AUTO_COLLAPSE_MS = MetroStatusBar.AUTO_COLLAPSE_MS
 
     /** Total time for a staggered enter (or exit) of [iconCount] icons. */
@@ -112,10 +112,6 @@ data class TraySnapshot(
     val dataConnectionLabel: String?,
     val battery: BatteryStatus,
     val theme: TrayThemeSnapshot,
-    /** Action Center open — clock cluster shows battery % + date under the time. */
-    val actionCenterOpen: Boolean = false,
-    /** Date under the clock while Action Center is open (e.g. `5/25`). */
-    val dateText: String = "",
 )
 
 object TrayIndicatorOrder {

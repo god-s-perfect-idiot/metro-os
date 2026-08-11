@@ -23,7 +23,7 @@ source "$ROOT/scripts/lib/metro-common.sh"
 
 # Same tier order as verify-all.sh
 APP_ORDER=(
-  launcher statusbar navbar volume
+  launcher statusbar notifications navbar volume
   browser notes music
   photos calendar mail messaging people dialer store settings calculator clock files
 )

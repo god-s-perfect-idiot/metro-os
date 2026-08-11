@@ -19,9 +19,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -29,12 +32,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.statusbar.ui.StatusTray
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroListPicker
+import com.metro.ui.MetroListPickerOption
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -51,12 +57,14 @@ class MainActivity : ComponentActivity() {
             val trayPrefs = remember { StatusTrayPreferences(context) }
             var permissionTick by remember { mutableIntStateOf(0) }
             var trayEnabled by remember { mutableStateOf(trayPrefs.enabled) }
+            var iconHideTimeoutMs by remember { mutableLongStateOf(trayPrefs.iconHideTimeoutMs) }
 
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         permissionTick++
                         trayEnabled = trayPrefs.enabled
+                        iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
                         // Keep overlay aligned with the master toggle after returning from Settings.
                         if (trayPrefs.enabled &&
                             Settings.canDrawOverlays(context) &&
@@ -80,9 +88,6 @@ class MainActivity : ComponentActivity() {
 
             val overlayGranted = remember(permissionTick) { Settings.canDrawOverlays(context) }
             val accessibilityEnabled = remember(permissionTick) { StatusBarAccessibilityService.isEnabled() }
-            val notificationAccess = remember(permissionTick) {
-                ActionNotificationListenerService.isEnabled(context)
-            }
             val phoneStateGranted = remember(permissionTick) {
                 ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
                     PackageManager.PERMISSION_GRANTED
@@ -105,20 +110,21 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
-                        .metroNavBarPadding(),
+                        .metroNavBarPadding()
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.Top,
                 ) {
                     MetroAppTitle(title = stringResource(R.string.app_name))
                     MetroText(
                         text = stringResource(R.string.setup_title),
-                        style = MetroTextStyle.HubTitle,
+                        style = MetroTextStyle.PivotTab,
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
                     )
                     MetroText(
                         text = stringResource(R.string.permission_overlay_body),
-                        style = MetroTextStyle.Body,
+                        style = MetroTextStyle.DialogBody,
                         modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
                     )
                     MetroBorderButton(
@@ -133,6 +139,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
+                        fontSize = 15.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
@@ -142,6 +149,7 @@ class MainActivity : ComponentActivity() {
                             phoneStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
+                        fontSize = 15.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
@@ -155,19 +163,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    MetroBorderButton(
-                        text = stringResource(R.string.grant_notifications),
-                        enabled = !notificationAccess,
-                        onClick = {
-                            startActivity(
-                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                },
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp),
+                        fontSize = 15.sp,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     MetroToggleSwitch(
@@ -178,6 +174,8 @@ class MainActivity : ComponentActivity() {
                         },
                         enabled = canToggleTray || trayEnabled,
                         label = stringResource(R.string.show_status_tray),
+                        labelStyle = MetroTextStyle.DialogBody,
+                        statusStyle = MetroTextStyle.Body,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
@@ -185,13 +183,41 @@ class MainActivity : ComponentActivity() {
                     if (!canToggleTray && !trayEnabled) {
                         MetroText(
                             text = stringResource(R.string.show_status_tray_hint),
-                            style = MetroTextStyle.ListItemSubtitle,
+                            style = MetroTextStyle.DialogBody,
                             color = MetroTheme.colors.secondaryText,
                             modifier = Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(top = 8.dp),
                         )
                     }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MetroListPicker(
+                        selected = iconHideTimeoutMs,
+                        options = listOf(
+                            MetroListPickerOption(
+                                StatusTrayPreferences.TIMEOUT_3S_MS,
+                                stringResource(R.string.icon_hide_timeout_3s),
+                            ),
+                            MetroListPickerOption(
+                                StatusTrayPreferences.TIMEOUT_5S_MS,
+                                stringResource(R.string.icon_hide_timeout_5s),
+                            ),
+                            MetroListPickerOption(
+                                StatusTrayPreferences.TIMEOUT_10S_MS,
+                                stringResource(R.string.icon_hide_timeout_10s),
+                            ),
+                        ),
+                        onSelectedChange = { timeoutMs ->
+                            trayPrefs.iconHideTimeoutMs = timeoutMs
+                            iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
+                        },
+                        label = stringResource(R.string.icon_hide_timeout_label),
+                        labelStyle = MetroTextStyle.DialogBody,
+                        optionStyle = MetroTextStyle.DialogBody,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                    )
                     Spacer(modifier = Modifier.height(32.dp))
                     MetroText(
                         text = "Preview",

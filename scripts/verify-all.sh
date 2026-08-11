@@ -25,7 +25,7 @@ for tk in metro-ui-android metro-system-sdk metro-test-harness; do
 done
 
 # Apps in tier order
-for app in launcher statusbar navbar volume browser notes music \
+for app in launcher statusbar notifications navbar volume browser notes music \
            photos calendar mail messaging people dialer store settings calculator clock files; do
   if [[ -d "$ROOT/apps/$app/app" ]]; then
     echo "--- app: $app"

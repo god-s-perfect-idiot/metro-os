@@ -35,8 +35,33 @@ class TrayCollapseSchedulerTest {
     }
 
     @Test
-    fun holdDuration_isFiveSeconds() {
+    fun holdDuration_defaultsToFiveSeconds() {
         assertEquals(5000L, TraySpec.AUTO_COLLAPSE_MS)
+    }
+
+    @Test
+    fun autoCollapse_honorsCustomHold() {
+        val icons = 5
+        val enterMs = TraySpec.staggerSequenceMs(icons)
+        val holdMs = StatusTrayPreferences.TIMEOUT_3S_MS
+        assertFalse(
+            TrayCollapseScheduler.shouldAutoCollapse(
+                expanded = true,
+                lastExpandedAtMs = 0L,
+                nowMs = enterMs + holdMs - 1,
+                animatingIconCount = icons,
+                holdMs = holdMs,
+            ),
+        )
+        assertTrue(
+            TrayCollapseScheduler.shouldAutoCollapse(
+                expanded = true,
+                lastExpandedAtMs = 0L,
+                nowMs = enterMs + holdMs,
+                animatingIconCount = icons,
+                holdMs = holdMs,
+            ),
+        )
     }
 
     @Test

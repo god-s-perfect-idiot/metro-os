@@ -25,6 +25,7 @@ apps/<name>/references/
 |-----|---------|--------|
 | [launcher](launcher/) | `com.metro.launcher` | [AGENTS.md](launcher/AGENTS.md) |
 | [statusbar](statusbar/) | `com.metro.statusbar` | [AGENTS.md](statusbar/AGENTS.md) |
+| [notifications](notifications/) | `com.metro.notifications` | [AGENTS.md](notifications/AGENTS.md) |
 | [navbar](navbar/) | `com.metro.navbar` | [AGENTS.md](navbar/AGENTS.md) |
 | [volume](volume/) | `com.metro.volume` | [AGENTS.md](volume/AGENTS.md) |
 | [keyboard](keyboard/) | `com.metro.keyboard` | [AGENTS.md](keyboard/AGENTS.md) |

@@ -34,14 +34,6 @@ wireless-network (Wi-Fi) signal, Bluetooth, ringer mode, input status, battery p
 system clock. This project's `blueprint.md` uses the simplified v1 subset
 (cellular + data label, Wi-Fi; battery + clock on the right) — blueprint is authoritative here.
 
-## Action Center
-
-| Resource | URL | Notes |
-|----------|-----|-------|
-| Microsoft Devices Blog — Action Center | https://blogs.windows.com/devices/2014/04/14/put-your-lumia-at-the-heart-of-windows-phone-action-center/ | Swipe down; four quick actions; Clear All; notifications grouped by app |
-| The Verge — Action Center leak | https://www.theverge.com/2014/2/9/5394676/windows-phone-8-1-notification-center-action-center-screenshots | Short swipe vs full pull; customizable tiles |
-| Wikimedia DE capture | https://commons.wikimedia.org/wiki/File:Windows_Phone_8.1_Benachrichtigungszentrale.png | Empty Action Center layout + accent handle |
-
 ## Progress tray state
 
 | Resource | URL | Notes |
@@ -61,4 +53,3 @@ system clock. This project's `blueprint.md` uses the simplified v1 subset
 |------|--------|---------|
 | `images/expanded_dark.png` | Wikimedia Commons — Windows Phone 8.1 Benachrichtigungszentrale.png (Armin2208) | Public domain |
 | `images/collapsed_dark.png` | Wikimedia Commons — Windows Phone 8.1 Update 2 Einstellungen.png (Armin2208) | Public domain |
-| `images/action_center_dark_cyan.png` | Microsoft WP8.1 Action Center marketing capture (user-provided) | Reference use |

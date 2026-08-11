@@ -17,6 +17,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   - `ease of access`
   - `navigation bar` — launches `com.metro.navbar` MainActivity (soft-key overlay setup / permissions). Does **not** open Android Settings.
   - `status bar` — launches `com.metro.statusbar` MainActivity (system tray overlay setup / permissions). Does **not** open Android Settings.
+  - `notifications` — launches `com.metro.notifications` MainActivity (toast banner setup / permissions). Does **not** open Android Settings.
   - `volume` — launches `com.metro.volume` MainActivity (volume HUD setup / permissions). Does **not** open Android Settings.
   - `keyboard` — launches `com.metro.keyboard` MainActivity directly (WP8.1 Settings → keyboard lives in a separate APK; see keyboard README platform exceptions). Does **not** open Android Settings.
   - `extras+info`
@@ -109,11 +110,11 @@ Missing device captures for root / brightness / storage / extras+info → see [`
 ## Out of scope
 
 - Full WP8.1 system settings inventory (Wi‑Fi, Bluetooth, airplane, battery saver, date+time, ringtones+sounds content, cellular, backup, kid’s corner, etc.)
-- In-Settings chrome preference pages for navigation bar / status bar / volume (setup lives in each shell APK; Settings root launches those apps)
+- In-Settings chrome preference pages for navigation bar / status bar / notifications / volume (setup lives in each shell APK; Settings root launches those apps)
 - start+theme Background ListPicker / Choose photo / Show more Tiles
 - Custom / Color Changer RGB accent picker
 - High contrast, Narrator, Screen magnifier, browser captions
 - Sync my settings / Microsoft account
 - In-Settings application hubs (IE advanced, photos+camera auto-upload, people filter options, …) — applications pivot uses a shared app-detail page for all launchable packages
 - OS-level notification / background enforcement for third-party apps (requires privileged AppOps); toggles persist metro-os policy prefs
-- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard`, `com.metro.navbar`, `com.metro.statusbar`, and `com.metro.volume` are allowed; package installer uninstall UI is allowed)
+- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard`, `com.metro.navbar`, `com.metro.statusbar`, `com.metro.notifications`, and `com.metro.volume` are allowed; package installer uninstall UI is allowed)
