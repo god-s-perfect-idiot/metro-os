@@ -5,7 +5,9 @@ import com.metro.launcher.data.TileNotificationInfo
 import com.metro.launcher.data.TileNotificationStore
 import com.metro.launcher.data.TileProgressInfo
 import com.metro.launcher.data.formatRemainingMs
+import com.metro.launcher.data.parseDurationOnly
 import com.metro.launcher.data.parseRemainingPhrase
+import com.metro.launcher.data.peekFromCustomTexts
 import com.metro.launcher.data.resolveTileProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -52,6 +54,44 @@ class TileProgressTest {
     fun parseRemaining_clockForm() {
         assertEquals("1:23 remaining", parseRemainingPhrase("1:23 remaining"))
         assertEquals("01:23:45 remaining", parseRemainingPhrase("01:23:45 left"))
+    }
+
+    @Test
+    fun parseDurationOnly_wholeStringFromCustomView() {
+        assertEquals("35 min", parseDurationOnly("35 min"))
+        assertEquals("1h 23m", parseDurationOnly("1h 23m"))
+        assertEquals("1:23", parseDurationOnly("1:23"))
+        assertNull(parseDurationOnly("Charging"))
+        assertNull(parseDurationOnly("Booking in progress"))
+        assertNull(parseDurationOnly("3 new messages"))
+    }
+
+    @Test
+    fun peekFromCustomTexts_boltChargingMonitor_elapsedAndTotal() {
+        val peek = peekFromCustomTexts(
+            listOf("Booking in progress", "Charging", "35 min", "2h 10m"),
+        )
+        assertEquals("Charging", peek.title)
+        assertEquals("35 min completed", peek.subtitle)
+        assertEquals("2h 10m", peek.body)
+    }
+
+    @Test
+    fun resolve_customViewTexts_usesElapsedNotRemaining() {
+        val info = resolveTileProgress(
+            NotificationProgressFields(
+                title = "Charging",
+                progress = 34,
+                progressMax = 100,
+                ongoing = true,
+                extraTexts = listOf("Booking in progress", "Charging", "35 min", "2h 10m"),
+            ),
+            nowMs = 1L,
+        )
+        assertNotNull(info)
+        assertEquals("Charging", info!!.statusTitle)
+        assertEquals("35 min completed", info.remainingLabel)
+        assertEquals(0.34f, info.fraction!!, 0.001f)
     }
 
     @Test

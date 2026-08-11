@@ -50,7 +50,7 @@ class TileNotificationListenerService : NotificationListenerService() {
     private fun publishAll() {
         val previous = TileNotificationStore.all()
         val active = runCatching { activeNotifications }.getOrNull()
-        TileNotificationStore.replaceAll(active)
+        TileNotificationStore.replaceAll(this, active)
         val next = TileNotificationStore.all()
         changedPackages(previous, next).forEach { packageName ->
             MetroTileUpdates.requestUpdate(this, packageName)

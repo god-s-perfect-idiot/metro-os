@@ -56,6 +56,8 @@ internal data class NotificationProgressFields(
     val chronometerCountDown: Boolean = false,
     val whenMs: Long = 0L,
     val ongoing: Boolean = false,
+    /** Extra copy from a custom RemoteViews notification (Bolt.Earth charging, …). */
+    val extraTexts: List<String> = emptyList(),
 )
 
 /**
@@ -84,8 +86,9 @@ internal fun resolveTileProgress(
         fields.subText,
         fields.infoText,
         fields.title,
-    )
+    ) + fields.extraTexts
     val remainingLabel = texts.firstNotNullOfOrNull { parseRemainingPhrase(it) }
+        ?: elapsedCaptionFromTexts(texts)
     val hasProgress = hasDeterminateBar || hasIndeterminateBar ||
         countdownEndsAtMs != null ||
         (fields.ongoing && remainingLabel != null)
@@ -139,6 +142,69 @@ internal fun parseRemainingPhrase(raw: String?): String? {
     return null
 }
 
+/** Whole-string durations from custom views ("35 min", "1h 23m", "1:23") — no remaining/left verb. */
+internal fun parseDurationOnly(raw: String?): String? {
+    val compact = raw?.let { collapseWs(it) }?.takeIf { it.isNotEmpty() } ?: return null
+    return when {
+        wholeDuration.matches(compact) -> compact
+        wholeClock.matches(compact) -> compact
+        else -> null
+    }
+}
+
+/** Bolt.Earth-style elapsed session time: first duration is charged so far, not time left. */
+internal fun elapsedCaptionFromTexts(texts: List<String>): String? {
+    val durations = texts.mapNotNull { parseDurationOnly(it) }
+    val elapsed = durations.firstOrNull() ?: return null
+    return "$elapsed completed"
+}
+
+internal data class TilePeekLines(
+    val title: String?,
+    val subtitle: String?,
+    val body: String?,
+)
+
+/**
+ * Map custom RemoteViews text rows onto a peek face.
+ * Bolt.Earth collapsed charging monitor: "Charging", elapsed ("35 min"), total ("2h 10m").
+ * Duration-only rows are elapsed/total, not time remaining, unless the copy says remaining/left.
+ */
+internal fun peekFromCustomTexts(texts: List<String>): TilePeekLines {
+    val remaining = texts.firstNotNullOfOrNull { parseRemainingPhrase(it) }
+    val durations = texts.mapNotNull { parseDurationOnly(it) }
+    val rest = texts.filter { line ->
+        !percentOnly.matches(line.trim()) &&
+            parseRemainingPhrase(line) == null &&
+            parseDurationOnly(line) == null
+    }
+    val status = rest.firstOrNull { statusWord.matches(it.trim()) }
+    val title = status ?: rest.firstOrNull()
+    val other = rest.filter { it != title }
+    return when {
+        remaining != null -> TilePeekLines(
+            title = title,
+            subtitle = if (status != null) null else other.firstOrNull(),
+            body = remaining,
+        )
+        durations.size >= 2 -> TilePeekLines(
+            title = title,
+            subtitle = "${durations[0]} completed",
+            body = durations[1],
+        )
+        durations.size == 1 -> TilePeekLines(
+            title = title,
+            subtitle = if (status != null) null else other.firstOrNull(),
+            body = "${durations[0]} completed",
+        )
+        else -> TilePeekLines(
+            title = title,
+            subtitle = if (status != null) null else other.firstOrNull(),
+            body = other.firstOrNull(),
+        )
+    }
+}
+
 internal fun formatRemainingMs(ms: Long): String {
     val totalSec = (ms / 1000L).coerceAtLeast(0L)
     val days = totalSec / 86_400L
@@ -177,4 +243,11 @@ private val remainingBeforeDuration = Regex(
 /** "1:23 remaining", "01:23:45 left". */
 private val remainingClock = Regex(
     """(?i)(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:remaining|left)\b""",
+)
+
+private val wholeDuration = Regex("""(?i)^(?:\d+\s*$UNIT(?:\s*,?\s*)?)+$""")
+private val wholeClock = Regex("""^\d{1,2}:\d{2}(?::\d{2})?$""")
+private val percentOnly = Regex("""^\d{1,3}\s*%$""")
+private val statusWord = Regex(
+    """(?i)^(charging|charged|preparing|connected|downloading|installing|updating|paused|complete|completed)$""",
 )

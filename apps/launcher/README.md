@@ -81,7 +81,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Fall back to static icon and title when an app has no live tile provider yet
 - With notification-listener access granted, merge active Android notifications into badges and flip/peek faces for any pinned package (shell FGS packages excluded)
 - Gmail (`com.google.android.gm`) peeks map notification extras to two live-tile lines: From (sender, larger/semibold) and email content (body preview; subject is not shown as a middle title)
-- Progress-bar notifications (Play Store downloads, Bolt.Earth charging remaining, file transfers, …) overlay a WP8.1 Store-install rectangular bar on the pinned tile. The same notification still drives the flip/peek face (title + remaining time), so charging tiles keep turning. Media-session notifications are skipped (music now-playing owns those tiles). Ongoing progress is not shown as an unread `1` badge.
+- Progress-bar notifications overlay a WP8.1 Store-install rectangular bar on the pinned tile. Standard extras *and* custom RemoteViews (Bolt.Earth charging monitor: empty title/text extras, in-layout ProgressBar + elapsed/total times) drive the flip/peek face. Duration-only rows are treated as elapsed (“35 min completed”) plus total, not time remaining, unless the copy says remaining/left. Media-session notifications are skipped. Ongoing progress is not shown as an unread `1` badge.
 - Music apps: with the same notification-listener privilege, `MediaSessionManager` drives an Xbox Music–style now-playing face — album art as the tile image; 1×1 is play/pause only; 2×2 and 4×2 show song + artist + prev/play-pause/next. Transport taps do not launch the app; non-control taps on medium/wide still launch.
 
 ### Theme and accent propagation

@@ -1,6 +1,7 @@
 package com.metro.launcher.data
 
 import android.app.Notification
+import android.content.Context
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
 import java.util.concurrent.ConcurrentHashMap
@@ -39,8 +40,8 @@ object TileNotificationStore {
     }
 
     /** Rebuild snapshots from the full active notification set. */
-    fun replaceAll(active: Array<StatusBarNotification>?) {
-        val next = aggregate(active)
+    fun replaceAll(context: Context, active: Array<StatusBarNotification>?) {
+        val next = aggregate(context, active)
         val changed = linkedSetOf<String>()
         changed += byPackage.keys
         changed += next.keys
@@ -106,24 +107,28 @@ object TileNotificationStore {
         )
     }
 
-    internal fun aggregate(active: Array<StatusBarNotification>?): Map<String, TileNotificationInfo> {
+    internal fun aggregate(
+        context: Context,
+        active: Array<StatusBarNotification>?,
+    ): Map<String, TileNotificationInfo> {
         if (active.isNullOrEmpty()) return emptyMap()
         val grouped = active
             .filter { isEligible(it) }
             .groupBy { it.packageName }
         return grouped.mapValues { (packageName, items) ->
             val nowMs = System.currentTimeMillis()
-            val withProgress = items.map { item ->
-                item to extractProgress(item, nowMs)
+            val annotated = items.map { item ->
+                val custom = snapshotCustomNotification(context, item.notification)
+                Triple(item, custom, extractProgress(item, custom, nowMs))
             }
-            val progress = withProgress
-                .mapNotNull { (item, progress) -> progress?.let { item.postTime to it } }
+            val progress = annotated
+                .mapNotNull { (item, _, progress) -> progress?.let { item.postTime to it } }
                 .maxByOrNull { it.first }
                 ?.second
             // Progress notifications still peek — charging remaining belongs on the flip face.
-            val newest = items.maxByOrNull { it.postTime }!!
-            val peek = extractPeek(packageName, newest.notification.extras)
-            val badge = withProgress.sumOf { (item, progressInfo) ->
+            val newest = annotated.maxByOrNull { it.first.postTime }!!
+            val peek = extractPeek(packageName, newest.first.notification, newest.second)
+            val badge = annotated.sumOf { (item, _, progressInfo) ->
                 if (progressInfo != null) 0
                 else {
                     val n = item.notification.number
@@ -155,6 +160,7 @@ object TileNotificationStore {
 
     private fun extractProgress(
         sbn: StatusBarNotification,
+        custom: CustomNotificationSnapshot?,
         nowMs: Long,
     ): TileProgressInfo? {
         val notification = sbn.notification
@@ -163,19 +169,38 @@ object TileNotificationStore {
         @Suppress("DEPRECATION")
         val foregroundService = flags and Notification.FLAG_FOREGROUND_SERVICE != 0
         val ongoing = flags and Notification.FLAG_ONGOING_EVENT != 0 || foregroundService
+        val extrasMax = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0)
+        val extrasIndeterminate = extras.getBoolean(
+            Notification.EXTRA_PROGRESS_INDETERMINATE,
+            false,
+        )
+        val progressMax = when {
+            extrasMax > 0 -> extrasMax
+            custom?.hasProgressBar == true -> custom.progressMax.coerceAtLeast(1)
+            else -> 0
+        }
+        val progress = when {
+            extrasMax > 0 || extrasIndeterminate -> extras.getInt(Notification.EXTRA_PROGRESS, 0)
+            custom?.hasProgressBar == true -> custom.progress
+            else -> 0
+        }
+        val indeterminate = when {
+            extrasMax > 0 || extrasIndeterminate -> extrasIndeterminate
+            else -> custom?.indeterminate == true
+        }
+        val extrasTitle = extras.charSequence(Notification.EXTRA_TITLE)
+        val extrasText = extras.charSequence(Notification.EXTRA_TEXT)
+        val customPeek = custom?.texts?.let { peekFromCustomTexts(it) }
         return resolveTileProgress(
             NotificationProgressFields(
-                title = extras.charSequence(Notification.EXTRA_TITLE),
-                text = extras.charSequence(Notification.EXTRA_TEXT),
+                title = extrasTitle ?: customPeek?.title,
+                text = extrasText ?: customPeek?.body,
                 bigText = extras.charSequence(Notification.EXTRA_BIG_TEXT),
                 subText = extras.charSequence(Notification.EXTRA_SUB_TEXT),
                 infoText = extras.charSequence(Notification.EXTRA_INFO_TEXT),
-                progress = extras.getInt(Notification.EXTRA_PROGRESS, 0),
-                progressMax = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
-                indeterminate = extras.getBoolean(
-                    Notification.EXTRA_PROGRESS_INDETERMINATE,
-                    false,
-                ),
+                progress = progress,
+                progressMax = progressMax,
+                indeterminate = indeterminate,
                 hasMediaSession = extras.containsKey(Notification.EXTRA_MEDIA_SESSION),
                 showChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false),
                 chronometerCountDown = extras.getBoolean(
@@ -184,12 +209,18 @@ object TileNotificationStore {
                 ),
                 whenMs = notification.`when`,
                 ongoing = ongoing,
+                extraTexts = custom?.texts.orEmpty(),
             ),
             nowMs = nowMs,
         )
     }
 
-    private fun extractPeek(packageName: String, extras: Bundle): PeekLines {
+    private fun extractPeek(
+        packageName: String,
+        notification: Notification,
+        custom: CustomNotificationSnapshot?,
+    ): TilePeekLines {
+        val extras = notification.extras
         val title = extras.charSequence(Notification.EXTRA_TITLE)
         val text = extras.charSequence(Notification.EXTRA_TEXT)
         val bigText = extras.charSequence(Notification.EXTRA_BIG_TEXT)
@@ -205,14 +236,17 @@ object TileNotificationStore {
                 messageText = messageText,
             )
             val (from, content) = mailPeekFaceLines(mail)
-            return PeekLines(
+            return TilePeekLines(
                 title = from,
                 subtitle = null,
                 body = content,
             )
         }
-        val body = text ?: bigText ?: extras.charSequence(Notification.EXTRA_SUB_TEXT)
-        return PeekLines(title = title, subtitle = null, body = body)
+        if (!title.isNullOrBlank() || !text.isNullOrBlank() || !bigText.isNullOrBlank()) {
+            val body = text ?: bigText ?: extras.charSequence(Notification.EXTRA_SUB_TEXT)
+            return TilePeekLines(title = title, subtitle = null, body = body)
+        }
+        return peekFromCustomTexts(custom?.texts.orEmpty())
     }
 
     private fun Bundle.lastMessagingMessage(): Pair<String?, String?> {
@@ -230,12 +264,6 @@ object TileNotificationStore {
 
     private fun Bundle.charSequence(key: String): String? =
         getCharSequence(key)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-
-    private data class PeekLines(
-        val title: String?,
-        val subtitle: String?,
-        val body: String?,
-    )
 }
 
 data class MergedNotificationFace(
