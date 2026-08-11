@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,6 +15,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+/**
+ * WP8.1 chrome text.
+ *
+ * [MetroTextStyle.PageTitle], [MetroTextStyle.HubTitle], and [MetroTextStyle.PivotTab]
+ * never wrap. Long titles stay on one line and overflow the screen edge (no ellipsis).
+ * `maxLines` / `softWrap` / `overflow` are ignored for those styles.
+ */
 @Composable
 fun MetroText(
     text: String,
@@ -29,13 +37,14 @@ fun MetroText(
         color = color,
         textAlign = textAlign ?: style.toTextStyle().textAlign,
     )
+    val layout = resolveMetroTitleOverflow(style, modifier, maxLines, overflow, softWrap)
     BasicText(
         text = text,
-        modifier = modifier,
+        modifier = layout.modifier,
         style = textStyle,
-        maxLines = maxLines,
-        overflow = overflow,
-        softWrap = softWrap,
+        maxLines = layout.maxLines,
+        overflow = layout.overflow,
+        softWrap = layout.softWrap,
     )
 }
 
@@ -54,13 +63,14 @@ fun MetroText(
         color = color,
         textAlign = textAlign ?: style.toTextStyle().textAlign,
     )
+    val layout = resolveMetroTitleOverflow(style, modifier, maxLines, overflow, softWrap)
     BasicText(
         text = text,
-        modifier = modifier,
+        modifier = layout.modifier,
         style = textStyle,
-        maxLines = maxLines,
-        overflow = overflow,
-        softWrap = softWrap,
+        maxLines = layout.maxLines,
+        overflow = layout.overflow,
+        softWrap = layout.softWrap,
     )
 }
 
@@ -97,7 +107,7 @@ fun MetroPageHeader(
     title: String,
     modifier: Modifier = Modifier,
 ) {
-    // Single line; start inset only so long titles clip at the screen edge — never wrap.
+    // Start inset only so long titles overflow the screen edge — never wrap.
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -107,12 +117,32 @@ fun MetroPageHeader(
         MetroText(
             text = title,
             style = MetroTextStyle.PageTitle,
-            maxLines = 1,
-            overflow = TextOverflow.Clip,
-            softWrap = false,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = MetroDimens.ScreenHorizontalMargin),
+            modifier = Modifier.padding(start = MetroDimens.ScreenHorizontalMargin),
         )
     }
+}
+
+private data class MetroTitleOverflow(
+    val maxLines: Int,
+    val softWrap: Boolean,
+    val overflow: TextOverflow,
+    val modifier: Modifier,
+)
+
+private fun resolveMetroTitleOverflow(
+    style: MetroTextStyle,
+    modifier: Modifier,
+    maxLines: Int,
+    overflow: TextOverflow,
+    softWrap: Boolean,
+): MetroTitleOverflow {
+    if (!style.overflowsAtScreenEdge()) {
+        return MetroTitleOverflow(maxLines, softWrap, overflow, modifier)
+    }
+    return MetroTitleOverflow(
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Visible,
+        modifier = modifier.wrapContentWidth(unbounded = true, align = Alignment.Start),
+    )
 }

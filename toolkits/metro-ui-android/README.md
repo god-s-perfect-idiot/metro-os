@@ -22,6 +22,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroListItem` | List row with tilt-on-press |
 | `MetroToggleSwitch` | WP8.1 rectangular toggle (accent fill when on) |
 | `MetroListPicker` | WP8.1 ListPicker — bordered field, inline inverted options panel |
+| `MetroTextBox` | WP8.1 TextBox — light fill, black text, 3dp accent border when focused |
 | `MetroPageHeader` | Large page title |
 | `MetroJumpList` | Find-by-letter overlay (`#`, a–z, globe); accent = active |
 | `MetroLetterTile` | Accent/inactive letter square for list anchors and jump grid |
@@ -70,6 +71,19 @@ if (isLoading) {
 // Inline indicator (e.g. inside a pane):
 MetroLoadingDots()
 ```
+
+### TextBox
+
+```kotlin
+MetroTextBox(
+    value = query,
+    onValueChange = { query = it },
+    placeholder = "search",
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+)
+```
+
+Light rectangle, black text, square 3dp border (gray at rest, accent when focused). Never a dark filled chip.
 
 ### ListPicker (dropdown)
 

@@ -10,14 +10,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroText
+import com.metro.ui.MetroTextBox
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroToggleSwitch
@@ -39,7 +46,7 @@ fun SettingsScreen(
         MetroText(
             text = "music",
             style = MetroTextStyle.PageTitle,
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(start = 12.dp),
         )
         Spacer(modifier = Modifier.height(24.dp))
         MetroText(
@@ -84,6 +91,12 @@ fun SettingsScreen(
 @Composable
 fun ExploreScreen(state: MusicState, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
+    val searchFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        searchFocus.requestFocus()
+        keyboard?.show()
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -94,32 +107,18 @@ fun ExploreScreen(state: MusicState, onBack: () -> Unit) {
         MetroText(
             text = "explore",
             style = MetroTextStyle.HubTitle,
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(start = 12.dp),
         )
         Spacer(modifier = Modifier.height(12.dp))
-        BasicTextField(
+        MetroTextBox(
             value = state.exploreQuery,
             onValueChange = { state.searchExplore(it) },
-            singleLine = true,
-            textStyle = MetroTextStyle.ListItemTitle.toTextStyle().copy(
-                color = MetroTheme.colors.primaryText,
-            ),
-            cursorBrush = SolidColor(MetroTheme.colors.accent),
+            placeholder = "search",
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
-                .background(MetroTheme.colors.secondarySurface)
-                .padding(12.dp),
-            decorationBox = { inner ->
-                if (state.exploreQuery.isEmpty()) {
-                    MetroText(
-                        text = "search youtube music",
-                        style = MetroTextStyle.Body,
-                        color = MetroTheme.colors.secondaryText,
-                    )
-                }
-                inner()
-            },
+                .focusRequester(searchFocus),
         )
         Spacer(modifier = Modifier.height(8.dp))
         if (!state.ytConnected) {
@@ -130,16 +129,20 @@ fun ExploreScreen(state: MusicState, onBack: () -> Unit) {
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
         }
-        LazyColumn {
-            items(state.exploreResults, key = { it.id }) { song ->
-                MusicListRow(
-                    title = song.title,
-                    subtitle = song.artist,
-                    onClick = {
-                        val q = state.exploreResults
-                        state.playSongs(q, q.indexOf(song).coerceAtLeast(0))
-                    },
-                )
+        if (state.exploreLoading && state.exploreResults.isEmpty()) {
+            MetroLoadingScreen(modifier = Modifier.weight(1f))
+        } else {
+            LazyColumn {
+                items(state.exploreResults, key = { it.id }) { song ->
+                    MusicListRow(
+                        title = song.title,
+                        subtitle = song.artist,
+                        onClick = {
+                            val q = state.exploreResults
+                            state.playSongs(q, q.indexOf(song).coerceAtLeast(0))
+                        },
+                    )
+                }
             }
         }
     }

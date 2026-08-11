@@ -12,21 +12,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 import com.metro.music.data.Album
 import com.metro.music.data.Artist
 import com.metro.music.data.LibraryLogic
 import com.metro.music.data.LibrarySource
 import com.metro.music.data.LocalLibraryRepository
+import com.metro.music.data.Playlist
 import com.metro.music.data.ShowingFilter
 import com.metro.music.data.Song
 import com.metro.music.data.artworkModel
 import com.metro.music.data.loadAlbumTintArgb
 import com.metro.music.playback.MusicPlaybackService
+import com.metro.music.playback.PlaybackLogic
 import com.metro.music.ytmusic.YtMusicAuthStore
 import com.metro.music.ytmusic.YtMusicClient
 import com.metro.ui.MetroJumpListLogic
@@ -44,6 +47,7 @@ enum class MusicRoute {
     Collection,
     AlbumDetail,
     ArtistDetail,
+    PlaylistDetail,
     Settings,
     Explore,
 }
@@ -59,19 +63,30 @@ class MusicState(context: Context) {
     private var controller: MediaController? = null
     private var positionJob: Job? = null
     private var queueJob: Job? = null
+    private var playlistJob: Job? = null
+    private var libraryJob: Job? = null
+    private var exploreJob: Job? = null
     private var tintJob: Job? = null
     private var backdropArtwork: Any? = null
     private var playbackError: String? = null
 
     var hasAudioPermission by mutableStateOf(false)
         private set
+    var libraryLoading by mutableStateOf(true)
+        private set
     var localSongs by mutableStateOf<List<Song>>(emptyList())
         private set
+    var localPlaylists by mutableStateOf<List<Playlist>>(emptyList())
+        private set
     var ytSongs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var ytPlaylists by mutableStateOf<List<Playlist>>(emptyList())
         private set
     var exploreResults by mutableStateOf<List<Song>>(emptyList())
         private set
     var exploreQuery by mutableStateOf("")
+    var exploreLoading by mutableStateOf(false)
+        private set
     var showingFilter by mutableStateOf(ShowingFilter.All)
     var ytConnected by mutableStateOf(authStore.connected)
         private set
@@ -88,6 +103,11 @@ class MusicState(context: Context) {
     var jumpToLetter by mutableStateOf<Char?>(null)
     var selectedAlbum by mutableStateOf<Album?>(null)
     var selectedArtist by mutableStateOf<Artist?>(null)
+    var selectedPlaylist by mutableStateOf<Playlist?>(null)
+    var playlistSongs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var playlistLoading by mutableStateOf(false)
+        private set
     var isPlaying by mutableStateOf(false)
         private set
     var positionMs by mutableLongStateOf(0L)
@@ -117,12 +137,16 @@ class MusicState(context: Context) {
     val albums: List<Album>
         get() = LibraryLogic.albumsFrom(visibleSongs)
 
-    /** Letters the jump grid can offer for the pivot page on screen (empty = playlists/genres). */
+    val playlists: List<Playlist>
+        get() = LibraryLogic.filterPlaylists(localPlaylists + ytPlaylists, showingFilter)
+
+    /** Letters the jump grid can offer for the pivot page on screen (empty = genres). */
     val collectionJumpLetters: Set<Char>
         get() = when (collectionPage) {
             COLLECTION_ARTISTS -> MetroJumpListLogic.activeLetters(artists.map { it.name })
             COLLECTION_ALBUMS -> MetroJumpListLogic.activeLetters(albums.map { it.title })
             COLLECTION_SONGS -> MetroJumpListLogic.activeLetters(visibleSongs.map { it.title })
+            COLLECTION_PLAYLISTS -> MetroJumpListLogic.activeLetters(playlists.map { it.title })
             else -> emptySet()
         }
 
@@ -131,7 +155,7 @@ class MusicState(context: Context) {
     }
 
     fun connectPlayer() {
-        if (controller != null) return
+        if (controller != null || controllerFuture != null) return
         val token = SessionToken(
             appContext,
             ComponentName(appContext, MusicPlaybackService::class.java),
@@ -140,18 +164,27 @@ class MusicState(context: Context) {
         controllerFuture = future
         future.addListener(
             {
-                controller = future.get()
-                controller?.addListener(playerListener)
+                if (controllerFuture != future) return@addListener
+                val ctrl = runCatching { future.get() }.getOrNull()
+                if (ctrl == null) {
+                    if (controllerFuture == future) controllerFuture = null
+                    return@addListener
+                }
+                controller = ctrl
+                ctrl.addListener(playerListener)
                 syncFromPlayer()
                 startPositionUpdates()
             },
-            MoreExecutors.directExecutor(),
+            ContextCompat.getMainExecutor(appContext),
         )
     }
 
     fun releasePlayer() {
         positionJob?.cancel()
         queueJob?.cancel()
+        playlistJob?.cancel()
+        libraryJob?.cancel()
+        exploreJob?.cancel()
         tintJob?.cancel()
         controller?.removeListener(playerListener)
         controllerFuture?.let { MediaController.releaseFuture(it) }
@@ -161,13 +194,23 @@ class MusicState(context: Context) {
 
     fun reloadLibrary() {
         if (hasAudioPermission) {
-            scope.launch {
-                localSongs = withContext(Dispatchers.IO) { localRepo.loadSongs() }
-                // Album grouping only exists once the scan lands, so re-resolve the backdrop art.
-                refreshBackdrop(currentSong)
+            libraryJob?.cancel()
+            libraryLoading = true
+            libraryJob = scope.launch {
+                try {
+                    localSongs = withContext(Dispatchers.IO) { localRepo.loadSongs() }
+                    localPlaylists = withContext(Dispatchers.IO) { localRepo.loadPlaylists() }
+                } finally {
+                    if (isActive) libraryLoading = false
+                }
+                // Library was empty when the controller first connected; re-bind now playing.
+                syncFromPlayer()
             }
         } else {
+            libraryJob?.cancel()
             localSongs = emptyList()
+            localPlaylists = emptyList()
+            libraryLoading = false
         }
         refreshYtLibrary()
     }
@@ -178,6 +221,7 @@ class MusicState(context: Context) {
             refreshYtLibrary()
         } else {
             ytSongs = emptyList()
+            ytPlaylists = emptyList()
             ytSyncMessage = null
         }
     }
@@ -185,6 +229,7 @@ class MusicState(context: Context) {
     fun refreshYtLibrary() {
         if (!authStore.connected) {
             ytSongs = emptyList()
+            ytPlaylists = emptyList()
             ytSyncMessage = "Connect YouTube Music in settings"
             return
         }
@@ -192,13 +237,12 @@ class MusicState(context: Context) {
             ytSyncing = true
             ytSyncMessage = "Syncing…"
             try {
-                val result = withContext(Dispatchers.IO) { ytClient.librarySongs() }
-                ytSongs = result.songs
-                ytSyncMessage = when {
-                    result.songs.isNotEmpty() -> "Synced ${result.songs.size} songs"
-                    result.error != null -> result.error
-                    else -> "No songs in YouTube Music library"
-                }
+                val playlists = withContext(Dispatchers.IO) { ytClient.libraryPlaylists() }
+                ytPlaylists = playlists.playlists
+                val songs = withContext(Dispatchers.IO) { ytClient.librarySongs() }
+                ytSongs = songs.songs
+                ytSyncMessage = syncMessage(songs.songs.size, playlists.playlists.size, songs.error, playlists.error)
+                syncFromPlayer()
             } finally {
                 ytSyncing = false
             }
@@ -214,16 +258,39 @@ class MusicState(context: Context) {
         authStore.clear()
         ytConnected = false
         ytSongs = emptyList()
+        ytPlaylists = emptyList()
+    }
+
+    fun openPlaylist(playlist: Playlist) {
+        selectedPlaylist = playlist
+        playlistSongs = emptyList()
+        route = MusicRoute.PlaylistDetail
+        playlistJob?.cancel()
+        playlistJob = scope.launch {
+            playlistLoading = true
+            try {
+                playlistSongs = withContext(Dispatchers.IO) { loadPlaylistSongs(playlist) }
+            } finally {
+                playlistLoading = false
+            }
+        }
     }
 
     fun searchExplore(query: String) {
         exploreQuery = query
+        exploreJob?.cancel()
         if (query.isBlank()) {
             exploreResults = emptyList()
+            exploreLoading = false
             return
         }
-        scope.launch {
-            exploreResults = withContext(Dispatchers.IO) { ytClient.searchSongs(query) }
+        exploreJob = scope.launch {
+            exploreLoading = true
+            try {
+                exploreResults = withContext(Dispatchers.IO) { ytClient.searchSongs(query) }
+            } finally {
+                if (isActive) exploreLoading = false
+            }
         }
     }
 
@@ -366,7 +433,7 @@ class MusicState(context: Context) {
         }
     }
 
-    private suspend fun resolvePlayable(song: Song): Pair<Song, androidx.media3.common.MediaItem>? {
+    private suspend fun resolvePlayable(song: Song): Pair<Song, MediaItem>? {
         return when (song.source) {
             LibrarySource.Local -> {
                 val uri = song.uri?.toString() ?: return null
@@ -390,13 +457,13 @@ class MusicState(context: Context) {
             isPlaying = playing
         }
 
-        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
-            val id = mediaItem?.mediaId
-            updateCurrentSong(
-                allSongs.firstOrNull { it.id == id }
-                    ?: exploreResults.firstOrNull { it.id == id },
-            )
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             durationMs = controller?.duration?.coerceAtLeast(0L) ?: 0L
+            updateCurrentSong(resolveSong(mediaItem))
+        }
+
+        override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+            syncFromPlayer()
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -415,8 +482,42 @@ class MusicState(context: Context) {
         positionMs = ctrl.currentPosition.coerceAtLeast(0L)
         shuffle = ctrl.shuffleModeEnabled
         repeatMode = ctrl.repeatMode
-        val id = ctrl.currentMediaItem?.mediaId
-        updateCurrentSong(allSongs.firstOrNull { it.id == id })
+        updateCurrentSong(resolveSong(ctrl.currentMediaItem))
+    }
+
+    private fun resolveSong(mediaItem: MediaItem?): Song? =
+        PlaybackLogic.resolveCurrentSong(mediaItem, durationMs) { songById(it) }
+
+    private fun songById(id: String): Song? {
+        return allSongs.firstOrNull { it.id == id }
+            ?: exploreResults.firstOrNull { it.id == id }
+            ?: playlistSongs.firstOrNull { it.id == id }
+            ?: currentSong?.takeIf { it.id == id }
+    }
+
+    private suspend fun loadPlaylistSongs(playlist: Playlist): List<Song> = when (playlist.source) {
+        LibrarySource.Local -> {
+            val mediaId = playlist.localMediaStoreId ?: return emptyList()
+            localRepo.loadPlaylistSongs(mediaId)
+        }
+        LibrarySource.YouTubeMusic -> {
+            val ytId = playlist.youtubePlaylistId ?: return emptyList()
+            ytClient.playlistSongs(ytId)
+        }
+    }
+
+    private fun syncMessage(
+        songCount: Int,
+        playlistCount: Int,
+        songError: String?,
+        playlistError: String?,
+    ): String = when {
+        songCount > 0 && playlistCount > 0 -> "Synced $songCount songs, $playlistCount playlists"
+        songCount > 0 -> "Synced $songCount songs"
+        playlistCount > 0 -> "Synced $playlistCount playlists"
+        songError != null -> songError
+        playlistError != null -> playlistError
+        else -> "No YouTube Music library songs found. Try search in get music."
     }
 
     private fun startPositionUpdates() {
@@ -444,6 +545,7 @@ class MusicState(context: Context) {
         const val COLLECTION_ALBUMS = 1
         const val COLLECTION_SONGS = 2
         const val COLLECTION_PLAYLISTS = 3
+        const val COLLECTION_GENRES = 4
 
         fun hasAudioPermission(context: Context): Boolean {
             val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

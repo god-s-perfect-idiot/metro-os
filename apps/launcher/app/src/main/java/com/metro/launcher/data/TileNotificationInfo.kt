@@ -18,11 +18,16 @@ data class TileNotificationInfo(
     val updatedAtMs: Long,
     /** Middle peek line (e.g. email subject). Null for simple two-line peeks. */
     val peekSubtitle: String? = null,
+    /** Progress-bar notification mapped onto the front of the tile (charging, downloads). */
+    val progress: TileProgressInfo? = null,
 ) {
     val hasPeek: Boolean
         get() = !peekTitle.isNullOrBlank() ||
             !peekSubtitle.isNullOrBlank() ||
             !peekBody.isNullOrBlank()
+
+    val hasProgress: Boolean
+        get() = progress != null
 
     /** Stacked back-face copy for medium and wide tiles. */
     fun backFaceLines(wide: Boolean): List<String> {

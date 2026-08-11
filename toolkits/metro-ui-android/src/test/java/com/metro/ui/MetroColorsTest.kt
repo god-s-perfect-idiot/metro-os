@@ -56,6 +56,15 @@ class MetroTextStyleTest {
     fun hubTitle_is56sp() {
         assertEquals(56f, MetroTextStyle.HubTitle.toTextStyle().fontSize.value, 0.01f)
     }
+
+    @Test
+    fun chromeTitles_overflowAtScreenEdge() {
+        assertEquals(true, MetroTextStyle.PageTitle.overflowsAtScreenEdge())
+        assertEquals(true, MetroTextStyle.HubTitle.overflowsAtScreenEdge())
+        assertEquals(true, MetroTextStyle.PivotTab.overflowsAtScreenEdge())
+        assertEquals(false, MetroTextStyle.Body.overflowsAtScreenEdge())
+        assertEquals(false, MetroTextStyle.ListItemTitle.overflowsAtScreenEdge())
+    }
 }
 
 class MetroTransitionsTest {

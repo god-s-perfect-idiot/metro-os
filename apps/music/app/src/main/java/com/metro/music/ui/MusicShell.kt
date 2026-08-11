@@ -7,6 +7,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +17,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
@@ -24,10 +29,12 @@ import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
 import com.metro.ui.MetroJumpList
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -50,6 +57,16 @@ fun MusicShell(state: MusicState) {
         animationSpec = tween(durationMillis = MetroTransitions.PageTransitionMs),
         label = "hubBackdrop",
     )
+
+    var showPlaybackLoader by remember { mutableStateOf(false) }
+    LaunchedEffect(state.loadingPlayback) {
+        if (state.loadingPlayback) {
+            delay(400)
+            showPlaybackLoader = true
+        } else {
+            showPlaybackLoader = false
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -114,6 +131,18 @@ fun MusicShell(state: MusicState) {
                     )
                 }
             }
+            MusicRoute.PlaylistDetail -> {
+                val playlist = state.selectedPlaylist
+                if (playlist == null) {
+                    state.route = MusicRoute.Collection
+                } else {
+                    PlaylistDetailScreen(
+                        state = state,
+                        playlist = playlist,
+                        onBack = { state.route = MusicRoute.Collection },
+                    )
+                }
+            }
             MusicRoute.Settings -> SettingsScreen(
                 state = state,
                 onBack = { state.route = MusicRoute.Hub },
@@ -162,6 +191,16 @@ fun MusicShell(state: MusicState) {
                 activeLetters = state.collectionJumpLetters,
                 onLetterSelected = { state.jumpToLetter = it },
                 onDismiss = { state.jumpListVisible = false },
+            )
+        }
+
+        if (showPlaybackLoader) {
+            MetroLoadingScreen(
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                ),
             )
         }
     }

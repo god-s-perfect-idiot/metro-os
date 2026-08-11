@@ -15,6 +15,7 @@ Blueprint: [`guides/blueprint.md`](guides/blueprint.md)
 | Live tile flip (600ms) | Notification / peek back faces flip with 600ms turnstile |
 | Notification → live tile | `TileNotificationListenerService` → badges + flip peeks |
 | Music now-playing live tile | `MusicNowPlayingStore` via MediaSession → album art + transport by size |
+| Notification progress → tile | `TileNotificationStore` maps progress extras + remaining-time copy onto a front-face bar |
 | Tile drag reorder | Long-press then drag: floating tile under thumb, magnet reflow, persist on drop |
 
 ## Remaining

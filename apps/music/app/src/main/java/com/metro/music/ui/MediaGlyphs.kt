@@ -1,12 +1,16 @@
 package com.metro.music.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +22,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -25,9 +31,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroTransitions
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /**
  * Xbox Music now-playing glyphs, drawn to match the WP8.1 capture in
@@ -91,6 +100,12 @@ fun MediaGlyphButton(
  */
 val MediaTransportButtonSize = 56.dp
 
+/** How far prev / play / next shift down-left on a tap. */
+internal val MediaTransportPressNudge = 4.dp
+
+private const val MediaTransportPressInMs = 70
+private const val MediaTransportPressOutMs = 150
+
 /** Prev / play-pause / next: glyph inside a thin, unfilled circle — all three the same size. */
 @Composable
 fun MediaTransportButton(
@@ -101,8 +116,52 @@ fun MediaTransportButton(
     buttonSize: Dp = MediaTransportButtonSize,
     color: Color = MetroTheme.colors.primaryText,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val press = remember { Animatable(0f) }
+    // Quick taps release before animateFloatAsState can move; always finish the press-in
+    // (and then ease back) so every tap shows the nudge.
+    LaunchedEffect(interactionSource) {
+        var cycle: Job? = null
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    cycle?.cancel()
+                    cycle = launch {
+                        press.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(
+                                durationMillis = MediaTransportPressInMs,
+                                easing = MetroTransitions.PageEasing,
+                            ),
+                        )
+                    }
+                }
+                is PressInteraction.Release, is PressInteraction.Cancel -> {
+                    val inbound = cycle
+                    cycle = launch {
+                        inbound?.join()
+                        if (press.value > 0f) {
+                            press.animateTo(
+                                targetValue = 0f,
+                                animationSpec = tween(
+                                    durationMillis = MediaTransportPressOutMs,
+                                    easing = MetroTransitions.PageEasing,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    val nudgePx = with(LocalDensity.current) { MediaTransportPressNudge.toPx() }
+    val pressAmount = press.value
     Box(
         modifier = modifier
+            .graphicsLayer(
+                translationX = -nudgePx * pressAmount,
+                translationY = nudgePx * pressAmount,
+            )
             .size(buttonSize)
             .clip(CircleShape)
             .semantics {
@@ -110,7 +169,7 @@ fun MediaTransportButton(
                 this.contentDescription = contentDescription
             }
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick,
             ),

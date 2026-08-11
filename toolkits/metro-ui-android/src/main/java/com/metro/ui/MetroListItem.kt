@@ -121,21 +121,16 @@ fun MetroSettingsHeader(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         MetroAppTitle(title = appTitle, color = appTitleColor)
-        // Single line; clips at the screen edge (WP8.1) — never wraps.
+        // Start inset only so long titles overflow the screen edge — never wrap.
         MetroText(
             text = pageTitle,
             style = MetroTextStyle.PageTitle,
             color = MetroTheme.colors.primaryText,
-            maxLines = 1,
-            overflow = TextOverflow.Clip,
-            softWrap = false,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = MetroDimens.ScreenHorizontalMargin,
-                    top = 4.dp,
-                    bottom = 16.dp,
-                ),
+            modifier = Modifier.padding(
+                start = MetroDimens.ScreenHorizontalMargin,
+                top = 4.dp,
+                bottom = 16.dp,
+            ),
         )
     }
 }

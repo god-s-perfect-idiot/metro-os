@@ -32,10 +32,10 @@ Collection list pages show **`showing <filter>`** (`MetroShowingLabel`) with fil
   - Brand **`metro music`** — huge Light type, flush left, clips / bleeds right; scrolls with panorama offset until the tail is exposed (Reference: `images/hub_fullpage.png`). **Do not** put `MetroAppTitle("MUSIC")` on this surface.
   - Section titles via `MetroPanorama`: `collection` | `get music` | `now playing` (next title peeks).
   - **collection:** vertical lowercase links — artists, albums, songs, genres, playlists, radio.
-  - **get music:** accent tiles (search / connect) + sync status + YT song rows when connected.
-  - **now playing:** track + art + scrubber + up next + circular transport (Reference: `images/hub_nowplaying_dark_green.jpg`).
+  - **get music:** accent tiles (search / connect) laid out like Start squares — glyph centered above a bottom-left label — plus sync status + YT song rows when connected. 24dp under the pane title before the squares, and 24dp under the tile row, so the blocks clear the `get music` descenders (`images/hub_fullpage.png`).
+  - **now playing:** track + art + scrubber + up next + circular transport (Reference: `images/hub_nowplaying_dark_green.jpg`). Track title, artist (`by …`), and **Up next** stay on one line: they overrun the end margin and clip mid-glyph at the screen edge — never wrap.
   - **Backdrop:** all three panes share one background; it washes from black to the darkened album colour when a track loads (see App shell § Theme).
-    - Transport (previous / play-pause / next) is **flush left** at the page margin, circles spaced one diameter apart — never centred or spread across the pane.
+    - Transport (previous / play-pause / next) is **flush left** at the page margin, circles spaced one diameter apart — never centred or spread across the pane. Every tap plays a full press: the circle nudges a few dp down-left, then eases back to rest (the motion always finishes, even on a short tap).
     - Scrubber is the **circle seek** (`MediaCircleSeekBar`), directly under the art and only as wide as the art: elapsed time flush left, `-remaining` flush right, 2dp hairline track at 20% foreground between them, white played segment, and a 14dp hollow white ring (3dp stroke, empty centre) as the thumb. Ring travel is inset by its radius, so the played segment stops at the ring's opening (References: `images/hub_nowplaying_dark_green.jpg`, `images/hub_nowplaying_compare_dark_unknown.jpg` right pane).
 - **Navigation:** Swipe between hub panes. Collection links → pivot. Play → jump to now playing pane.
 - **Reference:** `images/hub_fullpage.png`, `images/hub_nowplaying_dark_green.jpg`
@@ -88,7 +88,7 @@ Collection list pages show **`showing <filter>`** (`MetroShowingLabel`) with fil
 
 ### Page 9 — Explore / search (hub pane)
 
-- **Layout:** Search field + result list (songs/artists) from YouTube Music when connected; otherwise prompt to connect.
+- **Layout:** `MetroTextBox` search field (WP8.1 light-fill square TextBox, accent border when focused) + result list (songs/artists) from YouTube Music when connected; otherwise prompt to connect.
 - **Navigation:** Result → play streaming item in same now-playing chrome.
 
 ### Page 10 — Permission / empty library

@@ -3,6 +3,7 @@ package com.metro.music
 import com.metro.music.data.ArtworkUrls
 import com.metro.music.data.LibraryLogic
 import com.metro.music.data.LibrarySource
+import com.metro.music.data.Playlist
 import com.metro.music.data.ShowingFilter
 import com.metro.music.data.Song
 import org.junit.Assert.assertEquals
@@ -38,6 +39,16 @@ class LibraryLogicTest {
         assertEquals(2, LibraryLogic.filterSongs(all, ShowingFilter.All).size)
         assertEquals(listOf(local), LibraryLogic.filterSongs(all, ShowingFilter.OnDevice))
         assertEquals(listOf(yt), LibraryLogic.filterSongs(all, ShowingFilter.YouTubeMusic))
+    }
+
+    @Test
+    fun filterPlaylists_respectsShowing() {
+        val localPl = Playlist("local-pl:1", "On device", 3, LibrarySource.Local, localMediaStoreId = 1L)
+        val ytPl = Playlist("yt-pl:LM", "Liked music", 12, LibrarySource.YouTubeMusic, youtubePlaylistId = "LM")
+        val all = listOf(localPl, ytPl)
+        assertEquals(2, LibraryLogic.filterPlaylists(all, ShowingFilter.All).size)
+        assertEquals(listOf(localPl), LibraryLogic.filterPlaylists(all, ShowingFilter.OnDevice))
+        assertEquals(listOf(ytPl), LibraryLogic.filterPlaylists(all, ShowingFilter.YouTubeMusic))
     }
 
     @Test

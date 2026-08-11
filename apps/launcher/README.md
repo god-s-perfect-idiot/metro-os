@@ -29,9 +29,10 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Long-press tile edit overlay: resize (cycles small/medium/wide when `BuildConfig.WIDE_TILES`), unpin, and drag-to-reorder (tile follows thumb; magnet reflow; order persisted on drop)
 - `TILE_UPDATE` and `THEME_CHANGED` broadcasts refresh tile content and shell theme
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
-- System notifications (via `NotificationListenerService`) drive tile badges and WP8.1 flip/peek faces for pinned apps
+- System notifications (via `NotificationListenerService`) drive tile badges, WP8.1 flip/peek faces, and progress overlays (charging / downloads) for pinned apps
 - Custom Start faces for select third-party apps (Chrome: three brand wedges + blue center disc)
 - Music apps (`com.metro.music`, YouTube Music, Spotify, `CATEGORY_AUDIO`, …): when a media session is active, the pinned tile shows an Xbox Music–style now-playing face (album art; 1×1 play/pause; 2×2 / 4×2 song+artist+transport)
+- Progress-bar notifications (charging remaining, downloads) overlay a WP8.1 rectangular bar on the pinned tile; remaining time still peeks on the flip face
 - Wallpaper/parallax not yet implemented
 
 ## Screen inventory
@@ -80,6 +81,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Fall back to static icon and title when an app has no live tile provider yet
 - With notification-listener access granted, merge active Android notifications into badges and flip/peek faces for any pinned package (shell FGS packages excluded)
 - Gmail (`com.google.android.gm`) peeks map notification extras to two live-tile lines: From (sender, larger/semibold) and email content (body preview; subject is not shown as a middle title)
+- Progress-bar notifications (Play Store downloads, Bolt.Earth charging remaining, file transfers, …) overlay a WP8.1 Store-install rectangular bar on the pinned tile. The same notification still drives the flip/peek face (title + remaining time), so charging tiles keep turning. Media-session notifications are skipped (music now-playing owns those tiles). Ongoing progress is not shown as an unread `1` badge.
 - Music apps: with the same notification-listener privilege, `MediaSessionManager` drives an Xbox Music–style now-playing face — album art as the tile image; 1×1 is play/pause only; 2×2 and 4×2 show song + artist + prev/play-pause/next. Transport taps do not launch the app; non-control taps on medium/wide still launch.
 
 ### Theme and accent propagation

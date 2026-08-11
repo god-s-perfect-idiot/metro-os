@@ -1,5 +1,6 @@
 package com.metro.music.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,11 +31,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -45,14 +53,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.sp
 import com.metro.music.data.artworkModel
+import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroListItem
+import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 private const val HubBrandText = "metro music"
 private val HubBrandInset = 12.dp
@@ -175,7 +188,7 @@ fun CollectionHubPane(
                 },
             )
         }
-        if (state.ytSyncMessage != null) {
+        if (state.ytSyncMessage != null && !state.ytSyncing) {
             Spacer(modifier = Modifier.height(12.dp))
             MetroText(
                 text = state.ytSyncMessage.orEmpty(),
@@ -193,44 +206,37 @@ fun GetMusicPane(
     onOpenExplore: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(horizontal = 12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(1f)
-                    .background(MetroTheme.colors.accent)
-                    .clickable(onClick = onOpenExplore)
-                    .padding(12.dp),
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                MetroText(
-                    text = "search",
-                    style = MetroTextStyle.ListItemTitle,
-                    color = Color.White,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(1f)
-                    .background(MetroTheme.colors.accent)
-                    .clickable(onClick = onOpenSettings)
-                    .padding(12.dp),
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                MetroText(
-                    text = if (state.ytConnected) "account" else "connect",
-                    style = MetroTextStyle.ListItemTitle,
-                    color = Color.White,
-                )
-            }
+    // WP8.1 Xbox Music leaves a clear gap under the panorama header before the
+    // accent squares (`hub_fullpage.png` centre pane). Tiles are flush blocks, so
+    // they need more than the collection link list's 12dp.
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp)
+            .padding(top = 24.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            GetMusicHubTile(
+                title = "search",
+                glyph = GetMusicTileGlyph.Search,
+                onClick = onOpenExplore,
+                modifier = Modifier.weight(1f),
+            )
+            GetMusicHubTile(
+                title = if (state.ytConnected) "account" else "connect",
+                glyph = GetMusicTileGlyph.Account,
+                onClick = onOpenSettings,
+                modifier = Modifier.weight(1f),
+            )
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         MetroText(
             text = if (state.ytConnected) {
-                if (state.ytSyncing) "Syncing YouTube Music…"
-                else state.ytSyncMessage ?: "YouTube Music connected"
+                state.ytSyncMessage?.takeUnless { state.ytSyncing }
+                    ?: "YouTube Music connected"
             } else {
                 "Connect YouTube Music to stream and sync"
             },
@@ -246,18 +252,121 @@ fun GetMusicPane(
             MetroBorderButton(text = "search", onClick = onOpenExplore)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        LazyColumn {
-            items(state.ytSongs.take(12), key = { it.id }) { song ->
-                MusicListRow(
-                    title = song.title,
-                    subtitle = song.artist,
-                    onClick = {
-                        state.playSongs(state.ytSongs, state.ytSongs.indexOf(song).coerceAtLeast(0))
-                    },
-                )
+        if (state.ytSyncing && state.ytSongs.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                MetroLoadingDots()
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(state.ytSongs.take(12), key = { it.id }) { song ->
+                    MusicListRow(
+                        title = song.title,
+                        subtitle = song.artist,
+                        onClick = {
+                            state.playSongs(state.ytSongs, state.ytSongs.indexOf(song).coerceAtLeast(0))
+                        },
+                    )
+                }
             }
         }
     }
+}
+
+private enum class GetMusicTileGlyph {
+    Search,
+    Account,
+}
+
+/**
+ * Start-style square on the get-music hub: accent fill, centered glyph, label bottom-left.
+ * Matches the idle 2×2 Music tile layout (`references/images/start_music_tile_dark_blue.jpg`).
+ */
+@Composable
+private fun GetMusicHubTile(
+    title: String,
+    glyph: GetMusicTileGlyph,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val background = MetroTheme.colors.accent
+    val content = MetroColors.tileContentColor(background)
+    Column(
+        modifier = modifier
+            .aspectRatio(1f)
+            .background(background)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = title }
+            .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 16.dp),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            val iconSize = minOf(maxWidth, maxHeight) * 0.62f
+            Canvas(modifier = Modifier.size(iconSize)) {
+                drawGetMusicTileGlyph(glyph, content)
+            }
+        }
+        MetroText(
+            text = title,
+            style = MetroTextStyle.ListItemTitle,
+            color = content,
+            maxLines = 1,
+        )
+    }
+}
+
+private fun DrawScope.drawGetMusicTileGlyph(glyph: GetMusicTileGlyph, color: Color) {
+    when (glyph) {
+        GetMusicTileGlyph.Search -> drawSearchTileGlyph(color)
+        GetMusicTileGlyph.Account -> drawAccountTileGlyph(color)
+    }
+}
+
+private fun DrawScope.drawSearchTileGlyph(color: Color) {
+    val s = size.minDimension
+    val ox = (size.width - s) / 2f
+    val oy = (size.height - s) / 2f
+    val strokeWidth = s * 0.10f
+    val cx = ox + s * 0.40f
+    val cy = oy + s * 0.40f
+    val radius = s * 0.26f
+    drawCircle(color, radius, Offset(cx, cy), style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
+    val angle = (PI / 4f).toFloat()
+    val start = Offset(cx + radius * cos(angle), cy + radius * sin(angle))
+    val handleLen = s * 0.38f
+    val end = Offset(start.x + handleLen * cos(angle), start.y + handleLen * sin(angle))
+    drawLine(color, start, end, strokeWidth, StrokeCap.Round)
+}
+
+/** WP People-style silhouette: head + cropped shoulders. */
+private fun DrawScope.drawAccountTileGlyph(color: Color) {
+    val s = size.minDimension
+    val ox = (size.width - s) / 2f
+    val oy = (size.height - s) / 2f
+    drawCircle(color, s * 0.17f, Offset(ox + s * 0.50f, oy + s * 0.28f))
+    val body = Path().apply {
+        moveTo(ox + s * 0.12f, oy + s)
+        cubicTo(
+            ox + s * 0.12f, oy + s * 0.54f,
+            ox + s * 0.30f, oy + s * 0.50f,
+            ox + s * 0.50f, oy + s * 0.50f,
+        )
+        cubicTo(
+            ox + s * 0.70f, oy + s * 0.50f,
+            ox + s * 0.88f, oy + s * 0.54f,
+            ox + s * 0.88f, oy + s,
+        )
+        close()
+    }
+    drawPath(body, color)
 }
 
 @Composable
@@ -267,6 +376,9 @@ fun NowPlayingPane(state: MusicState) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Clip at the pane edge so long titles run past the end margin and cut off
+            // mid-glyph at the screen, matching WP8.1 Xbox Music (never wrap).
+            .clipToBounds()
             .padding(horizontal = 12.dp)
             .padding(bottom = 8.dp),
     ) {
@@ -285,8 +397,8 @@ fun NowPlayingPane(state: MusicState) {
             return
         }
 
-        MetroText(text = song.title, style = MetroTextStyle.ListItemTitle)
-        MetroText(
+        NowPlayingOverflowText(text = song.title, style = MetroTextStyle.ListItemTitle)
+        NowPlayingOverflowText(
             text = "by ${song.artist}",
             style = MetroTextStyle.ListItemSubtitle,
             color = MetroTheme.colors.secondaryText,
@@ -374,7 +486,7 @@ fun NowPlayingPane(state: MusicState) {
             }
         }
 
-        MetroText(
+        NowPlayingOverflowText(
             text = "Up next: —",
             style = MetroTextStyle.Body,
             color = MetroTheme.colors.secondaryText,
@@ -406,6 +518,27 @@ fun NowPlayingPane(state: MusicState) {
             )
         }
     }
+}
+
+/**
+ * Single-line now-playing copy. Measures at intrinsic width so the line can overrun the
+ * pane's end margin; [NowPlayingPane] clips at the screen edge instead of wrapping.
+ */
+@Composable
+private fun NowPlayingOverflowText(
+    text: String,
+    style: MetroTextStyle,
+    color: Color = MetroTheme.colors.primaryText,
+) {
+    MetroText(
+        text = text,
+        style = style,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        modifier = Modifier.wrapContentWidth(align = Alignment.Start, unbounded = true),
+    )
 }
 
 /** Toggle glyphs sit dimmed when off and take the accent when on, per the WP8.1 capture. */

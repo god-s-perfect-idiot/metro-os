@@ -42,6 +42,15 @@ enum class MetroTextStyle {
     DialogBody,
     ;
 
+    /**
+     * Page / hub / pivot titles stay on one line and overflow the screen edge
+     * (WP8.1). [MetroText] enforces this for these roles.
+     */
+    fun overflowsAtScreenEdge(): Boolean = when (this) {
+        PageTitle, HubTitle, PivotTab -> true
+        else -> false
+    }
+
     fun toTextStyle(): TextStyle = when (this) {
         PageTitle -> TextStyle(
             fontFamily = MetroFontFamily,

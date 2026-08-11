@@ -11,7 +11,8 @@ import com.metro.system.MetroTileUpdates
 
 /**
  * Reads active notifications for every package and feeds [TileNotificationStore] so Start live
- * tiles can show WP8.1-style badges and flip/peek faces.
+ * tiles can show WP8.1-style badges, flip/peek faces, and progress overlays (charging /
+ * downloads whose notifications carry a progress bar or remaining-time caption).
  *
  * Also binds [MusicNowPlayingStore] to [android.media.session.MediaSessionManager] (same
  * notification-listener privilege) so pinned music apps can show Xbox Music–style now-playing.

@@ -73,6 +73,7 @@ class MusicPlaybackService : MediaSessionService() {
                 .setArtist(song.artist)
                 .setAlbumTitle(song.album)
                 .setArtworkUri(song.artworkUri)
+                .setExtras(PlaybackLogic.extrasFor(song))
                 .build()
             return MediaItem.Builder()
                 .setMediaId(song.id)

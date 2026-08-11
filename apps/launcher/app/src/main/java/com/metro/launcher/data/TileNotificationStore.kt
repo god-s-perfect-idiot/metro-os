@@ -50,9 +50,11 @@ object TileNotificationStore {
     }
 
     /**
-     * Merge provider tile fields with notification peek/badge.
+     * Merge provider tile fields with notification peek/badge/progress.
      * Rich faces (agenda / photo grid) keep the front face; notifications still supply the badge
      * when the provider has no counter, and supply a flip face when the provider has none.
+     * Progress-bar notifications overlay a bar on the front face; the same notification still
+     * supplies the flip/peek copy so tiles like Bolt.Earth keep turning.
      */
     fun mergeIntoDisplay(
         packageName: String,
@@ -61,8 +63,11 @@ object TileNotificationStore {
         hasRichFrontFace: Boolean,
         info: TileNotificationInfo? = snapshot(packageName),
     ): MergedNotificationFace {
+        val progress = info?.progress
         val counter = when {
             providerCounter != null && providerCounter > 0 -> providerCounter
+            // Ongoing progress (charging / download) is not an unread count.
+            progress != null && (info.count <= 0) -> null
             info != null && info.count > 0 -> info.count
             else -> null
         }
@@ -97,6 +102,7 @@ object TileNotificationStore {
             hasFlipFace = !backFaceTitle.isNullOrBlank() ||
                 !backFaceSubtitle.isNullOrBlank() ||
                 !backFaceBody.isNullOrBlank(),
+            progress = progress,
         )
     }
 
@@ -106,19 +112,32 @@ object TileNotificationStore {
             .filter { isEligible(it) }
             .groupBy { it.packageName }
         return grouped.mapValues { (packageName, items) ->
+            val nowMs = System.currentTimeMillis()
+            val withProgress = items.map { item ->
+                item to extractProgress(item, nowMs)
+            }
+            val progress = withProgress
+                .mapNotNull { (item, progress) -> progress?.let { item.postTime to it } }
+                .maxByOrNull { it.first }
+                ?.second
+            // Progress notifications still peek — charging remaining belongs on the flip face.
             val newest = items.maxByOrNull { it.postTime }!!
             val peek = extractPeek(packageName, newest.notification.extras)
-            val badge = items.sumOf { item ->
-                val n = item.notification.number
-                if (n > 0) n else 1
+            val badge = withProgress.sumOf { (item, progressInfo) ->
+                if (progressInfo != null) 0
+                else {
+                    val n = item.notification.number
+                    if (n > 0) n else 1
+                }
             }
             TileNotificationInfo(
                 packageName = packageName,
-                count = badge.coerceAtLeast(1),
+                count = badge,
                 peekTitle = peek.title,
                 peekSubtitle = peek.subtitle,
                 peekBody = peek.body,
-                updatedAtMs = newest.postTime,
+                updatedAtMs = items.maxOf { it.postTime },
+                progress = progress,
             )
         }
     }
@@ -132,6 +151,42 @@ object TileNotificationStore {
 
     private fun notifyListeners(packageName: String) {
         listeners.forEach { it(packageName) }
+    }
+
+    private fun extractProgress(
+        sbn: StatusBarNotification,
+        nowMs: Long,
+    ): TileProgressInfo? {
+        val notification = sbn.notification
+        val extras = notification.extras
+        val flags = notification.flags
+        @Suppress("DEPRECATION")
+        val foregroundService = flags and Notification.FLAG_FOREGROUND_SERVICE != 0
+        val ongoing = flags and Notification.FLAG_ONGOING_EVENT != 0 || foregroundService
+        return resolveTileProgress(
+            NotificationProgressFields(
+                title = extras.charSequence(Notification.EXTRA_TITLE),
+                text = extras.charSequence(Notification.EXTRA_TEXT),
+                bigText = extras.charSequence(Notification.EXTRA_BIG_TEXT),
+                subText = extras.charSequence(Notification.EXTRA_SUB_TEXT),
+                infoText = extras.charSequence(Notification.EXTRA_INFO_TEXT),
+                progress = extras.getInt(Notification.EXTRA_PROGRESS, 0),
+                progressMax = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
+                indeterminate = extras.getBoolean(
+                    Notification.EXTRA_PROGRESS_INDETERMINATE,
+                    false,
+                ),
+                hasMediaSession = extras.containsKey(Notification.EXTRA_MEDIA_SESSION),
+                showChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false),
+                chronometerCountDown = extras.getBoolean(
+                    Notification.EXTRA_CHRONOMETER_COUNT_DOWN,
+                    false,
+                ),
+                whenMs = notification.`when`,
+                ongoing = ongoing,
+            ),
+            nowMs = nowMs,
+        )
     }
 
     private fun extractPeek(packageName: String, extras: Bundle): PeekLines {
@@ -189,4 +244,5 @@ data class MergedNotificationFace(
     val backFaceBody: String?,
     val hasFlipFace: Boolean,
     val backFaceSubtitle: String? = null,
+    val progress: TileProgressInfo? = null,
 )

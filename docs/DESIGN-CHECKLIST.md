@@ -16,7 +16,7 @@ Use before marking any UI task complete. Every item must pass or be documented a
 - [ ] Noto Sans used for all Metro chrome (not Roboto)
 - [ ] No text below 15sp in interactive UI
 - [ ] Max 2 font weights per screen
-- [ ] Page title 64sp, flush left
+- [ ] Page title 64sp, flush left, single line (overflows screen edge — never wraps, no ellipsis)
 - [ ] List titles 24sp, subtitles 16sp at 60% opacity
 
 ## Color and theme
@@ -51,6 +51,7 @@ Use before marking any UI task complete. Every item must pass or be documented a
 - [ ] App bar: use `MetroAppBar` — icon-only row (max 4), `…` reveals labels + text menu list below the icon row (max 5), bottom only
 - [ ] List items use tilt-on-press (3°, 150ms)
 - [ ] ToggleSwitch sharp rectangle with accent fill when on, rectangular thumb
+- [ ] TextBox is a light square field with black text and a 3dp accent border when focused — not a dark filled chip or Material TextField
 - [ ] No Material buttons, chips, cards, bottom sheets, snackbars
 
 ## Navigation

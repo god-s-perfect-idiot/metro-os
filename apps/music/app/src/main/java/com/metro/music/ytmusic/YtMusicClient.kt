@@ -1,22 +1,25 @@
 package com.metro.music.ytmusic
 
-import android.net.Uri
 import android.util.Log
-import com.metro.music.data.ArtworkUrls
-import com.metro.music.data.LibrarySource
+import com.metro.music.data.Playlist
 import com.metro.music.data.Song
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLDecoder
+import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 data class YtSyncResult(
     val songs: List<Song>,
+    val error: String? = null,
+)
+
+data class YtPlaylistSyncResult(
+    val playlists: List<Playlist>,
     val error: String? = null,
 )
 
@@ -49,48 +52,55 @@ class YtMusicClient(
             put("params", "EgWKAQIIAWoKEAMQBBAJEAoQBQ==")
         }
         val json = post("search", body, WEB_CLIENT) ?: return emptyList()
-        return parseSearchSongs(json).ifEmpty { parseAnySongs(json) }.take(limit)
+        return YtBrowseParser.parseSearch(json)
+            .ifEmpty { YtBrowseParser.parse(json).songs }
+            .take(limit)
     }
 
-    fun librarySongs(limit: Int = 80): YtSyncResult {
+    fun librarySongs(limit: Int = YtLibrarySync.DEFAULT_LIMIT): YtSyncResult {
         if (!authStore.connected) {
             return YtSyncResult(emptyList(), "Not connected to YouTube Music")
         }
-        val browseIds = listOf(
-            "FEmusic_liked_videos",
-            "FEmusic_library_corpus_track_artists",
-            "FEmusic_history",
+        val result = YtLibrarySync.collect(
+            fetchBrowse = ::browsePost,
+            fetchContinuation = ::continuationPost,
+            limit = limit,
         )
-        val collected = linkedMapOf<String, Song>()
-        var lastError: String? = null
-        for (browseId in browseIds) {
-            val body = webContext().apply { put("browseId", browseId) }
-            val json = post("browse", body, WEB_CLIENT)
-            if (json == null) {
-                lastError = "Browse failed ($browseId)"
-                continue
-            }
-            val playability = json.optJSONObject("error")?.optString("message")
-            if (!playability.isNullOrBlank()) {
-                lastError = playability
-                continue
-            }
-            val parsed = parseBrowseSongs(json).ifEmpty { parseAnySongs(json) }
-            parsed.forEach { collected[it.id] = it }
-            if (collected.size >= limit) break
+        Log.i(TAG, "librarySongs synced ${result.songs.size}" + (result.error?.let { " error=$it" } ?: ""))
+        if (result.songs.isNotEmpty()) return result
+        // Fallback: search empty-ish charts via search for a space-common letter
+        val fallback = searchSongs("a", limit.coerceAtMost(25))
+        if (fallback.isNotEmpty()) {
+            return YtSyncResult(fallback, null)
         }
-        if (collected.isEmpty()) {
-            // Fallback: search empty-ish charts via search for a space-common letter
-            val fallback = searchSongs("a", limit)
-            if (fallback.isNotEmpty()) {
-                return YtSyncResult(fallback, null)
-            }
-            return YtSyncResult(
-                emptyList(),
-                lastError ?: "No YouTube Music library songs found. Try search in get music.",
-            )
+        return result
+    }
+
+    fun libraryPlaylists(limit: Int = YtPlaylistSync.DEFAULT_LIMIT): YtPlaylistSyncResult {
+        if (!authStore.connected) {
+            return YtPlaylistSyncResult(emptyList(), "Not connected to YouTube Music")
         }
-        return YtSyncResult(collected.values.take(limit).toList(), null)
+        val result = YtPlaylistSync.collect(
+            fetchBrowse = ::browsePost,
+            fetchContinuation = ::continuationPost,
+            limit = limit,
+        )
+        Log.i(
+            TAG,
+            "libraryPlaylists synced ${result.playlists.size}" +
+                (result.error?.let { " error=$it" } ?: ""),
+        )
+        return result
+    }
+
+    fun playlistSongs(playlistId: String, limit: Int = YtLibrarySync.DEFAULT_LIMIT): List<Song> {
+        if (playlistId.isBlank()) return emptyList()
+        return YtLibrarySync.collectPlaylist(
+            playlistId = playlistId,
+            fetchBrowse = ::browsePost,
+            fetchContinuation = ::continuationPost,
+            limit = limit,
+        ).songs
     }
 
     fun resolveStreamUrl(videoId: String): String? = resolveStream(videoId).url
@@ -231,13 +241,35 @@ class YtMusicClient(
         put("context", JSONObject().apply { put("client", WEB_CLIENT.context()) })
     }
 
+    private fun browsePost(browseId: String): JSONObject? =
+        post("browse", webContext().apply { put("browseId", browseId) }, WEB_CLIENT)
+
+    private fun continuationPost(token: String): JSONObject? =
+        post(
+            "browse",
+            webContext().apply { put("continuation", token) },
+            WEB_CLIENT,
+            continuation = token,
+        )
+
     private fun post(
         endpoint: String,
         body: JSONObject,
         client: InnertubeClient,
         visitor: String? = null,
+        continuation: String? = null,
     ): JSONObject? {
-        val url = "${client.base}/$endpoint?prettyPrint=false&key=${client.apiKey}"
+        val encodedContinuation = continuation?.let { URLEncoder.encode(it, "UTF-8") }
+        val url = buildString {
+            append("${client.base}/$endpoint?prettyPrint=false&key=${client.apiKey}")
+            if (encodedContinuation != null) {
+                append("&ctoken=").append(encodedContinuation)
+                append("&continuation=").append(encodedContinuation)
+            }
+        }
+        if (continuation != null && !body.has("continuation")) {
+            body.put("continuation", continuation)
+        }
         val reqBody = body.toString().toRequestBody(JSON)
         val builder = Request.Builder()
             .url(url)
@@ -296,202 +328,6 @@ class YtMusicClient(
             .digest("$seconds $sapisid $MUSIC_ORIGIN".toByteArray())
             .joinToString("") { "%02x".format(it) }
         return "SAPISIDHASH ${seconds}_$digest"
-    }
-
-    private fun parseSearchSongs(root: JSONObject): List<Song> {
-        val out = mutableListOf<Song>()
-        val contents = root.optJSONObject("contents")
-            ?.optJSONObject("tabbedSearchResultsRenderer")
-            ?.optJSONArray("tabs")
-            ?.optJSONObject(0)
-            ?.optJSONObject("tabRenderer")
-            ?.optJSONObject("content")
-            ?.optJSONObject("sectionListRenderer")
-            ?.optJSONArray("contents")
-            ?: return out
-
-        for (i in 0 until contents.length()) {
-            val shelf = contents.optJSONObject(i)
-                ?.optJSONObject("musicShelfRenderer")
-                ?.optJSONArray("contents")
-                ?: continue
-            collectShelf(shelf, out)
-        }
-        return out
-    }
-
-    private fun parseBrowseSongs(root: JSONObject): List<Song> {
-        val out = mutableListOf<Song>()
-        val sectionContents = root.optJSONObject("contents")
-            ?.optJSONObject("singleColumnBrowseResultsRenderer")
-            ?.optJSONArray("tabs")
-            ?.optJSONObject(0)
-            ?.optJSONObject("tabRenderer")
-            ?.optJSONObject("content")
-            ?.optJSONObject("sectionListRenderer")
-            ?.optJSONArray("contents")
-            ?: root.optJSONObject("contents")
-                ?.optJSONObject("twoColumnBrowseResultsRenderer")
-                ?.optJSONObject("secondaryContents")
-                ?.optJSONObject("sectionListRenderer")
-                ?.optJSONArray("contents")
-            ?: return out
-
-        for (i in 0 until sectionContents.length()) {
-            val section = sectionContents.optJSONObject(i) ?: continue
-            val shelf = section.optJSONObject("musicShelfRenderer")?.optJSONArray("contents")
-                ?: section.optJSONObject("musicPlaylistShelfRenderer")?.optJSONArray("contents")
-                ?: section.optJSONObject("gridRenderer")?.optJSONArray("items")
-                ?: continue
-            collectShelf(shelf, out)
-        }
-        return out
-    }
-
-    /** Deep walk for musicResponsiveListItemRenderer / playlistItemData anywhere in the tree. */
-    private fun parseAnySongs(root: JSONObject): List<Song> {
-        val out = mutableListOf<Song>()
-        walk(root) { obj ->
-            obj.optJSONObject("musicResponsiveListItemRenderer")?.let { parseListItem(it)?.let { s -> out += s } }
-            val videoId = obj.optJSONObject("playlistItemData")?.optString("videoId")?.ifBlank { null }
-            if (videoId != null && out.none { it.youtubeVideoId == videoId }) {
-                // Minimal song from videoId alone if nested oddly
-            }
-        }
-        return out.distinctBy { it.id }
-    }
-
-    private fun collectShelf(shelf: JSONArray, out: MutableList<Song>) {
-        for (j in 0 until shelf.length()) {
-            val row = shelf.optJSONObject(j) ?: continue
-            row.optJSONObject("musicResponsiveListItemRenderer")?.let { parseListItem(it)?.let { s -> out += s } }
-            row.optJSONObject("musicTwoRowItemRenderer")?.let { parseTwoRow(it)?.let { s -> out += s } }
-        }
-    }
-
-    private fun walk(node: Any?, visit: (JSONObject) -> Unit) {
-        when (node) {
-            is JSONObject -> {
-                visit(node)
-                val keys = node.keys()
-                while (keys.hasNext()) {
-                    walk(node.opt(keys.next()), visit)
-                }
-            }
-            is JSONArray -> {
-                for (i in 0 until node.length()) walk(node.opt(i), visit)
-            }
-        }
-    }
-
-    /** Innertube lists thumbnails smallest-first; take the largest and ask the CDN to render big. */
-    private fun bestThumbnail(thumbnails: JSONArray?): Uri? {
-        if (thumbnails == null) return null
-        var bestUrl: String? = null
-        var bestWidth = -1
-        for (i in 0 until thumbnails.length()) {
-            val thumb = thumbnails.optJSONObject(i) ?: continue
-            val url = thumb.optString("url").ifBlank { null } ?: continue
-            val width = thumb.optInt("width", 0)
-            if (width >= bestWidth) {
-                bestWidth = width
-                bestUrl = url
-            }
-        }
-        return bestUrl?.let { Uri.parse(ArtworkUrls.highRes(it)) }
-    }
-
-    private fun parseTwoRow(item: JSONObject): Song? {
-        val videoId = item.optJSONObject("navigationEndpoint")
-            ?.optJSONObject("watchEndpoint")
-            ?.optString("videoId")
-            ?.ifBlank { null }
-            ?: return null
-        val title = item.optJSONObject("title")
-            ?.optJSONArray("runs")
-            ?.optJSONObject(0)
-            ?.optString("text")
-            ?: "Unknown title"
-        val artist = item.optJSONObject("subtitle")
-            ?.optJSONArray("runs")
-            ?.optJSONObject(0)
-            ?.optString("text")
-            ?: "Unknown artist"
-        val thumb = bestThumbnail(
-            item.optJSONObject("thumbnailRenderer")
-                ?.optJSONObject("musicThumbnailRenderer")
-                ?.optJSONObject("thumbnail")
-                ?.optJSONArray("thumbnails"),
-        )
-        return Song(
-            id = "yt:$videoId",
-            title = title,
-            artist = artist,
-            album = "YouTube Music",
-            durationMs = 0L,
-            uri = null,
-            artworkUri = thumb,
-            source = LibrarySource.YouTubeMusic,
-            youtubeVideoId = videoId,
-        )
-    }
-
-    private fun parseListItem(item: JSONObject): Song? {
-        val videoId = item.optJSONObject("playlistItemData")?.optString("videoId")
-            ?.ifBlank { null }
-            ?: item.optJSONObject("overlay")
-                ?.optJSONObject("musicItemThumbnailOverlayRenderer")
-                ?.optJSONObject("content")
-                ?.optJSONObject("musicPlayButtonRenderer")
-                ?.optJSONObject("playNavigationEndpoint")
-                ?.optJSONObject("watchEndpoint")
-                ?.optString("videoId")
-                ?.ifBlank { null }
-            ?: item.optJSONArray("flexColumns")
-                ?.optJSONObject(0)
-                ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
-                ?.optJSONObject("text")
-                ?.optJSONArray("runs")
-                ?.optJSONObject(0)
-                ?.optJSONObject("navigationEndpoint")
-                ?.optJSONObject("watchEndpoint")
-                ?.optString("videoId")
-                ?.ifBlank { null }
-            ?: return null
-
-        val flex = item.optJSONArray("flexColumns") ?: JSONArray()
-        val title = flex.optJSONObject(0)
-            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
-            ?.optJSONObject("text")
-            ?.optJSONArray("runs")
-            ?.optJSONObject(0)
-            ?.optString("text")
-            ?.ifBlank { null }
-            ?: "Unknown title"
-        val subtitleRuns = flex.optJSONObject(1)
-            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
-            ?.optJSONObject("text")
-            ?.optJSONArray("runs")
-        val artist = subtitleRuns?.optJSONObject(0)?.optString("text").orEmpty()
-            .ifBlank { "Unknown artist" }
-        val thumb = bestThumbnail(
-            item.optJSONObject("thumbnail")
-                ?.optJSONObject("musicThumbnailRenderer")
-                ?.optJSONObject("thumbnail")
-                ?.optJSONArray("thumbnails"),
-        )
-
-        return Song(
-            id = "yt:$videoId",
-            title = title,
-            artist = artist,
-            album = "YouTube Music",
-            durationMs = 0L,
-            uri = null,
-            artworkUri = thumb,
-            source = LibrarySource.YouTubeMusic,
-            youtubeVideoId = videoId,
-        )
     }
 
     /** One Innertube client identity: endpoint, key, and the headers that must match it. */

@@ -26,6 +26,9 @@ MetroTheme(darkTheme = MetroPreferences.isDark, accent = MetroPreferences.accent
 
 - Noto Sans only for Metro chrome (never Roboto in system UI)
 - Min 15sp interactive text; page titles 64sp flush-left
+- **Page / hub / pivot titles never wrap** — one line, overflow off the right screen edge
+  (no ellipsis). Use start inset only; never `padding(horizontal)` on a title. `MetroText`
+  enforces this for `PageTitle` / `HubTitle` / `PivotTab`.
 - **App title is ALL CAPS:** the small app-name overline above a hub/pivot/panorama title must be
   uppercase. Always render it with `MetroAppTitle(...)` (from `metro-ui-android`), never a raw
   `MetroText`, so casing/style stay consistent across apps.
@@ -48,7 +51,7 @@ MetroTheme(darkTheme = MetroPreferences.isDark, accent = MetroPreferences.accent
 
 ## Controls
 
-Import from `metro-ui-android`: `MetroAppBar`, `MetroBorderButton`, `MetroIconButton`, `MetroPivot`, `MetroPanorama`, `MetroListItem`, `MetroToggleSwitch`, etc.
+Import from `metro-ui-android`: `MetroAppBar`, `MetroBorderButton`, `MetroIconButton`, `MetroPivot`, `MetroPanorama`, `MetroListItem`, `MetroToggleSwitch`, `MetroTextBox`, etc.
 
 | Need | Use |
 |------|-----|

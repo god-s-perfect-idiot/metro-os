@@ -49,6 +49,9 @@ data class Playlist(
     val title: String,
     val songCount: Int,
     val source: LibrarySource,
+    val artworkUri: Uri? = null,
+    val youtubePlaylistId: String? = null,
+    val localMediaStoreId: Long? = null,
 )
 
 data class PlaybackQueueItem(
@@ -61,6 +64,12 @@ object LibraryLogic {
         ShowingFilter.All -> songs
         ShowingFilter.OnDevice -> songs.filter { it.source == LibrarySource.Local }
         ShowingFilter.YouTubeMusic -> songs.filter { it.source == LibrarySource.YouTubeMusic }
+    }
+
+    fun filterPlaylists(playlists: List<Playlist>, filter: ShowingFilter): List<Playlist> = when (filter) {
+        ShowingFilter.All -> playlists
+        ShowingFilter.OnDevice -> playlists.filter { it.source == LibrarySource.Local }
+        ShowingFilter.YouTubeMusic -> playlists.filter { it.source == LibrarySource.YouTubeMusic }
     }
 
     fun artistsFrom(songs: List<Song>): List<Artist> =

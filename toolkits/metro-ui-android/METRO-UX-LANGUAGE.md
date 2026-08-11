@@ -52,6 +52,7 @@ Use **sharp 0dp corner radius** unless a control is listed in §2.2.
 | **ToggleSwitch** | **52×20dp rectangle** track, rectangular thumb, 0dp corners |
 | **Message dialog** | Centered rectangle panel; square corners |
 | **ListPicker** | Square-bordered collapsed field; inverted rectangular expanded panel |
+| **Text box** | Light-fill rectangle, **0dp** corners; 3dp border (gray rest, accent when focused) |
 | **Panorama section headers** | Flush-left text blocks over imagery |
 | **Photography** | Full-bleed rectangles; **never** rounded "cards" |
 
@@ -119,6 +120,7 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 - Push button label: max **2 words**, usually a verb.
 - Application titles and pivot headers: **lowercase** in WP8.1 system apps (match in metro-os).
 - Title caps for hub/panorama hero titles; sentence caps for settings descriptions.
+- **Page / hub / pivot titles never wrap.** One line only. If the title is wider than the screen it overflows off the right edge (clipped by the window, mid-glyph). No ellipsis. `MetroText` enforces this for `PageTitle`, `HubTitle`, and `PivotTab`. Start inset only — do not pad the end of a title.
 
 **Toolkit:** `MetroText` + `MetroTextStyle`.
 
@@ -316,7 +318,7 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Header height | 48dp |
 | Selected | Accent text + **3dp accent underline** (square ends) |
 | Unselected | Secondary foreground, no underline |
-| Header labels | 1–2 words, lowercase |
+| Header labels | 1–2 words, lowercase; **single line** — never wrap, overflow off-screen |
 | Header strip | **Full-bleed** — active title starts at 24dp content margin; adjacent titles may overflow past the screen edges (clip at screen, never at inner padding) |
 | Switch animation | 250ms ease-in-out |
 | Nesting | **Never** pivot inside pivot; **never** pivot inside panorama |
@@ -377,12 +379,19 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 
 ### 6.12 Text box (`MetroTextBox`)
 
+WP8.1 `TextBox` is a **light rectangle with black text on every theme** — never a dark filled chip. Focus is a full square accent border, not a Material bottom-only underline / TextInputLayout.
+
 | Property | Spec |
 |----------|------|
-| Rest | No box border; bottom line only optional |
-| Focus | **Accent underline** 2dp; no Material TextInputLayout |
-| Text | 15sp Regular |
-| Placeholder | 60% foreground |
+| Corner radius | **0dp** |
+| Rest | `#F2F2F2` fill; **3dp** `#BFBFBF` border; black text |
+| Focus | **White** fill; **3dp accent** border; black text; accent caret and selection |
+| Text | 18sp Regular (`Body`) |
+| Placeholder | Black @ **60%** |
+| Min height | **44dp**; 10dp horizontal / 8dp vertical padding inside the border |
+| Disabled | 40% opacity |
+
+**Don't:** Dark `#1F1F1F` fill, rounded corners, floating labels, outlined Material `TextField`.
 
 ---
 
@@ -449,7 +458,7 @@ Full-page await surface — use whenever a page is blocked on async work (> 500m
 |----------|------|
 | Title | 64sp Light, flush left |
 | Region height | 98dp including title block |
-| Overflow | **Single line** — never wraps. Long titles clip mid-glyph at the **screen** edge (start inset only; no end margin). No ellipsis. Same rule for `MetroSettingsHeader` page titles. |
+| Overflow | **Single line** — never wraps. Long titles overflow the content area and clip mid-glyph at the **screen** edge (start inset only; no end margin). No ellipsis. Same rule for `MetroSettingsHeader`, hub titles, and pivot headers. |
 | Subtitle | 16sp @ 60% below title if needed |
 
 ---
@@ -472,7 +481,7 @@ WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under let
 | Helpers | `MetroJumpListLogic.sortKey` / `activeLetters` / `showSectionMarkers` / `diagonalIndex`; section anchors use `MetroLetterTile` |
 | Sticky section markers | Letter markers **pin** at the top of the scroll viewport while that section's rows scroll underneath. The next letter's header **pushes** the previous marker up and replaces it (classic LongListSelector sticky headers). Implement with `metroStickyLetterHeader` — never plain `item` for letter markers. Give the sticky content an opaque theme background so rows do not show through. |
 | Entrance | Each tile flips in around its **horizontal center** (`rotationX` 90° → 0°, 300ms ease-out). Stagger by diagonal (`row + col`) from top-left at 40ms steps. Shared primitive: `MetroDiagonalFlip` (also used by Settings accents picker; support `exiting` for the reverse 0° → 90° wave) |
-| Search mode | While an inline list search field is active, **omit** letter section markers (`showSectionMarkers(false)`). Jump list is unavailable until search is dismissed. App-list search uses a **white fill + accent border** square field (not the underline TextBox); matching characters in result labels use accent. |
+| Search mode | While an inline list search field is active, **omit** letter section markers (`showSectionMarkers(false)`). Jump list is unavailable until search is dismissed. App-list search uses the **focused TextBox** chrome (white fill + accent border); matching characters in result labels use accent. |
 
 **Agent rule:** Do not reimplement jump grids in apps. Import `MetroJumpList` from `metro-ui-android`. Do not invent per-app sticky-header logic — use `metroStickyLetterHeader` for every alphabet-grouped list.
 
@@ -613,7 +622,7 @@ Need a container shape?
 | §6.9 Toggle | `MetroToggleSwitch` | Implemented |
 | §6.10 Checkbox | `MetroCheckBox` | Planned |
 | §6.11 Radio | `MetroRadioButton` | Planned |
-| §6.12 Text box | `MetroTextBox` | Planned |
+| §6.12 Text box | `MetroTextBox` | Implemented |
 | §6.13 Slider | `MetroSlider`, `MetroStepSlider`, `MetroBarStepSlider` | Implemented |
 | §6.14 Progress | `MetroProgressBar` | Planned |
 | §6.14a Loading screen | `MetroLoadingScreen`, `MetroLoadingDots` | Implemented |

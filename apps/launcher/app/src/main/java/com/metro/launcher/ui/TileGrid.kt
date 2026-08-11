@@ -670,6 +670,8 @@ private fun LauncherTileCell(
     val musicNowPlaying = tile.musicNowPlaying
     val showMusicNowPlaying = musicNowPlaying != null
     val showPhotoContent = showCyclePhoto || showPhotoGrid
+    val progress = tile.progress
+    val showProgressOverlay = progress != null && !showMusicNowPlaying
     val agenda = tile.agenda?.takeIf { it.hasContent }
     val showAgenda = agenda != null && !showPhotoContent && !showStaticPhoto &&
         !showMusicNowPlaying &&
@@ -749,7 +751,9 @@ private fun LauncherTileCell(
                         when {
                             showPhotoContent || showStaticPhoto || showChromeFace ||
                                 showMusicNowPlaying -> Modifier
-                            canFlip -> Modifier.background(MetroColors.DarkBackground)
+                            canFlip || showProgressOverlay -> Modifier.background(
+                                if (canFlip) MetroColors.DarkBackground else tile.backgroundColor,
+                            )
                             else -> Modifier
                                 .background(tile.backgroundColor)
                                 .padding(TILE_CONTENT_INSET)
@@ -890,15 +894,31 @@ private fun LauncherTileCell(
                 // Edge-to-edge faces skip TILE_CONTENT_INSET on the container; pad the badge
                 // itself so the numeral keeps the same margin as inset tiles.
                 val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto || showChromeFace ||
-                    showMusicNowPlaying ||
+                    showMusicNowPlaying || showProgressOverlay ||
                     (canFlip && tile.flipToIcon)
+                val insetFront = showProgressOverlay &&
+                    !showPhotoContent && !showStaticPhoto && !showChromeFace &&
+                    !showMusicNowPlaying && !canFlip
+                val wrappedFront: @Composable () -> Unit = {
+                    if (insetFront) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(TILE_CONTENT_INSET),
+                        ) {
+                            frontFace()
+                        }
+                    } else {
+                        frontFace()
+                    }
+                }
                 val isWide = tile.entry.size == PinnedTileSize.FourByTwo
                 if (canFlip) {
                     LiveTileFlipFace(
                         flipSeed = floatSeed,
                         faceColor = tile.backgroundColor,
                         edgeToEdge = tile.flipToIcon,
-                        front = frontFace,
+                        front = wrappedFront,
                         back = {
                             if (tile.flipToIcon) {
                                 StaticIconTileContent(
@@ -943,7 +963,7 @@ private fun LauncherTileCell(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    frontFace()
+                    wrappedFront()
                     // 1×1 icon faces already draw the count beside the glyph.
                     if (!showSmallIconBadge) {
                         badgeCount?.let { count ->
@@ -956,6 +976,13 @@ private fun LauncherTileCell(
                             )
                         }
                     }
+                }
+                if (showProgressOverlay) {
+                    TileProgressOverlay(
+                        progress = progress!!,
+                        contentColor = contentColor,
+                        showCaption = !isSmall && !canFlip,
+                    )
                 }
             }
         }

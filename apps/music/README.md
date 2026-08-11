@@ -51,7 +51,7 @@ Authoritative spec: [`references/guides/blueprint.md`](references/guides/bluepri
 
 ## UI and interaction guardrails
 
-- `MetroPanorama`, `MetroPivot`, `MetroListItem`, `MetroShowingLabel`, `MetroAppBar`, `MetroToggleSwitch`
+- `MetroPanorama`, `MetroPivot`, `MetroListItem`, `MetroShowingLabel`, `MetroAppBar`, `MetroToggleSwitch`, `MetroTextBox` (explore search), `MetroLoadingScreen` / `MetroLoadingDots` for page waits (not grey "Loading…" copy)
 - Collection pivots group under `MetroLetterTile` markers and open `MetroJumpList`; rows use the dense metrics in `MusicListRow`
 - Large art + circular transport on now playing; no Material mini-player
 - Now-playing scrubber is the app-local `MediaCircleSeekBar`: hollow ring thumb on a 2dp hairline

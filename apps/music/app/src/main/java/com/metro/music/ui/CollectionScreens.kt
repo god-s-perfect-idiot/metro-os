@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,10 +31,12 @@ import androidx.compose.ui.unit.dp
 import com.metro.music.data.Album
 import com.metro.music.data.Artist
 import com.metro.music.data.LibraryLogic
+import com.metro.music.data.Playlist
 import com.metro.music.data.ShowingFilter
 import com.metro.music.data.Song
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroPivot
 import com.metro.ui.MetroShowingLabel
 import com.metro.ui.MetroText
@@ -88,7 +90,8 @@ fun CollectionScreen(state: MusicState, onBack: () -> Unit) {
                     AlbumsList(state, jumpTarget, consumeJump, openJumpList)
                 MusicState.COLLECTION_SONGS ->
                     CollectionSongsList(state, jumpTarget, consumeJump, openJumpList)
-                MusicState.COLLECTION_PLAYLISTS -> PlaceholderList("No playlists yet.")
+                MusicState.COLLECTION_PLAYLISTS ->
+                    PlaylistsList(state, jumpTarget, consumeJump, openJumpList)
                 else -> PlaceholderList("No genres yet.")
             }
         }
@@ -201,7 +204,7 @@ private fun ArtistsList(
 ) {
     val artists = state.artists
     if (artists.isEmpty()) {
-        PlaceholderList("No artists.")
+        LoadingOrEmpty(loading = isLibraryPageLoading(state), emptyMessage = "No artists.")
         return
     }
     MusicLetterList(
@@ -229,7 +232,7 @@ private fun AlbumsList(
 ) {
     val albums = state.albums
     if (albums.isEmpty()) {
-        PlaceholderList("No albums.")
+        LoadingOrEmpty(loading = isLibraryPageLoading(state), emptyMessage = "No albums.")
         return
     }
     MusicLetterList(
@@ -257,7 +260,7 @@ private fun CollectionSongsList(
 ) {
     val songs = state.visibleSongs
     if (songs.isEmpty()) {
-        PlaceholderList("No songs.")
+        LoadingOrEmpty(loading = isLibraryPageLoading(state), emptyMessage = "No songs.")
         return
     }
     MusicLetterList(
@@ -276,7 +279,44 @@ private fun CollectionSongsList(
     }
 }
 
-/** Track order list for album / artist detail — no letter grouping (§6.18 applies to pivots). */
+@Composable
+private fun PlaylistsList(
+    state: MusicState,
+    jumpTarget: Char?,
+    onJumpConsumed: () -> Unit,
+    onOpenJumpList: () -> Unit,
+) {
+    val playlists = state.playlists
+    if (playlists.isEmpty()) {
+        when {
+            isLibraryPageLoading(state) -> MetroLoadingScreen()
+            state.showingFilter == ShowingFilter.YouTubeMusic && !state.ytConnected ->
+                PlaceholderList("Connect YouTube Music in settings.")
+            else -> PlaceholderList("No playlists.")
+        }
+        return
+    }
+    MusicLetterList(
+        items = playlists,
+        labelOf = { it.title },
+        keyOf = { it.id },
+        jumpTarget = jumpTarget,
+        onJumpTargetConsumed = onJumpConsumed,
+        onLetterMarkerClick = onOpenJumpList,
+    ) { playlist ->
+        MusicListRow(
+            title = playlist.title,
+            subtitle = if (playlist.songCount > 0) {
+                "${playlist.songCount} songs"
+            } else {
+                null
+            },
+            onClick = { state.openPlaylist(playlist) },
+        )
+    }
+}
+
+/** Track order list for album / artist / playlist detail — no letter grouping (§6.18 applies to pivots). */
 @Composable
 fun SongsList(state: MusicState, songs: List<Song>) {
     if (songs.isEmpty()) {
@@ -284,11 +324,11 @@ fun SongsList(state: MusicState, songs: List<Song>) {
         return
     }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(songs, key = { it.id }) { song ->
+        itemsIndexed(songs, key = { index, song -> "${song.id}#$index" }) { index, song ->
             MusicListRow(
                 title = song.title,
                 subtitle = song.artist,
-                onClick = { state.playSongs(songs, songs.indexOf(song).coerceAtLeast(0)) },
+                onClick = { state.playSongs(songs, index) },
             )
         }
     }
@@ -306,6 +346,22 @@ fun PlaceholderList(message: String) {
 }
 
 @Composable
+private fun LoadingOrEmpty(loading: Boolean, emptyMessage: String) {
+    if (loading) {
+        MetroLoadingScreen()
+    } else {
+        PlaceholderList(emptyMessage)
+    }
+}
+
+/** True while the filtered library source is still scanning and the list has nothing to show. */
+private fun isLibraryPageLoading(state: MusicState): Boolean {
+    val waitingLocal = state.libraryLoading && state.showingFilter != ShowingFilter.YouTubeMusic
+    val waitingYt = state.ytSyncing && state.ytConnected && state.showingFilter != ShowingFilter.OnDevice
+    return waitingLocal || waitingYt
+}
+
+@Composable
 fun AlbumDetailScreen(state: MusicState, album: Album, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val songs = state.songsForAlbum(album)
@@ -319,10 +375,35 @@ fun AlbumDetailScreen(state: MusicState, album: Album, onBack: () -> Unit) {
         MetroText(
             text = album.title,
             style = MetroTextStyle.PageTitle,
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(start = 12.dp),
         )
         Spacer(Modifier.height(12.dp))
         SongsList(state, songs)
+    }
+}
+
+@Composable
+fun PlaylistDetailScreen(state: MusicState, playlist: Playlist, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MetroTheme.colors.background)
+            .padding(bottom = 24.dp),
+    ) {
+        MetroAppTitle("MUSIC")
+        MetroText(
+            text = playlist.title,
+            style = MetroTextStyle.PageTitle,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        when {
+            state.playlistLoading && state.playlistSongs.isEmpty() ->
+                MetroLoadingScreen(modifier = Modifier.weight(1f))
+            state.playlistSongs.isEmpty() -> PlaceholderList("No songs.")
+            else -> SongsList(state, state.playlistSongs)
+        }
     }
 }
 
@@ -340,7 +421,7 @@ fun ArtistDetailScreen(state: MusicState, artist: Artist, onBack: () -> Unit) {
         MetroText(
             text = "songs",
             style = MetroTextStyle.HubTitle,
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(start = 12.dp),
         )
         Spacer(Modifier.height(12.dp))
         SongsList(state, songs)

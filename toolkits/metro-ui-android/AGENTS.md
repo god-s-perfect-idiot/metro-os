@@ -37,7 +37,7 @@ Before implementing or changing any composable, read [`METRO-UX-LANGUAGE.md`](ME
 | P1 | `MetroToggleSwitch` | ToggleSwitch |
 | P2 | `MetroSlider` / `MetroStepSlider` / `MetroBarStepSlider` | Slider (ticks / continuous bar) |
 | P2 | `MetroProgressBar` | ProgressBar |
-| P2 | `MetroTextBox` | TextBox underline focus |
+| P2 | `MetroTextBox` ✅ | TextBox — light fill, 3dp accent border when focused |
 | P2 | `MetroMessageDialog` | MessageDialog |
 | P2 | `MetroListPicker` ✅ | ListPicker — bordered field, inline inverted options |
 | P2 | `MetroHub` | Hub control |

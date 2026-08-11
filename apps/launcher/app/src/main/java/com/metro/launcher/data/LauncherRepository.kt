@@ -38,6 +38,8 @@ data class DisplayTile(
     val flipToIcon: Boolean = false,
     /** Xbox Music–style now-playing face when a music app has an active media session. */
     val musicNowPlaying: MusicNowPlayingInfo? = null,
+    /** Progress-bar notification (charging, downloads) drawn on the front of the tile. */
+    val progress: TileProgressInfo? = null,
 )
 
 class LauncherRepository(private val context: Context) {
@@ -140,11 +142,12 @@ class LauncherRepository(private val context: Context) {
             hasRichFrontFace = hasRichFrontFace,
         )
         val flipToIcon = imageUri != null && musicNowPlaying == null
+        val progress = if (musicNowPlaying != null) null else merged.progress
         return DisplayTile(
             entry = this,
             title = title,
             backgroundColor = background,
-            // Now-playing face owns the tile — suppress notification badges.
+            // Now-playing owns the tile; progress overlays the front but still peeks/flips.
             counter = if (musicNowPlaying != null) null else merged.counter,
             deepLinkUri = providerData?.deepLinkUri,
             hasFlipFace = if (musicNowPlaying != null) {
@@ -160,6 +163,7 @@ class LauncherRepository(private val context: Context) {
             imageUri = imageUri,
             flipToIcon = flipToIcon,
             musicNowPlaying = musicNowPlaying,
+            progress = progress,
         )
     }
 
