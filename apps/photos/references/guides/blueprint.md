@@ -30,7 +30,7 @@ Target: **Windows Phone 8.1** Photos app on a portrait phone (768×1280 / xhdpi 
 
 ### Page 2 — Album detail
 
-- **Layout:** Page header = album name (24sp). 4-column thumbnail grid of album contents, newest first.
+- **Layout:** `PHOTOS` app overline + album name as **page title** (64sp Light, flush left, one line overflow). 4-column thumbnail grid of album contents, newest first. While MediaStore or bitmaps are loading, show `MetroLoadingScreen` / `MetroLoadingDots` — never empty-state copy.
 - **Navigation:** Back → collection on same pivot (`albums`). Tap thumbnail → viewer scoped to album.
 - **Background:** Black.
 

@@ -56,10 +56,15 @@ class TextKeyboard(
         if (desiredTouchBounds.isEmpty() || desiredVisibleBounds.isEmpty()) return
         if (keyboardWidth.isNaN() || keyboardHeight.isNaN()) return
         val rowMarginH = abs(desiredTouchBounds.width - desiredVisibleBounds.width)
-        val rowMarginV = (keyboardHeight - desiredTouchBounds.height * rowCount.toFloat()) / (rowCount - 1).coerceAtLeast(1).toFloat()
+        // Match horizontal layout: reserve one gutter at each edge so the outer
+        // vertical gap equals the inner row gap (and, with a square key margin,
+        // the column gap as well). Extra height goes into the keys, not the gutters.
+        val keyInsetV = abs(desiredTouchBounds.top - desiredVisibleBounds.top)
+        val edgePadV = keyInsetV
+        val rowTouchHeight = ((keyboardHeight - 2.0f * edgePadV) / rowCount.toFloat()).coerceAtLeast(0.0f)
 
         for ((r, row) in rows().withIndex()) {
-            val posY = (desiredTouchBounds.height + rowMarginV) * r
+            val posY = edgePadV + rowTouchHeight * r
             val availableWidth = (keyboardWidth - rowMarginH) / desiredTouchBounds.width
             var requestedWidth = 0.0f
             var shrinkSum = 0.0f
@@ -85,7 +90,7 @@ class TextKeyboard(
                         left = posX
                         top = posY
                         right = posX + keyWidth
-                        bottom = posY + desiredTouchBounds.height
+                        bottom = posY + rowTouchHeight
                     }
                     key.visibleBounds.apply {
                         left = key.touchBounds.left + abs(desiredTouchBounds.left - desiredVisibleBounds.left) + when {
@@ -126,7 +131,7 @@ class TextKeyboard(
                         left = posX
                         top = posY
                         right = posX + keyWidth
-                        bottom = posY + desiredTouchBounds.height
+                        bottom = posY + rowTouchHeight
                     }
                     key.visibleBounds.apply {
                         left = key.touchBounds.left + abs(desiredTouchBounds.left - desiredVisibleBounds.left)

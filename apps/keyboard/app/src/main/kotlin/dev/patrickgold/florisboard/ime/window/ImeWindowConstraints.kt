@@ -152,14 +152,8 @@ sealed class ImeWindowConstraints(rootInsets: ImeInsets.Root) {
             }
         }
         override val defKeyMarginV by calculation {
-            when (formFactor.typeGuess) {
-                ImeFormFactor.Type.DESKTOP,
-                ImeFormFactor.Type.LARGE_TABLET -> 6.dp
-                ImeFormFactor.Type.TABLET_LANDSCAPE -> 5.dp
-                ImeFormFactor.Type.TABLET_PORTRAIT -> 5.dp
-                ImeFormFactor.Type.PHONE_LANDSCAPE -> 5.dp
-                ImeFormFactor.Type.PHONE_PORTRAIT -> 5.dp
-            }
+            // WP8.1 SIP uses a uniform gutter for rows and columns.
+            defKeyMarginH
         }
 
         open val snapToCenterWidth: Dp by lazy {
@@ -314,14 +308,8 @@ sealed class ImeWindowConstraints(rootInsets: ImeInsets.Root) {
             }
         }
         override val defKeyMarginV by calculation {
-            when (formFactor.typeGuess) {
-                ImeFormFactor.Type.DESKTOP,
-                ImeFormFactor.Type.LARGE_TABLET,
-                ImeFormFactor.Type.TABLET_LANDSCAPE -> 5.dp
-                ImeFormFactor.Type.TABLET_PORTRAIT -> 5.dp
-                ImeFormFactor.Type.PHONE_LANDSCAPE -> 3.dp
-                ImeFormFactor.Type.PHONE_PORTRAIT -> 5.dp
-            }
+            // WP8.1 SIP uses a uniform gutter for rows and columns.
+            defKeyMarginH
         }
 
         abstract override val defaultProps: ImeWindowProps.Floating

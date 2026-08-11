@@ -16,11 +16,20 @@ import com.metro.photos.data.MediaStoreRepository
 import com.metro.photos.data.PhotoItem
 import com.metro.photos.data.PhotoLogic
 import com.metro.photos.data.ViewerCollection
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PhotosState(context: Context) {
     private val appContext = context.applicationContext
     private val repository = MediaStoreRepository(appContext)
     private val favoritesStore = FavoritesStore(appContext)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var loadJob: Job? = null
+    private var loadGeneration = 0
 
     var route by mutableStateOf(PhotosRoute.Collection)
         private set
@@ -62,6 +71,13 @@ class PhotosState(context: Context) {
     var permissionsChecked by mutableStateOf(false)
         private set
 
+    /**
+     * True while MediaStore is being queried and the collection is still empty.
+     * Resume refreshes keep existing photos on screen.
+     */
+    var isLoading by mutableStateOf(false)
+        private set
+
     val needsPermissionGate: Boolean
         get() = !hasMediaPermission && !skippedPermissions
 
@@ -85,15 +101,35 @@ class PhotosState(context: Context) {
 
     fun continueWithoutPhotos() {
         skippedPermissions = true
+        loadGeneration++
+        loadJob?.cancel()
+        isLoading = false
         photos = emptyList()
         refreshDerived()
     }
 
     fun reloadPhotos() {
         if (!hasMediaPermission) return
-        photos = repository.loadImages()
-        favoriteIds = favoritesStore.load()
-        refreshDerived()
+        val generation = ++loadGeneration
+        loadJob?.cancel()
+        if (photos.isEmpty()) {
+            isLoading = true
+        }
+        loadJob = scope.launch {
+            try {
+                val loaded = withContext(Dispatchers.IO) {
+                    repository.loadImages()
+                }
+                if (generation != loadGeneration) return@launch
+                photos = loaded
+                favoriteIds = favoritesStore.load()
+                refreshDerived()
+            } finally {
+                if (generation == loadGeneration) {
+                    isLoading = false
+                }
+            }
+        }
     }
 
     fun setPivot(index: Int) {

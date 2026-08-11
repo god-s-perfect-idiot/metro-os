@@ -115,6 +115,7 @@ private fun CollectionScreen(
         when (CollectionPivot.fromIndex(page)) {
             CollectionPivot.All -> AllPicturesPane(
                 dateGroups = state.dateGroups,
+                loading = state.isLoading,
                 onPhotoClick = { photo ->
                     state.openViewer(ViewerCollection.All, photo.id)
                 },
@@ -122,11 +123,13 @@ private fun CollectionScreen(
             )
             CollectionPivot.Albums -> AlbumsPane(
                 albums = state.albums,
+                loading = state.isLoading,
                 onAlbumClick = state::openAlbum,
                 modifier = Modifier.testTag("metro_page_pivot"),
             )
             CollectionPivot.Favorites -> FavoritesPane(
                 photos = state.favoritePhotos,
+                loading = state.isLoading,
                 onPhotoClick = { photo ->
                     state.openViewer(ViewerCollection.Favorites, photo.id)
                 },

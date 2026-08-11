@@ -42,13 +42,18 @@ sealed interface ImeWindowProps {
     fun keyboardWidth(constraints: ImeWindowConstraints): Dp
 
     fun calcKeyMarginH(constraints: ImeWindowConstraints): Dp {
-        val factor = keyboardWidth(constraints) / constraints.defKeyboardWidth
-        return constraints.defKeyMarginH * sqrt(factor)
+        return constraints.defKeyMarginH * keyMarginScale(constraints)
     }
 
     fun calcKeyMarginV(constraints: ImeWindowConstraints): Dp {
-        val factor = keyboardHeight / constraints.defKeyboardHeight
-        return constraints.defKeyMarginV * sqrt(factor)
+        return constraints.defKeyMarginV * keyMarginScale(constraints)
+    }
+
+    private fun keyMarginScale(constraints: ImeWindowConstraints): Float {
+        val widthFactor = keyboardWidth(constraints) / constraints.defKeyboardWidth
+        val heightFactor = keyboardHeight / constraints.defKeyboardHeight
+        // One scale for both axes so row and column gutters stay matched.
+        return sqrt(((widthFactor + heightFactor) / 2f).coerceAtLeast(0f))
     }
 
     fun calcFontScale(constraints: ImeWindowConstraints): Float {

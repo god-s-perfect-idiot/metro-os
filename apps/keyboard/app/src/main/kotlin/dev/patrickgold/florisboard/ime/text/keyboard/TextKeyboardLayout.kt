@@ -218,9 +218,11 @@ fun TextKeyboardLayout(
         val windowSpec by windowController.activeWindowSpec.collectAsState()
         val keyMarginH by remember { derivedStateOf { windowSpec.keyMarginH.toPx() } }
         val keyMarginV by remember { derivedStateOf { windowSpec.keyMarginV.toPx() } }
+        // WP8.1 SIP gutters are square: the same gap between rows and between columns.
+        val keyMargin by remember { derivedStateOf { (keyMarginH + keyMarginV) / 2f } }
 
         val desiredKey = remember(
-            keyboard, keyboardWidth, keyboardHeight, keyMarginH, keyMarginV,
+            keyboard, keyboardWidth, keyboardHeight, keyMargin,
             keyboardRowBaseHeight, evaluator
         ) {
             TextKey(data = TextKeyData.UNSPECIFIED).also { desiredKey ->
@@ -237,7 +239,7 @@ fun TextKeyboardLayout(
                         else -> keyboardRowBaseHeight.toPx()
                     }
                 }
-                desiredKey.visibleBounds.applyFrom(desiredKey.touchBounds).deflateBy(keyMarginH, keyMarginV)
+                desiredKey.visibleBounds.applyFrom(desiredKey.touchBounds).deflateBy(keyMargin, keyMargin)
                 keyboard.layout(keyboardWidth, keyboardHeight, desiredKey, true)
             }
         }

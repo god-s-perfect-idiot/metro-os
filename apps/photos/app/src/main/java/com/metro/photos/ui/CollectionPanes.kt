@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -18,17 +20,18 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.photos.R
 import com.metro.photos.data.AlbumGroup
 import com.metro.photos.data.DateGroup
 import com.metro.photos.data.PhotoItem
-import com.metro.photos.data.ViewerCollection
+import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroEmptyState
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -39,11 +42,13 @@ fun AllPicturesPane(
     dateGroups: List<DateGroup>,
     onPhotoClick: (PhotoItem) -> Unit,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
 ) {
     if (dateGroups.isEmpty()) {
-        MetroEmptyState(
-            message = stringResource(R.string.empty_all),
-            modifier = modifier.fillMaxSize(),
+        PhotosLoadingOrEmpty(
+            loading = loading,
+            emptyMessage = stringResource(R.string.empty_all),
+            modifier = modifier,
         )
         return
     }
@@ -105,11 +110,13 @@ fun AlbumsPane(
     albums: List<AlbumGroup>,
     onAlbumClick: (AlbumGroup) -> Unit,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
 ) {
     if (albums.isEmpty()) {
-        MetroEmptyState(
-            message = stringResource(R.string.empty_albums),
-            modifier = modifier.fillMaxSize(),
+        PhotosLoadingOrEmpty(
+            loading = loading,
+            emptyMessage = stringResource(R.string.empty_albums),
+            modifier = modifier,
         )
         return
     }
@@ -150,7 +157,7 @@ private fun AlbumTile(
             style = MetroTextStyle.ListItemSubtitle,
             color = Color.White,
             modifier = Modifier
-                .align(androidx.compose.ui.Alignment.BottomStart)
+                .align(Alignment.BottomStart)
                 .padding(8.dp),
         )
     }
@@ -161,17 +168,22 @@ fun FavoritesPane(
     photos: List<PhotoItem>,
     onPhotoClick: (PhotoItem) -> Unit,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
 ) {
     if (photos.isEmpty()) {
-        Column(modifier = modifier.fillMaxSize()) {
-            MetroEmptyState(message = stringResource(R.string.empty_favorites))
-            MetroText(
-                text = stringResource(R.string.empty_favorites_hint),
-                style = MetroTextStyle.Body,
-                color = MetroTheme.colors.secondaryText,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-        }
+        PhotosLoadingOrEmpty(
+            loading = loading,
+            emptyMessage = stringResource(R.string.empty_favorites),
+            modifier = modifier,
+            extra = {
+                MetroText(
+                    text = stringResource(R.string.empty_favorites_hint),
+                    style = MetroTextStyle.Body,
+                    color = MetroTheme.colors.secondaryText,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+            },
+        )
         return
     }
 
@@ -207,11 +219,13 @@ fun AlbumDetailScreen(
             .navigationBarsPadding()
             .metroNavBarPadding(),
     ) {
+        MetroAppTitle(title = stringResource(R.string.photos_label))
         MetroText(
             text = album.name,
-            style = MetroTextStyle.ListItemTitle,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
+            style = MetroTextStyle.PageTitle,
+            modifier = Modifier.padding(start = 12.dp),
         )
+        Spacer(Modifier.height(12.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             modifier = Modifier.fillMaxSize(),
@@ -228,5 +242,26 @@ fun AlbumDetailScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PhotosLoadingOrEmpty(
+    loading: Boolean,
+    emptyMessage: String,
+    modifier: Modifier = Modifier,
+    extra: (@Composable () -> Unit)? = null,
+) {
+    if (loading) {
+        MetroLoadingScreen(modifier = modifier.fillMaxSize())
+        return
+    }
+    if (extra == null) {
+        MetroEmptyState(message = emptyMessage, modifier = modifier.fillMaxSize())
+        return
+    }
+    Column(modifier = modifier.fillMaxSize()) {
+        MetroEmptyState(message = emptyMessage)
+        extra()
     }
 }
