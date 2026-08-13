@@ -194,7 +194,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 |----------|------|
 | Position | **Bottom** of screen, full width — never top |
 | Height | 72dp portrait (icon row + padding) |
-| Background | Theme @ 80% opacity |
+| Background | `#1F1F1F` (`MetroAppBarDefaults.ChromeBackground`) |
 | Standard mode | Up to **4** icon buttons visible |
 | Minimized mode | **Ellipsis only** (`…`) — **mandatory on panorama** |
 | Icon buttons | **Icon only** in the bar — **no text-only bar buttons** |
@@ -202,7 +202,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Icon color | White on dark theme, black on light — monochrome only |
 | Press state | `MetroAppBar` fills a **white/black circle** behind the icon and inverts the glyph — **do not bake the press circle into the asset** |
 | Disabled icon | 40% opacity |
-| Collapsed reveal | Icon row only (no labels); `…` ellipsis pinned top-right |
+| Collapsed reveal | Icon row only (no labels); `…` ellipsis pinned **top-right**, near the bar’s top edge |
 | Expanded reveal | Tapping `…` fades in a **text label beneath every icon** and slides a **text-only menu list in below the icon row** — the bar grows upward from the bottom edge |
 | Menu | Up to **5** text-only items, listed beneath the icon row when expanded |
 | Menu item text | lowercase, 14–20 char recommended |

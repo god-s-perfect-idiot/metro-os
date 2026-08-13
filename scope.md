@@ -91,6 +91,8 @@ metro-os/
 └── scripts/
     ├── verify-app.sh        # Per-app verification entrypoint
     ├── verify-all.sh        # Full suite verification
+    ├── build-apks.sh        # Build all complete suite APKs
+    ├── deploy-suite.sh      # Build + install all suite apps on adb device
     └── install-shell.sh     # Install Tier 0 on device/emulator
 ```
 

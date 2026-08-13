@@ -24,6 +24,8 @@ Read: `AGENTS.md` → `toolkits/metro-ui-android/METRO-UX-LANGUAGE.md` (UI work)
 | `./scripts/verify-avd.sh <name>` | AVD screenshots + UI probes |
 | `./scripts/agent-overseer.sh <name> "<task>"` | Cursor agent orchestration |
 | `./scripts/verify-all.sh` | Full suite |
+| `./scripts/build-apks.sh` | Build all complete suite APKs |
+| `./scripts/deploy-suite.sh` | Build + install all suite apps on connected adb device |
 | `./scripts/install-shell.sh` | Install Tier 0 APKs |
 
 ## Self-correction

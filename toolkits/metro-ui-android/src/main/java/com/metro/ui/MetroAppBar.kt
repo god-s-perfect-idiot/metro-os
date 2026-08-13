@@ -6,6 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -128,8 +130,18 @@ object MetroAppBarDefaults {
     val IconCircleSize: Dp = 40.dp
     /** Stroke width of the rest-state circular outline. */
     val IconCircleBorder: Dp = 1.5.dp
-    /** Neutral gray chrome behind the bar. */
-    val ChromeBackground: Color = Color(0xFF4C4C4C)
+    /** Secondary-surface chrome behind the bar (`#1F1F1F`). */
+    val ChromeBackground: Color = MetroColors.DarkSecondarySurface
+    /** Top inset for the `…` ellipsis — near the bar’s top edge, with a small breath. */
+    val EllipsisTopPadding: Dp = 6.dp
+    /** Width of the three-dot ellipsis glyph. */
+    val EllipsisWidth: Dp = 28.dp
+    /** Height of the three-dot ellipsis glyph (keeps dots near the top edge). */
+    val EllipsisHeight: Dp = 10.dp
+    /** Radius of each ellipsis dot. */
+    val EllipsisDotRadius: Dp = 2.dp
+    /** Center-to-center spacing between ellipsis dots. */
+    val EllipsisDotSpacing: Dp = 9.dp
     const val MaxIcons = 4
     const val MaxMenuItems = 5
 }
@@ -203,7 +215,7 @@ fun MetroAppBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = MetroAppBarDefaults.BarHeight)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(start = 8.dp, end = 8.dp, bottom = 2.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 val showIconRow = expanded || !minimized
@@ -221,7 +233,7 @@ fun MetroAppBar(
                 EllipsisButton(
                     expanded = expanded,
                     onClick = { onExpandedChange(!expanded) },
-                    modifier = Modifier.align(Alignment.CenterEnd),
+                    modifier = Modifier.align(Alignment.TopEnd),
                 )
             }
 
@@ -317,6 +329,7 @@ private fun EllipsisButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val color = MetroTheme.colors.primaryText
     Box(
         modifier = modifier
             .size(MetroAppBarDefaults.TouchTarget)
@@ -324,15 +337,24 @@ private fun EllipsisButton(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+            )
+            .padding(top = MetroAppBarDefaults.EllipsisTopPadding),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        MetroSystemIcon(
-            type = MetroSystemIconType.More,
-            iconSize = MetroAppBarDefaults.GlyphSize,
-            color = MetroTheme.colors.primaryText,
-            showCircle = false,
-        )
+        Canvas(
+            modifier = Modifier.size(
+                width = MetroAppBarDefaults.EllipsisWidth,
+                height = MetroAppBarDefaults.EllipsisHeight,
+            ),
+        ) {
+            val radius = MetroAppBarDefaults.EllipsisDotRadius.toPx()
+            val spacing = MetroAppBarDefaults.EllipsisDotSpacing.toPx()
+            val cy = radius
+            val cx = size.width / 2f
+            drawCircle(color, radius, Offset(cx - spacing, cy))
+            drawCircle(color, radius, Offset(cx, cy))
+            drawCircle(color, radius, Offset(cx + spacing, cy))
+        }
     }
 }
 

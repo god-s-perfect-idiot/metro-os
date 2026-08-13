@@ -20,6 +20,8 @@ This document defines how AI agents (and humans) use automation to keep the metr
 | `scripts/verify-avd.sh <name>` | UI completeness on device | `apps/<name>/deploy/avd-report.json` |
 | `scripts/agent-overseer.sh <name> "<task>"` | Autonomous implement+verify | `apps/<name>/deploy/overseer.log` |
 | `scripts/verify-all.sh` | Pre-release / nightly | Aggregated report at `deploy/verify-suite.json` |
+| `scripts/build-apks.sh` | Suite APK collection | Builds all complete apps → `deploy/apks/` |
+| `scripts/deploy-suite.sh` | Device testing | Build + install all suite apps on connected adb device |
 | `scripts/install-shell.sh` | Device testing | Installs Tier 0 APKs in order |
 
 ## verify-app.sh pipeline

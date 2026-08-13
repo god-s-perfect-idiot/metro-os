@@ -44,5 +44,8 @@ class MetroAppBarTest {
         assertEquals(5, MetroAppBarDefaults.MaxMenuItems)
         assertEquals(52f, MetroAppBarDefaults.BarHeight.value, 0.01f)
         assertEquals(42f, MetroAppBarDefaults.GlyphSize.value, 0.01f)
+        assertEquals(MetroColors.DarkSecondarySurface, MetroAppBarDefaults.ChromeBackground)
+        assertEquals(6f, MetroAppBarDefaults.EllipsisTopPadding.value, 0.01f)
+        assertEquals(9f, MetroAppBarDefaults.EllipsisDotSpacing.value, 0.01f)
     }
 }
