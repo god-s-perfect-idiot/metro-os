@@ -3,6 +3,8 @@ package com.metro.ui
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.unit.IntOffset
 
@@ -24,6 +26,14 @@ object MetroTransitions {
     const val ActionCenterOpenMs = 280
     const val ActionCenterCloseMs = 240
     const val TileFlipMs = 600
+    /** First half of live-tile flip (0° → edge-on). */
+    const val TileFlipHalfMs = TileFlipMs / 2
+    /**
+     * Spring settle on the second half (−90° → 0°): overshoot past flat, then correct.
+     * Lower dampingRatio = larger, more readable bounce at landing.
+     */
+    const val TileFlipSettleDampingRatio = 0.45f
+    const val TileFlipSettleStiffness = Spring.StiffnessLow
     /** Jump-list letter tile entrance flip (PlaneProjection RotationX). */
     const val JumpListFlipMs = 300
     /** Delay between successive diagonals when the jump grid enters. */
@@ -47,6 +57,17 @@ object MetroTransitions {
     fun <T> tileFlipTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = TileFlipMs,
         easing = PivotEasing,
+    )
+
+    fun <T> tileFlipHalfTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = TileFlipHalfMs,
+        easing = PivotEasing,
+    )
+
+    /** Second flip half: spring landing with overshoot past 0° before settling flat. */
+    fun <T> tileFlipSettleSpring(): FiniteAnimationSpec<T> = spring(
+        dampingRatio = TileFlipSettleDampingRatio,
+        stiffness = TileFlipSettleStiffness,
     )
 
     fun <T> jumpListFlipTween(): FiniteAnimationSpec<T> = tween(

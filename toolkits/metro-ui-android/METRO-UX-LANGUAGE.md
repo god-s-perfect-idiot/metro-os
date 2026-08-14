@@ -331,7 +331,10 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 |----------|------|
 | Use case | Hub / overview only — not dense data |
 | Header region | 432dp tall, full-bleed background image |
-| Peek | ~40dp of next panel visible on right |
+| Peek | **~40dp** of next panel visible on right (`MetroPanoramaContentPeek`; override via `contentPeek`) |
+| Last pane | **Full viewport width** when settled — no previous pane visible on the left |
+| Pane width | `viewport width − contentPeek` for non-final panes; final pane fills the viewport |
+| Section titles | `HubTitle` (56sp Light), one per pane, **pane-aligned** — only a sliver of the next title peeks in; scroll continuously with pager offset |
 | Parallax | Background scrolls at **0.5×** content speed |
 | App bar | **Minimized only** |
 | Content | Summaries and entry points — not long lists |
@@ -632,7 +635,7 @@ Need a container shape?
 | §6.5 Hyperlink | `MetroHyperlink` | Planned |
 | §6.6 List item | `MetroListItem` | Planned |
 | §6.7 Pivot | `MetroPivot` | Planned |
-| §6.8 Panorama | `MetroPanorama` | Planned |
+| §6.8 Panorama | `MetroPanorama` | Implemented |
 | §6.9 Toggle | `MetroToggleSwitch` | Implemented |
 | §6.10 Checkbox | `MetroCheckBox` | Planned |
 | §6.11 Radio | `MetroRadioButton` | Planned |

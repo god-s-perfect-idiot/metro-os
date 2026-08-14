@@ -4,7 +4,6 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -61,10 +60,8 @@ private const val MOSAIC_FLIP_HOLD_JITTER_MS = 1_400L
 private const val MOSAIC_FLIP_STAGGER_MAX_MS = 2_500L
 private const val MOSAIC_FLIP_CAMERA_DISTANCE = 16f
 
-private val MosaicFlipHalfAnimation = tween<Float>(
-    durationMillis = MetroTransitions.TileFlipMs / 2,
-    easing = FastOutSlowInEasing,
-)
+private val MosaicFlipHalfAnimation = MetroTransitions.tileFlipHalfTween<Float>()
+private val MosaicFlipSettleAnimation = MetroTransitions.tileFlipSettleSpring<Float>()
 
 /**
  * WP8.1 People hub mosaic (3×3 on medium, 6×3 on wide): live flip refresh on each sub-tile.
@@ -337,7 +334,7 @@ private fun FlippingPhotoGridCell(
         rotation.animateTo(90f, animationSpec = MosaicFlipHalfAnimation)
         displayed = cell
         rotation.snapTo(-90f)
-        rotation.animateTo(0f, animationSpec = MosaicFlipHalfAnimation)
+        rotation.animateTo(0f, animationSpec = MosaicFlipSettleAnimation)
     }
 
     Box(

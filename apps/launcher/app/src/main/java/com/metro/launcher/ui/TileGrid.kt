@@ -120,10 +120,8 @@ private val TileMagnetAnimation: AnimationSpec<Dp> = tween(
     durationMillis = TILE_MAGNET_MS,
     easing = FastOutSlowInEasing,
 )
-private val TileFlipHalfAnimation = tween<Float>(
-    durationMillis = MetroTransitions.TileFlipMs / 2,
-    easing = FastOutSlowInEasing,
-)
+private val TileFlipHalfAnimation = MetroTransitions.tileFlipHalfTween<Float>()
+private val TileFlipSettleAnimation = MetroTransitions.tileFlipSettleSpring<Float>()
 
 private data class AnimatedTileBounds(
     val width: Dp,
@@ -1497,7 +1495,9 @@ private fun NotificationPeekTileContent(
 
 /**
  * 600ms vertical flip (around the horizontal center axis) between front (icon/title or photo)
- * and back (notification peek or app icon) faces. The accent [faceColor] is painted on the
+ * and back (notification peek or app icon) faces. Forward flip reveals the back face;
+ * the return flip reverses direction to restore the front. The second half settles with a spring
+ * overshoot past flat before correcting. The accent [faceColor] is painted on the
  * rotating face so the black tile slot behind it is revealed mid-flip. [flipSeed] drives a
  * per-tile random stagger so flips don't synchronize across the Start screen.
  *
@@ -1523,11 +1523,19 @@ private fun LiveTileFlipFace(
         while (true) {
             val jitter = rng.nextLong(-TILE_FLIP_HOLD_JITTER_MS, TILE_FLIP_HOLD_JITTER_MS + 1)
             delay((TILE_FLIP_HOLD_MS + jitter).coerceAtLeast(2_500L))
-            // Pivot about the tile center: 0° → +90° (edge-on), swap face, −90° → 0°.
-            rotation.animateTo(90f, animationSpec = TileFlipHalfAnimation)
-            showingBack = !showingBack
-            rotation.snapTo(-90f)
-            rotation.animateTo(0f, animationSpec = TileFlipHalfAnimation)
+            // Front → notification: 0° → +90°, swap, −90° → 0°.
+            // Notification → front: reverse 0° → −90°, swap, +90° → 0°.
+            if (showingBack) {
+                rotation.animateTo(-90f, animationSpec = TileFlipHalfAnimation)
+                showingBack = false
+                rotation.snapTo(90f)
+                rotation.animateTo(0f, animationSpec = TileFlipSettleAnimation)
+            } else {
+                rotation.animateTo(90f, animationSpec = TileFlipHalfAnimation)
+                showingBack = true
+                rotation.snapTo(-90f)
+                rotation.animateTo(0f, animationSpec = TileFlipSettleAnimation)
+            }
         }
     }
 

@@ -22,20 +22,16 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 private val PivotTabSpacing = 20.dp
-private val PanoramaTitleSpacing = 24.dp
 /** Content margin for the active title; inactive titles bleed past screen edges. */
 private val HubTitleStartInset = MetroDimens.ScreenHorizontalMargin
 
 enum class MetroHubTitleMode {
     /** Active tab flush-left; earlier tabs scroll off to the left. */
     Pivot,
-    /** Same layout at hub-title scale; next pane title peeks in when it fits. */
-    Panorama,
 }
 
 /**
- * Baseline-aligned hub / pivot / panorama page titles.
- * Shared by [MetroPivot] and [MetroPanorama].
+ * Baseline-aligned pivot page titles. Panorama titles use [MetroPanoramaTitleRow].
  */
 @Composable
 fun MetroHubTitleRow(
@@ -45,20 +41,11 @@ fun MetroHubTitleRow(
     mode: MetroHubTitleMode = MetroHubTitleMode.Pivot,
     onTitleClick: ((Int) -> Unit)? = null,
 ) {
-    val style = when (mode) {
-        MetroHubTitleMode.Pivot -> MetroTextStyle.PivotTab
-        MetroHubTitleMode.Panorama -> MetroTextStyle.HubTitle
-    }
-    val spacing = when (mode) {
-        MetroHubTitleMode.Pivot -> PivotTabSpacing
-        MetroHubTitleMode.Panorama -> PanoramaTitleSpacing
-    }
-
     ScrollingTitleRow(
         titles = titles,
         selectedIndex = selectedIndex,
-        style = style,
-        spacing = spacing,
+        style = MetroTextStyle.PivotTab,
+        spacing = PivotTabSpacing,
         modifier = modifier,
         onTitleClick = onTitleClick,
     )
