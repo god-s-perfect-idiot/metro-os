@@ -49,14 +49,20 @@ object MetroTransitions {
     const val JumpListFlipStaggerMs = 40
     /** Page pivot load — rotateY door-close from the left edge (PlaneProjection). */
     const val PagePivotLoadMs = 200
-    /** Enter start angle — half-open swing, not fully edge-on. */
-    const val PagePivotLoadStartDegrees = 45f
-    /** Hinge left of the viewport (fraction of width; negative = off-screen). */
-    const val PagePivotLoadOriginX = -0.15f
-    /** Exit flip-out end angle (`rotateY` 0° → −90°). */
-    const val PagePivotExitEndDegrees = -90f
-    /** Exit vertical stretch as the page flips off-screen. */
-    const val PagePivotExitScaleY = 1.5f
+    /** Enter start angle — quarter swing; page is already mostly flat (not edge-on). */
+    const val PagePivotLoadStartDegrees = 22.5f
+    /** Hinge at the viewport left edge (fraction of width). */
+    const val PagePivotLoadOriginX = 0f
+    /** Enter slide start — +15% into the viewport; settles to rest (not off-screen). */
+    const val PagePivotLoadStartTranslationXFraction = 0.15f
+    /** Exit hinge inset from the left — +15% into the viewport. */
+    const val PagePivotExitOriginX = 0.15f
+    /** Exit tilt — page recedes into the screen (`rotateY` 0° → −28°), no vertical stretch. */
+    const val PagePivotExitEndDegrees = -28f
+    /** Softer perspective on exit so the page does not shoot upward off-screen. */
+    const val PagePivotExitCameraWidthFactor = 1.45f
+    /** Exit slide — fraction of viewport width; negative pushes the left hinge off-screen. */
+    const val PagePivotExitTranslationXFraction = -0.15f
 
     /** WP NavigationThemeTransition ease-out cubic approximation. */
     val PageEasing: Easing = CubicBezierEasing(0.0f, 0.0f, 0.0f, 1.0f)

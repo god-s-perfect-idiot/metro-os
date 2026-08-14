@@ -540,7 +540,7 @@ WP8.1 settings ListPicker — inline expand, **not** a Material menu, dialog rad
 | App bar show/hide | 200ms | Slide from bottom |
 | Live tile flip | 600ms | Turnstile |
 | Status tray | 200ms/icon staggered R→L | Hold 5000ms then staggered exit up |
-| Page pivot load | 200ms | Ease-out; enter `rotateY` 45° → 0°; exit flip-out `rotateY` 0° → −90° + `scaleY` 1.5 |
+| Page pivot load | 200ms | Ease-out; enter `rotateY` 22.5° → 0°, translate x +15% → 0 (hinge x 0); exit tilt-back `rotateY` 0° → −28°, translate x 0 → −15%, hinge x +15%, softer camera, fade |
 
 Show progress for operations **> 500ms**. No Material shared-element transitions.
 

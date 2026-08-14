@@ -32,9 +32,12 @@ private const val PagePivotCameraDefaultInches = 8f
  * Small-tile flips use ~16×density, but that camera is so far from a full-screen page that
  * `rotationY` reads as a flat fade. Size from [widthPx] so the left-edge hinge stays visible.
  */
-fun metroPagePivotCameraDistance(widthPx: Float): Float {
+fun metroPagePivotCameraDistance(
+    widthPx: Float,
+    widthFactor: Float = PagePivotCameraWidthFactor,
+): Float {
     if (widthPx <= 0f) return PagePivotCameraDefaultInches
-    return (widthPx / SkiaPointsPerInch) * PagePivotCameraWidthFactor
+    return (widthPx / SkiaPointsPerInch) * widthFactor
 }
 
 /**
@@ -70,10 +73,12 @@ fun MetroAppPivotShell(
 }
 
 /**
- * WP8.1 page pivot load — enter swings inward from off-screen left
- * (`rotateY` [MetroTransitions.PagePivotLoadStartDegrees]° → 0°). Exit is a separate flip-out:
- * `rotateY` 0° → [MetroTransitions.PagePivotExitEndDegrees]° with
- * `scaleY` → [MetroTransitions.PagePivotExitScaleY] and fade.
+ * WP8.1 page pivot load — enter finishes a short left-hinge swing
+ * (`rotateY` [MetroTransitions.PagePivotLoadStartDegrees]° → 0°) and slide from
+ * [MetroTransitions.PagePivotLoadStartTranslationXFraction]× width to rest. Exit tilts back into
+ * the screen: `rotateY` 0° → [MetroTransitions.PagePivotExitEndDegrees]°, hinge at
+ * [MetroTransitions.PagePivotExitOriginX], slide
+ * [MetroTransitions.PagePivotExitTranslationXFraction]× width left, softer exit camera, and fade.
  *
  * Pass a distinct [loadKey] when replacing page content so the enter animation runs again.
  * Set [exiting] for the flip-out; [onExitComplete] runs once that outro finishes.
@@ -90,12 +95,20 @@ fun MetroPagePivotLoad(
         Animatable(if (exiting) 0f else MetroTransitions.PagePivotLoadStartDegrees)
     }
     val alpha = remember { Animatable(if (exiting) 1f else 0f) }
-    val scaleY = remember { Animatable(1f) }
+    val translationXFraction = remember {
+        Animatable(
+            if (exiting) {
+                0f
+            } else {
+                MetroTransitions.PagePivotLoadStartTranslationXFraction
+            },
+        )
+    }
     LaunchedEffect(loadKey, exiting) {
         if (exiting) {
             rotationY.snapTo(0f)
             alpha.snapTo(1f)
-            scaleY.snapTo(1f)
+            translationXFraction.snapTo(0f)
             coroutineScope {
                 val fade = launch { alpha.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
                 val pivot = launch {
@@ -104,24 +117,27 @@ fun MetroPagePivotLoad(
                         MetroTransitions.pagePivotLoadTween(),
                     )
                 }
-                val stretch = launch {
-                    scaleY.animateTo(
-                        MetroTransitions.PagePivotExitScaleY,
+                val slide = launch {
+                    translationXFraction.animateTo(
+                        MetroTransitions.PagePivotExitTranslationXFraction,
                         MetroTransitions.pagePivotLoadTween(),
                     )
                 }
                 fade.join()
                 pivot.join()
-                stretch.join()
+                slide.join()
             }
             onExitComplete?.invoke()
         } else {
             rotationY.snapTo(MetroTransitions.PagePivotLoadStartDegrees)
             alpha.snapTo(0f)
-            scaleY.snapTo(1f)
+            translationXFraction.snapTo(MetroTransitions.PagePivotLoadStartTranslationXFraction)
             coroutineScope {
                 launch { alpha.animateTo(1f, MetroTransitions.pagePivotLoadTween()) }
                 launch { rotationY.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
+                launch {
+                    translationXFraction.animateTo(0f, MetroTransitions.pagePivotLoadTween())
+                }
             }
         }
     }
@@ -129,14 +145,21 @@ fun MetroPagePivotLoad(
         modifier = modifier.graphicsLayer {
             this.rotationY = rotationY.value
             this.alpha = alpha.value
-            this.scaleY = scaleY.value
+            translationX = translationXFraction.value * size.width
             transformOrigin = if (exiting) {
-                TransformOrigin(0f, 0.5f)
+                TransformOrigin(MetroTransitions.PagePivotExitOriginX, 0.5f)
             } else {
                 TransformOrigin(MetroTransitions.PagePivotLoadOriginX, 0.5f)
             }
             clip = false
-            cameraDistance = metroPagePivotCameraDistance(size.width)
+            cameraDistance = metroPagePivotCameraDistance(
+                widthPx = size.width,
+                widthFactor = if (exiting) {
+                    MetroTransitions.PagePivotExitCameraWidthFactor
+                } else {
+                    PagePivotCameraWidthFactor
+                },
+            )
         },
     ) {
         content()

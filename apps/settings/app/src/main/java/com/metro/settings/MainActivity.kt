@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import com.metro.settings.ui.SettingsShell
 import com.metro.settings.ui.SettingsState
+import com.metro.ui.MetroActivities
 import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {

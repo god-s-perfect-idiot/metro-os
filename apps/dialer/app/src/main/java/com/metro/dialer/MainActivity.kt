@@ -25,6 +25,7 @@ import com.metro.dialer.telecom.MetroTelecomSetup
 import com.metro.dialer.ui.DialerShell
 import com.metro.dialer.ui.DialerState
 import com.metro.dialer.ui.PermissionScreen
+import com.metro.ui.MetroActivities
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 

@@ -87,14 +87,17 @@ class MetroTransitionsTest {
     @Test
     fun pagePivotLoad_is200msWithHalfOpenSwing() {
         assertEquals(200, MetroTransitions.PagePivotLoadMs)
-        assertEquals(45f, MetroTransitions.PagePivotLoadStartDegrees, 0f)
-        assertEquals(-0.15f, MetroTransitions.PagePivotLoadOriginX, 0f)
+        assertEquals(22.5f, MetroTransitions.PagePivotLoadStartDegrees, 0f)
+        assertEquals(0f, MetroTransitions.PagePivotLoadOriginX, 0f)
+        assertEquals(0.15f, MetroTransitions.PagePivotLoadStartTranslationXFraction, 0f)
     }
 
     @Test
-    fun pagePivotExit_flipsOutWithStretch() {
-        assertEquals(-90f, MetroTransitions.PagePivotExitEndDegrees, 0f)
-        assertEquals(1.5f, MetroTransitions.PagePivotExitScaleY, 0f)
+    fun pagePivotExit_tiltsBackIntoScreen() {
+        assertEquals(-28f, MetroTransitions.PagePivotExitEndDegrees, 0f)
+        assertEquals(0.15f, MetroTransitions.PagePivotExitOriginX, 0f)
+        assertEquals(1.45f, MetroTransitions.PagePivotExitCameraWidthFactor, 0f)
+        assertEquals(-0.15f, MetroTransitions.PagePivotExitTranslationXFraction, 0f)
     }
 
     @Test
