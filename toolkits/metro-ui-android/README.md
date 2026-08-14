@@ -55,8 +55,20 @@ MetroTheme {
 }
 ```
 
-`MetroAppBarIcon` also accepts a custom `icon: @Composable (Color) -> Unit` glyph for app-specific
-artwork (e.g. a phone or envelope), so every app routes its overflow actions through the same bar.
+`MetroAppBarIcon` also accepts a custom `icon: @Composable (Color) -> Unit` glyph for
+**truly app-unique** artwork. Prefer a `MetroSystemIconType` first — extend the shared
+catalog in this toolkit when the glyph will be reused.
+
+### Shared icons
+
+| API | Purpose |
+|-----|---------|
+| `MetroSystemIcon` / `MetroSystemIconType` | Chrome + common app-bar glyphs |
+| `MetroMediaGlyph` / `MetroMediaGlyphIcon` | Music transport / shuffle / queue |
+| `MetroAppGlyphs` | Suite app identity + third-party tile overrides (`metro_app_*`, `metro_tile_*`) |
+
+App launcher foregrounds should alias `@drawable/metro_app_<name>` so Start tiles and
+adaptive icons stay identical across the suite.
 
 ### Loading (await)
 

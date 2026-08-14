@@ -2,7 +2,6 @@ package com.metro.launcher.ui
 
 import android.graphics.BitmapFactory
 import android.net.Uri
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,15 +25,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size as GeometrySize
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -47,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.MusicNowPlayingInfo
 import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileSize
+import com.metro.ui.MetroMediaGlyph
+import com.metro.ui.MetroMediaGlyphIcon
 import java.io.File
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -319,6 +315,12 @@ private fun MusicTransportIcon(
     size: Dp,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val glyph = when (type) {
+        MusicTransportGlyph.Play -> MetroMediaGlyph.Play
+        MusicTransportGlyph.Pause -> MetroMediaGlyph.Pause
+        MusicTransportGlyph.Previous -> MetroMediaGlyph.Previous
+        MusicTransportGlyph.Next -> MetroMediaGlyph.Next
+    }
     Box(
         modifier = Modifier
             .size(size + 12.dp)
@@ -334,77 +336,10 @@ private fun MusicTransportIcon(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.size(size)) {
-            val color = if (enabled) Color.White else Color.White.copy(alpha = 0.35f)
-            when (type) {
-                MusicTransportGlyph.Play -> drawPlayGlyph(color)
-                MusicTransportGlyph.Pause -> drawPauseGlyph(color)
-                MusicTransportGlyph.Previous -> drawSkipGlyph(color, forward = false)
-                MusicTransportGlyph.Next -> drawSkipGlyph(color, forward = true)
-            }
-        }
-    }
-}
-
-private fun DrawScope.drawPlayGlyph(color: Color) {
-    val w = size.width
-    val h = size.height
-    val path = Path().apply {
-        moveTo(w * 0.28f, h * 0.18f)
-        lineTo(w * 0.28f, h * 0.82f)
-        lineTo(w * 0.82f, h * 0.50f)
-        close()
-    }
-    drawPath(path, color = color)
-}
-
-private fun DrawScope.drawPauseGlyph(color: Color) {
-    val w = size.width
-    val h = size.height
-    val barW = w * 0.18f
-    val gap = w * 0.14f
-    val left = w * 0.28f
-    val top = h * 0.18f
-    val bottom = h * 0.82f
-    drawRect(color = color, topLeft = Offset(left, top), size = GeometrySize(barW, bottom - top))
-    drawRect(
-        color = color,
-        topLeft = Offset(left + barW + gap, top),
-        size = GeometrySize(barW, bottom - top),
-    )
-}
-
-private fun DrawScope.drawSkipGlyph(color: Color, forward: Boolean) {
-    val w = size.width
-    val h = size.height
-    val stroke = Stroke(width = size.minDimension * 0.12f)
-    if (forward) {
-        val path = Path().apply {
-            moveTo(w * 0.18f, h * 0.20f)
-            lineTo(w * 0.18f, h * 0.80f)
-            lineTo(w * 0.62f, h * 0.50f)
-            close()
-        }
-        drawPath(path, color = color)
-        drawLine(
-            color = color,
-            start = Offset(w * 0.72f, h * 0.20f),
-            end = Offset(w * 0.72f, h * 0.80f),
-            strokeWidth = stroke.width,
-        )
-    } else {
-        val path = Path().apply {
-            moveTo(w * 0.82f, h * 0.20f)
-            lineTo(w * 0.82f, h * 0.80f)
-            lineTo(w * 0.38f, h * 0.50f)
-            close()
-        }
-        drawPath(path, color = color)
-        drawLine(
-            color = color,
-            start = Offset(w * 0.28f, h * 0.20f),
-            end = Offset(w * 0.28f, h * 0.80f),
-            strokeWidth = stroke.width,
+        MetroMediaGlyphIcon(
+            glyph = glyph,
+            glyphSize = size,
+            color = if (enabled) Color.White else Color.White.copy(alpha = 0.35f),
         )
     }
 }

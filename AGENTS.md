@@ -69,6 +69,7 @@ Verify-time expectation: every page listed in `blueprint.md` resolves to either 
 - Use Kotlin + Jetpack Compose.
 - Theme via `MetroTheme` from `metro-ui-android`.
 - System settings via `MetroPreferences` from `metro-system-sdk`.
+- **Icons via shared suite set** — `MetroSystemIconType` / `MetroMediaGlyph` / `MetroAppGlyphs` from `metro-ui-android`. Do not duplicate chrome or app-identity glyphs in apps.
 - Log platform exceptions in the app's `README.md` § Platform exceptions.
 
 ### Before marking complete

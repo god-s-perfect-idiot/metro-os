@@ -329,6 +329,11 @@ Live tiles are **not** drawn inside the launcher from hard-coded per-app logic. 
 - **Simple, geometric, monochromatic** — no skeuomorphism
 - System icons: 26×26dp, single color (white or black per theme)
 - No drop shadows on icons
+- **Shared suite icon set (required):**
+  - Chrome / app-bar glyphs → `MetroSystemIcon` / `MetroSystemIconType` in `metro-ui-android`
+  - Media transport glyphs → `MetroMediaGlyph` in `metro-ui-android`
+  - Suite app identity + tile overrides → `MetroAppGlyphs` drawables (`metro_app_*`, `metro_tile_*`)
+  - Do **not** invent per-app Canvas icons or duplicate vectors for icons that already exist in the toolkit; extend the toolkit when a new shared glyph is needed
 - Photography: full-bleed when used; never rounded-corner "Material cards"
 - Splash screen: full-screen branded image, **no text requiring reading**, visible ≤ 3 seconds
 

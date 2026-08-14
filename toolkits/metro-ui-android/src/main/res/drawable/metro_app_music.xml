@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WP8.1 Files glyph: open folder with raised tab (matches files app icon). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Simple headphones glyph for Music tile stand-in -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M22,36h28l8,8h28v40H22z" />
+        android:pathData="M54,28c-14,0 -26,10 -26,24v18c0,4 3,7 7,7h6v-18h-6c0,-11 9,-20 19,-20s19,9 19,20h-6v18h6c4,0 7,-3 7,-7V52c0,-14 -12,-24 -26,-24z" />
 </vector>

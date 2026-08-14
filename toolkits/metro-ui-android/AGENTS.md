@@ -76,6 +76,7 @@ Mapped via `MetroFontFamily` in `MetroTextStyle.kt`. Weight roles: Light → pag
 - Every composable must have `@Preview` in dark + light theme.
 - Export `Modifier.metroTiltOnPress()` for list items.
 - Document each public composable in `README.md` and the matching section of `METRO-UX-LANGUAGE.md` §13.
+- **Shared icons:** chrome glyphs live in `MetroSystemIconType`; media in `MetroMediaGlyph`; suite/tile identity drawables in `res/drawable/metro_*` + `MetroAppGlyphs`. Apps must not reimplement these.
 
 ## Verify
 

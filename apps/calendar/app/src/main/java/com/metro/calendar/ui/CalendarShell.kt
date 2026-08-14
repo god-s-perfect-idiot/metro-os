@@ -1,9 +1,7 @@
 package com.metro.calendar.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
@@ -11,19 +9,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import com.metro.calendar.R
 import com.metro.calendar.data.CalendarLogic
 import com.metro.calendar.data.CalendarViewType
 import com.metro.calendar.data.DayBucket
 import com.metro.ui.MetroAppBar
-import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
 import com.metro.ui.MetroAppTitle
@@ -135,11 +126,10 @@ fun CalendarShell(
         MetroAppBar(
             icons = listOf(
                 MetroAppBarIcon(
+                    type = MetroSystemIconType.SwitchView,
                     label = stringResource(R.string.view_type),
                     onClick = state::toggleTypePicker,
                     contentDescription = stringResource(R.string.view_type),
-                    showRestOutline = false,
-                    icon = { color -> ViewTypeIcon(color = color) },
                 ),
                 MetroAppBarIcon(
                     type = MetroSystemIconType.Add,
@@ -197,50 +187,3 @@ private fun weekBuckets(state: CalendarState, weekStart: Long): List<DayBucket> 
             events = CalendarLogic.eventsForDay(state.events, day),
         )
     }
-
-/**
- * "Switch view" glyph — two opposing horizontal arrows inside the standard circular outline.
- * Circle is drawn here (with [MetroAppBarIcon.showRestOutline] false) so the border matches Add.
- */
-@Composable
-private fun ViewTypeIcon(color: Color) {
-    Canvas(modifier = Modifier.size(MetroAppBarDefaults.IconCircleSize)) {
-        val strokeWidth = size.minDimension * 0.05f
-        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-
-        drawCircle(
-            color = color,
-            radius = size.minDimension * 0.42f - strokeWidth,
-            style = Stroke(width = strokeWidth),
-        )
-
-        val cx = size.width / 2f
-        val halfLen = size.minDimension * 0.22f
-        val offsetY = size.minDimension * 0.10f
-        val head = size.minDimension * 0.085f
-        val topY = size.height / 2f - offsetY
-        val botY = size.height / 2f + offsetY
-
-        drawLine(color, Offset(cx - halfLen, topY), Offset(cx + halfLen, topY), strokeWidth, StrokeCap.Round)
-        drawPath(
-            Path().apply {
-                moveTo(cx + halfLen - head, topY - head)
-                lineTo(cx + halfLen, topY)
-                lineTo(cx + halfLen - head, topY + head)
-            },
-            color,
-            style = stroke,
-        )
-
-        drawLine(color, Offset(cx - halfLen, botY), Offset(cx + halfLen, botY), strokeWidth, StrokeCap.Round)
-        drawPath(
-            Path().apply {
-                moveTo(cx - halfLen + head, botY - head)
-                lineTo(cx - halfLen, botY)
-                lineTo(cx - halfLen + head, botY + head)
-            },
-            color,
-            style = stroke,
-        )
-    }
-}

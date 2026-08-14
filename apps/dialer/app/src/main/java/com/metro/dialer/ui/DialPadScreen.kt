@@ -58,6 +58,7 @@ import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -192,14 +193,14 @@ fun CallDetailScreen(
         MetroAppBar(
             icons = listOf(
                 MetroAppBarIcon(
+                    type = MetroSystemIconType.Phone,
                     label = stringResource(R.string.call),
                     onClick = onCall,
-                    icon = { color -> AppBarCallGlyph(color = color) },
                 ),
                 MetroAppBarIcon(
+                    type = MetroSystemIconType.Message,
                     label = stringResource(R.string.message),
                     onClick = onMessage,
-                    icon = { color -> AppBarMessageGlyph(color = color) },
                 ),
             ),
             modifier = Modifier.align(Alignment.BottomCenter),

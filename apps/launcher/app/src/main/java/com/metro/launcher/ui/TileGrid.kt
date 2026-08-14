@@ -67,7 +67,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlin.math.roundToInt
-import com.metro.launcher.R
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.findFirstOpenSlot
 import com.metro.launcher.data.markTileCells
@@ -81,6 +80,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
+import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroTransitions
@@ -1423,7 +1423,7 @@ private fun MessagingGlyph(
 ) {
     Image(
         painter = painterResource(
-            if (unread) R.drawable.ic_system_messaging_unread else R.drawable.ic_system_messaging,
+            if (unread) MetroAppGlyphs.MessagingUnread else MetroAppGlyphs.Messaging,
         ),
         contentDescription = contentDescription,
         contentScale = ContentScale.Fit,

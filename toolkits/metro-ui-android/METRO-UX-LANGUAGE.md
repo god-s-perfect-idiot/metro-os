@@ -555,6 +555,20 @@ Show progress for operations **> 500ms**. No Material shared-element transitions
 | Photography | Full-bleed; square crop; no rounded frames |
 | Splash | Full-screen image, no readable text, ≤ 3s |
 
+### Shared suite icon set
+
+All Metro apps use the same icon catalog from `metro-ui-android`. Do not ship duplicate vectors or invent local Canvas glyphs for icons that already exist.
+
+| Need | Use |
+|------|-----|
+| App bar / chrome action (add, search, phone, heart, …) | `MetroSystemIconType` via `MetroAppBarIcon` / `MetroSystemIcon` |
+| Media transport (play, shuffle, queue, …) | `MetroMediaGlyph` / `MetroMediaGlyphIcon` |
+| Suite app identity (Phone, Mail, Photos, …) | `MetroAppGlyphs` (`metro_app_*` drawables) |
+| Third-party WP tile overrides (Gmail, WhatsApp, …) | `MetroAppGlyphs.tileOverride` (`metro_tile_*`) |
+| Notification small icons | `MetroAppGlyphs.notificationForPackage` (`metro_notification_*`) |
+
+**Agent rule:** If an icon is missing from the catalog, add it to the toolkit (and document it here) before using it in an app. App `ic_launcher_foreground` resources should alias the matching `metro_app_*` drawable.
+
 ---
 
 ## 10. Copy and voice
