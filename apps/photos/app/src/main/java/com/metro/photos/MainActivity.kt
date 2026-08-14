@@ -21,6 +21,7 @@ import com.metro.photos.ui.PermissionScreen
 import com.metro.photos.ui.PhotosShell
 import com.metro.photos.ui.PhotosState
 import com.metro.ui.MetroLoadingScreen
+import com.metro.ui.MetroActivities
 import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
@@ -39,6 +40,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current

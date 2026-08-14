@@ -17,6 +17,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.metro.music.ui.MusicShell
 import com.metro.music.ui.MusicState
 import com.metro.music.ui.PermissionScreen
+import com.metro.ui.MetroActivities
 import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val state = remember { MusicState(this) }

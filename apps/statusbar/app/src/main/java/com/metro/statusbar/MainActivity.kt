@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.statusbar.ui.StatusTray
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroListPicker
@@ -106,6 +107,10 @@ class MainActivity : ComponentActivity() {
                 darkTheme = state.theme.darkTheme,
                 accent = state.theme.accentColor,
             ) {
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { finish() },
+                ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -231,6 +236,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
                     )
+                }
                 }
             }
         }

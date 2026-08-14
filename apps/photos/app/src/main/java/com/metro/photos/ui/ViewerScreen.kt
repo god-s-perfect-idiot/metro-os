@@ -74,13 +74,13 @@ fun ViewerScreen(
             )
         }
 
-        if (chromeVisible) {
-            val current = photos.getOrNull(pagerState.currentPage)
-            val favorite = current?.let { state.isFavorite(it.id) } == true
-            val favoriteLabel = stringResource(R.string.add_favorite)
-            val unfavoriteLabel = stringResource(R.string.remove_favorite)
-            MetroAppBar(
-                icons = listOf(
+        val current = photos.getOrNull(pagerState.currentPage)
+        val favorite = current?.let { state.isFavorite(it.id) } == true
+        val favoriteLabel = stringResource(R.string.add_favorite)
+        val unfavoriteLabel = stringResource(R.string.remove_favorite)
+        MetroAppBar(
+            visible = chromeVisible,
+            icons = listOf(
                     if (favorite) {
                         MetroAppBarIcon(
                             type = MetroSystemIconType.Close,
@@ -99,10 +99,9 @@ fun ViewerScreen(
                         )
                     },
                 ),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .metroNavBarPadding(),
-            )
-        }
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .metroNavBarPadding(),
+        )
     }
 }

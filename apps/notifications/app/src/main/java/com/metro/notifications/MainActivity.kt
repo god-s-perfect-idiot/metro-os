@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.system.MetroPreferences
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroListPicker
@@ -83,6 +84,10 @@ class MainActivity : ComponentActivity() {
             val accent = remember(permissionTick) { prefs.accentColor }
 
             MetroTheme(darkTheme = prefs.isDark, accent = accent) {
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { finish() },
+                ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -199,6 +204,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(horizontal = 12.dp),
                         fontSize = 15.sp,
                     )
+                }
                 }
             }
         }

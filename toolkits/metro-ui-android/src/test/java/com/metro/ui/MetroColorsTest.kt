@@ -83,4 +83,24 @@ class MetroTransitionsTest {
         assertEquals(300, MetroTransitions.JumpListFlipMs)
         assertEquals(40, MetroTransitions.JumpListFlipStaggerMs)
     }
+
+    @Test
+    fun pagePivotLoad_is200msWithHalfOpenSwing() {
+        assertEquals(200, MetroTransitions.PagePivotLoadMs)
+        assertEquals(45f, MetroTransitions.PagePivotLoadStartDegrees, 0f)
+        assertEquals(-0.15f, MetroTransitions.PagePivotLoadOriginX, 0f)
+    }
+
+    @Test
+    fun pagePivotExit_flipsOutWithStretch() {
+        assertEquals(-90f, MetroTransitions.PagePivotExitEndDegrees, 0f)
+        assertEquals(1.5f, MetroTransitions.PagePivotExitScaleY, 0f)
+    }
+
+    @Test
+    fun pagePivotCameraDistance_scalesWithWidth() {
+        assertEquals(13.5f, metroPagePivotCameraDistance(1080f), 0.01f)
+        assertEquals(9f, metroPagePivotCameraDistance(720f), 0.01f)
+        assertEquals(8f, metroPagePivotCameraDistance(0f), 0f)
+    }
 }

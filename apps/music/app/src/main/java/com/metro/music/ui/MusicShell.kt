@@ -157,9 +157,11 @@ fun MusicShell(state: MusicState) {
         }
 
         val jumpListOpen = state.route == MusicRoute.Collection && state.jumpListVisible
-        if ((state.route == MusicRoute.Hub || state.route == MusicRoute.Collection) && !jumpListOpen) {
-            MetroAppBar(
-                icons = listOf(
+        val appBarVisible = (state.route == MusicRoute.Hub || state.route == MusicRoute.Collection) &&
+            !jumpListOpen
+        MetroAppBar(
+            visible = appBarVisible,
+            icons = listOf(
                     MetroAppBarIcon(
                         type = MetroSystemIconType.Search,
                         label = "search",
@@ -181,9 +183,8 @@ fun MusicShell(state: MusicState) {
                         state.route = MusicRoute.Hub
                     },
                 ),
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        }
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
 
         // Hosted here so the grid covers the app bar, as in WP8.1.
         if (jumpListOpen) {

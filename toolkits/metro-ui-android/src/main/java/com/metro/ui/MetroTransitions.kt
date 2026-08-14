@@ -2,8 +2,10 @@ package com.metro.ui
 
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.unit.IntOffset
@@ -16,6 +18,13 @@ object MetroTransitions {
     const val PivotSwitchMs = 250
     const val ListTiltMs = 150
     const val AppBarSlideMs = 200
+    /** Soft-key-style overshoot on app bar icon buttons after the bar creeps in. */
+    const val AppBarButtonOvershootMs = 500
+    private const val AppBarButtonOvershootPeakFraction = 0.7f
+    /** Enter start position for app bar icons (fraction of button height, downward). */
+    const val AppBarButtonStartOffsetFraction = 1.2f
+    /** Overshoot peak above rest (fraction of button height, upward). */
+    const val AppBarButtonOvershootPeakOffsetFraction = -0.2f
     const val StatusTrayExpandMs = 200
     const val StatusTrayCollapseMs = 200
     /** Per-icon delay when indicators drop in / exit upward (right → left). */
@@ -38,6 +47,16 @@ object MetroTransitions {
     const val JumpListFlipMs = 300
     /** Delay between successive diagonals when the jump grid enters. */
     const val JumpListFlipStaggerMs = 40
+    /** Page pivot load — rotateY door-close from the left edge (PlaneProjection). */
+    const val PagePivotLoadMs = 200
+    /** Enter start angle — half-open swing, not fully edge-on. */
+    const val PagePivotLoadStartDegrees = 45f
+    /** Hinge left of the viewport (fraction of width; negative = off-screen). */
+    const val PagePivotLoadOriginX = -0.15f
+    /** Exit flip-out end angle (`rotateY` 0° → −90°). */
+    const val PagePivotExitEndDegrees = -90f
+    /** Exit vertical stretch as the page flips off-screen. */
+    const val PagePivotExitScaleY = 1.5f
 
     /** WP NavigationThemeTransition ease-out cubic approximation. */
     val PageEasing: Easing = CubicBezierEasing(0.0f, 0.0f, 0.0f, 1.0f)
@@ -74,6 +93,24 @@ object MetroTransitions {
         durationMillis = JumpListFlipMs,
         easing = PageEasing,
     )
+
+    fun <T> pagePivotLoadTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = PagePivotLoadMs,
+        easing = PageEasing,
+    )
+
+    fun <T> appBarCreepTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = AppBarSlideMs,
+        easing = PageEasing,
+    )
+
+    fun appBarButtonOvershootKeyframes(): FiniteAnimationSpec<Float> = keyframes {
+        durationMillis = AppBarButtonOvershootMs
+        AppBarButtonStartOffsetFraction at 0
+        AppBarButtonOvershootPeakOffsetFraction at
+            (AppBarButtonOvershootMs * AppBarButtonOvershootPeakFraction).toInt()
+        0f at AppBarButtonOvershootMs using EaseOutCubic
+    }
 
     const val ListTiltDegrees = 3f
 }

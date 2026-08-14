@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         MetroTelecomSetup.registerPhoneAccount(this)
         dialNavigationSignal.value++
         enableEdgeToEdge()

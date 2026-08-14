@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.system.MetroPreferences
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroText
@@ -75,6 +76,10 @@ class MainActivity : ComponentActivity() {
             val canToggleHud = overlayGranted && accessibilityEnabled
 
             MetroTheme(darkTheme = prefs.isDark, accent = accent) {
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { finish() },
+                ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -155,6 +160,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(horizontal = 12.dp),
                         )
                     }
+                }
                 }
             }
         }

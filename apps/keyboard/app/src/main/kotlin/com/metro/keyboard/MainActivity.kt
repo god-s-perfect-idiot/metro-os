@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.metro.keyboard.ui.KeyboardSettingsShell
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroSystemTheme
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
@@ -41,10 +42,15 @@ class MainActivity : ComponentActivity() {
                 appName = R.string.app_name,
             ) {
                 MetroSystemTheme {
-                    KeyboardSettingsApp(
-                        prefsLoaded = prefsLoaded,
+                    MetroAppPivotShell(
                         modifier = Modifier.fillMaxSize(),
-                    )
+                        onExit = { finish() },
+                    ) {
+                        KeyboardSettingsApp(
+                            prefsLoaded = prefsLoaded,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }

@@ -30,6 +30,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroMessageDialog` | Centered modal dialog |
 | `MetroLoadingScreen` | Full-page await — centered label + dancing dots |
 | `MetroLoadingDots` | Inline WP8.1 indeterminate dancing-dots indicator |
+| `MetroPagePivotLoad` | Page enter — off-screen-left 3D pivot swing with fade |
+| `MetroAppPivotShell` | Activity wrapper — pivot enter on launch, flip-out on Back then `finish()` |
 
 ## Usage (target)
 
@@ -83,6 +85,34 @@ if (isLoading) {
 // Inline indicator (e.g. inside a pane):
 MetroLoadingDots()
 ```
+
+### Page pivot load
+
+```kotlin
+MetroPagePivotLoad(
+    modifier = Modifier.fillMaxSize(),
+    loadKey = destination, // re-run enter when destination changes
+) {
+    PageContent()
+}
+```
+
+Off-screen-left hinge enter: `rotateY` 45° → 0° with fade-in. Exit flip-out: `rotateY` 0° → −90°, `scaleY` 1 → 1.5, fade (200ms ease-out). Set `exiting = true` and `onExitComplete` before pop.
+
+### App pivot shell
+
+```kotlin
+MetroTheme { /* … */ ->
+    MetroAppPivotShell(
+        modifier = Modifier.fillMaxSize(),
+        onExit = { finish() },
+    ) {
+        SetupScreenContent()
+    }
+}
+```
+
+Wraps a single-screen activity (shell setup apps) with page pivot enter on launch and flip-out on Back before `finish()`. Nested `BackHandler`s inside the content take priority for in-app navigation.
 
 ### TextBox
 

@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroText
@@ -75,6 +77,10 @@ class MainActivity : ComponentActivity() {
         darkTheme = state.theme.darkTheme,
         accent = state.theme.barColor,
       ) {
+        MetroAppPivotShell(
+          modifier = Modifier.fillMaxSize(),
+          onExit = { finish() },
+        ) {
         Column(
           modifier = Modifier
             .fillMaxSize()
@@ -170,6 +176,7 @@ class MainActivity : ComponentActivity() {
               .fillMaxWidth()
               .padding(horizontal = 12.dp),
           )
+        }
         }
       }
     }

@@ -73,12 +73,6 @@ fun MessagingShell(
                             modifier = Modifier.padding(bottom = MetroAppBarDefaults.BarHeight),
                         )
                     }
-                    ThreadListAppBar(
-                        isDefaultSmsApp = state.isDefaultSmsApp,
-                        onNewMessage = state::startNewMessage,
-                        onSetDefaultApp = onRequestDefaultApp,
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
                 }
             }
             MessagingRoute.NewMessage -> {
@@ -118,6 +112,16 @@ fun MessagingShell(
                 }
             }
         }
+
+        val appBarVisible = state.route is MessagingRoute.Threads &&
+            !(state.isLoadingThreads && state.threads.isEmpty())
+        ThreadListAppBar(
+            visible = appBarVisible,
+            isDefaultSmsApp = state.isDefaultSmsApp,
+            onNewMessage = state::startNewMessage,
+            onSetDefaultApp = onRequestDefaultApp,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
@@ -141,6 +145,7 @@ private fun Modifier.composerBottomClearance(): Modifier {
 
 @Composable
 private fun ThreadListAppBar(
+    visible: Boolean,
     isDefaultSmsApp: Boolean,
     onNewMessage: () -> Unit,
     onSetDefaultApp: () -> Unit,
@@ -160,6 +165,7 @@ private fun ThreadListAppBar(
         add(MetroAppBarMenuItem("settings", enabled = false) {})
     }
     MetroAppBar(
+        visible = visible,
         icons = listOf(
             MetroAppBarIcon(
                 type = MetroSystemIconType.Add,

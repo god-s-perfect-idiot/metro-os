@@ -48,4 +48,12 @@ class MetroAppBarTest {
         assertEquals(6f, MetroAppBarDefaults.EllipsisTopPadding.value, 0.01f)
         assertEquals(9f, MetroAppBarDefaults.EllipsisDotSpacing.value, 0.01f)
     }
+
+    @Test
+    fun appBarMotion_matchesReferenceCss() {
+        assertEquals(200, MetroTransitions.AppBarSlideMs)
+        assertEquals(500, MetroTransitions.AppBarButtonOvershootMs)
+        assertEquals(1.2f, MetroTransitions.AppBarButtonStartOffsetFraction)
+        assertEquals(-0.2f, MetroTransitions.AppBarButtonOvershootPeakOffsetFraction)
+    }
 }

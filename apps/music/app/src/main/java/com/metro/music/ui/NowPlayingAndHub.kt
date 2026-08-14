@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -69,13 +69,17 @@ import kotlin.math.sin
 
 private const val HubBrandText = "metro music"
 private val HubBrandInset = 12.dp
+private val GetMusicHubTileInset = 8.dp
+/** Slightly under half-width so the pair reads lighter than full-bleed Start squares. */
+private const val GetMusicHubTileWidthScale = 0.88f
 
 private val MetroMusicBrandStyle = TextStyle(
     fontFamily = MetroFontFamily,
     fontWeight = FontWeight.ExtraLight,
     fontSize = 96.sp,
-    lineHeight = 100.sp,
+    lineHeight = 96.sp,
     letterSpacing = (-1).sp,
+    platformStyle = PlatformTextStyle(includeFontPadding = false),
 )
 
 /**
@@ -100,7 +104,7 @@ fun MusicHub(
             modifier = Modifier
                 .fillMaxWidth()
                 .clipToBounds()
-                .padding(top = 8.dp, bottom = 4.dp),
+                .padding(bottom = 4.dp),
             contentAlignment = Alignment.BottomStart,
         ) {
             val measurer = rememberTextMeasurer()
@@ -215,22 +219,22 @@ fun GetMusicPane(
             .padding(horizontal = 12.dp)
             .padding(top = 24.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            GetMusicHubTile(
-                title = "search",
-                glyph = GetMusicTileGlyph.Search,
-                onClick = onOpenExplore,
-                modifier = Modifier.weight(1f),
-            )
-            GetMusicHubTile(
-                title = if (state.ytConnected) "account" else "connect",
-                glyph = GetMusicTileGlyph.Account,
-                onClick = onOpenSettings,
-                modifier = Modifier.weight(1f),
-            )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val tileSize = ((maxWidth - 8.dp) / 2) * GetMusicHubTileWidthScale
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GetMusicHubTile(
+                    title = "search",
+                    glyph = GetMusicTileGlyph.Search,
+                    onClick = onOpenExplore,
+                    modifier = Modifier.size(tileSize),
+                )
+                GetMusicHubTile(
+                    title = if (state.ytConnected) "account" else "connect",
+                    glyph = GetMusicTileGlyph.Account,
+                    onClick = onOpenSettings,
+                    modifier = Modifier.size(tileSize),
+                )
+            }
         }
         Spacer(modifier = Modifier.height(24.dp))
         MetroText(
@@ -295,30 +299,27 @@ private fun GetMusicHubTile(
 ) {
     val background = MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
-    Column(
+    BoxWithConstraints(
         modifier = modifier
-            .aspectRatio(1f)
             .background(background)
             .clickable(onClick = onClick)
             .semantics { contentDescription = title }
-            .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 16.dp),
+            .padding(GetMusicHubTileInset),
     ) {
-        BoxWithConstraints(
+        val iconSize = minOf(maxWidth, maxHeight) * 0.54f
+        Canvas(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center,
+                .size(iconSize)
+                .align(Alignment.Center),
         ) {
-            val iconSize = minOf(maxWidth, maxHeight) * 0.62f
-            Canvas(modifier = Modifier.size(iconSize)) {
-                drawGetMusicTileGlyph(glyph, content)
-            }
+            drawGetMusicTileGlyph(glyph, content)
         }
         MetroText(
             text = title,
             style = MetroTextStyle.ListItemTitle,
             color = content,
             maxLines = 1,
+            modifier = Modifier.align(Alignment.BottomStart),
         )
     }
 }

@@ -1,6 +1,7 @@
 package com.metro.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -19,14 +20,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,6 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 /**
  * WP8.1 application bar (§6.2 of METRO-UX-LANGUAGE.md).
@@ -153,8 +164,17 @@ fun MetroAppBar(
     modifier: Modifier = Modifier,
     menuItems: List<MetroAppBarMenuItem> = emptyList(),
     minimized: Boolean = false,
+    /** When false, plays a creep-out animation before removing the bar from composition. */
+    visible: Boolean = true,
+    /** When non-null, replays the enter animation whenever this value changes while [visible]. */
+    enterKey: Any? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(visible) {
+        if (!visible) {
+            expanded = false
+        }
+    }
     MetroAppBar(
         icons = icons,
         expanded = expanded,
@@ -162,6 +182,8 @@ fun MetroAppBar(
         modifier = modifier,
         menuItems = menuItems,
         minimized = minimized,
+        visible = visible,
+        enterKey = enterKey,
     )
 }
 
@@ -180,10 +202,44 @@ fun MetroAppBar(
     modifier: Modifier = Modifier,
     menuItems: List<MetroAppBarMenuItem> = emptyList(),
     minimized: Boolean = false,
+    /** When false, plays a creep-out animation before removing the bar from composition. */
+    visible: Boolean = true,
+    /** When non-null, replays the enter animation whenever this value changes while [visible]. */
+    enterKey: Any? = null,
 ) {
     val visibleIcons = icons.take(MetroAppBarDefaults.MaxIcons)
     val visibleMenu = menuItems.take(MetroAppBarDefaults.MaxMenuItems)
     val chrome = MetroAppBarDefaults.ChromeBackground
+    var enterEpoch by remember { mutableIntStateOf(0) }
+    var onScreen by remember { mutableStateOf(visible) }
+
+    val barOffset = remember { Animatable(1f) }
+    val density = LocalDensity.current
+    val navBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val defaultSlidePx = with(density) { (MetroAppBarDefaults.BarHeight + navBottomInset).toPx() }
+    var collapsedSlidePx by remember { mutableFloatStateOf(defaultSlidePx) }
+
+    LaunchedEffect(visible, enterKey) {
+        if (visible) {
+            barOffset.snapTo(1f)
+            onScreen = true
+            enterEpoch++
+            barOffset.animateTo(0f, MetroTransitions.appBarCreepTween())
+        } else if (onScreen) {
+            if (expanded) {
+                onExpandedChange(false)
+            }
+            barOffset.animateTo(1f, MetroTransitions.appBarCreepTween())
+            onScreen = false
+        }
+    }
+
+    if (!onScreen) return
+
+    val hiddenFraction = barOffset.value
+    val slidePx = collapsedSlidePx.takeIf { it > 0f } ?: defaultSlidePx
+    val creepTranslationY = hiddenFraction * slidePx
+    val animateIconKeys = visible && enterEpoch > 0
 
     // Fill the parent only while expanded so the dismiss scrim can intercept outside taps;
     // collapsed it simply wraps the bar so page content underneath stays interactive.
@@ -208,6 +264,15 @@ fun MetroAppBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .onSizeChanged { size ->
+                    // Latch resting collapsed height only — never while creeping (avoids squish loop).
+                    if (!expanded && hiddenFraction <= 0f) {
+                        collapsedSlidePx = size.height.toFloat()
+                    }
+                }
+                .graphicsLayer {
+                    translationY = creepTranslationY
+                }
                 .background(chrome)
                 .navigationBarsPadding(),
         ) {
@@ -226,7 +291,12 @@ fun MetroAppBar(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         visibleIcons.forEach { item ->
-                            AppBarIconButton(item = item, showLabel = expanded)
+                            AppBarIconButton(
+                                item = item,
+                                showLabel = expanded,
+                                enterEpoch = enterEpoch,
+                                animateKeys = animateIconKeys,
+                            )
                         }
                     }
                 }
@@ -259,6 +329,8 @@ fun MetroAppBar(
 private fun AppBarIconButton(
     item: MetroAppBarIcon,
     showLabel: Boolean,
+    enterEpoch: Int,
+    animateKeys: Boolean,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -269,10 +341,32 @@ private fun AppBarIconButton(
     // Standard affordance: a circular outline at rest that fills on press; the glyph then inverts
     // to the chrome color so it reads on the filled circle.
     val glyphColor = if (active) MetroTheme.colors.background else baseColor
+    val buttonHeightPx = with(LocalDensity.current) { MetroAppBarDefaults.TouchTarget.toPx() }
+    val offsetAnim = remember { Animatable(0f) }
+    val opacityAnim = remember { Animatable(1f) }
+
+    LaunchedEffect(enterEpoch, animateKeys) {
+        if (!animateKeys || enterEpoch == 0) {
+            offsetAnim.snapTo(0f)
+            opacityAnim.snapTo(1f)
+            return@LaunchedEffect
+        }
+        offsetAnim.snapTo(MetroTransitions.AppBarButtonStartOffsetFraction)
+        opacityAnim.snapTo(0f)
+        launch {
+            opacityAnim.animateTo(1f, MetroTransitions.appBarCreepTween())
+        }
+        offsetAnim.animateTo(0f, MetroTransitions.appBarButtonOvershootKeyframes())
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(84.dp),
+        modifier = Modifier
+            .width(84.dp)
+            .graphicsLayer {
+                translationY = offsetAnim.value * buttonHeightPx
+                alpha = opacityAnim.value
+            },
     ) {
         Box(
             modifier = Modifier

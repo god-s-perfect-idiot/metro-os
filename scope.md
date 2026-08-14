@@ -348,6 +348,7 @@ Live tiles are **not** drawn inside the launcher from hard-coded per-app logic. 
 | App bar show/hide | 200ms | Slide from bottom |
 | Status tray expand | 200ms/icon staggered R→L drop | Hold 5000ms then staggered exit up |
 | Live tile flip | 600ms | WP8.1 turnstile animation |
+| Page pivot load | 200ms | Ease-out; left-hinge `rotateY` swing-in (`MetroPagePivotLoad`) |
 
 - Perceived instant threshold: **< 500ms**
 - Always show progress feedback for operations > 500ms

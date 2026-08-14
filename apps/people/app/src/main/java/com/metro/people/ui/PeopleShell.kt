@@ -1,12 +1,6 @@
 package com.metro.people.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -44,7 +38,6 @@ import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
-import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
 
 private val SearchFieldRowHeight = 48.dp
@@ -118,30 +111,6 @@ fun PeopleShell(
                         ),
                     )
                 }
-
-                AnimatedVisibility(
-                    visible = !searching,
-                    enter = slideInVertically(
-                        animationSpec = tween(MetroTransitions.AppBarSlideMs),
-                        initialOffsetY = { it },
-                    ) + fadeIn(animationSpec = tween(MetroTransitions.AppBarSlideMs)),
-                    exit = slideOutVertically(
-                        animationSpec = tween(MetroTransitions.AppBarSlideMs),
-                        targetOffsetY = { it },
-                    ) + fadeOut(animationSpec = tween(MetroTransitions.AppBarSlideMs)),
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                ) {
-                    MetroAppBar(
-                        icons = listOf(
-                            MetroAppBarIcon(
-                                type = MetroSystemIconType.Search,
-                                label = "search",
-                                onClick = state::openSearch,
-                                contentDescription = stringResource(R.string.search_contacts),
-                            ),
-                        ),
-                    )
-                }
             }
             PeopleRoute.Filter -> FilterScreen(
                 initial = state.filter,
@@ -169,6 +138,20 @@ fun PeopleShell(
                 }
             }
         }
+
+        val appBarVisible = state.route == PeopleRoute.Hub && !searching
+        MetroAppBar(
+            visible = appBarVisible,
+            icons = listOf(
+                MetroAppBarIcon(
+                    type = MetroSystemIconType.Search,
+                    label = "search",
+                    onClick = state::openSearch,
+                    contentDescription = stringResource(R.string.search_contacts),
+                ),
+            ),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
 
         if (state.jumpListVisible && !searching) {
             MetroJumpList(
