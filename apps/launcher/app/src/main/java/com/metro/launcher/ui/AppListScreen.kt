@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,6 +67,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import kotlin.math.roundToInt
@@ -102,7 +104,10 @@ private val ContextMenuHorizontalPadding = 16.dp
 private val ContextMenuVerticalPadding = 12.dp
 private val ContextMenuMinWidth = 160.dp
 private val ContextMenuMaxVisibleItems = 6
-/** ListItemTitle line (~24sp) plus top/bottom item padding. */
+/** Match toolkit context menu — slightly under list title (24sp). */
+private val ContextMenuLabelSize = 20.sp
+private val ContextMenuLabelLineHeight = 24.sp
+/** Label line plus top/bottom item padding. */
 private val ContextMenuItemRowHeight = 48.dp
 private val ContextMenuMaxScrollHeight =
     ContextMenuItemRowHeight * ContextMenuMaxVisibleItems + ContextMenuVerticalPadding * 2
@@ -546,14 +551,17 @@ private fun AppListContextMenuItem(
             .padding(vertical = ContextMenuVerticalPadding),
         contentAlignment = Alignment.CenterStart,
     ) {
-        MetroText(
+        BasicText(
             text = text,
-            style = MetroTextStyle.ListItemTitle,
-            color = if (enabled) {
-                MetroColors.LightPrimaryText
-            } else {
-                MetroColors.LightSecondaryText
-            },
+            style = MetroTextStyle.ListItemTitle.toTextStyle().copy(
+                fontSize = ContextMenuLabelSize,
+                lineHeight = ContextMenuLabelLineHeight,
+                color = if (enabled) {
+                    MetroColors.LightPrimaryText
+                } else {
+                    MetroColors.LightSecondaryText
+                },
+            ),
         )
     }
 }

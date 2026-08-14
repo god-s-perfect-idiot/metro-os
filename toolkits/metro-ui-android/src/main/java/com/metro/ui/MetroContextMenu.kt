@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import kotlin.math.roundToInt
@@ -47,6 +49,9 @@ private val ContextMenuItemRowHeight = 48.dp
 private val ContextMenuMaxScrollHeight =
     ContextMenuItemRowHeight * ContextMenuMaxVisibleItems + ContextMenuVerticalPadding * 2
 private val ContextMenuExpandMs = MetroTransitions.AppBarSlideMs
+/** Slightly under [MetroTextStyle.ListItemTitle] (24sp) so menu rows feel denser than the list. */
+private val ContextMenuLabelSize = 20.sp
+private val ContextMenuLabelLineHeight = 24.sp
 
 /**
  * WP8.1-style context menu popup — light panel, black labels, height wipe reveal.
@@ -139,14 +144,17 @@ fun MetroContextMenuPanel(
                     .padding(vertical = ContextMenuVerticalPadding),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                MetroText(
+                BasicText(
                     text = item.label,
-                    style = MetroTextStyle.ListItemTitle,
-                    color = if (item.enabled) {
-                        MetroColors.LightPrimaryText
-                    } else {
-                        MetroColors.LightSecondaryText
-                    },
+                    style = MetroTextStyle.ListItemTitle.toTextStyle().copy(
+                        fontSize = ContextMenuLabelSize,
+                        lineHeight = ContextMenuLabelLineHeight,
+                        color = if (item.enabled) {
+                            MetroColors.LightPrimaryText
+                        } else {
+                            MetroColors.LightSecondaryText
+                        },
+                    ),
                 )
             }
         }
