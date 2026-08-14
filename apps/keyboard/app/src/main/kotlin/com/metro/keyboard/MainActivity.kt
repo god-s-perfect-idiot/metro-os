@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.metro.keyboard.ui.KeyboardSettingsShell
+import com.metro.ui.MetroActivities
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroSystemTheme
 import dev.patrickgold.florisboard.R
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
             setKeepOnScreenCondition { !appContext.preferenceStoreLoaded.value }
         }
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val prefsLoaded by appContext.preferenceStoreLoaded.collectAsState()
@@ -44,7 +46,7 @@ class MainActivity : ComponentActivity() {
                 MetroSystemTheme {
                     MetroAppPivotShell(
                         modifier = Modifier.fillMaxSize(),
-                        onExit = { finish() },
+                        onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
                     ) {
                         KeyboardSettingsApp(
                             prefsLoaded = prefsLoaded,

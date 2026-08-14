@@ -42,10 +42,12 @@ fun metroPagePivotCameraDistance(
 
 /**
  * Full-screen app wrapper — page pivot load on launch; Back runs the flip-out
- * then invokes [onExit] (typically `activity.finish()`).
+ * then invokes [onExit] (typically [MetroActivities.finishWithExitTransition]).
  *
- * Place inside [MetroTheme]. Nested `BackHandler`s take priority, so in-app
- * navigation can intercept Back before this shell exits the activity.
+ * Place inside [MetroTheme]. Call [MetroActivities.applyLaunchTransition] from
+ * the activity `onCreate` so the platform open animation does not fight this
+ * Compose pivot. Nested `BackHandler`s take priority, so in-app navigation can
+ * intercept Back before this shell exits the activity.
  */
 @Composable
 fun MetroAppPivotShell(

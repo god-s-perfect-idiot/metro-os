@@ -15,6 +15,8 @@ import com.metro.calculator.data.CalculatorAction
 import com.metro.calculator.data.CalculatorLogic
 import com.metro.calculator.data.CalculatorState
 import com.metro.calculator.ui.CalculatorShell
+import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
@@ -24,18 +26,24 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             // Recompose when orientation/size changes under configChanges.
             configurationEpoch
             MetroSystemTheme {
-                CalculatorShell(
-                    state = state,
-                    onAction = { action ->
-                        state = CalculatorLogic.reduce(state, action)
-                    },
+                MetroAppPivotShell(
                     modifier = Modifier.fillMaxSize(),
-                )
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    CalculatorShell(
+                        state = state,
+                        onAction = { action ->
+                            state = CalculatorLogic.reduce(state, action)
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }

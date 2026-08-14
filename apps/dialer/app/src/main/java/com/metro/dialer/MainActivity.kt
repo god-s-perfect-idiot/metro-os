@@ -26,6 +26,7 @@ import com.metro.dialer.ui.DialerShell
 import com.metro.dialer.ui.DialerState
 import com.metro.dialer.ui.PermissionScreen
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 
@@ -96,7 +97,7 @@ class MainActivity : ComponentActivity() {
                         MetroTelecomBridge.handleCallIntent(context, uri)
                         setIntent(Intent(Intent.ACTION_MAIN))
                         if (MetroTelecomBridge.isDefaultDialer(context)) {
-                            finish()
+                            MetroActivities.finishWithExitTransition(this@MainActivity)
                         }
                     }
                     else -> {
@@ -111,43 +112,48 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroSystemTheme {
-                when {
-                    !state.permissionsChecked -> {
-                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
-                    }
-                    needsSetup -> {
-                        PermissionScreen(
-                            hasCallLogPermission = state.hasCallLogPermission,
-                            hasCallPhonePermission = state.hasCallPhonePermission,
-                            isDefaultDialer = isDefaultDialer,
-                            onRequestPermissions = {
-                                permissionResult = { callLog, contacts, callPhone ->
-                                    state.onPermissionResult(callLog, contacts, callPhone)
-                                }
-                                val permissions = buildList {
-                                    add(Manifest.permission.READ_CALL_LOG)
-                                    add(Manifest.permission.READ_CONTACTS)
-                                    add(Manifest.permission.CALL_PHONE)
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        add(Manifest.permission.POST_NOTIFICATIONS)
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    when {
+                        !state.permissionsChecked -> {
+                            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                        }
+                        needsSetup -> {
+                            PermissionScreen(
+                                hasCallLogPermission = state.hasCallLogPermission,
+                                hasCallPhonePermission = state.hasCallPhonePermission,
+                                isDefaultDialer = isDefaultDialer,
+                                onRequestPermissions = {
+                                    permissionResult = { callLog, contacts, callPhone ->
+                                        state.onPermissionResult(callLog, contacts, callPhone)
                                     }
-                                }
-                                requestPermissions.launch(permissions.toTypedArray())
-                            },
-                            onRequestDefaultDialer = {
-                                MetroTelecomSetup.createDefaultDialerRequestIntent(context)?.let { roleIntent ->
-                                    requestDefaultDialer.launch(roleIntent)
-                                }
-                            },
-                            onContinue = { skippedDefaultDialer = true },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    else -> {
-                        DialerShell(
-                            state = state,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                                    val permissions = buildList {
+                                        add(Manifest.permission.READ_CALL_LOG)
+                                        add(Manifest.permission.READ_CONTACTS)
+                                        add(Manifest.permission.CALL_PHONE)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            add(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    }
+                                    requestPermissions.launch(permissions.toTypedArray())
+                                },
+                                onRequestDefaultDialer = {
+                                    MetroTelecomSetup.createDefaultDialerRequestIntent(context)?.let { roleIntent ->
+                                        requestDefaultDialer.launch(roleIntent)
+                                    }
+                                },
+                                onContinue = { skippedDefaultDialer = true },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        else -> {
+                            DialerShell(
+                                state = state,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }

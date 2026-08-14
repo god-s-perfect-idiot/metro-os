@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import com.metro.settings.ui.SettingsShell
 import com.metro.settings.ui.SettingsState
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
@@ -23,10 +24,15 @@ class MainActivity : ComponentActivity() {
         settingsState.value = state
         setContent {
             MetroSystemTheme {
-                SettingsShell(
-                    state = state,
+                MetroAppPivotShell(
                     modifier = Modifier.fillMaxSize(),
-                )
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    SettingsShell(
+                        state = state,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }

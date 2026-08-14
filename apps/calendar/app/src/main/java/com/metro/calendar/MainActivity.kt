@@ -20,6 +20,8 @@ import com.metro.calendar.tiles.CalendarTileRefresh
 import com.metro.calendar.ui.CalendarShell
 import com.metro.calendar.ui.CalendarState
 import com.metro.calendar.ui.PermissionScreen
+import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
@@ -63,27 +66,32 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroSystemTheme {
-                when {
-                    !state.permissionsChecked -> {
-                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
-                    }
-                    state.needsPermissionGate -> {
-                        PermissionScreen(
-                            onRequestPermission = {
-                                permissionResult = { granted ->
-                                    state.onPermissionResult(granted)
-                                }
-                                requestCalendar.launch(Manifest.permission.READ_CALENDAR)
-                            },
-                            onContinueWithDemo = state::continueWithDemo,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    else -> {
-                        CalendarShell(
-                            state = state,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    when {
+                        !state.permissionsChecked -> {
+                            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                        }
+                        state.needsPermissionGate -> {
+                            PermissionScreen(
+                                onRequestPermission = {
+                                    permissionResult = { granted ->
+                                        state.onPermissionResult(granted)
+                                    }
+                                    requestCalendar.launch(Manifest.permission.READ_CALENDAR)
+                                },
+                                onContinueWithDemo = state::continueWithDemo,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        else -> {
+                            CalendarShell(
+                                state = state,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }

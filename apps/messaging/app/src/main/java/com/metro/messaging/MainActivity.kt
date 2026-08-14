@@ -25,6 +25,8 @@ import com.metro.messaging.tiles.MessagingTileRefresh
 import com.metro.messaging.ui.MessagingShell
 import com.metro.messaging.ui.MessagingState
 import com.metro.messaging.ui.PermissionScreen
+import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         navigationSignal.intValue++
         enableEdgeToEdge()
         setContent {
@@ -96,53 +99,58 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroSystemTheme {
-                when {
-                    !state.permissionsChecked -> {
-                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
-                    }
-                    state.needsPermissionGate -> {
-                        PermissionScreen(
-                            onRequestPermissions = {
-                                permissionResult = { readSms, sendSms, contacts ->
-                                    state.onPermissionResult(readSms, sendSms, contacts)
-                                }
-                                requestPermissions.launch(
-                                    arrayOf(
-                                        Manifest.permission.READ_SMS,
-                                        Manifest.permission.SEND_SMS,
-                                        Manifest.permission.READ_CONTACTS,
-                                    ),
-                                )
-                            },
-                            onContinueWithDemo = state::continueWithDemo,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    else -> {
-                        MessagingShell(
-                            state = state,
-                            onRequestDefaultApp = {
-                                val roleIntent = DefaultSmsApp.requestIntent(context)
-                                if (roleIntent == null) {
-                                    Toast.makeText(
-                                        context,
-                                        "Already the default messaging app",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                    state.refreshPermissions(context)
-                                    state.refreshDefaultStatus()
-                                } else {
-                                    defaultAppResult = {
-                                        // Role grant also unlocks Telephony provider access — refresh
-                                        // permissions and switch off demo data immediately.
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    when {
+                        !state.permissionsChecked -> {
+                            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                        }
+                        state.needsPermissionGate -> {
+                            PermissionScreen(
+                                onRequestPermissions = {
+                                    permissionResult = { readSms, sendSms, contacts ->
+                                        state.onPermissionResult(readSms, sendSms, contacts)
+                                    }
+                                    requestPermissions.launch(
+                                        arrayOf(
+                                            Manifest.permission.READ_SMS,
+                                            Manifest.permission.SEND_SMS,
+                                            Manifest.permission.READ_CONTACTS,
+                                        ),
+                                    )
+                                },
+                                onContinueWithDemo = state::continueWithDemo,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        else -> {
+                            MessagingShell(
+                                state = state,
+                                onRequestDefaultApp = {
+                                    val roleIntent = DefaultSmsApp.requestIntent(context)
+                                    if (roleIntent == null) {
+                                        Toast.makeText(
+                                            context,
+                                            "Already the default messaging app",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
                                         state.refreshPermissions(context)
                                         state.refreshDefaultStatus()
+                                    } else {
+                                        defaultAppResult = {
+                                            // Role grant also unlocks Telephony provider access — refresh
+                                            // permissions and switch off demo data immediately.
+                                            state.refreshPermissions(context)
+                                            state.refreshDefaultStatus()
+                                        }
+                                        requestDefaultSmsApp.launch(roleIntent)
                                     }
-                                    requestDefaultSmsApp.launch(roleIntent)
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }

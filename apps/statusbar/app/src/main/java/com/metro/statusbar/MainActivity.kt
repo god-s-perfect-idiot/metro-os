@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.statusbar.ui.StatusTray
+import com.metro.ui.MetroActivities
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
@@ -51,6 +52,7 @@ import com.metro.ui.metroNavBarPadding
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
@@ -109,7 +111,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 MetroAppPivotShell(
                     modifier = Modifier.fillMaxSize(),
-                    onExit = { finish() },
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
                 ) {
                 Column(
                     modifier = Modifier

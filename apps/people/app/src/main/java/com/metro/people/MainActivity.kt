@@ -22,6 +22,8 @@ import com.metro.people.tiles.PeopleTileRefresh
 import com.metro.people.ui.PeopleShell
 import com.metro.people.ui.PeopleState
 import com.metro.people.ui.PermissionScreen
+import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 
@@ -38,6 +40,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
@@ -83,26 +86,31 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroSystemTheme {
-                when {
-                    !state.permissionsChecked -> {
-                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
-                    }
-                    state.hasContactsPermission -> {
-                        PeopleShell(
-                            state = state,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    else -> {
-                        PermissionScreen(
-                            onRequestPermission = {
-                                permissionResult = { granted ->
-                                    state.onPermissionResult(granted)
-                                }
-                                requestContacts.launch(Manifest.permission.READ_CONTACTS)
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    when {
+                        !state.permissionsChecked -> {
+                            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                        }
+                        state.hasContactsPermission -> {
+                            PeopleShell(
+                                state = state,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        else -> {
+                            PermissionScreen(
+                                onRequestPermission = {
+                                    permissionResult = { granted ->
+                                        state.onPermissionResult(granted)
+                                    }
+                                    requestContacts.launch(Manifest.permission.READ_CONTACTS)
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }

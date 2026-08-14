@@ -102,17 +102,23 @@ Enter: `rotateY` 22.5° → 0°, `translationX` +15% width → 0, with fade-in. 
 ### App pivot shell
 
 ```kotlin
+// onCreate, before setContent:
+MetroActivities.applyLaunchTransition(this)
+
 MetroTheme { /* … */ ->
     MetroAppPivotShell(
         modifier = Modifier.fillMaxSize(),
-        onExit = { finish() },
+        onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
     ) {
         SetupScreenContent()
     }
 }
 ```
 
-Wraps a single-screen activity (shell setup apps) with page pivot enter on launch and flip-out on Back before `finish()`. Nested `BackHandler`s inside the content take priority for in-app navigation.
+Wraps an activity with page pivot enter on launch and flip-out on Back before
+`finish()`. Call [MetroActivities.applyLaunchTransition] in `onCreate` so the
+platform transition does not fight the Compose pivot. Nested `BackHandler`s
+inside the content take priority for in-app navigation.
 
 ### TextBox
 

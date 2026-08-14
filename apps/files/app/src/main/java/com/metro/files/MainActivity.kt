@@ -22,6 +22,8 @@ import com.metro.files.data.StorageAccess
 import com.metro.files.ui.FilesShell
 import com.metro.files.ui.FilesState
 import com.metro.files.ui.PermissionScreen
+import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
@@ -60,27 +63,32 @@ class MainActivity : ComponentActivity() {
             permissionTickHandler = { permissionTick++ }
 
             MetroSystemTheme {
-                when {
-                    !state.permissionsChecked -> {
-                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
-                    }
-                    !state.hasStorageAccess -> {
-                        PermissionScreen(
-                            onRequestAccess = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                    startActivity(StorageAccess.manageAllFilesIntent(this@MainActivity))
-                                } else {
-                                    requestLegacyRead.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    else -> {
-                        FilesShell(
-                            state = state,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    when {
+                        !state.permissionsChecked -> {
+                            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                        }
+                        !state.hasStorageAccess -> {
+                            PermissionScreen(
+                                onRequestAccess = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                        startActivity(StorageAccess.manageAllFilesIntent(this@MainActivity))
+                                    } else {
+                                        requestLegacyRead.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        else -> {
+                            FilesShell(
+                                state = state,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }

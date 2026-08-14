@@ -20,8 +20,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.metro.photos.ui.PermissionScreen
 import com.metro.photos.ui.PhotosShell
 import com.metro.photos.ui.PhotosState
-import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
@@ -66,34 +67,39 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroSystemTheme {
-                when {
-                    !state.permissionsChecked -> {
-                        MetroLoadingScreen(modifier = Modifier.fillMaxSize())
-                    }
-                    state.needsPermissionGate -> {
-                        PermissionScreen(
-                            onRequestPermissions = {
-                                permissionResult = { granted ->
-                                    if (granted) {
-                                        state.onPermissionGranted()
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    when {
+                        !state.permissionsChecked -> {
+                            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+                        }
+                        state.needsPermissionGate -> {
+                            PermissionScreen(
+                                onRequestPermissions = {
+                                    permissionResult = { granted ->
+                                        if (granted) {
+                                            state.onPermissionGranted()
+                                        }
                                     }
-                                }
-                                val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
-                                } else {
-                                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-                                }
-                                requestPermissions.launch(permissions)
-                            },
-                            onContinueWithout = state::continueWithoutPhotos,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    else -> {
-                        PhotosShell(
-                            state = state,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                                    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+                                    } else {
+                                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+                                    }
+                                    requestPermissions.launch(permissions)
+                                },
+                                onContinueWithout = state::continueWithoutPhotos,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        else -> {
+                            PhotosShell(
+                                state = state,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }
