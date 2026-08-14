@@ -8,7 +8,12 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.metro.ui.metroNavBarPadding
 
 /**
@@ -30,10 +38,19 @@ fun LauncherShell(
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val editing = state.editingTile != null
+    // Cold start / Home-resume play the enter wave. App-list round-trips must not.
+    var enterWaveKey by remember { mutableIntStateOf(1) }
+    // Survives Start dispose when the pager drops page 0 — returning from the app list
+    // remounts tiles without replaying a wave that already ran (or was left mid-flight).
+    var consumedEnterWaveKey by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
             state.currentPage = page
+            if (page != 0) {
+                consumedEnterWaveKey = enterWaveKey
+            }
         }
     }
 
@@ -44,6 +61,22 @@ fun LauncherShell(
         if (state.currentPage != 1) {
             state.dismissSearch()
         }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        var skipNextResume = true
+        val observer = LifecycleEventObserver { _, event ->
+            if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
+            if (skipNextResume) {
+                skipNextResume = false
+                return@LifecycleEventObserver
+            }
+            if (state.currentPage == 0 && state.editingTile == null) {
+                enterWaveKey++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(
@@ -73,6 +106,8 @@ fun LauncherShell(
                     onUnpin = state::unpinEditingTile,
                     onDragLayout = state::applyDragLayout,
                     onReorderCommit = state::commitTileOrder,
+                    enterWaveKey = enterWaveKey,
+                    consumedEnterWaveKey = consumedEnterWaveKey,
                     modifier = Modifier.testTag("metro_page_start"),
                 )
                 1 -> AppListScreen(

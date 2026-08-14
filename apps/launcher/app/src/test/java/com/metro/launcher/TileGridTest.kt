@@ -114,6 +114,49 @@ class TileGridTest {
     }
 
     @Test
+    fun tileEnterDiagonal_startsAtBottomRight() {
+        // 2×2 of 1×1 cells: bottom-right (1,1) is wave 0; top-left (0,0) is wave 2.
+        assertEquals(
+            0,
+            tileEnterDiagonalIndex(col = 1, row = 1, colSpan = 1, rowSpan = 1, maxRight = 1, maxBottom = 1),
+        )
+        assertEquals(
+            1,
+            tileEnterDiagonalIndex(col = 0, row = 1, colSpan = 1, rowSpan = 1, maxRight = 1, maxBottom = 1),
+        )
+        assertEquals(
+            1,
+            tileEnterDiagonalIndex(col = 1, row = 0, colSpan = 1, rowSpan = 1, maxRight = 1, maxBottom = 1),
+        )
+        assertEquals(
+            2,
+            tileEnterDiagonalIndex(col = 0, row = 0, colSpan = 1, rowSpan = 1, maxRight = 1, maxBottom = 1),
+        )
+    }
+
+    @Test
+    fun tileEnterDiagonal_usesTileBottomRightCorner() {
+        // Wide tile at (0,0) spanning 4×2: its bottom-right is (3,1) → same wave as a 1×1 there.
+        assertEquals(
+            0,
+            tileEnterDiagonalIndex(col = 0, row = 0, colSpan = 4, rowSpan = 2, maxRight = 3, maxBottom = 1),
+        )
+        assertEquals(
+            0,
+            tileEnterDiagonalIndex(col = 3, row = 1, colSpan = 1, rowSpan = 1, maxRight = 3, maxBottom = 1),
+        )
+    }
+
+    @Test
+    fun tileEnterGridExtents_tracksMaxCorners() {
+        val placed = listOf(
+            PlacedTile(displayTile("a", PinnedTileSize.TwoByTwo, col = 0, row = 0), 0, 0),
+            PlacedTile(displayTile("b", PinnedTileSize.OneByOne, col = 3, row = 2), 3, 2),
+        )
+        assertEquals(3 to 2, tileEnterGridExtents(placed))
+    }
+
+    @Test
     fun ensureGridPositions_assignsFirstFitForMissingSlots() {
         val entries = listOf(
             PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo),

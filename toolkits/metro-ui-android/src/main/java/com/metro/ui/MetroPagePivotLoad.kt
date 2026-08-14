@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val SkiaPointsPerInch = 72f
@@ -84,6 +85,8 @@ fun MetroAppPivotShell(
  *
  * Pass a distinct [loadKey] when replacing page content so the enter animation runs again.
  * Set [exiting] for the flip-out; [onExitComplete] runs once that outro finishes.
+ *
+ * For a hinge-only swing with no X slide (e.g. Start tiles), use [MetroPagePivotSwing].
  */
 @Composable
 fun MetroPagePivotLoad(
@@ -93,24 +96,96 @@ fun MetroPagePivotLoad(
     onExitComplete: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
+    MetroPagePivotMotion(
+        modifier = modifier,
+        loadKey = loadKey,
+        exiting = exiting,
+        onExitComplete = onExitComplete,
+        translateX = true,
+        content = content,
+    )
+}
+
+/**
+ * Page pivot **swing** — left-hinge `rotateY` + fade like [MetroPagePivotLoad], but
+ * **no X translation**, with a deeper start angle
+ * ([MetroTransitions.PagePivotSwingStartDegrees]) and closer camera
+ * ([MetroTransitions.PagePivotSwingCameraWidthFactor]) so a shared page hinge
+ * (Start tiles) reads clear foreshortening.
+ *
+ * [cameraWidthPx] sizes perspective (defaults to this layer's width). [hingeInsetPx] is the
+ * distance from the page/camera left edge to this layer's left edge so several children can
+ * share one page hinge (local origin may be &lt; 0). [delayMs] waits before enter starts.
+ * [onEnterComplete] runs after the enter swing finishes (not on exit).
+ */
+@Composable
+fun MetroPagePivotSwing(
+    modifier: Modifier = Modifier,
+    loadKey: Any? = Unit,
+    delayMs: Long = 0L,
+    exiting: Boolean = false,
+    onExitComplete: (() -> Unit)? = null,
+    onEnterComplete: (() -> Unit)? = null,
+    cameraWidthPx: Float? = null,
+    hingeInsetPx: Float = 0f,
+    content: @Composable () -> Unit,
+) {
+    MetroPagePivotMotion(
+        modifier = modifier,
+        loadKey = loadKey,
+        delayMs = delayMs,
+        exiting = exiting,
+        onExitComplete = onExitComplete,
+        onEnterComplete = onEnterComplete,
+        translateX = false,
+        cameraWidthPx = cameraWidthPx,
+        hingeInsetPx = hingeInsetPx,
+        content = content,
+    )
+}
+
+@Composable
+private fun MetroPagePivotMotion(
+    modifier: Modifier,
+    loadKey: Any?,
+    exiting: Boolean,
+    onExitComplete: (() -> Unit)?,
+    translateX: Boolean,
+    content: @Composable () -> Unit,
+    delayMs: Long = 0L,
+    onEnterComplete: (() -> Unit)? = null,
+    cameraWidthPx: Float? = null,
+    hingeInsetPx: Float = 0f,
+) {
+    // Swing (no X slide) uses a deeper enter angle + closer camera than full page load.
+    val enterStartDegrees = if (translateX) {
+        MetroTransitions.PagePivotLoadStartDegrees
+    } else {
+        MetroTransitions.PagePivotSwingStartDegrees
+    }
+    val enterCameraWidthFactor = if (translateX) {
+        PagePivotCameraWidthFactor
+    } else {
+        MetroTransitions.PagePivotSwingCameraWidthFactor
+    }
     val rotationY = remember {
-        Animatable(if (exiting) 0f else MetroTransitions.PagePivotLoadStartDegrees)
+        Animatable(if (exiting) 0f else enterStartDegrees)
     }
     val alpha = remember { Animatable(if (exiting) 1f else 0f) }
     val translationXFraction = remember {
         Animatable(
-            if (exiting) {
-                0f
-            } else {
-                MetroTransitions.PagePivotLoadStartTranslationXFraction
+            when {
+                !translateX -> 0f
+                exiting -> 0f
+                else -> MetroTransitions.PagePivotLoadStartTranslationXFraction
             },
         )
     }
-    LaunchedEffect(loadKey, exiting) {
+    LaunchedEffect(loadKey, exiting, delayMs, translateX) {
         if (exiting) {
             rotationY.snapTo(0f)
             alpha.snapTo(1f)
-            translationXFraction.snapTo(0f)
+            if (translateX) translationXFraction.snapTo(0f)
             coroutineScope {
                 val fade = launch { alpha.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
                 val pivot = launch {
@@ -119,47 +194,75 @@ fun MetroPagePivotLoad(
                         MetroTransitions.pagePivotLoadTween(),
                     )
                 }
-                val slide = launch {
-                    translationXFraction.animateTo(
-                        MetroTransitions.PagePivotExitTranslationXFraction,
-                        MetroTransitions.pagePivotLoadTween(),
-                    )
+                val slide = if (translateX) {
+                    launch {
+                        translationXFraction.animateTo(
+                            MetroTransitions.PagePivotExitTranslationXFraction,
+                            MetroTransitions.pagePivotLoadTween(),
+                        )
+                    }
+                } else {
+                    null
                 }
                 fade.join()
                 pivot.join()
-                slide.join()
+                slide?.join()
             }
             onExitComplete?.invoke()
         } else {
-            rotationY.snapTo(MetroTransitions.PagePivotLoadStartDegrees)
+            rotationY.snapTo(enterStartDegrees)
+            // Stay fully hidden until the (optional) stagger delay ends — otherwise waiting
+            // Start tiles sit in a half-visible pre-swing pose.
             alpha.snapTo(0f)
-            translationXFraction.snapTo(MetroTransitions.PagePivotLoadStartTranslationXFraction)
+            if (translateX) {
+                translationXFraction.snapTo(
+                    MetroTransitions.PagePivotLoadStartTranslationXFraction,
+                )
+            } else {
+                translationXFraction.snapTo(0f)
+            }
+            if (delayMs > 0L) delay(delayMs)
             coroutineScope {
                 launch { alpha.animateTo(1f, MetroTransitions.pagePivotLoadTween()) }
                 launch { rotationY.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
-                launch {
-                    translationXFraction.animateTo(0f, MetroTransitions.pagePivotLoadTween())
+                if (translateX) {
+                    launch {
+                        translationXFraction.animateTo(
+                            0f,
+                            MetroTransitions.pagePivotLoadTween(),
+                        )
+                    }
                 }
             }
+            onEnterComplete?.invoke()
         }
     }
     Box(
         modifier = modifier.graphicsLayer {
             this.rotationY = rotationY.value
             this.alpha = alpha.value
-            translationX = translationXFraction.value * size.width
+            val layerWidth = size.width.coerceAtLeast(1f)
+            if (translateX) {
+                translationX = translationXFraction.value * layerWidth
+            }
             transformOrigin = if (exiting) {
                 TransformOrigin(MetroTransitions.PagePivotExitOriginX, 0.5f)
             } else {
-                TransformOrigin(MetroTransitions.PagePivotLoadOriginX, 0.5f)
+                // Shared page hinge: inset maps page-left into this layer's local origin.
+                TransformOrigin(
+                    pivotFractionX = MetroTransitions.PagePivotLoadOriginX -
+                        (hingeInsetPx / layerWidth),
+                    pivotFractionY = 0.5f,
+                )
             }
             clip = false
+            val cameraWidth = cameraWidthPx?.takeIf { it > 0f } ?: size.width
             cameraDistance = metroPagePivotCameraDistance(
-                widthPx = size.width,
+                widthPx = cameraWidth,
                 widthFactor = if (exiting) {
                     MetroTransitions.PagePivotExitCameraWidthFactor
                 } else {
-                    PagePivotCameraWidthFactor
+                    enterCameraWidthFactor
                 },
             )
         },

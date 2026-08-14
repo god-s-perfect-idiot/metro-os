@@ -83,6 +83,7 @@ import kotlin.random.Random
 import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroPagePivotSwing
 import com.metro.ui.MetroTransitions
 import kotlinx.coroutines.delay
 
@@ -111,6 +112,12 @@ private const val TILE_FLIP_CAMERA_DISTANCE = 16f
 private const val TILE_EDIT_VISUAL_MS = 180
 /** Brief pause before idle float so enter visuals aren't fighting N×2 Animatables. */
 private const val TILE_EDIT_FLOAT_DELAY_MS = 120L
+/**
+ * Delay between successive diagonals on Start enter. Slightly longer than the
+ * jump-list step ([MetroTransitions.JumpListFlipStaggerMs]) so the BR→TL wave
+ * reads clearly across the larger Start tiles.
+ */
+private const val TileEnterStaggerMs = 55L
 private val TileResizeAnimation: AnimationSpec<Dp> = tween(
 
     durationMillis = TILE_RESIZE_MS,
@@ -285,6 +292,31 @@ fun gridContentHeight(unit: Dp, placed: List<PlacedTile>, gap: Dp = TILE_GRID_GA
     return unit * maxRow + gap * max(0, maxRow - 1)
 }
 
+/**
+ * Diagonal wave index for Start enter: bottom-right corner of the tile is wave 0,
+ * then diagonals toward top-left (`(maxRight − right) + (maxBottom − bottom)`).
+ */
+fun tileEnterDiagonalIndex(
+    col: Int,
+    row: Int,
+    colSpan: Int,
+    rowSpan: Int,
+    maxRight: Int,
+    maxBottom: Int,
+): Int {
+    val right = col + colSpan - 1
+    val bottom = row + rowSpan - 1
+    return (maxRight - right) + (maxBottom - bottom)
+}
+
+/** Max right / bottom cell indices across [placed] (inclusive). */
+fun tileEnterGridExtents(placed: List<PlacedTile>): Pair<Int, Int> {
+    if (placed.isEmpty()) return 0 to 0
+    val maxRight = placed.maxOf { it.col + it.tile.entry.size.colSpan - 1 }
+    val maxBottom = placed.maxOf { it.row + it.tile.entry.size.rowSpan - 1 }
+    return maxRight to maxBottom
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TileGrid(
@@ -299,6 +331,10 @@ fun TileGrid(
     onUnpin: () -> Unit = {},
     onDragLayout: (List<PlacedTile>) -> Unit = {},
     onReorderCommit: () -> Unit = {},
+    /** Bump to replay the bottom-right → top-left page-pivot enter wave. */
+    enterWaveKey: Int = 0,
+    /** Waves at or below this key already ran — skip after Start remounts (e.g. app list). */
+    consumedEnterWaveKey: Int = 0,
 ) {
     val density = LocalDensity.current
     val viewConfiguration = LocalViewConfiguration.current
@@ -356,6 +392,9 @@ fun TileGrid(
         } else {
             layoutTilesOnGrid(tiles)
         }
+        val (enterMaxRight, enterMaxBottom) = tileEnterGridExtents(placed)
+        val pageWidthPx = with(density) { maxWidth.toPx() }
+        val horizontalPadPx = with(density) { horizontalPad.toPx() }
         val contentHeight = gridContentHeight(unit, placed)
         val animatedContentHeight by animateDpAsState(
             targetValue = contentHeight + 16.dp + cornerOverhang,
@@ -585,33 +624,90 @@ fun TileGrid(
                         Modifier
                     }
 
+                    val enterDelayMs = tileEnterDiagonalIndex(
+                        col = placement.col,
+                        row = placement.row,
+                        colSpan = tile.entry.size.colSpan,
+                        rowSpan = tile.entry.size.rowSpan,
+                        maxRight = enterMaxRight,
+                        maxBottom = enterMaxBottom,
+                    ) * TileEnterStaggerMs
+                    // Layout slot (not finger offset) — page hinge is left of the Start viewport.
+                    val tileLeftInPagePx = horizontalPadPx + with(density) { layoutX.toPx() }
+
                     Box(modifier = positionModifier) {
-                        LauncherTileCell(
-                            tile = tile,
-                            width = if (tileIsDragging) tileWidth else bounds.width,
-                            height = if (tileIsDragging) tileHeight else bounds.height,
-                            editMode = editMode,
-                            isActive = isActive,
-                            isDragging = tileIsDragging,
-                            editVisualProgress = editVisualProgress,
-                            floatTimeSec = floatTimeSec,
-                            onClick = {
-                                when {
-                                    editMode && isActive -> Unit
-                                    editMode -> onDismissEdit()
-                                    else -> onTileClick(tile)
-                                }
-                            },
-                            onLongClick = { onTileLongPress(tile) },
-                            onResize = onResize,
-                            onUnpin = onUnpin,
-                            dragModifier = tileDragModifier,
-                        )
+                        TilePivotEnter(
+                            delayMs = enterDelayMs,
+                            playKey = enterWaveKey,
+                            consumedKey = consumedEnterWaveKey,
+                            skip = editMode || tileIsDragging,
+                            pageWidthPx = pageWidthPx,
+                            tileLeftInPagePx = tileLeftInPagePx,
+                        ) {
+                            LauncherTileCell(
+                                tile = tile,
+                                width = if (tileIsDragging) tileWidth else bounds.width,
+                                height = if (tileIsDragging) tileHeight else bounds.height,
+                                editMode = editMode,
+                                isActive = isActive,
+                                isDragging = tileIsDragging,
+                                editVisualProgress = editVisualProgress,
+                                floatTimeSec = floatTimeSec,
+                                onClick = {
+                                    when {
+                                        editMode && isActive -> Unit
+                                        editMode -> onDismissEdit()
+                                        else -> onTileClick(tile)
+                                    }
+                                },
+                                onLongClick = { onTileLongPress(tile) },
+                                onResize = onResize,
+                                onUnpin = onUnpin,
+                                dragModifier = tileDragModifier,
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * WP8.1 Start enter — [MetroPagePivotSwing] (page-left hinge, rotateY + fade, **no** X
+ * slide) with a shared page hinge via [tileLeftInPagePx]. [delayMs] staggers the wave
+ * from bottom-right. [skip] shows content flat (edit / drag). [consumedKey] skips waves
+ * that already ran before Start was disposed (app-list round-trip).
+ */
+@Composable
+private fun TilePivotEnter(
+    delayMs: Long,
+    playKey: Int,
+    consumedKey: Int,
+    skip: Boolean,
+    pageWidthPx: Float,
+    tileLeftInPagePx: Float,
+    content: @Composable () -> Unit,
+) {
+    var lastPlayedKey by remember { mutableIntStateOf(Int.MIN_VALUE) }
+
+    LaunchedEffect(playKey, skip) {
+        if (skip) lastPlayedKey = playKey
+    }
+
+    if (skip || playKey <= consumedKey || playKey == lastPlayedKey) {
+        content()
+        return
+    }
+
+    MetroPagePivotSwing(
+        loadKey = playKey,
+        delayMs = delayMs,
+        cameraWidthPx = pageWidthPx,
+        hingeInsetPx = tileLeftInPagePx,
+        onEnterComplete = { lastPlayedKey = playKey },
+        content = content,
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

@@ -3,6 +3,7 @@ package com.metro.ui
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MetroColorsTest {
@@ -90,6 +91,19 @@ class MetroTransitionsTest {
         assertEquals(22.5f, MetroTransitions.PagePivotLoadStartDegrees, 0f)
         assertEquals(0f, MetroTransitions.PagePivotLoadOriginX, 0f)
         assertEquals(0.15f, MetroTransitions.PagePivotLoadStartTranslationXFraction, 0f)
+    }
+
+    @Test
+    fun pagePivotSwing_isDeeperThanPageLoad() {
+        assertEquals(50f, MetroTransitions.PagePivotSwingStartDegrees, 0f)
+        assertEquals(0.55f, MetroTransitions.PagePivotSwingCameraWidthFactor, 0f)
+        assertTrue(
+            MetroTransitions.PagePivotSwingStartDegrees >
+                MetroTransitions.PagePivotLoadStartDegrees,
+        )
+        assertTrue(
+            MetroTransitions.PagePivotSwingCameraWidthFactor < 0.9f,
+        )
     }
 
     @Test

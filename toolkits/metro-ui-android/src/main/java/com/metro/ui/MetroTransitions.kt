@@ -55,6 +55,16 @@ object MetroTransitions {
     const val PagePivotLoadOriginX = 0f
     /** Enter slide start — +15% into the viewport; settles to rest (not off-screen). */
     const val PagePivotLoadStartTranslationXFraction = 0.15f
+    /**
+     * [MetroPagePivotSwing] enter start angle — deeper than [PagePivotLoadStartDegrees]
+     * so a shared page hinge (Start tiles) reads clear foreshortening without an X slide.
+     */
+    const val PagePivotSwingStartDegrees = 50f
+    /**
+     * Closer camera than page-load (0.9× width) for [MetroPagePivotSwing] —
+     * stronger perspective on the shared hinge.
+     */
+    const val PagePivotSwingCameraWidthFactor = 0.55f
     /** Exit hinge inset from the left — +15% into the viewport. */
     const val PagePivotExitOriginX = 0.15f
     /** Exit tilt — page recedes into the screen (`rotateY` 0° → −28°), no vertical stretch. */

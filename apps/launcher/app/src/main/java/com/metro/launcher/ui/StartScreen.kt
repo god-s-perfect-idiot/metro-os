@@ -43,6 +43,8 @@ fun StartScreen(
     onUnpin: () -> Unit = {},
     onDragLayout: (List<PlacedTile>) -> Unit = {},
     onReorderCommit: () -> Unit = {},
+    enterWaveKey: Int = 0,
+    consumedEnterWaveKey: Int = 0,
 ) {
     // verticalScroll consumes blank taps, so edit-mode dismiss must live on this surface —
     // not only on the dim scrim behind the grid (which never receives those events).
@@ -85,6 +87,8 @@ fun StartScreen(
                 onUnpin = onUnpin,
                 onDragLayout = onDragLayout,
                 onReorderCommit = onReorderCommit,
+                enterWaveKey = enterWaveKey,
+                consumedEnterWaveKey = consumedEnterWaveKey,
             )
 
             Box(

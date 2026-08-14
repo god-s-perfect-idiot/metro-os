@@ -30,7 +30,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroMessageDialog` | Centered modal dialog |
 | `MetroLoadingScreen` | Full-page await — centered label + dancing dots |
 | `MetroLoadingDots` | Inline WP8.1 indeterminate dancing-dots indicator |
-| `MetroPagePivotLoad` | Page enter — short left-hinge 3D pivot swing with fade |
+| `MetroPagePivotLoad` | Page enter — left-hinge 3D pivot + X slide + fade |
+| `MetroPagePivotSwing` | Same hinge `rotateY` + fade as page pivot load, **no** X slide (Start tiles) |
 | `MetroAppPivotShell` | Activity wrapper — pivot enter on launch, flip-out on Back then `finish()` |
 
 ## Usage (target)
@@ -98,6 +99,19 @@ MetroPagePivotLoad(
 ```
 
 Enter: `rotateY` 22.5° → 0°, `translationX` +15% width → 0, with fade-in. Exit tilt-back: `rotateY` 0° → −28°, `translationX` 0 → −15% width (hinge x +15%, softer camera), fade (200ms ease-out). Set `exiting = true` and `onExitComplete` before pop.
+
+For hinge-only motion (no X slide) — e.g. Start tile enter with a shared page hinge:
+
+```kotlin
+MetroPagePivotSwing(
+    loadKey = enterWaveKey,
+    delayMs = diagonalIndex * 55L,
+    cameraWidthPx = pageWidthPx,
+    hingeInsetPx = tileLeftInPagePx,
+) {
+    TileContent()
+}
+```
 
 ### App pivot shell
 
