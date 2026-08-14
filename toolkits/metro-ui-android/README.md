@@ -108,6 +108,7 @@ MetroPagePivotSwing(
     delayMs = diagonalIndex * 55L,
     cameraWidthPx = pageWidthPx,
     hingeInsetPx = tileLeftInPagePx,
+    skipEnter = waveAlreadyPlayed, // keep tile content mounted at rest
 ) {
     TileContent()
 }

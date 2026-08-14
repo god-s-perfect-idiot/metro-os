@@ -34,6 +34,10 @@ object PhotoGridLiveLogic {
         else -> null
     }
 
+    /** Order-independent contact set — provider reshuffles must not rebuild the mosaic. */
+    fun poolIdentity(cells: List<MetroTileGridCell>): Set<String> =
+        contactPool(cells).mapNotNull { contactKey(it) }.toSet()
+
     /** True when ≤ 4 contacts and every contact key appears at most once. */
     fun isValidMosaic(cells: List<MetroTileGridCell>): Boolean {
         val keys = cells.mapNotNull { contactKey(it) }

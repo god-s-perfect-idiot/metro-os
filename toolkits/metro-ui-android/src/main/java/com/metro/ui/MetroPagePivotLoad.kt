@@ -85,6 +85,7 @@ fun MetroAppPivotShell(
  *
  * Pass a distinct [loadKey] when replacing page content so the enter animation runs again.
  * Set [exiting] for the flip-out; [onExitComplete] runs once that outro finishes.
+ * [skipEnter] keeps content at rest (no swing) without disposing [content].
  *
  * For a hinge-only swing with no X slide (e.g. Start tiles), use [MetroPagePivotSwing].
  */
@@ -93,6 +94,7 @@ fun MetroPagePivotLoad(
     modifier: Modifier = Modifier,
     loadKey: Any? = Unit,
     exiting: Boolean = false,
+    skipEnter: Boolean = false,
     onExitComplete: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
@@ -100,6 +102,7 @@ fun MetroPagePivotLoad(
         modifier = modifier,
         loadKey = loadKey,
         exiting = exiting,
+        skipEnter = skipEnter,
         onExitComplete = onExitComplete,
         translateX = true,
         content = content,
@@ -117,6 +120,7 @@ fun MetroPagePivotLoad(
  * distance from the page/camera left edge to this layer's left edge so several children can
  * share one page hinge (local origin may be &lt; 0). [delayMs] waits before enter starts.
  * [onEnterComplete] runs after the enter swing finishes (not on exit).
+ * [skipEnter] holds the layer at rest so callers can keep [content] mounted after a wave.
  */
 @Composable
 fun MetroPagePivotSwing(
@@ -124,6 +128,7 @@ fun MetroPagePivotSwing(
     loadKey: Any? = Unit,
     delayMs: Long = 0L,
     exiting: Boolean = false,
+    skipEnter: Boolean = false,
     onExitComplete: (() -> Unit)? = null,
     onEnterComplete: (() -> Unit)? = null,
     cameraWidthPx: Float? = null,
@@ -135,6 +140,7 @@ fun MetroPagePivotSwing(
         loadKey = loadKey,
         delayMs = delayMs,
         exiting = exiting,
+        skipEnter = skipEnter,
         onExitComplete = onExitComplete,
         onEnterComplete = onEnterComplete,
         translateX = false,
@@ -156,6 +162,7 @@ private fun MetroPagePivotMotion(
     onEnterComplete: (() -> Unit)? = null,
     cameraWidthPx: Float? = null,
     hingeInsetPx: Float = 0f,
+    skipEnter: Boolean = false,
 ) {
     // Swing (no X slide) uses a deeper enter angle + closer camera than full page load.
     val enterStartDegrees = if (translateX) {
@@ -168,20 +175,28 @@ private fun MetroPagePivotMotion(
     } else {
         MetroTransitions.PagePivotSwingCameraWidthFactor
     }
-    val rotationY = remember {
-        Animatable(if (exiting) 0f else enterStartDegrees)
+    val atRest = exiting || skipEnter
+    // Recreate with [loadKey] so a new wave is hidden on the first frame (not one rest frame).
+    val rotationY = remember(loadKey) {
+        Animatable(if (atRest) 0f else enterStartDegrees)
     }
-    val alpha = remember { Animatable(if (exiting) 1f else 0f) }
-    val translationXFraction = remember {
+    val alpha = remember(loadKey) { Animatable(if (atRest) 1f else 0f) }
+    val translationXFraction = remember(loadKey) {
         Animatable(
             when {
                 !translateX -> 0f
-                exiting -> 0f
+                atRest -> 0f
                 else -> MetroTransitions.PagePivotLoadStartTranslationXFraction
             },
         )
     }
-    LaunchedEffect(loadKey, exiting, delayMs, translateX) {
+    LaunchedEffect(loadKey, exiting, delayMs, translateX, skipEnter) {
+        if (skipEnter && !exiting) {
+            rotationY.snapTo(0f)
+            alpha.snapTo(1f)
+            if (translateX) translationXFraction.snapTo(0f)
+            return@LaunchedEffect
+        }
         if (exiting) {
             rotationY.snapTo(0f)
             alpha.snapTo(1f)

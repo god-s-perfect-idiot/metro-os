@@ -157,6 +157,16 @@ class TileGridTest {
     }
 
     @Test
+    fun tileEnterWaveDuration_includesLastDiagonalAndSwing() {
+        val placed = listOf(
+            PlacedTile(displayTile("br", PinnedTileSize.OneByOne, col = 1, row = 1), 1, 1),
+            PlacedTile(displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0), 0, 0),
+        )
+        // Bottom-right diagonal 0; top-left diagonal 2 → 2×55 + 200
+        assertEquals(2L * 55L + 200L, tileEnterWaveDurationMs(placed))
+    }
+
+    @Test
     fun ensureGridPositions_assignsFirstFitForMissingSlots() {
         val entries = listOf(
             PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo),

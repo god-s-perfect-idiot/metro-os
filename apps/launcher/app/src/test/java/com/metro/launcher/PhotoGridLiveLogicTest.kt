@@ -24,6 +24,14 @@ class PhotoGridLiveLogicTest {
     }
 
     @Test
+    fun poolIdentity_ignoresShuffleOrder() {
+        val identity = PhotoGridLiveLogic.poolIdentity(pool + accents)
+        val shuffled = PhotoGridLiveLogic.poolIdentity(pool.shuffled() + accents)
+        assertEquals(identity, shuffled)
+        assertEquals(pool.size, identity.size)
+    }
+
+    @Test
     fun contactPool_dedupesByUri() {
         val cells = pool.take(2) + pool.take(2) + accents
         assertEquals(2, PhotoGridLiveLogic.contactPool(cells).size)

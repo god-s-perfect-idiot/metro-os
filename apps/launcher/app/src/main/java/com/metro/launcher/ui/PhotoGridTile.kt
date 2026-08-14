@@ -1,7 +1,9 @@
 package com.metro.launcher.ui
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.LruCache
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -30,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -63,6 +66,47 @@ private const val MOSAIC_FLIP_CAMERA_DISTANCE = 16f
 private val MosaicFlipHalfAnimation = MetroTransitions.tileFlipHalfTween<Float>()
 private val MosaicFlipSettleAnimation = MetroTransitions.tileFlipSettleSpring<Float>()
 
+/** Survives enter-wave recomposition so People/Photos faces do not flash empty. */
+private val tilePhotoBitmapCache = object : LruCache<String, ImageBitmap>(64) {}
+
+private fun decodeTilePhoto(context: Context, uriString: String): ImageBitmap? {
+    tilePhotoBitmapCache.get(uriString)?.let { return it }
+    val decoded = runCatching {
+        context.contentResolver.openInputStream(Uri.parse(uriString))?.use { stream ->
+            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+        }
+    }.getOrNull()
+    if (decoded != null) tilePhotoBitmapCache.put(uriString, decoded)
+    return decoded
+}
+
+@Composable
+private fun rememberTilePhotoBitmap(imageUri: String?): ImageBitmap? {
+    val context = LocalContext.current
+    var bitmap by remember(imageUri) {
+        mutableStateOf(imageUri?.let { tilePhotoBitmapCache.get(it) })
+    }
+    LaunchedEffect(imageUri) {
+        val uri = imageUri
+        if (uri.isNullOrBlank()) {
+            bitmap = null
+            return@LaunchedEffect
+        }
+        val cached = tilePhotoBitmapCache.get(uri)
+        if (cached != null) {
+            bitmap = cached
+            return@LaunchedEffect
+        }
+        val decoded = withContext(Dispatchers.IO) { decodeTilePhoto(context, uri) }
+        if (decoded != null) bitmap = decoded
+    }
+    return bitmap
+}
+
+private fun Modifier.tilePhotoLayer(): Modifier = graphicsLayer {
+    compositingStrategy = CompositingStrategy.Offscreen
+}
+
 /**
  * WP8.1 People hub mosaic (3×3 on medium, 6×3 on wide): live flip refresh on each sub-tile.
  * At most [PhotoGridLiveLogic.MAX_VISIBLE_CONTACTS] cells show contacts; the rest are
@@ -80,26 +124,21 @@ fun PhotoGridTileContent(
     val cellCount = columns * rows
     val pool = remember(cells) { PhotoGridLiveLogic.contactPool(cells) }
     val accents = remember(cells) { PhotoGridLiveLogic.accentTemplates(cells) }
+    val poolKeys = remember(cells) { PhotoGridLiveLogic.poolIdentity(cells) }
     val poolState = rememberUpdatedState(pool)
     val accentsState = rememberUpdatedState(accents)
-    val seed = remember(cells, cellCount) {
-        cells.hashCode() * 31 + cellCount
+    val seed = remember(poolKeys, cellCount) {
+        poolKeys.hashCode() * 31 + cellCount
     }
-    var displayCells by remember(cells, cellCount) {
+    var displayCells by remember(poolKeys, cellCount) {
         mutableStateOf(
             PhotoGridLiveLogic.initialLayout(pool, accents, cellCount, Random(seed.toLong())),
         )
     }
 
-    LaunchedEffect(cells, cellCount, animate, pool.size) {
-        val rng = Random(seed.toLong() xor System.nanoTime())
-        displayCells = PhotoGridLiveLogic.initialLayout(
-            poolState.value,
-            accentsState.value,
-            cellCount,
-            rng,
-        )
+    LaunchedEffect(poolKeys, cellCount, animate) {
         if (!animate || poolState.value.isEmpty()) return@LaunchedEffect
+        val rng = Random(seed.toLong() xor System.nanoTime())
         delay(rng.nextLong(0L, MOSAIC_FLIP_STAGGER_MAX_MS + 1))
         var ticks = 0
         while (true) {
@@ -139,7 +178,11 @@ fun PhotoGridTileContent(
         }
     }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .tilePhotoLayer(),
+    ) {
         for (row in 0 until rows) {
             for (col in 0 until columns) {
                 val index = row * columns + col
@@ -181,6 +224,7 @@ fun CyclingPhotoTileContent(
     cells: List<MetroTileGridCell>,
     title: String,
     modifier: Modifier = Modifier,
+    animate: Boolean = true,
 ) {
     val context = LocalContext.current
     val accent = MetroPreferences(context).accentColor
@@ -190,12 +234,13 @@ fun CyclingPhotoTileContent(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()
+            .tilePhotoLayer()
             .background(accent),
     ) {
         if (photoCells.isNotEmpty()) {
             var index by remember(photoCells) { mutableIntStateOf(0) }
-            LaunchedEffect(photoCells) {
-                if (photoCells.size <= 1) return@LaunchedEffect
+            LaunchedEffect(photoCells, animate) {
+                if (!animate || photoCells.size <= 1) return@LaunchedEffect
                 while (true) {
                     delay(CYCLE_PAN_MS.toLong())
                     index = (index + 1) % photoCells.size
@@ -223,6 +268,7 @@ fun CyclingPhotoTileContent(
             ) { currentIndex ->
                 PanningPhotoCell(
                     cell = photoCells[currentIndex],
+                    animate = animate,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -249,35 +295,22 @@ fun CyclingPhotoTileContent(
 private fun PanningPhotoCell(
     cell: MetroTileGridCell,
     modifier: Modifier = Modifier,
+    animate: Boolean = true,
 ) {
     val context = LocalContext.current
     val background = cell.colorHex?.let { MetroPreferences.parseAccentHex(it) }
         ?: MetroPreferences(context).accentColor
-    var bitmap by remember(cell.imageUri) { mutableStateOf<ImageBitmap?>(null) }
+    val bitmap = rememberTilePhotoBitmap(cell.imageUri)
     val panProgress = remember(cell.imageUri) { Animatable(0f) }
 
-    LaunchedEffect(cell.imageUri) {
-        val uri = cell.imageUri
-        bitmap = if (uri.isNullOrBlank()) {
-            null
-        } else {
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
-                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                    }
-                }.getOrNull()
-            }
-        }
-    }
-
-    LaunchedEffect(cell.imageUri, bitmap) {
-        if (bitmap == null) return@LaunchedEffect
-        panProgress.snapTo(0f)
+    LaunchedEffect(cell.imageUri, bitmap, animate) {
+        if (!animate || bitmap == null) return@LaunchedEffect
+        if (panProgress.value >= 1f) panProgress.snapTo(0f)
+        val remaining = ((1f - panProgress.value) * CYCLE_PAN_MS).toInt().coerceAtLeast(1)
         panProgress.animateTo(
             targetValue = 1f,
             animationSpec = tween(
-                durationMillis = CYCLE_PAN_MS,
+                durationMillis = remaining,
                 easing = LinearEasing,
             ),
         )
@@ -361,22 +394,7 @@ private fun PhotoGridCellFace(
     val context = LocalContext.current
     val background = cell.colorHex?.let { MetroPreferences.parseAccentHex(it) }
         ?: MetroPreferences(context).accentColor
-    var bitmap by remember(cell.imageUri) { mutableStateOf<ImageBitmap?>(null) }
-
-    LaunchedEffect(cell.imageUri) {
-        val uri = cell.imageUri
-        bitmap = if (uri.isNullOrBlank()) {
-            null
-        } else {
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
-                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                    }
-                }.getOrNull()
-            }
-        }
-    }
+    val bitmap = rememberTilePhotoBitmap(cell.imageUri)
 
     Box(
         modifier = modifier.background(background),
@@ -413,23 +431,13 @@ fun StaticPhotoTileContent(
     title: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    var bitmap by remember(imageUri) { mutableStateOf<ImageBitmap?>(null) }
-
-    LaunchedEffect(imageUri) {
-        bitmap = withContext(Dispatchers.IO) {
-            runCatching {
-                context.contentResolver.openInputStream(Uri.parse(imageUri))?.use { stream ->
-                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                }
-            }.getOrNull()
-        }
-    }
+    val bitmap = rememberTilePhotoBitmap(imageUri)
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()
+            .tilePhotoLayer()
             .background(fallbackColor),
     ) {
         bitmap?.let { image ->

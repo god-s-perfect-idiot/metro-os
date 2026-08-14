@@ -1,5 +1,6 @@
 package com.metro.launcher.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -44,6 +45,16 @@ fun LauncherShell(
     // remounts tiles without replaying a wave that already ran (or was left mid-flight).
     var consumedEnterWaveKey by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Home must consume Back: the default finish/relaunch path resumes Start and replays
+    // the enter wave (hang). App-list search keeps its own BackHandler (child wins).
+    BackHandler {
+        when {
+            editing -> state.dismissEdit()
+            state.currentPage == 1 -> state.currentPage = 0
+            // Start: consume and stay put.
+        }
+    }
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->

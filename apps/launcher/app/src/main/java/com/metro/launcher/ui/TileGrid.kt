@@ -317,6 +317,26 @@ fun tileEnterGridExtents(placed: List<PlacedTile>): Pair<Int, Int> {
     return maxRight to maxBottom
 }
 
+/**
+ * Total time for the Start enter wave: last diagonal's stagger + page-pivot swing duration.
+ * Live-tile motion should wait this long before starting.
+ */
+fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
+    if (placed.isEmpty()) return MetroTransitions.PagePivotLoadMs.toLong()
+    val (maxRight, maxBottom) = tileEnterGridExtents(placed)
+    val maxDiagonal = placed.maxOf { placement ->
+        tileEnterDiagonalIndex(
+            col = placement.col,
+            row = placement.row,
+            colSpan = placement.tile.entry.size.colSpan,
+            rowSpan = placement.tile.entry.size.rowSpan,
+            maxRight = maxRight,
+            maxBottom = maxBottom,
+        )
+    }
+    return maxDiagonal * TileEnterStaggerMs + MetroTransitions.PagePivotLoadMs
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TileGrid(
@@ -395,6 +415,20 @@ fun TileGrid(
         val (enterMaxRight, enterMaxBottom) = tileEnterGridExtents(placed)
         val pageWidthPx = with(density) { maxWidth.toPx() }
         val horizontalPadPx = with(density) { horizontalPad.toPx() }
+        // Hold live-tile flips/pans until the enter wave finishes (or was already consumed).
+        // Key on duration, not [placed] identity — a live-tile payload refresh must not
+        // restart this and flash People/Photos bitmaps.
+        var liveMotionEnabled by remember { mutableStateOf(false) }
+        val enterWaveDurationMs = tileEnterWaveDurationMs(placed)
+        LaunchedEffect(enterWaveKey, consumedEnterWaveKey, editMode, enterWaveDurationMs) {
+            if (editMode || enterWaveKey <= consumedEnterWaveKey) {
+                liveMotionEnabled = true
+                return@LaunchedEffect
+            }
+            liveMotionEnabled = false
+            delay(enterWaveDurationMs)
+            liveMotionEnabled = true
+        }
         val contentHeight = gridContentHeight(unit, placed)
         val animatedContentHeight by animateDpAsState(
             targetValue = contentHeight + 16.dp + cornerOverhang,
@@ -653,6 +687,7 @@ fun TileGrid(
                                 isDragging = tileIsDragging,
                                 editVisualProgress = editVisualProgress,
                                 floatTimeSec = floatTimeSec,
+                                liveMotionEnabled = liveMotionEnabled,
                                 onClick = {
                                     when {
                                         editMode && isActive -> Unit
@@ -678,6 +713,9 @@ fun TileGrid(
  * slide) with a shared page hinge via [tileLeftInPagePx]. [delayMs] staggers the wave
  * from bottom-right. [skip] shows content flat (edit / drag). [consumedKey] skips waves
  * that already ran before Start was disposed (app-list round-trip).
+ *
+ * Always wraps [content] in the swing layer so People/Photos bitmaps are not disposed
+ * when a wave starts or finishes.
  */
 @Composable
 private fun TilePivotEnter(
@@ -690,19 +728,16 @@ private fun TilePivotEnter(
     content: @Composable () -> Unit,
 ) {
     var lastPlayedKey by remember { mutableIntStateOf(Int.MIN_VALUE) }
+    val skipEnter = skip || playKey <= consumedKey || playKey == lastPlayedKey
 
     LaunchedEffect(playKey, skip) {
         if (skip) lastPlayedKey = playKey
     }
 
-    if (skip || playKey <= consumedKey || playKey == lastPlayedKey) {
-        content()
-        return
-    }
-
     MetroPagePivotSwing(
         loadKey = playKey,
-        delayMs = delayMs,
+        delayMs = if (skipEnter) 0L else delayMs,
+        skipEnter = skipEnter,
         cameraWidthPx = pageWidthPx,
         hingeInsetPx = tileLeftInPagePx,
         onEnterComplete = { lastPlayedKey = playKey },
@@ -721,6 +756,7 @@ private fun LauncherTileCell(
     isDragging: Boolean,
     editVisualProgress: Float,
     floatTimeSec: State<Float>,
+    liveMotionEnabled: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onResize: () -> Unit,
@@ -868,6 +904,7 @@ private fun LauncherTileCell(
                             CyclingPhotoTileContent(
                                 cells = photoGrid!!.cells,
                                 title = tile.title,
+                                animate = liveMotionEnabled && !editMode,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -878,7 +915,7 @@ private fun LauncherTileCell(
                                 columns = columns,
                                 rows = rows,
                                 title = tile.title,
-                                animate = !editMode,
+                                animate = liveMotionEnabled && !editMode,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -1012,6 +1049,7 @@ private fun LauncherTileCell(
                         flipSeed = floatSeed,
                         faceColor = tile.backgroundColor,
                         edgeToEdge = tile.flipToIcon,
+                        enabled = liveMotionEnabled,
                         front = wrappedFront,
                         back = {
                             if (tile.flipToIcon) {
@@ -1608,12 +1646,18 @@ private fun LiveTileFlipFace(
     back: @Composable () -> Unit,
     badge: (@Composable BoxScope.(showingBack: Boolean) -> Unit)? = null,
     edgeToEdge: Boolean = false,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val rotation = remember { Animatable(0f) }
     var showingBack by remember { mutableStateOf(false) }
 
-    LaunchedEffect(flipSeed) {
+    LaunchedEffect(flipSeed, enabled) {
+        if (!enabled) {
+            rotation.snapTo(0f)
+            showingBack = false
+            return@LaunchedEffect
+        }
         val rng = Random(flipSeed)
         delay(rng.nextLong(0L, TILE_FLIP_STAGGER_MAX_MS + 1))
         while (true) {
