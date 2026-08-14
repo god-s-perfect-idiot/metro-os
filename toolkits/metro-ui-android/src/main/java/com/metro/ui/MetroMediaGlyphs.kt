@@ -1,14 +1,22 @@
 package com.metro.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -22,6 +30,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -76,6 +86,94 @@ fun MetroMediaGlyphButton(
         contentAlignment = Alignment.Center,
     ) {
         MetroMediaGlyphIcon(glyph = glyph, glyphSize = glyphSize, color = color)
+    }
+}
+
+/** Default Xbox Music now-playing transport circle diameter (prev / play-pause / next). */
+val MetroMediaTransportButtonSize = 56.dp
+
+private val MetroMediaTransportPressNudge = 4.dp
+private const val MetroMediaTransportPressInMs = 70
+private const val MetroMediaTransportPressOutMs = 150
+
+/**
+ * Circular-ring transport control used on Music now playing and launcher live tiles.
+ */
+@Composable
+fun MetroMediaTransportButton(
+    glyph: MetroMediaGlyph,
+    onClick: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    buttonSize: Dp = MetroMediaTransportButtonSize,
+    color: Color = MetroTheme.colors.primaryText,
+    enabled: Boolean = true,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val press = remember { Animatable(0f) }
+    LaunchedEffect(interactionSource) {
+        var cycle: Job? = null
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    cycle?.cancel()
+                    cycle = launch {
+                        press.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(
+                                durationMillis = MetroMediaTransportPressInMs,
+                                easing = MetroTransitions.PageEasing,
+                            ),
+                        )
+                    }
+                }
+                is PressInteraction.Release, is PressInteraction.Cancel -> {
+                    val inbound = cycle
+                    cycle = launch {
+                        inbound?.join()
+                        if (press.value > 0f) {
+                            press.animateTo(
+                                targetValue = 0f,
+                                animationSpec = tween(
+                                    durationMillis = MetroMediaTransportPressOutMs,
+                                    easing = MetroTransitions.PageEasing,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    val nudgePx = with(LocalDensity.current) { MetroMediaTransportPressNudge.toPx() }
+    val pressAmount = press.value
+    val displayColor = if (enabled) color else color.copy(alpha = 0.35f)
+    Box(
+        modifier = modifier
+            .graphicsLayer(
+                translationX = -nudgePx * pressAmount,
+                translationY = nudgePx * pressAmount,
+            )
+            .size(buttonSize)
+            .clip(CircleShape)
+            .semantics {
+                role = Role.Button
+                this.contentDescription = contentDescription
+            }
+            .clickable(
+                enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.size(buttonSize)) {
+            val d = size.minDimension
+            val ring = d * 0.035f
+            drawCircle(color = displayColor, radius = d / 2f - ring, style = Stroke(width = ring))
+            drawMetroMediaGlyph(glyph, displayColor)
+        }
     }
 }
 

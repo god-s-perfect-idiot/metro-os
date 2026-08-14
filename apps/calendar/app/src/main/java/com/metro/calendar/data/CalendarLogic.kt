@@ -165,7 +165,7 @@ object CalendarLogic {
                 inCurrentMonth = date.monthValue == month,
                 isToday = epochDay == today,
                 isSelected = epochDay == selectedEpochDay,
-                eventColors = dayEvents.take(3).map { it.calendarColorHex },
+                eventIndicatorCount = dayEvents.size.coerceAtMost(3),
             )
         }
     }

@@ -23,7 +23,6 @@ import com.metro.calendar.R
 import com.metro.calendar.data.CalendarEvent
 import com.metro.calendar.data.CalendarLogic
 import com.metro.calendar.data.HourSlot
-import com.metro.system.MetroPreferences
 import com.metro.ui.MetroEmptyState
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -57,10 +56,10 @@ fun DayScreen(
 
         if (allDayEvents.isNotEmpty()) {
             items(allDayEvents, key = { "allday-${it.id}-${it.startMillis}" }) { event ->
-                MetroText(
+                CalendarLineText(
                     text = event.title,
                     style = MetroTextStyle.ListItemTitle,
-                    color = MetroPreferences.parseAccentHex(event.calendarColorHex),
+                    color = MetroTheme.colors.accent,
                     modifier = Modifier
                         .padding(vertical = 4.dp)
                         .clickable(onClick = { onEventClick(event) }),
@@ -113,11 +112,10 @@ private fun HourRow(
                 )
             } else {
                 slot.events.forEach { event ->
-                    val color = MetroPreferences.parseAccentHex(event.calendarColorHex)
-                    MetroText(
+                    CalendarLineText(
                         text = "${CalendarLogic.formatEventTime(event)}  ${event.title}",
                         style = MetroTextStyle.ListItemTitle,
-                        color = color,
+                        color = MetroTheme.colors.accent,
                         modifier = Modifier
                             .padding(vertical = 2.dp)
                             .clickable(onClick = { onEventClick(event) }),

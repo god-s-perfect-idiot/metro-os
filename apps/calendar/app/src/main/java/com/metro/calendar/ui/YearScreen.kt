@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.metro.calendar.data.CalendarEvent
 import com.metro.calendar.data.CalendarLogic
-import com.metro.system.MetroPreferences
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -55,7 +54,7 @@ fun YearScreen(
             }
             YearMonthRow(
                 label = label,
-                eventColors = monthEvents.take(3).map { it.calendarColorHex },
+                eventIndicatorCount = monthEvents.size.coerceAtMost(3),
                 onClick = { onSelectMonth(month) },
             )
         }
@@ -66,7 +65,7 @@ fun YearScreen(
 @Composable
 private fun YearMonthRow(
     label: String,
-    eventColors: List<String>,
+    eventIndicatorCount: Int,
     onClick: () -> Unit,
 ) {
     Row(
@@ -80,17 +79,17 @@ private fun YearMonthRow(
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MetroText(
+        CalendarLineText(
             text = label,
             style = MetroTextStyle.ListItemTitle,
             modifier = Modifier.weight(1f),
         )
-        eventColors.forEach { colorHex ->
+        repeat(eventIndicatorCount) {
             Box(
                 modifier = Modifier
                     .padding(start = 4.dp)
                     .size(width = 12.dp, height = 4.dp)
-                    .background(MetroPreferences.parseAccentHex(colorHex)),
+                    .background(MetroTheme.colors.accent),
             )
         }
     }

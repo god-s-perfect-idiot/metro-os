@@ -81,8 +81,8 @@ enum class MetroTextStyle {
         HubLink -> TextStyle(
             fontFamily = MetroFontFamily,
             fontWeight = FontWeight.Light,
-            fontSize = 34.sp,
-            lineHeight = 40.sp,
+            fontSize = 38.sp,
+            lineHeight = 44.sp,
         )
         SectionHeader -> TextStyle(
             fontFamily = MetroFontFamily,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,24 +35,6 @@ fun CalendarShell(
     val observeState = generation
 
     val tabCount = state.tabCount
-    val pagerState = rememberPagerState(
-        initialPage = state.tabIndex,
-        pageCount = { tabCount },
-    )
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(state.tabIndex, state.viewType) {
-        val target = state.tabIndex.coerceIn(0, tabCount - 1)
-        if (pagerState.currentPage != target) {
-            pagerState.animateScrollToPage(target)
-        }
-    }
-
-    LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
-        if (!pagerState.isScrollInProgress && pagerState.currentPage != state.tabIndex) {
-            state.selectTab(pagerState.currentPage)
-        }
-    }
 
     Box(
         modifier = modifier
@@ -59,69 +42,93 @@ fun CalendarShell(
             .statusBarsPadding()
             .metroNavBarPadding(),
     ) {
-        val appTitle = appTitleForPage(state.viewType, state.epochDayForPage(pagerState.currentPage))
-        MetroPivot(
-            titles = state.tabTitles,
-            pagerState = pagerState,
-            header = { MetroAppTitle(title = appTitle) },
-            onTitleClick = { index ->
-                state.selectTab(index)
-                scope.launch { pagerState.animateScrollToPage(index) }
-            },
-            pageContent = { page ->
-                val epochDay = state.epochDayForPage(page)
-                when (state.viewType) {
-                    CalendarViewType.Day -> DayScreen(
-                        epochDay = epochDay,
-                        allDayEvents = CalendarLogic.allDayEventsForDay(state.events, epochDay),
-                        hourSlots = CalendarLogic.buildHourSlots(state.events, epochDay),
-                        onEventClick = state::onEventClick,
-                    )
-                    CalendarViewType.Week -> {
-                        val weekStart = CalendarLogic.weekStartEpochDay(epochDay)
-                        val buckets = weekBuckets(state, weekStart)
-                        WeekScreen(
-                            buckets = buckets,
-                            usingDemoData = state.usingDemoData,
-                            onEventClick = state::onEventClick,
-                        )
-                    }
-                    CalendarViewType.Month -> {
-                        val date = LocalDate.ofEpochDay(epochDay)
-                        MonthScreen(
+        // Recreate pager when view type changes so currentPage never exceeds the new pageCount
+        // (e.g. month view has 12 tabs, year view has 5 — swiping to the last month then
+        // switching to year left the pager on page 11 and crashed).
+        key(state.viewType) {
+            val pagerState = rememberPagerState(
+                initialPage = state.tabIndex.coerceIn(0, (tabCount - 1).coerceAtLeast(0)),
+                pageCount = { tabCount },
+            )
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(state.tabIndex) {
+                val target = state.tabIndex.coerceIn(0, tabCount - 1)
+                if (pagerState.currentPage != target) {
+                    pagerState.animateScrollToPage(target)
+                }
+            }
+
+            LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+                if (!pagerState.isScrollInProgress && pagerState.currentPage != state.tabIndex) {
+                    state.selectTab(pagerState.currentPage)
+                }
+            }
+
+            val appTitle = appTitleForPage(state.viewType, state.epochDayForPage(pagerState.currentPage))
+            MetroPivot(
+                titles = state.tabTitles,
+                pagerState = pagerState,
+                header = { MetroAppTitle(title = appTitle) },
+                onTitleClick = { index ->
+                    state.selectTab(index)
+                    scope.launch { pagerState.animateScrollToPage(index) }
+                },
+                pageContent = { page ->
+                    val epochDay = state.epochDayForPage(page)
+                    when (state.viewType) {
+                        CalendarViewType.Day -> DayScreen(
                             epochDay = epochDay,
-                            grid = CalendarLogic.buildMonthGrid(
-                                year = date.year,
-                                month = date.monthValue,
-                                events = state.events,
-                                selectedEpochDay = state.selectedEpochDay,
-                            ),
-                            selectedDayEvents = if (epochDay == state.selectedEpochDay) {
-                                state.selectedDayEvents
-                            } else {
-                                emptyList()
-                            },
-                            onSelectDay = state::selectDay,
+                            allDayEvents = CalendarLogic.allDayEventsForDay(state.events, epochDay),
+                            hourSlots = CalendarLogic.buildHourSlots(state.events, epochDay),
                             onEventClick = state::onEventClick,
                         )
-                    }
-                    CalendarViewType.Year -> {
-                        val year = LocalDate.ofEpochDay(epochDay).year
-                        val months = CalendarLogic.monthsInYear(year).map { month ->
-                            month to CalendarLogic.monthNameLower(
-                                LocalDate.of(year, month, 1).toEpochDay(),
+                        CalendarViewType.Week -> {
+                            val weekStart = CalendarLogic.weekStartEpochDay(epochDay)
+                            val buckets = weekBuckets(state, weekStart)
+                            WeekScreen(
+                                buckets = buckets,
+                                usingDemoData = state.usingDemoData,
+                                onEventClick = state::onEventClick,
                             )
                         }
-                        YearScreen(
-                            year = year,
-                            months = months,
-                            events = state.events,
-                            onSelectMonth = { month -> state.selectMonth(year, month) },
-                        )
+                        CalendarViewType.Month -> {
+                            val date = LocalDate.ofEpochDay(epochDay)
+                            MonthScreen(
+                                epochDay = epochDay,
+                                grid = CalendarLogic.buildMonthGrid(
+                                    year = date.year,
+                                    month = date.monthValue,
+                                    events = state.events,
+                                    selectedEpochDay = state.selectedEpochDay,
+                                ),
+                                selectedDayEvents = if (epochDay == state.selectedEpochDay) {
+                                    state.selectedDayEvents
+                                } else {
+                                    emptyList()
+                                },
+                                onSelectDay = state::selectDay,
+                                onEventClick = state::onEventClick,
+                            )
+                        }
+                        CalendarViewType.Year -> {
+                            val year = LocalDate.ofEpochDay(epochDay).year
+                            val months = CalendarLogic.monthsInYear(year).map { month ->
+                                month to CalendarLogic.monthNameLower(
+                                    LocalDate.of(year, month, 1).toEpochDay(),
+                                )
+                            }
+                            YearScreen(
+                                year = year,
+                                months = months,
+                                events = state.events,
+                                onSelectMonth = { month -> state.selectMonth(year, month) },
+                            )
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+        }
 
         MetroAppBar(
             icons = listOf(

@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import com.metro.calendar.data.CalendarEvent
 import com.metro.calendar.data.CalendarLogic
 import com.metro.calendar.data.MonthGridCell
-import com.metro.system.MetroPreferences
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -101,7 +100,7 @@ fun MonthScreen(
 
         if (selectedDayEvents.isNotEmpty()) {
             item(key = "selected-day-header") {
-                MetroText(
+                CalendarLineText(
                     text = CalendarLogic.dateHeaderLabel(epochDay, zoneId),
                     style = MetroTextStyle.SectionHeader,
                     color = MetroTheme.colors.secondaryText,
@@ -116,15 +115,16 @@ fun MonthScreen(
                         .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    MetroText(
+                    CalendarLineText(
                         text = CalendarLogic.formatEventTime(event),
                         style = MetroTextStyle.ListItemSubtitle,
                         modifier = Modifier.width(64.dp),
                     )
-                    MetroText(
+                    CalendarLineText(
                         text = event.title,
                         style = MetroTextStyle.ListItemTitle,
-                        color = MetroPreferences.parseAccentHex(event.calendarColorHex),
+                        color = MetroTheme.colors.accent,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
@@ -181,11 +181,11 @@ private fun MonthCell(
             modifier = Modifier.align(Alignment.TopEnd),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            cell.eventColors.forEach { colorHex ->
+            repeat(cell.eventIndicatorCount) {
                 Box(
                     modifier = Modifier
                         .size(width = 8.dp, height = 3.dp)
-                        .background(MetroPreferences.parseAccentHex(colorHex)),
+                        .background(MetroTheme.colors.accent),
                 )
             }
         }

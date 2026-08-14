@@ -5,7 +5,7 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 object StubCalendarDataSource {
-    private const val DEFAULT_ACCENT = "#A200FF"
+    private const val DEMO_COLOR = ""
 
     fun demoEvents(zoneId: ZoneId = ZoneId.systemDefault()): List<CalendarEvent> {
         val today = LocalDate.now(zoneId)
@@ -18,7 +18,6 @@ object StubCalendarDataSource {
                 title = "Team standup week",
                 date = today,
                 days = 1,
-                color = "#1BA1E2",
                 zoneId = zoneId,
             ),
             timedEvent(
@@ -28,7 +27,6 @@ object StubCalendarDataSource {
                 hour = 12,
                 minute = 0,
                 durationMinutes = 60,
-                color = "#1BA1E2",
                 zoneId = zoneId,
             ),
             timedEvent(
@@ -38,7 +36,6 @@ object StubCalendarDataSource {
                 hour = 15,
                 minute = 30,
                 durationMinutes = 45,
-                color = "#E51400",
                 zoneId = zoneId,
             ),
             allDayEvent(
@@ -46,7 +43,6 @@ object StubCalendarDataSource {
                 title = "Caroline's birthday",
                 date = tomorrow,
                 days = 1,
-                color = DEFAULT_ACCENT,
                 zoneId = zoneId,
             ),
             timedEvent(
@@ -56,7 +52,6 @@ object StubCalendarDataSource {
                 hour = 9,
                 minute = 0,
                 durationMinutes = 30,
-                color = DEFAULT_ACCENT,
                 zoneId = zoneId,
             ),
             timedEvent(
@@ -66,7 +61,6 @@ object StubCalendarDataSource {
                 hour = 10,
                 minute = 0,
                 durationMinutes = 15,
-                color = "#F09609",
                 zoneId = zoneId,
             ),
         )
@@ -77,7 +71,6 @@ object StubCalendarDataSource {
         title: String,
         date: LocalDate,
         days: Int,
-        color: String,
         zoneId: ZoneId,
     ): CalendarEvent {
         val start = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
@@ -88,7 +81,7 @@ object StubCalendarDataSource {
             startMillis = start,
             endMillis = end,
             allDay = true,
-            calendarColorHex = color,
+            calendarColorHex = DEMO_COLOR,
             calendarName = "Demo",
             location = null,
         )
@@ -101,7 +94,6 @@ object StubCalendarDataSource {
         hour: Int,
         minute: Int,
         durationMinutes: Int,
-        color: String,
         zoneId: ZoneId,
     ): CalendarEvent {
         val start = date.atTime(hour, minute).atZone(zoneId).toInstant().toEpochMilli()
@@ -112,7 +104,7 @@ object StubCalendarDataSource {
             startMillis = start,
             endMillis = end,
             allDay = false,
-            calendarColorHex = color,
+            calendarColorHex = DEMO_COLOR,
             calendarName = "Demo",
             location = null,
         )

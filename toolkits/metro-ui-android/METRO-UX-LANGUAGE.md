@@ -336,7 +336,7 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | App bar | **Minimized only** |
 | Content | Summaries and entry points — not long lists |
 | Pane alignment | **Top** — panes hang from the pane title; never vertically centred in the viewport |
-| Pane link lists | `MetroListItem` with `titleStyle = HubLink` (34sp Light), ~56dp rows, 12dp margin — aligned with the pane title |
+| Pane link lists | `MetroListItem` with `titleStyle = HubLink` (38sp Light), ~56dp rows, 12dp margin — aligned with the pane title |
 
 ---
 

@@ -58,6 +58,7 @@ internal fun TileText(
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
+    softWrap: Boolean = true,
 ) {
     BasicText(
         text = text,
@@ -65,5 +66,6 @@ internal fun TileText(
         style = style.copy(color = color),
         maxLines = maxLines,
         overflow = overflow,
+        softWrap = softWrap,
     )
 }

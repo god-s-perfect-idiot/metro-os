@@ -26,7 +26,6 @@ import com.metro.calendar.R
 import com.metro.calendar.data.CalendarEvent
 import com.metro.calendar.data.CalendarLogic
 import com.metro.calendar.data.DayBucket
-import com.metro.system.MetroPreferences
 import com.metro.ui.MetroEmptyState
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -76,7 +75,7 @@ fun WeekScreen(
 
         buckets.forEach { bucket ->
             item(key = "header-${bucket.epochDay}") {
-                MetroText(
+                CalendarLineText(
                     text = bucket.headerLabel,
                     style = MetroTextStyle.SectionHeader,
                     color = MetroTheme.colors.secondaryText,
@@ -107,7 +106,7 @@ private fun WeekEventRow(
     event: CalendarEvent,
     onClick: () -> Unit,
 ) {
-    val eventColor = MetroPreferences.parseAccentHex(event.calendarColorHex)
+    val eventColor = MetroTheme.colors.accent
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -120,18 +119,18 @@ private fun WeekEventRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MetroText(
+        CalendarLineText(
             text = CalendarLogic.formatEventTime(event),
             style = MetroTextStyle.ListItemTitle,
             modifier = Modifier.width(80.dp),
         )
         Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
-            MetroText(
+            CalendarLineText(
                 text = event.title,
                 style = MetroTextStyle.ListItemTitle,
                 color = eventColor,
             )
-            MetroText(
+            CalendarLineText(
                 text = CalendarLogic.formatEventDuration(event),
                 style = MetroTextStyle.ListItemSubtitle,
                 color = MetroTheme.colors.secondaryText,

@@ -1211,9 +1211,9 @@ private fun BoxScope.TileNotificationBadge(
  * WP8.1 Calendar-style live tile face: event lines stacked from the top, an optional footer label
  * (app name) flush bottom-left, and a large bottom-right date badge (`Thu 15`).
  *
- * Wide (4×2) tiles show up to three lines (title, location, time) and let the title wrap; medium
- * (2×2) tiles drop the middle line and keep the title plus the trailing time/all-day line so the
- * badge stays legible.
+ * Wide (4×2) tiles show up to three single-line rows (title, location, time); medium (2×2) tiles
+ * drop the middle line and keep the title plus the trailing time/all-day line. Long lines clip off
+ * the right edge — no wrap, no ellipsis.
  */
 @Composable
 private fun AgendaTileContent(
@@ -1234,25 +1234,14 @@ private fun AgendaTileContent(
 
     Column(modifier = modifier) {
         shown.forEachIndexed { index, line ->
-            if (index == 0) {
-                TileText(
-                    text = line,
-                    style = TileTextStyles.Title,
-                    color = contentColor,
-                    maxLines = if (wide) 2 else 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                TileText(
-                    text = line,
-                    style = TileTextStyles.Body,
-                    color = contentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            TileText(
+                text = line,
+                style = if (index == 0) TileTextStyles.Title else TileTextStyles.Body,
+                color = contentColor,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -1267,7 +1256,7 @@ private fun AgendaTileContent(
                     style = TileTextStyles.Body,
                     color = contentColor,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
                     modifier = Modifier.weight(1f),
                 )
             } else {

@@ -23,7 +23,8 @@ data class MonthGridCell(
     val inCurrentMonth: Boolean,
     val isToday: Boolean,
     val isSelected: Boolean,
-    val eventColors: List<String>,
+    /** Up to three accent bars shown for days that have events. */
+    val eventIndicatorCount: Int,
 )
 
 data class HourSlot(

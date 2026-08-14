@@ -4,8 +4,6 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,10 +28,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,11 +35,16 @@ import com.metro.launcher.data.MusicNowPlayingInfo
 import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.ui.MetroMediaGlyph
-import com.metro.ui.MetroMediaGlyphIcon
+import com.metro.ui.MetroMediaTransportButton
 import java.io.File
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+/** Circular transport controls on live tiles — same ring style as Music now playing, scaled down. */
+private val TileTransportSmall = 40.dp
+private val TileTransportMedium = 34.dp
+private val TileTransportWide = 36.dp
 
 /**
  * Xbox Music–style now-playing Start face.
@@ -96,12 +94,13 @@ private fun MusicSmallNowPlayingFace(
     ) {
         AlbumArtBackground(albumArtUri = info.albumArtUri, contentDescription = info.title)
         ScrimOverlay(alpha = 0.35f)
-        MusicTransportIcon(
-            type = if (info.isPlaying) MusicTransportGlyph.Pause else MusicTransportGlyph.Play,
+        MetroMediaTransportButton(
+            glyph = if (info.isPlaying) MetroMediaGlyph.Pause else MetroMediaGlyph.Play,
             onClick = { MusicNowPlayingStore.togglePlayPause(info.packageName) },
-            enabled = info.canPlayPause,
             contentDescription = if (info.isPlaying) "Pause" else "Play",
-            size = 36.dp,
+            buttonSize = TileTransportSmall,
+            color = Color.White,
+            enabled = info.canPlayPause,
         )
     }
 }
@@ -149,7 +148,7 @@ private fun MusicMediumNowPlayingFace(
             Box(modifier = Modifier.height(6.dp))
             MusicTransportRow(
                 info = info,
-                iconSize = 22.dp,
+                buttonSize = TileTransportMedium,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -196,7 +195,7 @@ private fun MusicWideNowPlayingFace(
             )
             MusicTransportRow(
                 info = info,
-                iconSize = 24.dp,
+                buttonSize = TileTransportWide,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -235,7 +234,7 @@ private fun MusicTrackMeta(
 @Composable
 private fun MusicTransportRow(
     info: MusicNowPlayingInfo,
-    iconSize: Dp,
+    buttonSize: Dp,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -243,26 +242,29 @@ private fun MusicTransportRow(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MusicTransportIcon(
-            type = MusicTransportGlyph.Previous,
+        MetroMediaTransportButton(
+            glyph = MetroMediaGlyph.Previous,
             onClick = { MusicNowPlayingStore.skipToPrevious(info.packageName) },
-            enabled = info.canSkipPrevious,
             contentDescription = "Previous",
-            size = iconSize,
+            buttonSize = buttonSize,
+            color = Color.White,
+            enabled = info.canSkipPrevious,
         )
-        MusicTransportIcon(
-            type = if (info.isPlaying) MusicTransportGlyph.Pause else MusicTransportGlyph.Play,
+        MetroMediaTransportButton(
+            glyph = if (info.isPlaying) MetroMediaGlyph.Pause else MetroMediaGlyph.Play,
             onClick = { MusicNowPlayingStore.togglePlayPause(info.packageName) },
-            enabled = info.canPlayPause,
             contentDescription = if (info.isPlaying) "Pause" else "Play",
-            size = iconSize + 4.dp,
+            buttonSize = buttonSize,
+            color = Color.White,
+            enabled = info.canPlayPause,
         )
-        MusicTransportIcon(
-            type = MusicTransportGlyph.Next,
+        MetroMediaTransportButton(
+            glyph = MetroMediaGlyph.Next,
             onClick = { MusicNowPlayingStore.skipToNext(info.packageName) },
-            enabled = info.canSkipNext,
             contentDescription = "Next",
-            size = iconSize,
+            buttonSize = buttonSize,
+            color = Color.White,
+            enabled = info.canSkipNext,
         )
     }
 }
@@ -297,51 +299,6 @@ private fun ScrimOverlay(alpha: Float) {
             .fillMaxSize()
             .background(Color.Black.copy(alpha = alpha)),
     )
-}
-
-private enum class MusicTransportGlyph {
-    Play,
-    Pause,
-    Previous,
-    Next,
-}
-
-@Composable
-private fun MusicTransportIcon(
-    type: MusicTransportGlyph,
-    onClick: () -> Unit,
-    enabled: Boolean,
-    contentDescription: String,
-    size: Dp,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val glyph = when (type) {
-        MusicTransportGlyph.Play -> MetroMediaGlyph.Play
-        MusicTransportGlyph.Pause -> MetroMediaGlyph.Pause
-        MusicTransportGlyph.Previous -> MetroMediaGlyph.Previous
-        MusicTransportGlyph.Next -> MetroMediaGlyph.Next
-    }
-    Box(
-        modifier = Modifier
-            .size(size + 12.dp)
-            .semantics {
-                role = Role.Button
-                this.contentDescription = contentDescription
-            }
-            .clickable(
-                enabled = enabled,
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        MetroMediaGlyphIcon(
-            glyph = glyph,
-            glyphSize = size,
-            color = if (enabled) Color.White else Color.White.copy(alpha = 0.35f),
-        )
-    }
 }
 
 private fun decodeAlbumArt(context: android.content.Context, uriString: String): ImageBitmap? {

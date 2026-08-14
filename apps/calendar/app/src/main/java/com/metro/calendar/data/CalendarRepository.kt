@@ -3,12 +3,14 @@ package com.metro.calendar.data
 import android.content.ContentUris
 import android.content.Context
 import android.provider.CalendarContract
+import com.metro.system.MetroPreferences
 import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 class CalendarRepository(context: Context) {
     private val appContext = context.applicationContext
+    private val prefs = MetroPreferences(appContext)
     private val zoneId: ZoneId = ZoneId.systemDefault()
 
     fun loadEvents(startMillis: Long, endMillis: Long): List<CalendarEvent> {
@@ -73,7 +75,7 @@ class CalendarRepository(context: Context) {
     fun loadDemoEvents(): List<CalendarEvent> = StubCalendarDataSource.demoEvents(zoneId)
 
     private fun colorIntToHex(color: Int): String {
-        if (color == 0) return "#1BA1E2"
+        if (color == 0) return prefs.accentColorHex
         return String.format("#%06X", color and 0xFFFFFF)
     }
 }
