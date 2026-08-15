@@ -52,7 +52,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.PlatformTextStyle
@@ -881,6 +883,7 @@ private fun LauncherTileCell(
 ) {
     val dimmed = editMode && !isActive && !isDragging
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
     val floatSeed = remember(tile.entry.packageName, tile.entry.tileId) {
         tile.entry.packageName.hashCode() * 31 + tile.entry.tileId.hashCode()
     }
@@ -985,7 +988,11 @@ private fun LauncherTileCell(
             }
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onLongClick,
+                onLongClick = {
+                    // WP8.1 Start: short buzz when long-press enters tile edit / resize mode.
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                },
                 enabled = !editMode && !isDragging,
             )
             .then(dragModifier),
