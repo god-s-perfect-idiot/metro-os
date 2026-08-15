@@ -65,12 +65,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import kotlin.math.roundToInt
+import kotlin.math.min
 import androidx.core.graphics.drawable.toBitmap
 import android.util.LruCache
 import com.metro.launcher.data.AppLauncherOption
@@ -375,10 +377,14 @@ fun AppListScreen(
             LaunchedEffect(app.packageName) {
                 appOptions = queryAppOptions(app.packageName)
             }
+            // Full-bleed under the list: left and right screen edges. Vertical only under the icon.
             val menuOffset = IntOffset(
-                x = (contextMenuIconBounds.left - contextMenuRootBounds.left).toInt(),
+                x = 0,
                 y = (contextMenuIconBounds.bottom - contextMenuRootBounds.top + menuGapPx).toInt(),
             )
+            val menuWidthPx = (contextMenuRootBounds.right - contextMenuRootBounds.left)
+                .roundToInt()
+                .coerceAtLeast(0)
             // Height-only wipe: expandVertically/shrinkVertically animate IntSize and can
             // collapse width after height finishes — keep measured width fixed throughout.
             val revealFraction = contextMenuFocusFraction
@@ -409,8 +415,18 @@ fun AppListScreen(
                         )
                     },
                 ) { measurables, constraints ->
+                    val width = if (constraints.hasBoundedWidth) {
+                        min(menuWidthPx, constraints.maxWidth)
+                    } else {
+                        menuWidthPx
+                    }
                     val placeable = measurables.first().measure(
-                        constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity),
+                        Constraints(
+                            minWidth = width,
+                            maxWidth = width,
+                            minHeight = 0,
+                            maxHeight = Constraints.Infinity,
+                        ),
                     )
                     val height = (placeable.height * revealFraction)
                         .roundToInt()
@@ -495,8 +511,10 @@ private fun AppListContextMenu(
     val needsScroll = menuEntries.size > ContextMenuMaxVisibleItems
     Column(
         modifier = Modifier
+            .fillMaxWidth()
             .widthIn(min = ContextMenuMinWidth)
             .background(MetroColors.LightBackground)
+            .clipToBounds()
             .padding(
                 horizontal = ContextMenuHorizontalPadding,
                 vertical = ContextMenuVerticalPadding,
@@ -562,6 +580,9 @@ private fun AppListContextMenuItem(
                     MetroColors.LightSecondaryText
                 },
             ),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
         )
     }
 }

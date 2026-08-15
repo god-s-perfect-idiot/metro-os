@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import kotlin.math.roundToInt
+import kotlin.math.min
 
 data class MetroContextMenuItem(
     val label: String,
@@ -76,10 +78,14 @@ fun MetroContextMenuPopup(
         label = "reveal",
     ) { visible -> if (visible) 1f else 0f }
 
+    // Full-bleed under the list: left and right screen edges. Vertical only under the icon.
     val menuOffset = IntOffset(
-        x = (anchorBounds.left - rootBounds.left).toInt(),
+        x = 0,
         y = (anchorBounds.bottom - rootBounds.top + menuGapPx).toInt(),
     )
+    val menuWidthPx = (rootBounds.right - rootBounds.left)
+        .roundToInt()
+        .coerceAtLeast(0)
 
     Popup(
         alignment = Alignment.TopStart,
@@ -93,8 +99,18 @@ fun MetroContextMenuPopup(
                 MetroContextMenuPanel(items = items)
             },
         ) { measurables, constraints ->
+            val width = if (constraints.hasBoundedWidth) {
+                min(menuWidthPx, constraints.maxWidth)
+            } else {
+                menuWidthPx
+            }
             val placeable = measurables.first().measure(
-                constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity),
+                Constraints(
+                    minWidth = width,
+                    maxWidth = width,
+                    minHeight = 0,
+                    maxHeight = Constraints.Infinity,
+                ),
             )
             val height = (placeable.height * revealFraction)
                 .roundToInt()
@@ -115,8 +131,10 @@ fun MetroContextMenuPanel(
     val needsScroll = items.size > ContextMenuMaxVisibleItems
     Column(
         modifier = modifier
+            .fillMaxWidth()
             .widthIn(min = ContextMenuMinWidth)
             .background(MetroColors.LightBackground)
+            .clipToBounds()
             .padding(
                 horizontal = ContextMenuHorizontalPadding,
                 vertical = ContextMenuVerticalPadding,
@@ -155,6 +173,9 @@ fun MetroContextMenuPanel(
                             MetroColors.LightSecondaryText
                         },
                     ),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
                 )
             }
         }
