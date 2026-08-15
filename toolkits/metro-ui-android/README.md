@@ -98,7 +98,7 @@ MetroPagePivotLoad(
 }
 ```
 
-Enter: `rotateY` 22.5° → 0°, `translationX` +15% width → 0, with fade-in. Exit tilt-back: `rotateY` 0° → −28°, `translationX` 0 → −15% width (hinge x +15%, softer camera), fade (200ms ease-out). Set `exiting = true` and `onExitComplete` before pop.
+Enter: `rotateY` 22.5° → 0°, `translationX` +15% width → 0, with fade-in (200ms ease-out). Exit tilt-back: `rotateY` 0° → −28°, `translationX` 0 → −15% width (hinge x +15%, softer camera), fade (280ms ease-out). Set `exiting = true` and `onExitComplete` before pop.
 
 For hinge-only motion (no X slide) — e.g. Start tile enter with a shared page hinge:
 

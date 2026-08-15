@@ -49,6 +49,11 @@ object MetroTransitions {
     const val JumpListFlipStaggerMs = 40
     /** Page pivot load — rotateY door-close from the left edge (PlaneProjection). */
     const val PagePivotLoadMs = 200
+    /**
+     * Page / Start-tile pivot exit — slightly longer than [PagePivotLoadMs] so the
+     * tilt-back reads cleaner than the snappy enter swing.
+     */
+    const val PagePivotExitMs = 280
     /** Enter start angle — quarter swing; page is already mostly flat (not edge-on). */
     const val PagePivotLoadStartDegrees = 22.5f
     /** Hinge at the viewport left edge (fraction of width). */
@@ -112,6 +117,11 @@ object MetroTransitions {
 
     fun <T> pagePivotLoadTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = PagePivotLoadMs,
+        easing = PageEasing,
+    )
+
+    fun <T> pagePivotExitTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = PagePivotExitMs,
         easing = PageEasing,
     )
 

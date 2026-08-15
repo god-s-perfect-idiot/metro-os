@@ -204,18 +204,18 @@ private fun MetroPagePivotMotion(
             // Stay at rest through the stagger so later diagonals do not pre-tilt.
             if (delayMs > 0L) delay(delayMs)
             coroutineScope {
-                val fade = launch { alpha.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
+                val fade = launch { alpha.animateTo(0f, MetroTransitions.pagePivotExitTween()) }
                 val pivot = launch {
                     rotationY.animateTo(
                         MetroTransitions.PagePivotExitEndDegrees,
-                        MetroTransitions.pagePivotLoadTween(),
+                        MetroTransitions.pagePivotExitTween(),
                     )
                 }
                 val slide = if (translateX) {
                     launch {
                         translationXFraction.animateTo(
                             MetroTransitions.PagePivotExitTranslationXFraction,
-                            MetroTransitions.pagePivotLoadTween(),
+                            MetroTransitions.pagePivotExitTween(),
                         )
                     }
                 } else {

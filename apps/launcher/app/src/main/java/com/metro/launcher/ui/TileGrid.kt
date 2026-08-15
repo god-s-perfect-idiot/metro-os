@@ -379,12 +379,12 @@ fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
 
 /**
  * Total time for the Start exit wave including the tapped tile as a final stagger step
- * after the last BR→TL diagonal (`(maxEnterDiagonal + 1) × exitStagger + swing`).
+ * after the last BR→TL diagonal (`(maxEnterDiagonal + 1) × exitStagger + exitSwing`).
  */
 fun tileExitWaveDurationMs(placed: List<PlacedTile>): Long {
-    if (placed.isEmpty()) return MetroTransitions.PagePivotLoadMs.toLong()
+    if (placed.isEmpty()) return MetroTransitions.PagePivotExitMs.toLong()
     return (tileEnterMaxDiagonal(placed) + 1) * TileExitStaggerMs +
-        MetroTransitions.PagePivotLoadMs
+        MetroTransitions.PagePivotExitMs
 }
 
 /** 1×1 music now-playing is transport-only — no app launch / exit wave. */

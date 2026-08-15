@@ -94,6 +94,12 @@ class MetroTransitionsTest {
     }
 
     @Test
+    fun pagePivotExit_isSlowerThanEnter() {
+        assertEquals(280, MetroTransitions.PagePivotExitMs)
+        assertTrue(MetroTransitions.PagePivotExitMs > MetroTransitions.PagePivotLoadMs)
+    }
+
+    @Test
     fun pagePivotSwing_isDeeperThanPageLoad() {
         assertEquals(50f, MetroTransitions.PagePivotSwingStartDegrees, 0f)
         assertEquals(0.55f, MetroTransitions.PagePivotSwingCameraWidthFactor, 0f)

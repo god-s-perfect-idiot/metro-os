@@ -190,8 +190,8 @@ class TileGridTest {
             PlacedTile(displayTile("br", PinnedTileSize.OneByOne, col = 1, row = 1), 1, 1),
             PlacedTile(displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0), 0, 0),
         )
-        // maxEnterDiagonal 2 → tapped step 3 → 3×85 + 200 (exit stagger > enter)
-        assertEquals(3L * 85L + 200L, tileExitWaveDurationMs(placed))
+        // maxEnterDiagonal 2 → tapped step 3 → 3×85 + 280 (exit stagger + slower swing)
+        assertEquals(3L * 85L + 280L, tileExitWaveDurationMs(placed))
     }
 
     @Test
