@@ -38,11 +38,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.metro.ui.MetroSplash
 import com.metro.ui.MetroSystemTheme
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroNavBarPadding
@@ -90,7 +90,7 @@ class FlorisAppActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Splash screen should be installed before calling super.onCreate()
-        installSplashScreen().apply {
+        MetroSplash.install(this).apply {
             setKeepOnScreenCondition { !appContext.preferenceStoreLoaded.value }
         }
         super.onCreate(savedInstanceState)

@@ -21,6 +21,7 @@ import com.metro.calendar.ui.CalendarShell
 import com.metro.calendar.ui.CalendarState
 import com.metro.calendar.ui.PermissionScreen
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
@@ -35,6 +36,7 @@ class MainActivity : ComponentActivity() {
     private var permissionResult: ((Boolean) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        MetroSplash.install(this)
         super.onCreate(savedInstanceState)
         MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()

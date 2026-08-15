@@ -159,6 +159,22 @@ if [[ "$LIST_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
+# Keyboard (AGP 9) cannot includeBuild AGP 8 toolkits — it reads mavenLocal.
+# Publish toolkits first whenever keyboard is in the build set.
+needs_maven_local=0
+for app in "${APPS[@]}"; do
+  if [[ "$app" == "keyboard" ]]; then
+    needs_maven_local=1
+    break
+  fi
+done
+if [[ "$needs_maven_local" -eq 1 ]]; then
+  echo ""
+  echo "==> publish toolkits → mavenLocal (required by keyboard)"
+  (cd "$ROOT/toolkits/metro-system-sdk" && ./gradlew publishToMavenLocal --quiet)
+  (cd "$ROOT/toolkits/metro-ui-android" && ./gradlew publishToMavenLocal --quiet)
+fi
+
 SUITE_DIR="$ROOT/deploy/apks"
 mkdir -p "$SUITE_DIR"
 

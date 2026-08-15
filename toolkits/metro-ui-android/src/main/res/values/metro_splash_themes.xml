@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Suite splash: full-bleed accent + app glyph (ic_launcher_foreground, merged from app).
+      Point the launcher Activity at Theme.Metro.Splash (or an accent variant) and call
+      MetroSplash.install() before super.onCreate().
+    -->
+    <style name="Theme.Metro.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+
+    <style name="Theme.Metro.Splash.Lime" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_lime</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Green" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_green</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Emerald" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_emerald</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Teal" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_teal</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Cyan" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_cyan</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Cobalt" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_cobalt</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Indigo" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_indigo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Violet" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_violet</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Pink" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_pink</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Magenta" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_magenta</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Crimson" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_crimson</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Red" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_red</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Orange" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_orange</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Amber" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_amber</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Yellow" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_yellow</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Brown" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_brown</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Olive" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_olive</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Steel" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_steel</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Mauve" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_mauve</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+    <style name="Theme.Metro.Splash.Taupe" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_accent_taupe</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metro</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+</resources>

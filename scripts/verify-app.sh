@@ -105,6 +105,13 @@ fi
 record_step "structure" "true" 0
 echo "PASS  structure"
 
+# Keyboard (AGP 9) cannot includeBuild AGP 8 toolkits — it reads mavenLocal.
+if [[ "$APP" == "keyboard" ]]; then
+  echo "==> publish toolkits → mavenLocal (required by keyboard)"
+  (cd "$ROOT/toolkits/metro-system-sdk" && ./gradlew publishToMavenLocal --quiet)
+  (cd "$ROOT/toolkits/metro-ui-android" && ./gradlew publishToMavenLocal --quiet)
+fi
+
 cd "$APP_DIR"
 
 # Step 1: build

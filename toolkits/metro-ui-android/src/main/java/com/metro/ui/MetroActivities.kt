@@ -11,6 +11,9 @@ import android.app.Activity
  * Call [applyLaunchTransition] from `onCreate` before `setContent`, and
  * [finishWithExitTransition] from [MetroAppPivotShell]'s `onExit` (after the
  * Compose flip-out completes).
+ *
+ * For cold-start chrome, use [MetroSplash.install] before `super.onCreate()` and
+ * point the launcher activity at `@style/Theme.Metro.Splash`.
  */
 object MetroActivities {
     fun applyLaunchTransition(activity: Activity) {

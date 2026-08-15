@@ -14,7 +14,7 @@
             android:screenOrientation="fullSensor"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.MetroCalculator">
+            android:theme="@style/Theme.Metro.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

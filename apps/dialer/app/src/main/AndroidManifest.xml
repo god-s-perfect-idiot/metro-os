@@ -43,7 +43,7 @@
             android:exported="true"
             android:screenOrientation="portrait"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.MetroDialer">
+            android:theme="@style/Theme.Metro.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

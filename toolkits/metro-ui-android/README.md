@@ -118,6 +118,7 @@ MetroPagePivotSwing(
 
 ```kotlin
 // onCreate, before setContent:
+MetroSplash.install(this) // before super.onCreate(); activity theme = Theme.Metro.Splash
 MetroActivities.applyLaunchTransition(this)
 
 MetroTheme { /* … */ ->
@@ -134,6 +135,13 @@ Wraps an activity with page pivot enter on launch and flip-out on Back before
 `finish()`. Call [MetroActivities.applyLaunchTransition] in `onCreate` so the
 platform transition does not fight the Compose pivot. Nested `BackHandler`s
 inside the content take priority for in-app navigation.
+
+### Splash screen
+
+Suite apps use [MetroSplash]: full-bleed accent background + `@drawable/ic_launcher_foreground`.
+Set the launcher activity theme to `@style/Theme.Metro.Splash` and call
+`MetroSplash.install(this)` before `super.onCreate()`. On API 31+ the current
+accent is persisted for the next cold start.
 
 ### TextBox
 

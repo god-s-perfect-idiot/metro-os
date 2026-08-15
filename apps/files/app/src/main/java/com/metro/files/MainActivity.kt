@@ -23,6 +23,7 @@ import com.metro.files.ui.FilesShell
 import com.metro.files.ui.FilesState
 import com.metro.files.ui.PermissionScreen
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
     private var permissionTickHandler: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        MetroSplash.install(this)
         super.onCreate(savedInstanceState)
         MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()

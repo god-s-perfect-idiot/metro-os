@@ -17,12 +17,14 @@ import com.metro.launcher.ui.LauncherState
 import com.metro.system.MetroIntents
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroSplash
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var launcherState: LauncherState? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        MetroSplash.install(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {

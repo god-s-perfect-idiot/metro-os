@@ -23,6 +23,7 @@ import com.metro.people.ui.PeopleShell
 import com.metro.people.ui.PeopleState
 import com.metro.people.ui.PermissionScreen
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
@@ -39,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private var onDeepLink: ((Intent) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        MetroSplash.install(this)
         super.onCreate(savedInstanceState)
         MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()

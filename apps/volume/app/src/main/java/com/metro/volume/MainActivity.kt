@@ -30,6 +30,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.system.MetroPreferences
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
@@ -41,6 +42,7 @@ import com.metro.ui.metroNavBarPadding
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        MetroSplash.install(this)
         super.onCreate(savedInstanceState)
         MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()

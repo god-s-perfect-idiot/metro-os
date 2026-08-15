@@ -16,6 +16,7 @@ import com.metro.music.ui.MusicShell
 import com.metro.music.ui.MusicState
 import com.metro.music.ui.PermissionScreen
 import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroSplash
 
 class MainActivity : ComponentActivity() {
     private var permissionCallback: ((Boolean) -> Unit)? = null
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        MetroSplash.install(this)
         super.onCreate(savedInstanceState)
         // Music uses a custom launch/exit transition (not MetroAppPivotShell).
         enableEdgeToEdge()

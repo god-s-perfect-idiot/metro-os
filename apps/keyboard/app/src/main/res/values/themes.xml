@@ -1,12 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="FlorisAppTheme.Splash" parent="Theme.SplashScreen.IconBackground">
-        <item name="postSplashScreenTheme">@style/FlorisAppTheme</item>
-        <item name="windowSplashScreenBackground">@color/florisApp_windowBackground</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/ic_app_icon_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_app_icon_foreground</item>
+    <!--
+      Keyboard consumes metro-ui from mavenLocal (not includeBuild). Splash themes are
+      defined here so AAPT does not require a freshly published toolkit AAR for styles.
+      Accent fill + app glyph — same language as suite Theme.Metro.Splash.
+    -->
+    <color name="metro_splash_background">#1BA1E2</color>
 
+    <style name="Theme.Metro.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.MetroKeyboard</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+    </style>
+
+    <style name="FlorisAppTheme.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/metro_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_app_icon_foreground</item>
+        <item name="postSplashScreenTheme">@style/FlorisAppTheme</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 

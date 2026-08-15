@@ -21,7 +21,7 @@
             android:screenOrientation="portrait"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustNothing"
-            android:theme="@style/Theme.MetroMessaging">
+            android:theme="@style/Theme.Metro.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -13,10 +13,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.metro.keyboard.ui.KeyboardSettingsShell
 import com.metro.ui.MetroActivities
 import com.metro.ui.MetroAppPivotShell
+import com.metro.ui.MetroSplash
 import com.metro.ui.MetroSystemTheme
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
     private val appContext by appContext()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen().apply {
+        MetroSplash.install(this).apply {
             setKeepOnScreenCondition { !appContext.preferenceStoreLoaded.value }
         }
         super.onCreate(savedInstanceState)

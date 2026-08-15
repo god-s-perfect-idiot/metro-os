@@ -70,7 +70,7 @@
             android:launchMode="singleTask"
             android:roundIcon="@mipmap/floris_app_icon_round"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.MetroKeyboard"
+            android:theme="@style/Theme.Metro.Splash"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

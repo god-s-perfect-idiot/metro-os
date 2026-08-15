@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- WP8.1 accent palette — used as splash screen backgrounds. -->
+    <color name="metro_accent_lime">#A4C400</color>
+    <color name="metro_accent_green">#60A917</color>
+    <color name="metro_accent_emerald">#008A00</color>
+    <color name="metro_accent_teal">#00ABA9</color>
+    <color name="metro_accent_cyan">#1BA1E2</color>
+    <color name="metro_accent_cobalt">#0050EF</color>
+    <color name="metro_accent_indigo">#6A00FF</color>
+    <color name="metro_accent_violet">#AA00FF</color>
+    <color name="metro_accent_pink">#F472D0</color>
+    <color name="metro_accent_magenta">#D80073</color>
+    <color name="metro_accent_crimson">#A20025</color>
+    <color name="metro_accent_red">#E51400</color>
+    <color name="metro_accent_orange">#FA6800</color>
+    <color name="metro_accent_amber">#F0A30A</color>
+    <color name="metro_accent_yellow">#E3C800</color>
+    <color name="metro_accent_brown">#825A2C</color>
+    <color name="metro_accent_olive">#6D8764</color>
+    <color name="metro_accent_steel">#647687</color>
+    <color name="metro_accent_mauve">#76608A</color>
+    <color name="metro_accent_taupe">#87794E</color>
+
+    <!-- Default splash fill (= suite default accent). -->
+    <color name="metro_splash_background">@color/metro_accent_cyan</color>
+</resources>
