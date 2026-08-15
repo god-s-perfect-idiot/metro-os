@@ -119,6 +119,11 @@ private const val TILE_EDIT_FLOAT_DELAY_MS = 120L
  */
 private const val TileEnterStaggerMs = 55L
 /**
+ * Delay between successive diagonals on Start exit. Longer than enter so the
+ * BR→TL weave (and tapped-tile-last step) reads cleaner before the app opens.
+ */
+private const val TileExitStaggerMs = 85L
+/**
  * Subtle press-in on the tapped tile before the exit weave (WP8.1 PointerDown → continuum).
  * Ease to a slight dip and hold — no overshoot / rebound (scale-only; tiles do not tilt).
  */
@@ -374,11 +379,11 @@ fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
 
 /**
  * Total time for the Start exit wave including the tapped tile as a final stagger step
- * after the last BR→TL diagonal (`(maxEnterDiagonal + 1) × stagger + swing`).
+ * after the last BR→TL diagonal (`(maxEnterDiagonal + 1) × exitStagger + swing`).
  */
 fun tileExitWaveDurationMs(placed: List<PlacedTile>): Long {
     if (placed.isEmpty()) return MetroTransitions.PagePivotLoadMs.toLong()
-    return (tileEnterMaxDiagonal(placed) + 1) * TileEnterStaggerMs +
+    return (tileEnterMaxDiagonal(placed) + 1) * TileExitStaggerMs +
         MetroTransitions.PagePivotLoadMs
 }
 
@@ -744,7 +749,7 @@ fun TileGrid(
                     ) * TileEnterStaggerMs
                     val exitDelayMs = if (exitingTileKey == tileKey) {
                         // Tapped tile leaves after every BR→TL diagonal group.
-                        (enterMaxDiagonal + 1) * TileEnterStaggerMs
+                        (enterMaxDiagonal + 1) * TileExitStaggerMs
                     } else {
                         tileExitDiagonalIndex(
                             col = placement.col,
@@ -753,7 +758,7 @@ fun TileGrid(
                             rowSpan = tile.entry.size.rowSpan,
                             maxRight = enterMaxRight,
                             maxBottom = enterMaxBottom,
-                        ) * TileEnterStaggerMs
+                        ) * TileExitStaggerMs
                     }
                     // Layout slot (not finger offset) — page hinge is left of the Start viewport.
                     val tileLeftInPagePx = horizontalPadPx + with(density) { layoutX.toPx() }
