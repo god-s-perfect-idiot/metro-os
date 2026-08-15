@@ -121,13 +121,13 @@ private const val TILE_EDIT_FLOAT_DELAY_MS = 120L
  */
 private const val TileEnterStaggerMs = 55L
 /**
- * Delay between successive diagonals on Start exit. Longer than enter so the
- * BR→TL weave (and tapped-tile-last step) reads cleaner before the app opens.
+ * Delay between successive diagonals on Start exit. Matches jump-list stagger so
+ * the BR→TL weave stays snappy without the old multi-second 85ms gate.
  */
-private const val TileExitStaggerMs = 85L
+private const val TileExitStaggerMs = 40L
 /**
- * Subtle press-in on the tapped tile before the exit weave (WP8.1 PointerDown → continuum).
- * Ease to a slight dip and hold — no overshoot / rebound (scale-only; tiles do not tilt).
+ * Subtle press-in on the tapped tile (WP8.1 PointerDown). Plays in parallel with the
+ * exit weave — same 100ms dip as before; weave does not wait for it to finish.
  */
 private const val TileTapBounceMs = 100
 private const val TileTapBounceDipScale = 0.97f
@@ -380,13 +380,20 @@ fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
 }
 
 /**
+ * Stagger delay for an exit-wave step. [stepIndex] is the BR→TL diagonal (or
+ * `maxEnterDiagonal + 1` for the tapped tile).
+ */
+fun tileExitStaggerDelayMs(stepIndex: Int): Long =
+    stepIndex.toLong() * TileExitStaggerMs
+
+/**
  * Total time for the Start exit wave including the tapped tile as a final stagger step
- * after the last BR→TL diagonal (`(maxEnterDiagonal + 1) × exitStagger + exitSwing`).
+ * after the last BR→TL diagonal.
  */
 fun tileExitWaveDurationMs(placed: List<PlacedTile>): Long {
     if (placed.isEmpty()) return MetroTransitions.PagePivotExitMs.toLong()
-    return (tileEnterMaxDiagonal(placed) + 1) * TileExitStaggerMs +
-        MetroTransitions.PagePivotExitMs
+    val maxDiag = tileEnterMaxDiagonal(placed)
+    return tileExitStaggerDelayMs(maxDiag + 1) + MetroTransitions.PagePivotExitMs
 }
 
 /** 1×1 music now-playing is transport-only — no app launch / exit wave. */
@@ -490,7 +497,6 @@ fun TileGrid(
         // restart this and flash People/Photos bitmaps.
         var liveMotionEnabled by remember { mutableStateOf(false) }
         val enterWaveDurationMs = tileEnterWaveDurationMs(placed)
-        val exitWaveDurationMs = tileExitWaveDurationMs(placed)
         val isExiting = exitingTileKey != null
         LaunchedEffect(enterWaveKey, consumedEnterWaveKey, editMode, enterWaveDurationMs) {
             if (editMode || enterWaveKey <= consumedEnterWaveKey) {
@@ -501,16 +507,11 @@ fun TileGrid(
             delay(enterWaveDurationMs)
             liveMotionEnabled = true
         }
-        // Freeze live motion for the tap bounce + exit wave; launch after the tapped tile finishes.
-        LaunchedEffect(bounceThenExitKey) {
-            if (bounceThenExitKey != null) liveMotionEnabled = false
-        }
-        LaunchedEffect(exitingTileKey, exitWaveDurationMs) {
-            val key = exitingTileKey ?: return@LaunchedEffect
-            liveMotionEnabled = false
-            val tile = tilesState.value.firstOrNull { it.tileKey() == key } ?: return@LaunchedEffect
-            delay(exitWaveDurationMs)
-            onTileClickState.value(tile)
+        // Freeze live motion for the tap bounce + exit wave. Launch only when the tapped
+        // tile's exit swing finishes (see TilePivotEnter onExitComplete) so the weave
+        // is never cut short by a wall-clock race.
+        LaunchedEffect(bounceThenExitKey, exitingTileKey) {
+            if (bounceThenExitKey != null || exitingTileKey != null) liveMotionEnabled = false
         }
         val contentHeight = gridContentHeight(unit, placed)
         val animatedContentHeight by animateDpAsState(
@@ -751,16 +752,18 @@ fun TileGrid(
                     ) * TileEnterStaggerMs
                     val exitDelayMs = if (exitingTileKey == tileKey) {
                         // Tapped tile leaves after every BR→TL diagonal group.
-                        (enterMaxDiagonal + 1) * TileExitStaggerMs
+                        tileExitStaggerDelayMs(enterMaxDiagonal + 1)
                     } else {
-                        tileExitDiagonalIndex(
-                            col = placement.col,
-                            row = placement.row,
-                            colSpan = tile.entry.size.colSpan,
-                            rowSpan = tile.entry.size.rowSpan,
-                            maxRight = enterMaxRight,
-                            maxBottom = enterMaxBottom,
-                        ) * TileExitStaggerMs
+                        tileExitStaggerDelayMs(
+                            tileExitDiagonalIndex(
+                                col = placement.col,
+                                row = placement.row,
+                                colSpan = tile.entry.size.colSpan,
+                                rowSpan = tile.entry.size.rowSpan,
+                                maxRight = enterMaxRight,
+                                maxBottom = enterMaxBottom,
+                            ),
+                        )
                     }
                     // Layout slot (not finger offset) — page hinge is left of the Start viewport.
                     val tileLeftInPagePx = horizontalPadPx + with(density) { layoutX.toPx() }
@@ -775,6 +778,13 @@ fun TileGrid(
                             exiting = isExiting,
                             pageWidthPx = pageWidthPx,
                             tileLeftInPagePx = tileLeftInPagePx,
+                            onExitComplete = if (exitingTileKey == tileKey) {
+                                {
+                                    onTileClickState.value(tile)
+                                }
+                            } else {
+                                null
+                            },
                         ) {
                             LauncherTileCell(
                                 tile = tile,
@@ -786,10 +796,10 @@ fun TileGrid(
                                 editVisualProgress = editVisualProgress,
                                 floatTimeSec = floatTimeSec,
                                 liveMotionEnabled = liveMotionEnabled,
-                                playTapBounce = bounceThenExitKey == tileKey && !isExiting,
+                                playTapBounce = bounceThenExitKey == tileKey,
                                 onTapBounceComplete = {
                                     if (bounceThenExitKey == tileKey) {
-                                        exitingTileKey = tileKey
+                                        bounceThenExitKey = null
                                     }
                                 },
                                 onClick = {
@@ -798,7 +808,11 @@ fun TileGrid(
                                         editMode -> onDismissEdit()
                                         launchInProgress -> Unit
                                         !tileClickUsesExitWave(tile) -> onTileClick(tile)
-                                        else -> bounceThenExitKey = tileKey
+                                        else -> {
+                                            // Bounce + weave together — bounce does not gate the weave.
+                                            bounceThenExitKey = tileKey
+                                            exitingTileKey = tileKey
+                                        }
                                     }
                                 },
                                 onLongClick = {
@@ -835,10 +849,12 @@ private fun TilePivotEnter(
     exiting: Boolean,
     pageWidthPx: Float,
     tileLeftInPagePx: Float,
+    onExitComplete: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     var lastPlayedKey by remember { mutableIntStateOf(Int.MIN_VALUE) }
     val skipEnter = skip || playKey <= consumedKey || playKey == lastPlayedKey
+    val onExitCompleteState = rememberUpdatedState(onExitComplete)
 
     LaunchedEffect(playKey, skip) {
         if (skip) lastPlayedKey = playKey
@@ -856,6 +872,7 @@ private fun TilePivotEnter(
         cameraWidthPx = pageWidthPx,
         hingeInsetPx = tileLeftInPagePx,
         onEnterComplete = { lastPlayedKey = playKey },
+        onExitComplete = { onExitCompleteState.value?.invoke() },
         content = content,
     )
 }
