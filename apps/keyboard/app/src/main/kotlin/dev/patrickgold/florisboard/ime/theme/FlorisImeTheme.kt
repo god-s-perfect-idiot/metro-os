@@ -38,6 +38,7 @@ import androidx.compose.ui.text.TextStyle
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroThemeMode
+import com.metro.ui.MetroFontFamily
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.ime.window.LocalWindowController
 import dev.patrickgold.florisboard.keyboardManager
@@ -79,8 +80,9 @@ fun FlorisImeTheme(content: @Composable () -> Unit) {
     )
 
     MaterialTheme {
+        // Suite Noto Sans (metro-ui-android) — Segoe WP stand-in for all SIP chrome text.
         CompositionLocalProvider(
-            LocalTextStyle provides TextStyle.Default,
+            LocalTextStyle provides TextStyle.Default.copy(fontFamily = MetroFontFamily),
         ) {
             ProvideSnyggTheme(
                 snyggTheme = snyggTheme,
@@ -89,7 +91,8 @@ fun FlorisImeTheme(content: @Composable () -> Unit) {
                 assetResolver = assetResolver,
                 rootAttributes = attributes,
                 content = content,
-                materialYouFlags = activeThemeInfo.config.materialYouFlags
+                materialYouFlags = activeThemeInfo.config.materialYouFlags,
+                defaultFontFamily = MetroFontFamily,
             )
         }
     }

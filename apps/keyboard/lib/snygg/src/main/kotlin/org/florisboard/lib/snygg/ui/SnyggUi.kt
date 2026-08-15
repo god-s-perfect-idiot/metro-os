@@ -136,6 +136,8 @@ fun rememberSnyggTheme(
  * @param dynamicAccentColor The [Color] for the dynamic color schemes.
  * [Color.Unspecified] means default/material you color.
  * @param assetResolver The [SnyggAssetResolver] used to resolve [an asset Uri][org.florisboard.lib.snygg.value.SnyggUriValue].
+ * @param defaultFontFamily Optional root font family inherited by elements that do not set
+ * `font-family` (metro-os uses Noto Sans here).
  *
  * @since 0.5.0-alpha01
  *
@@ -151,6 +153,7 @@ fun ProvideSnyggTheme(
     assetResolver: SnyggAssetResolver = SnyggDefaultAssetResolver,
     rootAttributes: SnyggQueryAttributes = emptyMap(),
     materialYouFlags: MaterialYouFlags = MaterialYouFlags(),
+    defaultFontFamily: FontFamily? = null,
     content: @Composable () -> Unit,
 ) {
     val (colorPalette, contrastLevel, specVersion) = materialYouFlags
@@ -189,9 +192,12 @@ fun ProvideSnyggTheme(
     }
 
     val initFontSize = MaterialTheme.typography.bodyMedium.fontSize
-    val initParentStyle = remember(initFontSize) {
+    val initParentStyle = remember(initFontSize, defaultFontFamily) {
         SnyggSinglePropertySetEditor().run {
             fontSize = fontSize(initFontSize)
+            if (defaultFontFamily != null) {
+                fontFamily = genericFontFamily(defaultFontFamily)
+            }
             build()
         }
     }

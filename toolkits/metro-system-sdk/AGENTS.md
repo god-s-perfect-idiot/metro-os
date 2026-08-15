@@ -29,6 +29,11 @@ then fall back to a mirrored local cache (never gate reads on `resolveContentPro
 Android 11+ package visibility makes that unreliable). SDK manifest declares `<queries>` for
 the provider + `com.metro.settings` so visibility merges into every dependent app.
 
+Theme keys (`theme_mode`, `accent_color`, `font_scale`) use `SharedPreferences.Editor.commit`
+for the local mirror and Settings host writes so cold starts survive process death. Clients
+should call `pullThemeFromProvider()` (or use `MetroSystemTheme`, which retries on cold open)
+before painting accent-dependent UI when Settings may still be waking.
+
 ### MetroIntents
 
 | Constant | Action | Extras |

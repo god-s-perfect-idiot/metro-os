@@ -17,36 +17,8 @@
 package dev.patrickgold.florisboard.ime.keyboard
 
 import android.content.Context
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowRightAlt
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
-import androidx.compose.material.icons.automirrored.filled.Redo
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.automirrored.outlined.Assignment
-import androidx.compose.material.icons.automirrored.outlined.Backspace
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.ContentPasteGo
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.FontDownload
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardCapslock
-import androidx.compose.material.icons.filled.KeyboardHide
-import androidx.compose.material.icons.filled.KeyboardVoice
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SpaceBar
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.metro.ui.MetroSystemIconType
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.ime.core.DisplayLanguageNamesIn
@@ -59,7 +31,6 @@ import dev.patrickgold.florisboard.ime.text.key.KeyType
 import dev.patrickgold.florisboard.ime.window.ImeWindowMode
 import dev.patrickgold.florisboard.lib.FlorisLocale
 import dev.patrickgold.florisboard.lib.compose.vectorResource
-import org.florisboard.lib.compose.icons.ForwardDelete
 
 interface ComputingEvaluator {
     val version: Int
@@ -181,34 +152,9 @@ fun ComputingEvaluator.computeLabel(data: KeyData): String? {
 
 fun ComputingEvaluator.computeImageVector(data: KeyData): ImageVector? {
     val evaluator = this
+    // Prefer [computeMetroIcon] for suite chrome; only custom drawables remain here.
+    if (evaluator.computeMetroIcon(data) != null) return null
     return when (data.code) {
-        KeyCode.ARROW_LEFT -> {
-            Icons.AutoMirrored.Filled.KeyboardArrowLeft
-        }
-        KeyCode.ARROW_RIGHT -> {
-            Icons.AutoMirrored.Filled.KeyboardArrowRight
-        }
-        KeyCode.ARROW_UP -> {
-            Icons.Default.KeyboardArrowUp
-        }
-        KeyCode.ARROW_DOWN -> {
-            Icons.Default.KeyboardArrowDown
-        }
-        KeyCode.CLIPBOARD_COPY -> {
-            Icons.Default.ContentCopy
-        }
-        KeyCode.CLIPBOARD_CUT -> {
-            Icons.Default.ContentCut
-        }
-        KeyCode.CLIPBOARD_PASTE -> {
-            Icons.Default.ContentPasteGo
-        }
-        KeyCode.CLIPBOARD_SELECT_ALL -> {
-            Icons.Default.SelectAll
-        }
-        KeyCode.CLIPBOARD_CLEAR_PRIMARY_CLIP -> {
-            Icons.Default.DeleteSweep
-        }
         KeyCode.COMPACT_LAYOUT_TO_LEFT,
         KeyCode.COMPACT_LAYOUT_TO_RIGHT,
         KeyCode.TOGGLE_COMPACT_LAYOUT -> {
@@ -223,86 +169,12 @@ fun ComputingEvaluator.computeImageVector(data: KeyData): ImageVector? {
                 ImeWindowMode.FLOATING -> disabledIcon
             }
         }
-        KeyCode.TOGGLE_RESIZE_MODE -> {
-            context()?.vectorResource(id = R.drawable.ic_resize)
-        }
-        KeyCode.VOICE_INPUT -> {
-            Icons.Default.KeyboardVoice
-        }
-        KeyCode.IME_HIDE_UI -> {
-            Icons.Default.KeyboardHide
-        }
-        KeyCode.DELETE -> {
-            Icons.AutoMirrored.Outlined.Backspace
-        }
-        KeyCode.ENTER -> {
-            val imeOptions = evaluator.editorInfo.imeOptions
-            val inputAttributes = evaluator.editorInfo.inputAttributes
-            if (imeOptions.flagNoEnterAction || inputAttributes.flagTextMultiLine) {
-                Icons.AutoMirrored.Filled.KeyboardReturn
-            } else {
-                when (imeOptions.action) {
-                    ImeOptions.Action.DONE -> Icons.Default.Done
-                    ImeOptions.Action.GO -> Icons.AutoMirrored.Filled.ArrowRightAlt
-                    ImeOptions.Action.NEXT -> Icons.AutoMirrored.Filled.ArrowRightAlt
-                    ImeOptions.Action.NONE -> Icons.AutoMirrored.Filled.KeyboardReturn
-                    ImeOptions.Action.PREVIOUS -> Icons.AutoMirrored.Filled.ArrowRightAlt
-                    ImeOptions.Action.SEARCH -> Icons.Default.Search
-                    ImeOptions.Action.SEND -> Icons.AutoMirrored.Filled.Send
-                    ImeOptions.Action.UNSPECIFIED -> Icons.AutoMirrored.Filled.KeyboardReturn
-                }
-            }
-        }
-        KeyCode.FORWARD_DELETE -> {
-            Icons.AutoMirrored.Default.ForwardDelete
-        }
-        KeyCode.IME_UI_MODE_MEDIA -> {
-            Icons.Default.SentimentSatisfiedAlt
-        }
-        KeyCode.IME_UI_MODE_CLIPBOARD -> {
-            Icons.AutoMirrored.Outlined.Assignment
-        }
-        KeyCode.LANGUAGE_SWITCH -> {
-            Icons.Default.Language
-        }
-        KeyCode.SETTINGS -> {
-            Icons.Default.Settings
-        }
-        KeyCode.SHIFT -> {
-            when (evaluator.state.inputShiftState != InputShiftState.UNSHIFTED) {
-                true -> Icons.Default.KeyboardCapslock
-                else -> Icons.Default.KeyboardArrowUp
-            }
-        }
-        KeyCode.SPACE, KeyCode.CJK_SPACE -> {
-            when (evaluator.keyboard.mode) {
-                KeyboardMode.NUMERIC,
-                KeyboardMode.NUMERIC_ADVANCED,
-                KeyboardMode.PHONE,
-                KeyboardMode.PHONE2 -> {
-                    Icons.Default.SpaceBar
-                }
-                else -> null
-            }
-        }
-        KeyCode.UNDO -> {
-            Icons.AutoMirrored.Filled.Undo
-        }
-        KeyCode.REDO -> {
-            Icons.AutoMirrored.Filled.Redo
-        }
-        KeyCode.TOGGLE_ACTIONS_OVERFLOW -> {
-            Icons.Default.MoreHoriz
-        }
         KeyCode.TOGGLE_INCOGNITO_MODE -> {
             if (evaluator.state.isIncognitoMode) {
                 this.context()?.vectorResource(id = R.drawable.ic_incognito)
             } else {
                 this.context()?.vectorResource(id = R.drawable.ic_incognito_off)
             }
-        }
-        KeyCode.TOGGLE_AUTOCORRECT -> {
-            Icons.Default.FontDownload
         }
         KeyCode.KANA_SWITCHER -> {
             if (evaluator.state.isKanaKata) {
@@ -324,11 +196,63 @@ fun ComputingEvaluator.computeImageVector(data: KeyData): ImageVector? {
         KeyCode.CHAR_WIDTH_HALF -> {
             this.context()?.vectorResource(R.drawable.ic_keyboard_char_width_switcher_half)
         }
+        else -> null
+    }
+}
+
+/**
+ * WP8.1 chrome icons from the shared metro-ui toolkit (SIP keys + smartbar extra actions).
+ */
+fun ComputingEvaluator.computeMetroIcon(data: KeyData): MetroSystemIconType? {
+    val evaluator = this
+    return when (data.code) {
+        KeyCode.ARROW_LEFT -> MetroSystemIconType.ChevronLeft
+        KeyCode.ARROW_RIGHT -> MetroSystemIconType.ChevronRight
+        KeyCode.ARROW_UP -> MetroSystemIconType.ChevronUp
+        KeyCode.ARROW_DOWN -> MetroSystemIconType.ChevronDown
+        KeyCode.CLIPBOARD_COPY -> MetroSystemIconType.Copy
+        KeyCode.CLIPBOARD_CUT -> MetroSystemIconType.Cut
+        KeyCode.CLIPBOARD_PASTE -> MetroSystemIconType.Paste
+        KeyCode.CLIPBOARD_SELECT_ALL -> MetroSystemIconType.SelectAll
+        KeyCode.CLIPBOARD_CLEAR_PRIMARY_CLIP -> MetroSystemIconType.Delete
+        KeyCode.VOICE_INPUT -> MetroSystemIconType.Microphone
+        KeyCode.IME_HIDE_UI -> MetroSystemIconType.KeyboardHide
+        KeyCode.DELETE,
+        KeyCode.FORWARD_DELETE -> MetroSystemIconType.Backspace
+        KeyCode.IME_UI_MODE_MEDIA -> MetroSystemIconType.Emoji
+        KeyCode.IME_UI_MODE_CLIPBOARD -> MetroSystemIconType.Clipboard
+        KeyCode.LANGUAGE_SWITCH -> MetroSystemIconType.Language
+        KeyCode.SETTINGS -> MetroSystemIconType.Settings
+        KeyCode.UNDO -> MetroSystemIconType.Undo
+        KeyCode.REDO -> MetroSystemIconType.Redo
+        KeyCode.TOGGLE_ACTIONS_OVERFLOW -> MetroSystemIconType.More
+        KeyCode.TOGGLE_AUTOCORRECT -> MetroSystemIconType.Autocorrect
+        KeyCode.TOGGLE_RESIZE_MODE -> MetroSystemIconType.Resize
         KeyCode.DRAG_MARKER -> {
-            if (evaluator.state.debugShowDragAndDropHelpers) Icons.Default.Close else null
+            if (evaluator.state.debugShowDragAndDropHelpers) MetroSystemIconType.Close else null
         }
-        KeyCode.NOOP -> {
-            Icons.Default.Close
+        KeyCode.NOOP -> MetroSystemIconType.Close
+        KeyCode.SHIFT -> when (evaluator.state.inputShiftState) {
+            InputShiftState.CAPS_LOCK -> MetroSystemIconType.ShiftLocked
+            else -> MetroSystemIconType.Shift
+        }
+        KeyCode.ENTER -> {
+            val imeOptions = evaluator.editorInfo.imeOptions
+            val inputAttributes = evaluator.editorInfo.inputAttributes
+            if (imeOptions.flagNoEnterAction || inputAttributes.flagTextMultiLine) {
+                MetroSystemIconType.Enter
+            } else {
+                when (imeOptions.action) {
+                    ImeOptions.Action.DONE -> MetroSystemIconType.Check
+                    ImeOptions.Action.GO,
+                    ImeOptions.Action.NEXT -> MetroSystemIconType.Forward
+                    ImeOptions.Action.PREVIOUS -> MetroSystemIconType.Back
+                    ImeOptions.Action.SEARCH -> MetroSystemIconType.Search
+                    ImeOptions.Action.SEND -> MetroSystemIconType.Send
+                    ImeOptions.Action.NONE,
+                    ImeOptions.Action.UNSPECIFIED -> MetroSystemIconType.Enter
+                }
+            }
         }
         else -> null
     }

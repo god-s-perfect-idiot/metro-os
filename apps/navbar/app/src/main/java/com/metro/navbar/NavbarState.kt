@@ -30,6 +30,7 @@ class NavbarState(context: Context) {
   }
 
   fun refreshTheme() {
+    preferences.pullThemeFromProvider()
     theme = NavbarThemeResolver.resolve(preferences)
   }
 

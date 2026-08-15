@@ -4,8 +4,17 @@ import com.metro.system.MetroStatusBar
 
 object TraySpec {
     const val TRAY_HEIGHT_DP = MetroStatusBar.HEIGHT_DP
+
+    /** Vertical drag past this distance (dp) opens the Android notification shade. */
+    const val SHADE_OPEN_DRAG_DP = 28
     const val START_PADDING_DP = 10
     const val END_PADDING_DP = 2
+    /**
+     * Extra horizontal clearance when the user places the notch on the left or right.
+     * Sized for a typical corner punch-hole (diameter + margin from the screen edge);
+     * Center keeps the base paddings only (plus any system cutout / corner / privacy insets).
+     */
+    const val NOTCH_SIDE_CLEARANCE_DP = 56
     const val PRIVACY_INDICATOR_GAP_DP = 2
     /** Gap between cellular signal bars and the data connection label (4G, 5G, …). */
     const val CELLULAR_DATA_LABEL_GAP_DP = 2
@@ -24,7 +33,61 @@ object TraySpec {
         if (iconCount <= 0) return 0L
         return perIconMs + (iconCount - 1) * ICON_STAGGER_MS
     }
+
+    /**
+     * Horizontal content insets for the tray row (physical left/right — not RTL).
+     * [NotchPosition.Center] keeps the base WP paddings; left/right add
+     * [NOTCH_SIDE_CLEARANCE_DP] on that edge. System insets still win when larger.
+     */
+    fun horizontalPaddingDp(
+        notchPosition: NotchPosition,
+        systemLeftDp: Int = 0,
+        systemRightDp: Int = 0,
+    ): HorizontalPaddingDp {
+        var left = START_PADDING_DP
+        var right = END_PADDING_DP
+        when (notchPosition) {
+            NotchPosition.Center -> Unit
+            NotchPosition.Left -> left += NOTCH_SIDE_CLEARANCE_DP
+            NotchPosition.Right -> right += NOTCH_SIDE_CLEARANCE_DP
+        }
+        return HorizontalPaddingDp(
+            left = maxOf(left, systemLeftDp),
+            right = maxOf(right, systemRightDp),
+        )
+    }
 }
+
+/** Where the display cutout / punch-hole sits — setup ListPicker drives tray side padding. */
+enum class NotchPosition {
+    Center,
+    Left,
+    Right,
+    ;
+
+    fun toStorage(): String = when (this) {
+        Center -> STORAGE_CENTER
+        Left -> STORAGE_LEFT
+        Right -> STORAGE_RIGHT
+    }
+
+    companion object {
+        const val STORAGE_CENTER = "center"
+        const val STORAGE_LEFT = "left"
+        const val STORAGE_RIGHT = "right"
+
+        fun fromStorage(value: String?): NotchPosition = when (value) {
+            STORAGE_LEFT -> Left
+            STORAGE_RIGHT -> Right
+            else -> Center
+        }
+    }
+}
+
+data class HorizontalPaddingDp(
+    val left: Int,
+    val right: Int,
+)
 
 enum class TrayVisibilityMode {
     Opaque,
@@ -61,7 +124,16 @@ data class BatteryStatus(
     /** Whole-number battery percentage, `0..100`. */
     val percent: Int get() = (fraction.coerceIn(0f, 1f) * 100f).toInt()
 
+    /**
+     * WP tray paints the charge bar red at or below 20%; above that the bar matches the
+     * foreground (white on dark / black on light).
+     */
+    val isLow: Boolean get() = percent <= LOW_PERCENT_THRESHOLD
+
     companion object {
+        /** Charge level at which the tray switches the fill to the low-battery red. */
+        const val LOW_PERCENT_THRESHOLD = 20
+
         /** Neutral fallback used before the first battery broadcast arrives. */
         val Unknown = BatteryStatus(fraction = 1f, charging = false, present = true)
 
@@ -112,6 +184,11 @@ data class TraySnapshot(
     val dataConnectionLabel: String?,
     val battery: BatteryStatus,
     val theme: TrayThemeSnapshot,
+    /**
+     * True while the Android notification shade is open. The accessibility overlay must not draw
+     * over SystemUI's panel; [StatusTray] returns without content when this is set.
+     */
+    val notificationShadeOpen: Boolean = false,
 )
 
 object TrayIndicatorOrder {

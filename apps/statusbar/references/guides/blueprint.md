@@ -11,7 +11,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Layout: WP **32dp** content band across the top; **clock only** (right-aligned); battery and other indicators hidden
 - Coverage: the overlay window is sized to the **full system status-bar inset height** (status bar / notch / hole-punch), so no part of the Android bar peeks through below the WP band. Content is vertically centered within that height; the WP band is never shorter than 32dp.
 - Background: opaque theme color (or translucent/hidden per app request)
-- Interactions: tap anywhere on tray, or going home / Start, expands the indicator row
+- Interactions: tap anywhere on tray, or going home / Start, expands the indicator row; **swipe down** opens the Android notification shade and hides the Metro tray while that shade is open
 
 ### Page 2 — Expanded tray
 
@@ -33,8 +33,10 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | Theme | Observe `com.metro.system.THEME_CHANGED` |
 | Visibility | Apps request opaque / translucent (0.5) / hidden modes via `metro-system-sdk` API |
 | Overlay | `SYSTEM_ALERT_WINDOW` foreground service, hosted as a `TYPE_ACCESSIBILITY_OVERLAY` so it draws above the native status bar |
-| Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally and shows a plug while charging |
+| Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally (red ≤20%, foreground above) and shows a plug that interrupts the casing while charging |
 | Coverage | Window height = system status-bar inset (incl. cutout), so the Android bar is fully covered |
+| Side insets | Physical left/right padding from cutout + waterfall + top rounded-corner chords + privacy dots |
+| Notification shade | Swipe down on the tray opens the Android notification shade; the Metro overlay hides while the shade is open (accessibility overlay would otherwise paint on top of SystemUI) |
 
 ## Images
 

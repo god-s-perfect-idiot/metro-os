@@ -13,6 +13,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
+import android.view.RoundedCorner
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -33,7 +34,6 @@ import com.metro.statusbar.ui.StatusTray
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroTheme
 import java.time.ZonedDateTime
-import kotlin.math.ceil
 
 class StatusBarOverlayService :
     Service(),
@@ -122,8 +122,10 @@ class StatusBarOverlayService :
      * [WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY] so the tray is drawn *above* the
      * system status bar. Falls back to a plain app overlay (drawn below the system bar) when the
      * accessibility service is not connected.
+     *
+     * @param force when true, rebuild even if the window type is unchanged (e.g. notch padding).
      */
-    private fun rehostOverlay() {
+    private fun rehostOverlay(force: Boolean = false) {
         val accessibilityHost = StatusBarAccessibilityService.getInstance()
         val hostContext: Context = accessibilityHost ?: this
         val windowType =
@@ -133,11 +135,12 @@ class StatusBarOverlayService :
                 applicationOverlayWindowType()
             }
 
-        if (overlayView != null && currentWindowType == windowType) return
+        if (!force && overlayView != null && currentWindowType == windowType) return
         removeOverlay()
 
-        val barHeightDp = statusBarInsetDp()
-        val horizontalPadding = statusBarHorizontalPaddingDp()
+        val manager = hostContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val barHeightDp = statusBarInsetDp(manager)
+        val horizontalPadding = statusBarHorizontalPaddingDp(manager, barHeightDp)
         val composeView = ComposeView(hostContext).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             suppressSystemBarInsets()
@@ -152,19 +155,39 @@ class StatusBarOverlayService :
                     StatusTray(
                         snapshot = trayState.snapshot,
                         onTrayTap = { trayState.toggleExpanded() },
+                        onSwipeOpenNotifications = { openNotificationShadeFromTray() },
                         barHeightDp = barHeightDp,
-                        startPaddingDp = horizontalPadding.start,
-                        endPaddingDp = horizontalPadding.end,
+                        leftPaddingDp = horizontalPadding.left,
+                        rightPaddingDp = horizontalPadding.right,
                     )
                 }
             }
         }
 
-        val manager = hostContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         manager.addView(composeView, createLayoutParams(windowType))
         overlayView = composeView
         overlayManager = manager
         currentWindowType = windowType
+        applyOverlayVisibilityForShade()
+    }
+
+    /**
+     * Swipe-down on the Metro tray opens the Android notification shade and hides the overlay so
+     * it does not paint above SystemUI.
+     */
+    private fun openNotificationShadeFromTray() {
+        trayState.applyNotificationShadeOpen(true)
+        applyOverlayVisibilityForShade()
+        val opened = StatusBarAccessibilityService.openNotificationShade()
+        if (!opened) {
+            trayState.applyNotificationShadeOpen(false)
+            applyOverlayVisibilityForShade()
+        }
+    }
+
+    private fun applyOverlayVisibilityForShade() {
+        val hide = trayState.notificationShadeOpen
+        overlayView?.visibility = if (hide) View.GONE else View.VISIBLE
     }
 
     private fun removeOverlay() {
@@ -202,14 +225,13 @@ class StatusBarOverlayService :
      * or hole-punch cutout — so no part of the Android bar peeks through below it. Never smaller
      * than the WP 32dp strip.
      */
-    private fun statusBarInsetDp(): Int {
+    private fun statusBarInsetDp(wm: WindowManager): Int {
         val density = resources.displayMetrics.density
         val topPx: Int =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val wm = getSystemService(WINDOW_SERVICE) as WindowManager
                 val insets = wm.currentWindowMetrics.windowInsets
                 val statusBars = insets.getInsets(WindowInsets.Type.statusBars())
-                val cutoutTop = insets.displayCutout?.safeInsetTop ?: 0
+                val cutoutTop = insets.getInsets(WindowInsets.Type.displayCutout()).top
                 maxOf(statusBars.top, cutoutTop)
             } else {
                 val resId = resources.getIdentifier("status_bar_height", "dimen", "android")
@@ -220,42 +242,89 @@ class StatusBarOverlayService :
     }
 
     /**
-     * Leaves space for cutouts and Android privacy indicators so system dots never overlap the
-     * Metro tray clock row.
+     * Physical left/right padding so tray glyphs clear the configured notch side, cutouts,
+     * waterfall edges, top rounded corners, and Android privacy indicators. Uses absolute edges
+     * (not RTL start/end) because WP tray chrome stays clock-on-right regardless of locale.
      */
-    private fun statusBarHorizontalPaddingDp(): HorizontalPaddingDp {
+    private fun statusBarHorizontalPaddingDp(
+        wm: WindowManager,
+        barHeightDp: Int,
+    ): HorizontalPaddingDp {
         val density = resources.displayMetrics.density
-        var startPx = TraySpec.START_PADDING_DP * density
-        var endPx = TraySpec.END_PADDING_DP * density
+        var systemLeftPx = 0f
+        var systemRightPx = 0f
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val wm = getSystemService(WINDOW_SERVICE) as WindowManager
             val metrics = wm.currentWindowMetrics
+            val bounds = metrics.bounds
             val insets = metrics.windowInsets
-            val cutout = insets.displayCutout
+            val cutoutInsets = insets.getInsets(WindowInsets.Type.displayCutout())
+            systemLeftPx = maxOf(systemLeftPx, cutoutInsets.left.toFloat())
+            systemRightPx = maxOf(systemRightPx, cutoutInsets.right.toFloat())
 
-            startPx = maxOf(startPx, cutout?.safeInsetLeft?.toFloat() ?: 0f)
-            endPx = maxOf(endPx, cutout?.safeInsetRight?.toFloat() ?: 0f)
+            val waterfall = insets.displayCutout?.waterfallInsets
+            if (waterfall != null) {
+                systemLeftPx = maxOf(systemLeftPx, waterfall.left.toFloat())
+                systemRightPx = maxOf(systemRightPx, waterfall.right.toFloat())
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val bounds = insets.privacyIndicatorBounds
-                if (bounds != null && !bounds.isEmpty) {
+                val barHeightPx = barHeightDp * density
+                // Glyphs sit in the vertical middle of the tray; sample that band so corner
+                // chords clear clock/battery without padding the full corner radius.
+                val contentTopY = barHeightPx * 0.18f
+                val contentBottomY = barHeightPx * 0.82f
+                val topLeft = insets.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
+                val topRight = insets.getRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT)
+                if (topLeft != null) {
+                    systemLeftPx = maxOf(
+                        systemLeftPx,
+                        StatusBarSafeInsets.topRoundedCornerInsetPx(
+                            radius = topLeft.radius,
+                            centerX = topLeft.center.x,
+                            centerY = topLeft.center.y,
+                            contentTopY = contentTopY,
+                            contentBottomY = contentBottomY,
+                            windowLeft = bounds.left,
+                            windowRight = bounds.right,
+                            isLeftCorner = true,
+                        ),
+                    )
+                }
+                if (topRight != null) {
+                    systemRightPx = maxOf(
+                        systemRightPx,
+                        StatusBarSafeInsets.topRoundedCornerInsetPx(
+                            radius = topRight.radius,
+                            centerX = topRight.center.x,
+                            centerY = topRight.center.y,
+                            contentTopY = contentTopY,
+                            contentBottomY = contentBottomY,
+                            windowLeft = bounds.left,
+                            windowRight = bounds.right,
+                            isLeftCorner = false,
+                        ),
+                    )
+                }
+
+                val privacyBounds = insets.privacyIndicatorBounds
+                if (privacyBounds != null && !privacyBounds.isEmpty) {
                     val gapPx = TraySpec.PRIVACY_INDICATOR_GAP_DP * density
-                    val widthPx = metrics.bounds.width().toFloat()
-                    if (bounds.centerX() >= widthPx / 2f) {
-                        // Keep only a tiny trailing cushion next to the privacy dots instead of
-                        // reserving the entire dots width on the tray's right edge.
-                        endPx = maxOf(endPx, widthPx - bounds.right + gapPx)
+                    val widthPx = bounds.width().toFloat()
+                    if (privacyBounds.centerX() >= widthPx / 2f) {
+                        // Tiny trailing cushion next to the privacy dots — not the full dots width.
+                        systemRightPx = maxOf(systemRightPx, widthPx - privacyBounds.right + gapPx)
                     } else {
-                        startPx = maxOf(startPx, bounds.right + gapPx)
+                        systemLeftPx = maxOf(systemLeftPx, privacyBounds.right + gapPx)
                     }
                 }
             }
         }
 
-        return HorizontalPaddingDp(
-            start = ceil(startPx / density).toInt(),
-            end = ceil(endPx / density).toInt(),
+        return TraySpec.horizontalPaddingDp(
+            notchPosition = StatusTrayPreferences(this).notchPosition,
+            systemLeftDp = StatusBarSafeInsets.pxToDpCeil(systemLeftPx, density),
+            systemRightDp = StatusBarSafeInsets.pxToDpCeil(systemRightPx, density),
         )
     }
 
@@ -316,12 +385,34 @@ class StatusBarOverlayService :
 
         /** Called when the accessibility service connects — re-host on the higher overlay layer. */
         fun onAccessibilityServiceConnected() {
-            instance?.let { svc -> svc.handler.post { svc.rehostOverlay() } }
+            instance?.let { svc -> svc.handler.post { svc.rehostOverlay(force = true) } }
         }
 
         /** Called when the accessibility service disconnects — fall back to the app overlay. */
         fun onAccessibilityServiceDisconnected() {
-            instance?.let { svc -> svc.handler.post { svc.rehostOverlay() } }
+            instance?.let { svc -> svc.handler.post { svc.rehostOverlay(force = true) } }
+        }
+
+        /**
+         * Shows or hides the Metro tray when the Android notification shade opens or closes.
+         * The accessibility overlay sits above SystemUI, so the tray must not draw while the
+         * shade is expanded.
+         */
+        fun onNotificationShadeOpenChanged(open: Boolean) {
+            instance?.let { svc ->
+                svc.handler.post {
+                    svc.trayState.applyNotificationShadeOpen(open)
+                    svc.applyOverlayVisibilityForShade()
+                }
+            }
+        }
+
+        /**
+         * Rebuilds the overlay in place (same window type) so inset / notch preference changes
+         * take effect without restarting the service.
+         */
+        fun requestRehost() {
+            instance?.let { svc -> svc.handler.post { svc.rehostOverlay(force = true) } }
         }
 
         fun isRunning(): Boolean = instance != null
@@ -375,8 +466,3 @@ class StatusBarOverlayService :
         }
     }
 }
-
-private data class HorizontalPaddingDp(
-    val start: Int,
-    val end: Int,
-)

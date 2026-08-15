@@ -33,6 +33,7 @@ import com.metro.system.MetroStartBackground
 import com.metro.system.MetroThemeMode
 import com.metro.system.MetroTileContract
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 class LauncherState(context: Context) {
@@ -43,8 +44,11 @@ class LauncherState(context: Context) {
     private val launcherPrefs =
         appContext.getSharedPreferences(PREFS_LAUNCHER, Context.MODE_PRIVATE)
 
-    var darkTheme by mutableStateOf(metroPrefs.isDark)
-    var accent by mutableStateOf(metroPrefs.accentColor)
+    var darkTheme by mutableStateOf(metroPrefs.peekCachedIsDark() ?: metroPrefs.isDark)
+    var accent by mutableStateOf(
+        metroPrefs.peekCachedAccentColorHex()?.let { MetroPreferences.parseAccentHex(it) }
+            ?: metroPrefs.accentColor,
+    )
     /** Decoded Start background for viewport-window tiles; null when unset. */
     var startBackgroundBitmap by mutableStateOf<android.graphics.Bitmap?>(null)
         private set
@@ -193,6 +197,14 @@ class LauncherState(context: Context) {
             pinnedEntries = pinned
             apps = withContext(Dispatchers.IO) { repository.discoverApps(pinned) }
             if (epochAtStart != layoutEpoch) return
+            // Settings provider is often unreachable on the first frame after a cold start;
+            // pull with retries so system/Metro tiles get the real accent before paint.
+            withContext(Dispatchers.IO) {
+                repeat(8) { attempt ->
+                    if (metroPrefs.pullThemeFromProvider()) return@withContext
+                    if (attempt < 7) delay(40L * (attempt + 1))
+                }
+            }
             darkTheme = metroPrefs.isDark
             accent = metroPrefs.accentColor
             refreshNotificationAccessPrompt()

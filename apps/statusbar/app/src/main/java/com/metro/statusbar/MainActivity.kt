@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
             var permissionTick by remember { mutableIntStateOf(0) }
             var trayEnabled by remember { mutableStateOf(trayPrefs.enabled) }
             var iconHideTimeoutMs by remember { mutableLongStateOf(trayPrefs.iconHideTimeoutMs) }
+            var notchPosition by remember { mutableStateOf(trayPrefs.notchPosition) }
 
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -70,6 +71,7 @@ class MainActivity : ComponentActivity() {
                         permissionTick++
                         trayEnabled = trayPrefs.enabled
                         iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
+                        notchPosition = trayPrefs.notchPosition
                         // Keep overlay aligned with the master toggle after returning from Settings.
                         if (trayPrefs.enabled &&
                             Settings.canDrawOverlays(context) &&
@@ -227,15 +229,47 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
                     )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MetroListPicker(
+                        selected = notchPosition,
+                        options = listOf(
+                            MetroListPickerOption(
+                                NotchPosition.Center,
+                                stringResource(R.string.notch_position_center),
+                            ),
+                            MetroListPickerOption(
+                                NotchPosition.Left,
+                                stringResource(R.string.notch_position_left),
+                            ),
+                            MetroListPickerOption(
+                                NotchPosition.Right,
+                                stringResource(R.string.notch_position_right),
+                            ),
+                        ),
+                        onSelectedChange = { position ->
+                            trayPrefs.notchPosition = position
+                            notchPosition = trayPrefs.notchPosition
+                            StatusBarOverlayService.requestRehost()
+                        },
+                        label = stringResource(R.string.notch_position_label),
+                        labelStyle = MetroTextStyle.DialogBody,
+                        optionStyle = MetroTextStyle.DialogBody,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                    )
                     Spacer(modifier = Modifier.height(32.dp))
                     MetroText(
                         text = "Preview",
                         style = MetroTextStyle.SectionHeader,
                         modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
                     )
+                    val previewPadding = TraySpec.horizontalPaddingDp(notchPosition)
                     StatusTray(
                         snapshot = state.snapshot,
                         onTrayTap = { state.toggleExpanded() },
+                        leftPaddingDp = previewPadding.left,
+                        rightPaddingDp = previewPadding.right,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),

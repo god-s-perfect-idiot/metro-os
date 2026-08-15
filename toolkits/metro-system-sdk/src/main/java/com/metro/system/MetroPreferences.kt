@@ -38,6 +38,45 @@ class MetroPreferences(context: Context) {
     val accentColor: Color
         get() = parseAccentHex(accentColorHex)
 
+    /**
+     * Local mirror of the suite accent only — no ContentProvider round-trip.
+     * Used to paint cold starts before Settings wakes; null when this process has never
+     * successfully cached a suite accent.
+     */
+    fun peekCachedAccentColorHex(): String? =
+        localPrefs.getString(MetroPreferenceKeys.ACCENT_COLOR, null)
+
+    /** Local mirror of dark/light; null when unset in this process's cache. */
+    fun peekCachedIsDark(): Boolean? =
+        localPrefs.getString(MetroPreferenceKeys.THEME_MODE, null)?.let {
+            MetroThemeMode.fromStorage(it) == MetroThemeMode.Dark
+        }
+
+    /**
+     * Forces a ContentProvider read for theme keys and mirrors any values into the local
+     * cache with [SharedPreferences.Editor.commit]. Returns true when the Settings provider
+     * answered (even if the accent is still the suite default).
+     */
+    fun pullThemeFromProvider(): Boolean {
+        val accentRemote = queryProvider(MetroPreferenceKeys.ACCENT_COLOR)
+        val themeRemote = queryProvider(MetroPreferenceKeys.THEME_MODE)
+        val fontRemote = queryProvider(MetroPreferenceKeys.FONT_SCALE)
+        var reached = false
+        accentRemote?.let {
+            reached = true
+            cacheStringLocally(MetroPreferenceKeys.ACCENT_COLOR, it, durable = true)
+        }
+        themeRemote?.let {
+            reached = true
+            cacheStringLocally(MetroPreferenceKeys.THEME_MODE, it, durable = true)
+        }
+        fontRemote?.toFloatOrNull()?.let {
+            reached = true
+            cacheFloatLocally(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.coerceToStep(it), durable = true)
+        }
+        return reached
+    }
+
     var fontScale: Float
         get() = MetroFontScale.coerceToStep(
             readFloat(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.DEFAULT),
@@ -98,6 +137,9 @@ class MetroPreferences(context: Context) {
      * Mirrors a theme snapshot into this app's local cache only (no provider write, no broadcast).
      * Used when a [MetroBroadcasts.ACTION_THEME_CHANGED] arrives so cold starts still see the
      * last-known suite theme even if the Settings ContentProvider is briefly unreachable.
+     *
+     * Uses [SharedPreferences.Editor.commit] so the mirror survives immediate process death
+     * after a theme change (apply() can lose the write under memory pressure).
      */
     fun cacheThemeSnapshot(
         themeMode: MetroThemeMode? = null,
@@ -113,7 +155,7 @@ class MetroPreferences(context: Context) {
         fontScale?.let {
             editor.putFloat(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.coerceToStep(it))
         }
-        editor.apply()
+        editor.commit()
     }
 
     fun broadcastThemeChanged() {
@@ -154,28 +196,46 @@ class MetroPreferences(context: Context) {
     }
 
     private fun readString(key: String, default: String?): String? {
+        // Prefer a durable local mirror first for theme keys so cold opens do not flash the
+        // suite default while the Settings provider process is still starting. Still refresh
+        // from the provider when it answers so Settings remains source of truth.
+        val local = localPrefs.getString(key, null)
+        if (isThemeKey(key) && local != null) {
+            queryProvider(key)?.let { value ->
+                cacheStringLocally(key, value, durable = true)
+                return value
+            }
+            return local
+        }
         queryProvider(key)?.let { value ->
-            cacheStringLocally(key, value)
+            cacheStringLocally(key, value, durable = isThemeKey(key))
             return value
         }
-        return localPrefs.getString(key, default)
+        return local ?: default
     }
 
     private fun readFloat(key: String, default: Float): Float {
+        if (key == MetroPreferenceKeys.FONT_SCALE && localPrefs.contains(key)) {
+            val local = localPrefs.getFloat(key, default)
+            queryProvider(key)?.toFloatOrNull()?.let { value ->
+                cacheFloatLocally(key, value, durable = true)
+                return value
+            }
+            queryProviderRaw(key)?.let { raw ->
+                rawAsFloat(raw)?.let { value ->
+                    cacheFloatLocally(key, value, durable = true)
+                    return value
+                }
+            }
+            return local
+        }
         queryProvider(key)?.toFloatOrNull()?.let { value ->
-            cacheFloatLocally(key, value)
+            cacheFloatLocally(key, value, durable = key == MetroPreferenceKeys.FONT_SCALE)
             return value
         }
         queryProviderRaw(key)?.let { raw ->
-            val value = when (raw) {
-                is Float -> raw
-                is Double -> raw.toFloat()
-                is Number -> raw.toFloat()
-                is String -> raw.toFloatOrNull()
-                else -> null
-            }
-            if (value != null) {
-                cacheFloatLocally(key, value)
+            rawAsFloat(raw)?.let { value ->
+                cacheFloatLocally(key, value, durable = key == MetroPreferenceKeys.FONT_SCALE)
                 return value
             }
         }
@@ -199,12 +259,15 @@ class MetroPreferences(context: Context) {
     }
 
     private fun writeString(key: String, value: String) {
-        localPrefs.edit().putString(key, value).apply()
+        val editor = localPrefs.edit().putString(key, value)
+        // Theme keys must hit disk before Settings can be killed; apply() races with process death.
+        if (isThemeKey(key)) editor.commit() else editor.apply()
         propagateWrite { updateProvider(key, value) }
     }
 
     private fun writeFloat(key: String, value: Float) {
-        localPrefs.edit().putFloat(key, value).apply()
+        val editor = localPrefs.edit().putFloat(key, value)
+        if (key == MetroPreferenceKeys.FONT_SCALE) editor.commit() else editor.apply()
         propagateWrite { updateProvider(key, value) }
     }
 
@@ -224,6 +287,19 @@ class MetroPreferences(context: Context) {
                 null,
             )
         }
+    }
+
+    private fun isThemeKey(key: String): Boolean =
+        key == MetroPreferenceKeys.THEME_MODE ||
+            key == MetroPreferenceKeys.ACCENT_COLOR ||
+            key == MetroPreferenceKeys.FONT_SCALE
+
+    private fun rawAsFloat(raw: Any?): Float? = when (raw) {
+        is Float -> raw
+        is Double -> raw.toFloat()
+        is Number -> raw.toFloat()
+        is String -> raw.toFloatOrNull()
+        else -> null
     }
 
     /**
@@ -256,15 +332,17 @@ class MetroPreferences(context: Context) {
         return provider.packageName == appContext.packageName
     }
 
-    private fun cacheStringLocally(key: String, value: String) {
+    private fun cacheStringLocally(key: String, value: String, durable: Boolean = false) {
         if (localPrefs.getString(key, null) != value) {
-            localPrefs.edit().putString(key, value).apply()
+            val editor = localPrefs.edit().putString(key, value)
+            if (durable) editor.commit() else editor.apply()
         }
     }
 
-    private fun cacheFloatLocally(key: String, value: Float) {
+    private fun cacheFloatLocally(key: String, value: Float, durable: Boolean = false) {
         if (!localPrefs.contains(key) || localPrefs.getFloat(key, 0f) != value) {
-            localPrefs.edit().putFloat(key, value).apply()
+            val editor = localPrefs.edit().putFloat(key, value)
+            if (durable) editor.commit() else editor.apply()
         }
     }
 

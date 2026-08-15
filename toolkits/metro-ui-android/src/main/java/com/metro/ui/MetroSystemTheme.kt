@@ -2,10 +2,12 @@ package com.metro.ui
 
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,12 +24,18 @@ import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroThemeMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * Applies suite-wide theme, accent, and font scale from [MetroPreferences].
  * Observes [MetroBroadcasts.ACTION_THEME_CHANGED] so Settings writes recompose all apps.
  * Also reloads on resume and mirrors broadcast extras into the local prefs cache so cold
  * starts keep the last suite accent even if the Settings provider is briefly unreachable.
+ *
+ * Cold opens retry the Settings ContentProvider off the main thread — the provider host
+ * (`com.metro.settings`) is often not answering on the first frame after process start.
  */
 @Composable
 fun MetroSystemTheme(
@@ -36,8 +44,15 @@ fun MetroSystemTheme(
     val context = LocalContext.current
     val prefs = remember(context) { MetroPreferences(context) }
 
-    var darkTheme by remember { mutableStateOf(prefs.isDark) }
-    var accent by remember { mutableStateOf(prefs.accentColor) }
+    var darkTheme by remember {
+        mutableStateOf(prefs.peekCachedIsDark() ?: prefs.isDark)
+    }
+    var accent by remember {
+        mutableStateOf(
+            prefs.peekCachedAccentColorHex()?.let { MetroPreferences.parseAccentHex(it) }
+                ?: prefs.accentColor,
+        )
+    }
     var fontScale by remember { mutableFloatStateOf(prefs.fontScale) }
 
     fun reload() {
@@ -46,7 +61,18 @@ fun MetroSystemTheme(
         fontScale = prefs.fontScale
     }
 
+    // Wake Settings and pull theme; first-frame provider misses are common on cold start.
+    LaunchedEffect(prefs) {
+        repeat(COLD_START_THEME_ATTEMPTS) { attempt ->
+            if (attempt > 0) delay(COLD_START_THEME_RETRY_MS * attempt)
+            val reached = withContext(Dispatchers.IO) { prefs.pullThemeFromProvider() }
+            reload()
+            if (reached) return@LaunchedEffect
+        }
+    }
+
     DisposableEffect(context) {
+        val appContext = context.applicationContext
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 if (intent?.action != MetroBroadcasts.ACTION_THEME_CHANGED) return
@@ -76,15 +102,15 @@ fun MetroSystemTheme(
             }
         }
         val filter = IntentFilter(MetroBroadcasts.ACTION_THEME_CHANGED)
-        context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        appContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         val observer = prefs.registerObserver { reload() }
         onDispose {
-            runCatching { context.unregisterReceiver(receiver) }
+            runCatching { appContext.unregisterReceiver(receiver) }
             prefs.unregisterObserver(observer)
         }
     }
 
-    val lifecycleOwner = context as? LifecycleOwner
+    val lifecycleOwner = remember(context) { context.findLifecycleOwner() }
     DisposableEffect(lifecycleOwner) {
         if (lifecycleOwner == null) return@DisposableEffect onDispose { }
         val observer = LifecycleEventObserver { _, event ->
@@ -107,4 +133,13 @@ fun MetroSystemTheme(
     CompositionLocalProvider(LocalDensity provides scaledDensity) {
         MetroTheme(darkTheme = darkTheme, accent = accent, content = content)
     }
+}
+
+private const val COLD_START_THEME_ATTEMPTS = 8
+private const val COLD_START_THEME_RETRY_MS = 40L
+
+private tailrec fun Context.findLifecycleOwner(): LifecycleOwner? = when (this) {
+    is LifecycleOwner -> this
+    is ContextWrapper -> baseContext.findLifecycleOwner()
+    else -> null
 }

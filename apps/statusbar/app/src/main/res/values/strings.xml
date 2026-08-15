@@ -15,6 +15,10 @@
     <string name="icon_hide_timeout_3s">3 seconds</string>
     <string name="icon_hide_timeout_5s">5 seconds</string>
     <string name="icon_hide_timeout_10s">10 seconds</string>
+    <string name="notch_position_label">Notch position</string>
+    <string name="notch_position_center">Center</string>
+    <string name="notch_position_left">Left</string>
+    <string name="notch_position_right">Right</string>
     <string name="grant_overlay">Grant overlay permission</string>
     <string name="grant_phone_state">Allow mobile network label</string>
     <string name="grant_accessibility">Enable status tray service</string>

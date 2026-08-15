@@ -99,4 +99,61 @@ class TextKeyboardSpacingTest : FunSpec({
             keyboard.arrangement[0][0].visibleBounds.bottom
         rowGap shouldBe (gutter plusOrMinus tolerance)
     }
+
+    test("bottom three rows share the WP8.1 column grid") {
+        fun keyed(factor: Float, grow: Float = 0f, shrink: Float = 1f) =
+            TextKey(TextKeyData.UNSPECIFIED).apply {
+                flayWidthFactor = factor
+                flayGrow = grow
+                flayShrink = shrink
+            }
+
+        // Row 2: 9×1.0 (centered). Row 3: 1.5 | 7×1.0 | 1.5. Row 4: 1.5 | 1 | 1 | space | 1 | 1.5
+        // availableWidth is slightly under 10 (outer gutters), so cross-row edges can
+        // drift by a fraction of a unit — still visually the same WP8.1 column grid.
+        val alignTolerance = 4f
+        val keyboard = layout(
+            arrayOf(
+                Array(10) { letterKey() },
+                Array(9) { letterKey() },
+                arrayOf(
+                    keyed(1.5f, shrink = 1.5f),
+                    letterKey(), letterKey(), letterKey(), letterKey(),
+                    letterKey(), letterKey(), letterKey(),
+                    keyed(1.5f, shrink = 1.5f),
+                ),
+                arrayOf(
+                    keyed(1.5f, shrink = 0f),
+                    letterKey(),
+                    letterKey(),
+                    keyed(1.0f, grow = 1f),
+                    letterKey(),
+                    keyed(1.5f, shrink = 0f),
+                ),
+            ),
+        )
+        val row2 = keyboard.arrangement[1]
+        val row3 = keyboard.arrangement[2]
+        val row4 = keyboard.arrangement[3]
+
+        // Shift right edge aligns with 'a'; z starts under 's'
+        row3[0].visibleBounds.right shouldBe (row2[0].visibleBounds.right plusOrMinus alignTolerance)
+        row3[1].visibleBounds.left shouldBe (row2[1].visibleBounds.left plusOrMinus alignTolerance)
+        // Backspace starts under 'l'
+        row3.last().visibleBounds.left shouldBe (row2.last().visibleBounds.left plusOrMinus alignTolerance)
+
+        // Bottom row shares the same columns as shift / letter / backspace row
+        row4[0].visibleBounds.left shouldBe (row3[0].visibleBounds.left plusOrMinus alignTolerance)
+        row4[0].visibleBounds.right shouldBe (row3[0].visibleBounds.right plusOrMinus alignTolerance)
+        row4[1].visibleBounds.left shouldBe (row3[1].visibleBounds.left plusOrMinus alignTolerance)
+        row4[1].visibleBounds.right shouldBe (row3[1].visibleBounds.right plusOrMinus alignTolerance)
+        row4[2].visibleBounds.left shouldBe (row3[2].visibleBounds.left plusOrMinus alignTolerance)
+        row4[2].visibleBounds.right shouldBe (row3[2].visibleBounds.right plusOrMinus alignTolerance)
+        row4[3].visibleBounds.left shouldBe (row3[3].visibleBounds.left plusOrMinus alignTolerance)
+        row4[3].visibleBounds.right shouldBe (row3[6].visibleBounds.right plusOrMinus alignTolerance)
+        row4[4].visibleBounds.left shouldBe (row3[7].visibleBounds.left plusOrMinus alignTolerance)
+        row4[4].visibleBounds.right shouldBe (row3[7].visibleBounds.right plusOrMinus alignTolerance)
+        row4[5].visibleBounds.left shouldBe (row3[8].visibleBounds.left plusOrMinus alignTolerance)
+        row4[5].visibleBounds.right shouldBe (row3[8].visibleBounds.right plusOrMinus alignTolerance)
+    }
 })

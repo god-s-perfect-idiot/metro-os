@@ -40,6 +40,8 @@ enum class MetroTextStyle {
     Body,
     DialogTitle,
     DialogBody,
+    /** App-bar / expanded action icon caption (WP8.1: 15sp Regular, lowercase). */
+    AppBarIconHint,
     ;
 
     /**
@@ -119,6 +121,12 @@ enum class MetroTextStyle {
             fontWeight = FontWeight.Normal,
             fontSize = 16.sp,
             lineHeight = 22.sp,
+        )
+        AppBarIconHint -> TextStyle(
+            fontFamily = MetroFontFamily,
+            fontWeight = FontWeight.Normal,
+            fontSize = 15.sp,
+            lineHeight = 18.sp,
         )
     }
 }

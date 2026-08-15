@@ -30,10 +30,14 @@ object MetroSplash {
     /**
      * Persists the accent-colored splash theme for the next cold start (API 31+).
      * Safe to call when [com.metro.system.MetroBroadcasts.ACTION_THEME_CHANGED] arrives.
+     *
+     * Prefers the durable local accent mirror so a cold-start ContentProvider miss cannot
+     * overwrite a previously correct splash theme with the suite default blue.
      */
     fun persistAccentSplashTheme(activity: Activity) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val hex = MetroPreferences(activity).accentColorHex
+        val prefs = MetroPreferences(activity)
+        val hex = prefs.peekCachedAccentColorHex() ?: prefs.accentColorHex
         activity.splashScreen.setSplashScreenTheme(styleForAccentHex(hex))
     }
 

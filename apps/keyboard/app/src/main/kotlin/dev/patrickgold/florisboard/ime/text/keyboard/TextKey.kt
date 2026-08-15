@@ -149,6 +149,10 @@ class TextKey(override val data: AbstractKeyData) : Key(data) {
                     else -> 0.0f
                 }
             }
+            // WP8.1 alpha SIP grid (relative to top-row unit width):
+            // Row 3: Shift 1.5 | 7×1.0 letters | Backspace 1.5
+            // Row 4: &123 1.5 | emoji 1 | , 1 | space 4 | . 1 | Enter 1.5
+            // so rows 2–4 share the same vertical column lines.
             flayWidthFactor = when (keyboardMode) {
                 KeyboardMode.NUMERIC,
                 KeyboardMode.PHONE,
@@ -160,11 +164,11 @@ class TextKey(override val data: AbstractKeyData) : Key(data) {
                 }
                 else -> when (computed.code) {
                     KeyCode.SHIFT,
-                    KeyCode.DELETE -> 1.56f
+                    KeyCode.DELETE -> 1.50f
                     KeyCode.VIEW_CHARACTERS,
                     KeyCode.VIEW_SYMBOLS,
                     KeyCode.VIEW_SYMBOLS2,
-                    KeyCode.ENTER -> 1.56f
+                    KeyCode.ENTER -> 1.50f
                     else -> 1.00f
                 }
             }

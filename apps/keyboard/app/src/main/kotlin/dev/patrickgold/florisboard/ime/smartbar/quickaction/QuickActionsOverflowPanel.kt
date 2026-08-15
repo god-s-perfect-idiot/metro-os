@@ -16,9 +16,11 @@
 
 package dev.patrickgold.florisboard.ime.smartbar.quickaction
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,25 +32,39 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.metro.system.MetroPreferences
+import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroTheme
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import dev.patrickgold.florisboard.keyboardManager
+import dev.patrickgold.florisboard.themeManager
 import dev.patrickgold.jetpref.datastore.model.collectAsState
 import org.florisboard.lib.compose.stringRes
 import org.florisboard.lib.snygg.ui.SnyggBox
-import org.florisboard.lib.snygg.ui.SnyggButton
-import org.florisboard.lib.snygg.ui.SnyggText
+
+/** WP8.1 Start tile gap (scope.md / METRO-UX-LANGUAGE §3.1). */
+private val OverflowTileGap = 4.dp
+
+/** Screen side margin for Metro grids. */
+private val OverflowGridPadding = 12.dp
+
+/** Dense phone overflow grid — square cells like Start small tiles. */
+private const val OverflowColumns = 4
 
 @Composable
 fun QuickActionsOverflowPanel() {
     val prefs by FlorisPreferenceStore
     val context = LocalContext.current
     val keyboardManager by context.keyboardManager()
+    val themeManager by context.themeManager()
+    val metroPrefs = remember(context) { MetroPreferences(context) }
 
     val actionArrangement by prefs.smartbar.actionArrangement.collectAsState()
     val evaluator by keyboardManager.activeSmartbarEvaluator.collectAsState()
+    val activeThemeInfo by themeManager.activeThemeInfo.collectAsState()
 
     val dynamicActions = actionArrangement.dynamicActions
     val dynamicActionsCountToShow = when {
@@ -68,11 +84,21 @@ fun QuickActionsOverflowPanel() {
             .height(FlorisImeSizing.keyboardUiHeight()),
     ) {
         LazyVerticalGrid(
-            modifier = Modifier
-                .fillMaxWidth(),
-            columns = GridCells.Adaptive(FlorisImeSizing.smartbarHeight.coerceAtLeast(1.dp) * 2.2f),
+            modifier = Modifier.fillMaxWidth(),
+            columns = GridCells.Fixed(OverflowColumns),
+            contentPadding = PaddingValues(OverflowGridPadding),
+            horizontalArrangement = Arrangement.spacedBy(OverflowTileGap),
+            verticalArrangement = Arrangement.spacedBy(OverflowTileGap),
         ) {
-            items(visibleActions) { action ->
+            items(
+                items = visibleActions,
+                key = { action ->
+                    when (action) {
+                        is QuickAction.InsertKey -> "key:${action.data.code}"
+                        is QuickAction.InsertText -> "text:${action.data}"
+                    }
+                },
+            ) { action ->
                 QuickActionButton(
                     action = action,
                     evaluator = evaluator,
@@ -80,14 +106,14 @@ fun QuickActionsOverflowPanel() {
                 )
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                SnyggButton(
-                    elementName = FlorisImeUi.SmartbarActionsOverflowCustomizeButton.elementName,
-                    onClick = { keyboardManager.activeState.isActionsEditorVisible = true },
-                    modifier = Modifier
-                        .wrapContentWidth(),
+                MetroTheme(
+                    darkTheme = activeThemeInfo.config.isNightTheme,
+                    accent = metroPrefs.accentColor,
                 ) {
-                    SnyggText(
+                    MetroBorderButton(
                         text = stringRes(R.string.quick_actions_overflow__customize_actions_button),
+                        onClick = { keyboardManager.activeState.isActionsEditorVisible = true },
+                        modifier = Modifier.padding(top = OverflowTileGap),
                     )
                 }
             }

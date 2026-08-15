@@ -136,7 +136,8 @@ sealed class ImeWindowConstraints(rootInsets: ImeInsets.Root) {
                 ImeFormFactor.Type.TABLET_LANDSCAPE -> 0.35f
                 ImeFormFactor.Type.TABLET_PORTRAIT -> 0.22f
                 ImeFormFactor.Type.PHONE_LANDSCAPE -> 0.47f
-                ImeFormFactor.Type.PHONE_PORTRAIT -> 0.29f
+                // Tall enough that letter faces stay chunky vs WP8.1 gutters (not flat strips).
+                ImeFormFactor.Type.PHONE_PORTRAIT -> 0.33f
             }
             (baselineScreen.height * factor).coerceIn(minKeyboardHeight, maxKeyboardHeight)
         }
@@ -147,8 +148,9 @@ sealed class ImeWindowConstraints(rootInsets: ImeInsets.Root) {
                 ImeFormFactor.Type.LARGE_TABLET -> 6.dp
                 ImeFormFactor.Type.TABLET_LANDSCAPE -> 2.dp
                 ImeFormFactor.Type.TABLET_PORTRAIT -> 5.dp
-                ImeFormFactor.Type.PHONE_LANDSCAPE -> 2.dp
-                ImeFormFactor.Type.PHONE_PORTRAIT -> 2.dp
+                // Slightly above the old 2dp default ("a touch"), without eating the key face.
+                ImeFormFactor.Type.PHONE_LANDSCAPE -> 2.5.dp
+                ImeFormFactor.Type.PHONE_PORTRAIT -> 2.5.dp
             }
         }
         override val defKeyMarginV by calculation {
@@ -292,7 +294,7 @@ sealed class ImeWindowConstraints(rootInsets: ImeInsets.Root) {
                 ImeFormFactor.Type.TABLET_LANDSCAPE -> 0.35f
                 ImeFormFactor.Type.TABLET_PORTRAIT -> 0.22f
                 ImeFormFactor.Type.PHONE_LANDSCAPE -> 0.45f
-                ImeFormFactor.Type.PHONE_PORTRAIT -> 0.25f
+                ImeFormFactor.Type.PHONE_PORTRAIT -> 0.28f
             }
             (baselineScreen.height * factor).coerceIn(minKeyboardHeight, maxKeyboardHeight)
         }
@@ -303,8 +305,8 @@ sealed class ImeWindowConstraints(rootInsets: ImeInsets.Root) {
                 ImeFormFactor.Type.LARGE_TABLET,
                 ImeFormFactor.Type.TABLET_LANDSCAPE -> 2.dp
                 ImeFormFactor.Type.TABLET_PORTRAIT -> 2.dp
-                ImeFormFactor.Type.PHONE_LANDSCAPE -> 1.5.dp
-                ImeFormFactor.Type.PHONE_PORTRAIT -> 2.dp
+                ImeFormFactor.Type.PHONE_LANDSCAPE -> 2.dp
+                ImeFormFactor.Type.PHONE_PORTRAIT -> 2.5.dp
             }
         }
         override val defKeyMarginV by calculation {

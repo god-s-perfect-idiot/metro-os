@@ -67,7 +67,8 @@ catalog in this toolkit when the glyph will be reused.
 
 | API | Purpose |
 |-----|---------|
-| `MetroSystemIcon` / `MetroSystemIconType` | Chrome + common app-bar glyphs |
+| `MetroSystemIcon` / `MetroSystemIconType` | Chrome + app-bar + SIP/smartbar glyphs (Shift, Backspace, Enter, Emoji, Undo/Redo, Settings, Clipboard suite, Chevrons, …) |
+| `metroSystemIconPainter` | Tintable painter for IME / Snygg surfaces |
 | `MetroMediaGlyph` / `MetroMediaGlyphIcon` | Music transport / shuffle / queue |
 | `MetroAppGlyphs` | Suite app identity + third-party tile overrides (`metro_app_*`, `metro_tile_*`) |
 

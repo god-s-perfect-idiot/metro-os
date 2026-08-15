@@ -45,6 +45,10 @@ class TrayState(context: Context) {
     var lastExpandedAtMs by mutableLongStateOf(0L)
         private set
 
+    /** True while Android's notification shade covers the tray region. */
+    var notificationShadeOpen by mutableStateOf(false)
+        private set
+
     private var telephonyManager: TelephonyManager? = null
     private var telephonyCallback: TelephonyCallback? = null
 
@@ -58,6 +62,7 @@ class TrayState(context: Context) {
             dataConnectionLabel = dataConnectionLabel,
             battery = battery,
             theme = theme,
+            notificationShadeOpen = notificationShadeOpen,
         )
 
     /** Left icons + battery when present — drives stagger timing for auto-collapse. */
@@ -84,6 +89,7 @@ class TrayState(context: Context) {
     }
 
     fun refreshTheme() {
+        preferences.pullThemeFromProvider()
         theme = TrayThemeResolver.resolve(preferences, visibilityMode)
     }
 
@@ -134,6 +140,15 @@ class TrayState(context: Context) {
     fun applyVisibilityMode(mode: TrayVisibilityMode) {
         visibilityMode = mode
         refreshTheme()
+    }
+
+    /** Hide the Metro tray while the Android notification shade is expanded. */
+    fun applyNotificationShadeOpen(open: Boolean) {
+        if (notificationShadeOpen == open) return
+        notificationShadeOpen = open
+        if (open) {
+            collapse()
+        }
     }
 
     fun registerReceivers(context: Context) {

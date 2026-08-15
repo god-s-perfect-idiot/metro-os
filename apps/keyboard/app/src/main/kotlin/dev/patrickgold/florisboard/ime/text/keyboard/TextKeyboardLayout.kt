@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.toSize
+import com.metro.ui.MetroSystemIcon
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.editorInstance
@@ -67,6 +69,7 @@ import dev.patrickgold.florisboard.ime.input.InputEventDispatcher
 import dev.patrickgold.florisboard.ime.keyboard.ComputingEvaluator
 import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
 import dev.patrickgold.florisboard.ime.keyboard.KeyboardMode
+import dev.patrickgold.florisboard.ime.keyboard.computeMetroIcon
 import dev.patrickgold.florisboard.ime.popup.ExceptionsForKeyCodes
 import dev.patrickgold.florisboard.ime.popup.PopupUiController
 import dev.patrickgold.florisboard.ime.popup.rememberPopupUiController
@@ -340,6 +343,7 @@ private fun TextKeyButton(
         modifier = Modifier
             .requiredSize(size)
             .absoluteOffset { key.visibleBounds.topLeft.toIntOffset() },
+        contentAlignment = Alignment.Center,
     ) {
         val isTelPadKey = key.computedData.type == KeyType.NUMERIC && evaluator.keyboard.mode == KeyboardMode.PHONE
         key.label?.let { label ->
@@ -365,12 +369,28 @@ private fun TextKeyButton(
                 text = hintedLabel,
             )
         }
-        key.foregroundImageVector?.let { imageVector ->
-            SnyggIcon(
+        val metroIcon = remember(key.computedData, evaluator.state.inputShiftState, evaluator.editorInfo) {
+            evaluator.computeMetroIcon(key.computedData)
+        }
+        if (metroIcon != null) {
+            val iconColor = LocalContentColor.current
+            // Prefer key height so narrow emoji/shift keys stay readable; cap by width.
+            val iconSize = minOf(size.height * 0.72f, size.width * 0.92f)
+            MetroSystemIcon(
+                type = metroIcon,
                 modifier = Modifier.align(Alignment.Center),
-                imageVector = imageVector,
-                contentDescription = null,
+                iconSize = iconSize,
+                color = iconColor,
+                showCircle = false,
             )
+        } else {
+            key.foregroundImageVector?.let { imageVector ->
+                SnyggIcon(
+                    modifier = Modifier.align(Alignment.Center),
+                    imageVector = imageVector,
+                    contentDescription = null,
+                )
+            }
         }
     }
     if (debugShowTouchBoundaries) {

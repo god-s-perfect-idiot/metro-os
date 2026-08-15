@@ -16,12 +16,12 @@
 
 package dev.patrickgold.florisboard.ime.theme
 
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.metro.ui.MetroFontFamily
 import dev.patrickgold.florisboard.ime.input.InputShiftState
 import dev.patrickgold.florisboard.ime.text.key.KeyCode
 import org.florisboard.lib.snygg.SnyggSelector
@@ -50,11 +50,13 @@ val FlorisImeThemeBaseStyle = SnyggStylesheet.v2 {
     FlorisImeUi.Window.elementName {
         background = `var`("--background")
         foreground = `var`("--on-background")
+        fontFamily = genericFontFamily(MetroFontFamily)
     }
 
     FlorisImeUi.Key.elementName {
         background = `var`("--surface")
         foreground = `var`("--on-surface")
+        fontFamily = genericFontFamily(MetroFontFamily)
         fontSize = fontSize(22.sp)
         shadowElevation = size(2.dp)
         shape = `var`("--shape")
@@ -75,7 +77,7 @@ val FlorisImeThemeBaseStyle = SnyggStylesheet.v2 {
     FlorisImeUi.Key.elementName(FlorisImeUi.Attr.Code to listOf(KeyCode.SPACE)) {
         background = `var`("--surface")
         foreground = `var`("--on-surface")
-        fontSize = fontSize(12.sp)
+        fontSize = fontSize(22.sp)
         textOverflow = textOverflow(TextOverflow.Ellipsis)
     }
     FlorisImeUi.Key.elementName(FlorisImeUi.Attr.Code to listOf(
@@ -103,7 +105,7 @@ val FlorisImeThemeBaseStyle = SnyggStylesheet.v2 {
     FlorisImeUi.KeyHint.elementName {
         background = rgbaColor(0, 0, 0, 0f)
         foreground = `var`("--on-surface-variant")
-        fontFamily = genericFontFamily(FontFamily.Monospace)
+        fontFamily = genericFontFamily(MetroFontFamily)
         fontSize = fontSize(12.sp)
         padding = padding(0.dp, 1.dp, 1.dp, 0.dp)
         textMaxLines = textMaxLines(1)
@@ -149,22 +151,31 @@ val FlorisImeThemeBaseStyle = SnyggStylesheet.v2 {
     }
 
     FlorisImeUi.SmartbarActionsOverflow.elementName {
-        margin = padding(4.dp)
+        margin = padding(0.dp)
+        background = `var`("--background")
     }
     FlorisImeUi.SmartbarActionsOverflowCustomizeButton.elementName {
-        background = `var`("--primary")
-        foreground = `var`("--on-primary")
-        fontSize = fontSize(14.sp)
-        margin = padding(0.dp, 8.dp, 0.dp, 0.dp)
-        shape = roundedCornerShape(24.dp)
+        // WP8.1 MetroBorderButton: square outline, transparent rest, hug label (§6.3)
+        background = rgbaColor(0, 0, 0, 0f)
+        foreground = `var`("--on-background")
+        borderColor = `var`("--on-background")
+        borderWidth = size(2.dp)
+        fontSize = fontSize(16.sp)
+        fontWeight = fontWeight(FontWeight.SemiBold)
+        margin = padding(4.dp, 8.dp, 0.dp, 0.dp)
+        padding = padding(10.dp, 6.dp)
+        shape = rectangleShape()
+    }
+    FlorisImeUi.SmartbarActionsOverflowCustomizeButton.elementName(selector = SnyggSelector.PRESSED) {
+        background = rgbaColor(255, 255, 255, 0.2f)
     }
     FlorisImeUi.SmartbarActionTile.elementName {
-        background = `var`("--background-variant")
+        background = rgbaColor(0, 0, 0, 0f)
         foreground = `var`("--on-background")
-        fontSize = fontSize(14.sp)
-        margin = padding(4.dp)
-        padding = padding(4.dp)
-        shape = roundedCornerShape(20)
+        fontSize = fontSize(15.sp)
+        margin = padding(0.dp)
+        padding = padding(8.dp)
+        shape = rectangleShape()
         textAlign = textAlign(TextAlign.Center)
         textMaxLines = textMaxLines(2)
         textOverflow = textOverflow(TextOverflow.Ellipsis)
@@ -173,7 +184,7 @@ val FlorisImeThemeBaseStyle = SnyggStylesheet.v2 {
         foreground = `var`("--on-background-disabled")
     }
     FlorisImeUi.SmartbarActionTileIcon.elementName {
-        fontSize = fontSize(24.sp)
+        fontSize = fontSize(32.sp)
         margin = padding(0.dp, 0.dp, 0.dp, 8.dp)
     }
 

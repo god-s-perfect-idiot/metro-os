@@ -29,10 +29,19 @@ class StatusTrayPreferences(context: Context) {
             .putLong(KEY_ICON_HIDE_TIMEOUT_MS, coerceIconHideTimeoutMs(value))
             .apply()
 
+    /**
+     * Display cutout / punch-hole side. [NotchPosition.Center] keeps the default tray layout;
+     * left/right add side clearance so icons clear a corner notch.
+     */
+    var notchPosition: NotchPosition
+        get() = NotchPosition.fromStorage(prefs.getString(KEY_NOTCH_POSITION, null))
+        set(value) = prefs.edit().putString(KEY_NOTCH_POSITION, value.toStorage()).apply()
+
     companion object {
         private const val PREFS_NAME = "metro_statusbar"
         private const val KEY_ENABLED = "status_tray_enabled"
         private const val KEY_ICON_HIDE_TIMEOUT_MS = "icon_hide_timeout_ms"
+        private const val KEY_NOTCH_POSITION = "notch_position"
 
         const val TIMEOUT_3S_MS = 3_000L
         const val TIMEOUT_5S_MS = MetroStatusBar.AUTO_COLLAPSE_MS
@@ -40,6 +49,11 @@ class StatusTrayPreferences(context: Context) {
         const val DEFAULT_ICON_HIDE_TIMEOUT_MS = TIMEOUT_5S_MS
 
         val ICON_HIDE_TIMEOUT_OPTIONS_MS = listOf(TIMEOUT_3S_MS, TIMEOUT_5S_MS, TIMEOUT_10S_MS)
+        val NOTCH_POSITION_OPTIONS = listOf(
+            NotchPosition.Center,
+            NotchPosition.Left,
+            NotchPosition.Right,
+        )
 
         fun coerceIconHideTimeoutMs(ms: Long): Long =
             if (ms in ICON_HIDE_TIMEOUT_OPTIONS_MS) ms else DEFAULT_ICON_HIDE_TIMEOUT_MS

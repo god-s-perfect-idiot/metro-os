@@ -34,12 +34,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.UnfoldLess
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconDefaultSize
+import com.metro.ui.MetroSystemIconType
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -184,26 +182,30 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
             ) {
                 if (it) 180f else 0f
             }
-            val arrowIcon = if (flipToggles) {
-                Icons.AutoMirrored.Default.KeyboardArrowLeft
+            val arrowType = if (flipToggles) {
+                MetroSystemIconType.ChevronLeft
             } else {
-                Icons.AutoMirrored.Default.KeyboardArrowRight
+                MetroSystemIconType.ChevronRight
             }
             val incognitoIcon = ImageVector.vectorResource(id = R.drawable.ic_incognito)
             val incognitoDisplayMode = prefs.keyboard.incognitoDisplayMode.collectAsState()
             val isIncognitoMode = keyboardManager.activeState.isIncognitoMode
-            val icon = if (isIncognitoMode) {
-                when (incognitoDisplayMode.value) {
-                    IncognitoDisplayMode.REPLACE_SHARED_ACTIONS_TOGGLE -> incognitoIcon
-                    IncognitoDisplayMode.DISPLAY_BEHIND_KEYBOARD -> arrowIcon
-                }
+            val useIncognitoGlyph = isIncognitoMode &&
+                incognitoDisplayMode.value == IncognitoDisplayMode.REPLACE_SHARED_ACTIONS_TOGGLE
+            val toggleStyle = rememberSnyggThemeQuery(FlorisImeUi.SmartbarSharedActionsToggle.elementName)
+            if (useIncognitoGlyph) {
+                SnyggIcon(imageVector = incognitoIcon)
             } else {
-                arrowIcon
+                MetroSystemIcon(
+                    type = arrowType,
+                    modifier = Modifier.rotate(
+                        if (incognitoDisplayMode.value == IncognitoDisplayMode.DISPLAY_BEHIND_KEYBOARD) rotation else 0f,
+                    ),
+                    iconSize = MetroSystemIconDefaultSize,
+                    color = toggleStyle.foreground(),
+                    showCircle = false,
+                )
             }
-            SnyggIcon(
-                modifier = Modifier.rotate(if (incognitoDisplayMode.value == IncognitoDisplayMode.DISPLAY_BEHIND_KEYBOARD) rotation else 0f),
-                imageVector = icon,
-            )
         }
     }
 
@@ -258,21 +260,26 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
             val transition = updateTransition(extendedActionsExpanded, label = "smartbarSecondaryRowToggleBtn")
             val alpha by transition.animateFloat(label = "alpha") { if (it) 1f else 0f }
             val rotation by transition.animateFloat(label = "rotation") { if (it) 180f else 0f }
-            // Expanded icon
-            SnyggIcon(
-                FlorisImeUi.SmartbarExtendedActionsToggle.elementName,
+            val toggleStyle = rememberSnyggThemeQuery(FlorisImeUi.SmartbarExtendedActionsToggle.elementName)
+            val color = toggleStyle.foreground()
+            // Expanded → chevron up; collapsed → chevron down (WP-style, replaces Material unfold).
+            MetroSystemIcon(
+                type = MetroSystemIconType.ChevronUp,
                 modifier = Modifier
                     .alpha(alpha)
                     .rotate(rotation),
-                imageVector = Icons.Default.UnfoldLess,
+                iconSize = MetroSystemIconDefaultSize,
+                color = color,
+                showCircle = false,
             )
-            // Not expanded icon
-            SnyggIcon(
-                FlorisImeUi.SmartbarExtendedActionsToggle.elementName,
+            MetroSystemIcon(
+                type = MetroSystemIconType.ChevronDown,
                 modifier = Modifier
                     .alpha(1f - alpha)
                     .rotate(rotation - 180f),
-                imageVector = Icons.Default.UnfoldMore,
+                iconSize = MetroSystemIconDefaultSize,
+                color = color,
+                showCircle = false,
             )
         }
     }

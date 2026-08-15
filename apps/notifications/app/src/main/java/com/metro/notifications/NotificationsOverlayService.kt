@@ -122,6 +122,7 @@ class NotificationsOverlayService :
 
     private fun refreshTheme() {
         val prefs = MetroPreferences(this)
+        prefs.pullThemeFromProvider()
         darkTheme = prefs.isDark
         accent = prefs.accentColor
     }

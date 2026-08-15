@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.metro.system.MetroPreferences
 import com.metro.ui.MetroActivities
 import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
@@ -41,7 +40,7 @@ import com.metro.ui.MetroListPicker
 import com.metro.ui.MetroListPickerOption
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
-import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemTheme
 import com.metro.ui.MetroToggleSwitch
 import com.metro.ui.metroNavBarPadding
 
@@ -53,7 +52,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
-            val prefs = remember { MetroPreferences(context) }
             val notifPrefs = remember { NotificationsPreferences(context) }
             var permissionTick by remember { mutableIntStateOf(0) }
             var enabled by remember { mutableStateOf(notifPrefs.enabled) }
@@ -85,9 +83,8 @@ class MainActivity : ComponentActivity() {
                 ActionNotificationListenerService.isEnabled(context)
             }
             val canToggle = overlayGranted && accessibilityEnabled
-            val accent = remember(permissionTick) { prefs.accentColor }
 
-            MetroTheme(darkTheme = prefs.isDark, accent = accent) {
+            MetroSystemTheme {
                 MetroAppPivotShell(
                     modifier = Modifier.fillMaxSize(),
                     onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },

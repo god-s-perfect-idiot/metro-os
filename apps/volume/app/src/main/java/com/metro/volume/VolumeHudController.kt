@@ -106,6 +106,7 @@ class VolumeHudController(context: Context) {
     }
 
     fun refreshTheme() {
+        preferences.pullThemeFromProvider()
         accentColor = preferences.accentColor
     }
 

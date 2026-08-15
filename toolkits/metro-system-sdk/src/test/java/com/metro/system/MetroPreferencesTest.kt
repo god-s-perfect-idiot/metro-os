@@ -57,6 +57,29 @@ class MetroPreferencesTest {
     }
 
     @Test
+    fun peekCachedAccent_readsLocalMirrorOnly() {
+        assertEquals(null, prefs.peekCachedAccentColorHex())
+        assertEquals(null, prefs.peekCachedIsDark())
+        prefs.cacheThemeSnapshot(
+            themeMode = MetroThemeMode.Light,
+            accentColorHex = "#339933",
+        )
+        assertEquals("#339933", prefs.peekCachedAccentColorHex())
+        assertEquals(false, prefs.peekCachedIsDark())
+    }
+
+    @Test
+    fun themeKeys_preferLocalMirrorWhenProviderUnreachable() {
+        prefs.cacheThemeSnapshot(
+            themeMode = MetroThemeMode.Light,
+            accentColorHex = "#E51400",
+        )
+        // No Settings provider in unit tests — read path must keep the durable mirror.
+        assertEquals("#E51400", prefs.accentColorHex)
+        assertFalse(prefs.isDark)
+    }
+
+    @Test
     fun fontScale_roundTrip() {
         prefs.fontScale = 1.3f
         assertEquals(1.3f, prefs.fontScale)

@@ -32,14 +32,15 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 
 ## Primary flows
 
-1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds).
+1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds). **Notch position** ListPicker (Center / Left / Right) adds side clearance for corner punch-holes.
 2. Overlay draws **above the system status bar** via `TYPE_ACCESSIBILITY_OVERLAY`
    (`StatusBarAccessibilityService`); falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the
    system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —
    it is layered below the system status bar.
 3. Clock updates every minute
 4. Tap tray or Start/home expands indicators (staggered drop); auto-collapse after hold
-5. `ThemeChangeReceiver` updates foreground colors
+5. Swipe down on tray opens the Android notification shade; Metro overlay hides until the shade closes
+6. `ThemeChangeReceiver` updates foreground colors
 
 ## Golden screenshots
 
@@ -65,3 +66,4 @@ screenshots/golden/expanded_dark_blue.png
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | True signal strength | Privileged APIs | Static icon set; document in README |
+| Action Center chrome while shade open | Metro Action Center out of scope; a11y overlay paints above SystemUI | Hide Metro tray while Android notification shade is open; swipe-down opens shade via `GLOBAL_ACTION_NOTIFICATIONS` |

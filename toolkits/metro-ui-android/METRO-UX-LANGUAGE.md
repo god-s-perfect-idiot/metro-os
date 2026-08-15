@@ -565,9 +565,13 @@ Show progress for operations **> 500ms**. No Material shared-element transitions
 
 All Metro apps use the same icon catalog from `metro-ui-android`. Do not ship duplicate vectors or invent local Canvas glyphs for icons that already exist.
 
+**Stroke language (WP8.1 Segoe UI Symbol):** chrome glyphs use a relatively thick stroke (`~8.5%` of icon min-dimension) with **square terminals** (`StrokeCap.Butt`) and **sharp corners** (`StrokeJoin.Miter`). Do not use thin Material-style round-capped strokes for app-bar / smartbar / SIP chrome.
+
 | Need | Use |
 |------|-----|
-| App bar / chrome action (add, search, phone, heart, …) | `MetroSystemIconType` via `MetroAppBarIcon` / `MetroSystemIcon` |
+| App bar / chrome action (add, search, phone, heart, attach, mic, …) | `MetroSystemIconType` via `MetroAppBarIcon` / `MetroSystemIcon` |
+| SIP / keyboard chrome (shift, backspace, enter, emoji) | `MetroSystemIconType.Shift` / `ShiftLocked` / `Backspace` / `Enter` / `Emoji` (`showCircle = false` on keys) |
+| Smartbar / extra actions (undo, redo, settings, clipboard, …) | `MetroSystemIconType.Undo` / `Redo` / `Settings` / `Clipboard` / `Copy` / `Cut` / `Paste` / `SelectAll` / `Language` / `KeyboardHide` / `Send` / `Autocorrect` / `Chevron*` (`showCircle = false`) |
 | Media transport (play, shuffle, queue, …) | `MetroMediaGlyph` / `MetroMediaGlyphIcon` |
 | Suite app identity (Phone, Mail, Photos, …) | `MetroAppGlyphs` (`metro_app_*` drawables) |
 | Third-party WP tile overrides (Gmail, WhatsApp, …) | `MetroAppGlyphs.tileOverride` (`metro_tile_*`) |

@@ -10,17 +10,20 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -39,19 +42,24 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.metro.statusbar.BatteryStatus
 import com.metro.statusbar.TrayIndicator
 import com.metro.statusbar.TrayIndicatorOrder
 import com.metro.statusbar.TraySnapshot
 import com.metro.statusbar.TraySpec
 import com.metro.statusbar.TrayVisibilityMode
-import com.metro.ui.MetroText
+import com.metro.ui.MetroColors
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTransitions
+import kotlin.math.abs
 
 private val GlyphHeight = 14.dp
 private val GlyphWidth = 16.dp
@@ -64,28 +72,40 @@ private val DataGlyphWidth = 22.dp
 // WP8.1 battery sits close to clock cap height, with a slightly longer and shallower silhouette.
 private val BatteryWidth = 29.dp
 private val BatteryHeight = 14.dp
+/** Clock / data-label size for the 32dp tray — a step under dialog body (16sp). */
+private val TrayClockFontSize = 14.sp
+private val TrayClockLineHeight = 16.sp
+/** Data connection label (4G, LTE, …) relative to the glyph box height. */
+private const val DataLabelTextSizeFactor = 0.98f
 
 /**
  * WP8.1 system tray.
  *
  * Default = clock only (right-aligned). Tap or going home drops the other icons in one-by-one
- * from above (right → left), holds briefly, then exits upward the same way. [barHeightDp] lets
- * the overlay fill the whole system status-bar region (including notch/cutout); defaults to the
- * WP 32dp strip for in-app previews.
+ * from above (right → left), holds briefly, then exits upward the same way. Swipe down opens the
+ * Android notification shade and hides this overlay while the shade is expanded. [barHeightDp]
+ * lets the overlay fill the whole system status-bar region (including notch/cutout); defaults to
+ * the WP 32dp strip for in-app previews.
  */
 @Composable
 fun StatusTray(
     snapshot: TraySnapshot,
     onTrayTap: () -> Unit,
     modifier: Modifier = Modifier,
+    onSwipeOpenNotifications: (() -> Unit)? = null,
     barHeightDp: Int = TraySpec.TRAY_HEIGHT_DP,
-    startPaddingDp: Int = TraySpec.START_PADDING_DP,
-    endPaddingDp: Int = TraySpec.END_PADDING_DP,
+    /** Physical left inset (cutout / rounded corner); not RTL start. */
+    leftPaddingDp: Int = TraySpec.START_PADDING_DP,
+    /** Physical right inset (cutout / rounded corner / privacy dots); not RTL end. */
+    rightPaddingDp: Int = TraySpec.END_PADDING_DP,
 ) {
     if (snapshot.theme.visibilityMode == TrayVisibilityMode.Hidden) return
+    if (snapshot.notificationShadeOpen) return
 
     val foreground = snapshot.theme.foregroundColor
     val background = snapshot.theme.backgroundColor
+    val density = LocalDensity.current
+    val shadeOpenDragPx = with(density) { TraySpec.SHADE_OPEN_DRAG_DP.dp.toPx() }
     val leftVisible = remember(snapshot.dataConnectionLabel) {
         TrayIndicatorOrder.visibleLeft(snapshot.dataConnectionLabel)
     }
@@ -100,12 +120,31 @@ fun StatusTray(
             .height(barHeightDp.dp)
             .clipToBounds()
             .background(background)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onTrayTap,
-            )
-            .padding(start = startPaddingDp.dp, end = endPaddingDp.dp)
+            .pointerInput(shadeOpenDragPx) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var totalDragY = 0f
+                    var dragged = false
+                    val pointerId = down.id
+                    drag(pointerId) { change ->
+                        val dy = change.positionChange().y
+                        totalDragY += dy
+                        if (abs(totalDragY) > viewConfiguration.touchSlop) {
+                            dragged = true
+                        }
+                        if (dragged && onSwipeOpenNotifications != null && totalDragY > 0f) {
+                            change.consume()
+                        }
+                    }
+                    when {
+                        dragged &&
+                            onSwipeOpenNotifications != null &&
+                            totalDragY >= shadeOpenDragPx -> onSwipeOpenNotifications.invoke()
+                        !dragged -> onTrayTap()
+                    }
+                }
+            }
+            .absolutePadding(left = leftPaddingDp.dp, right = rightPaddingDp.dp)
             .testTag("metro_status_tray"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -138,13 +177,15 @@ fun StatusTray(
                 TrayBatteryGlyph(
                     battery = snapshot.battery,
                     color = foreground,
-                    backgroundColor = background,
                 )
             }
-            MetroText(
+            BasicText(
                 text = snapshot.clockText,
-                style = MetroTextStyle.DialogBody,
-                color = foreground,
+                style = MetroTextStyle.DialogBody.toTextStyle().copy(
+                    color = foreground,
+                    fontSize = TrayClockFontSize,
+                    lineHeight = TrayClockLineHeight,
+                ),
                 modifier = Modifier.semantics { contentDescription = "Clock" },
             )
         }
@@ -319,7 +360,7 @@ private fun DrawScope.drawIndicator(
                 h * 0.86f,
                 Paint().apply {
                     this.color = color.toArgb()
-                    textSize = h * 1.1f
+                    textSize = h * DataLabelTextSizeFactor
                     isAntiAlias = true
                     textAlign = Paint.Align.CENTER
                     typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
@@ -449,33 +490,40 @@ private fun DrawScope.drawRoundRectPath(
     drawRect(color = color, topLeft = Offset(left, top), size = Size(right - left, bottom - top))
 }
 
-/** WP8.1 charging overlay: two-prong plug with cord, outlined so it reads on the fill. */
-private fun DrawScope.drawChargingPlug(
+/**
+ * WP8.1 charging overlay: solid two-prong plug with cord. Geometry is sized so prongs and cord
+ * interrupt the battery outline (caller draws the casing with matching gaps).
+ */
+private data class ChargingPlugLayout(
+    val gapLeft: Float,
+    val gapRight: Float,
+    val path: Path,
+)
+
+private fun chargingPlugLayout(
     centerX: Float,
     centerY: Float,
-    bodyWidth: Float,
     bodyHeight: Float,
-    fill: Color,
-    outline: Color,
-) {
-    val plugW = bodyWidth * 0.34f
-    val prongW = plugW * 0.17f
-    val prongH = bodyHeight * 0.44f
-    val gap = plugW * 0.20f
-    val headH = bodyHeight * 0.26f
-    val cordH = bodyHeight * 0.14f
-    val corner = CornerRadius(prongW * 0.45f, prongW * 0.45f)
-    val outlineW = maxOf(1.2f, size.height * 0.05f)
+): ChargingPlugLayout {
+    val plugW = bodyHeight * 0.78f
+    val prongW = plugW * 0.20f
+    val prongGap = plugW * 0.24f
+    val prongH = bodyHeight * 0.48f
+    val headH = bodyHeight * 0.40f
+    val cordH = bodyHeight * 0.28f
+    val cordW = prongW * 1.1f
+    val corner = CornerRadius(prongW * 0.65f, prongW * 0.65f)
 
-    val headTop = centerY - headH * 0.25f
-    val prongTop = headTop - prongH + prongH * 0.12f
-    val leftProngX = centerX - gap / 2f - prongW
-    val rightProngX = centerX + gap / 2f
+    // Head sits near vertical center; prongs/cord overhang so they cut the casing strokes.
+    val headTop = centerY - headH * 0.42f
+    val prongTop = headTop - prongH * 0.78f
+    val leftProngX = centerX - prongGap / 2f - prongW
+    val rightProngX = centerX + prongGap / 2f
     val headLeft = centerX - plugW / 2f
-    val cordW = prongW * 0.85f
-    val cordTop = headTop + headH
+    val cordTop = headTop + headH - bodyHeight * 0.02f
+    val gapPad = bodyHeight * 0.08f
 
-    val plug = Path().apply {
+    val path = Path().apply {
         addRect(Rect(Offset(leftProngX, prongTop), Size(prongW, prongH)))
         addRect(Rect(Offset(rightProngX, prongTop), Size(prongW, prongH)))
         addRoundRect(
@@ -489,15 +537,45 @@ private fun DrawScope.drawChargingPlug(
         )
         addRect(Rect(Offset(centerX - cordW / 2f, cordTop), Size(cordW, cordH)))
     }
-    drawPath(plug, color = outline, style = Stroke(width = outlineW * 2f))
-    drawPath(plug, color = fill)
+    return ChargingPlugLayout(
+        gapLeft = headLeft - gapPad,
+        gapRight = headLeft + plugW + gapPad,
+        path = path,
+    )
+}
+
+/** Battery casing drawn as two open U-paths so the plug can interrupt top/bottom strokes. */
+private fun DrawScope.drawBatteryOutlineWithPlugGap(
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float,
+    gapLeft: Float,
+    gapRight: Float,
+    strokeWidth: Float,
+    color: Color,
+) {
+    val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+    val leftShell = Path().apply {
+        moveTo(gapLeft, top)
+        lineTo(left, top)
+        lineTo(left, bottom)
+        lineTo(gapLeft, bottom)
+    }
+    val rightShell = Path().apply {
+        moveTo(gapRight, top)
+        lineTo(right, top)
+        lineTo(right, bottom)
+        lineTo(gapRight, bottom)
+    }
+    drawPath(leftShell, color = color, style = stroke)
+    drawPath(rightShell, color = color, style = stroke)
 }
 
 @Composable
 private fun TrayBatteryGlyph(
     battery: BatteryStatus,
     color: Color,
-    backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier.size(width = BatteryWidth, height = BatteryHeight)) {
@@ -505,38 +583,61 @@ private fun TrayBatteryGlyph(
         val bodyHeight = size.height * 0.78f
         val left = 0f
         val top = (size.height - bodyHeight) / 2f
-        val stroke = Stroke(width = bodyHeight * 0.078f)
-        drawRect(
-            color = color,
-            topLeft = Offset(left, top),
-            size = Size(bodyWidth, bodyHeight),
-            style = stroke,
-        )
-        val nubWidth = size.width - bodyWidth
-        drawRect(
-            color = color,
-            topLeft = Offset(left + bodyWidth, top + bodyHeight * 0.30f),
-            size = Size(nubWidth, bodyHeight * 0.40f),
-        )
-        val inset = stroke.width * 1.8f
+        val right = left + bodyWidth
+        val bottom = top + bodyHeight
+        val strokeWidth = bodyHeight * 0.078f
+        val fillColor = if (battery.isLow) MetroColors.AccentRed else color
+
+        val inset = strokeWidth * 1.8f
         val fillTrackWidth = bodyWidth - inset * 2f
         val fillWidth = fillTrackWidth * battery.fraction.coerceIn(0f, 1f)
         if (fillWidth > 0f) {
             drawRect(
-                color = color,
+                color = fillColor,
                 topLeft = Offset(left + inset, top + inset),
                 size = Size(fillWidth, bodyHeight - inset * 2f),
             )
         }
-        if (battery.charging) {
-            drawChargingPlug(
+
+        val plug = if (battery.charging) {
+            chargingPlugLayout(
                 centerX = left + bodyWidth * 0.5f,
                 centerY = top + bodyHeight / 2f,
-                bodyWidth = bodyWidth,
                 bodyHeight = bodyHeight,
-                fill = color,
-                outline = backgroundColor,
             )
+        } else {
+            null
+        }
+
+        if (plug != null) {
+            drawBatteryOutlineWithPlugGap(
+                left = left,
+                top = top,
+                right = right,
+                bottom = bottom,
+                gapLeft = plug.gapLeft,
+                gapRight = plug.gapRight,
+                strokeWidth = strokeWidth,
+                color = color,
+            )
+        } else {
+            drawRect(
+                color = color,
+                topLeft = Offset(left, top),
+                size = Size(bodyWidth, bodyHeight),
+                style = Stroke(width = strokeWidth),
+            )
+        }
+
+        val nubWidth = size.width - bodyWidth
+        drawRect(
+            color = color,
+            topLeft = Offset(right, top + bodyHeight * 0.30f),
+            size = Size(nubWidth, bodyHeight * 0.40f),
+        )
+
+        if (plug != null) {
+            drawPath(plug.path, color = color)
         }
     }
 }

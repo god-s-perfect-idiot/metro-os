@@ -64,4 +64,36 @@ class StatusTrayPreferencesTest {
         prefs.iconHideTimeoutMs = 1_000L
         assertEquals(StatusTrayPreferences.DEFAULT_ICON_HIDE_TIMEOUT_MS, prefs.iconHideTimeoutMs)
     }
+
+    @Test
+    fun notchPosition_defaultsToCenter() {
+        assertEquals(NotchPosition.Center, prefs.notchPosition)
+    }
+
+    @Test
+    fun notchPosition_persistsAcrossInstances() {
+        prefs.notchPosition = NotchPosition.Left
+        assertEquals(
+            NotchPosition.Left,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).notchPosition,
+        )
+        prefs.notchPosition = NotchPosition.Right
+        assertEquals(
+            NotchPosition.Right,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).notchPosition,
+        )
+        prefs.notchPosition = NotchPosition.Center
+        assertEquals(
+            NotchPosition.Center,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).notchPosition,
+        )
+    }
+
+    @Test
+    fun notchPosition_unknownStorageFallsBackToCenter() {
+        assertEquals(NotchPosition.Center, NotchPosition.fromStorage(null))
+        assertEquals(NotchPosition.Center, NotchPosition.fromStorage("top"))
+        assertEquals(NotchPosition.Left, NotchPosition.fromStorage(NotchPosition.STORAGE_LEFT))
+        assertEquals(NotchPosition.Right, NotchPosition.fromStorage(NotchPosition.STORAGE_RIGHT))
+    }
 }

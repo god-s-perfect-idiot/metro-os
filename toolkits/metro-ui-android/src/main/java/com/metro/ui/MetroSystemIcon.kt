@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
  * Apps must use these (via [MetroSystemIcon] / [MetroAppBarIcon]) instead of inventing
  * per-app Canvas icons for common actions. App identity art lives in [MetroAppGlyphs].
  *
+ * Stroke weight: [MetroSystemIconStrokeFraction] of icon min-dimension, square terminals.
  * Reference: METRO-UX-LANGUAGE.md §9.
  */
 enum class MetroSystemIconType {
@@ -59,6 +61,31 @@ enum class MetroSystemIconType {
     People,
     Delete,
     Check,
+    Attach,
+    Microphone,
+
+    // SIP / keyboard chrome (prefer showCircle = false on keys / smartbar)
+    Shift,
+    ShiftLocked,
+    Backspace,
+    Enter,
+    Emoji,
+    Undo,
+    Redo,
+    Settings,
+    Clipboard,
+    Copy,
+    Cut,
+    Paste,
+    SelectAll,
+    Language,
+    KeyboardHide,
+    Send,
+    Autocorrect,
+    ChevronUp,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
 
     // Media transport (also see [MetroMediaGlyph] for shuffle/repeat/queue)
     Play,
@@ -66,6 +93,9 @@ enum class MetroSystemIconType {
     Next,
     Previous,
 }
+
+/** Fraction of icon min-dimension used as chrome glyph stroke (WP8.1-weight). */
+internal const val MetroSystemIconStrokeFraction = 0.085f
 
 @Composable
 fun MetroSystemIcon(
@@ -76,43 +106,87 @@ fun MetroSystemIcon(
     showCircle: Boolean = true,
 ) {
     Canvas(modifier = modifier.size(iconSize)) {
-        val strokeWidth = size.minDimension * 0.05f
-        val glyphStroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-        val forwardGlyphStroke = Stroke(
-            width = strokeWidth * 1.35f,
-            cap = StrokeCap.Butt,
-            join = StrokeJoin.Miter,
-        )
+        val strokeWidth = size.minDimension * MetroSystemIconStrokeFraction
         if (showCircle) {
             val circleRadius = size.minDimension * 0.42f - strokeWidth
             drawCircle(
                 color = color,
                 radius = circleRadius,
-                style = Stroke(width = strokeWidth),
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
             )
         }
-        when (type) {
-            MetroSystemIconType.Forward -> drawForwardGlyph(color, forwardGlyphStroke)
-            MetroSystemIconType.Back -> drawBackGlyph(color, glyphStroke)
-            MetroSystemIconType.Search -> drawSearchGlyph(color, glyphStroke)
-            MetroSystemIconType.Close -> drawCloseGlyph(color, glyphStroke)
-            MetroSystemIconType.Unpin -> drawUnpinGlyph(color, glyphStroke)
-            MetroSystemIconType.Resize -> drawResizeGlyph(color, glyphStroke)
-            MetroSystemIconType.Add -> drawAddGlyph(color, glyphStroke)
-            MetroSystemIconType.More -> drawMoreGlyph(color, glyphStroke)
-            MetroSystemIconType.SwitchView -> drawSwitchViewGlyph(color, glyphStroke)
-            MetroSystemIconType.Phone -> drawViewportPath(phoneHandsetPath, color, 0.72f)
-            MetroSystemIconType.Message -> drawViewportPath(messagingBubblePath, color, 0.66f)
-            MetroSystemIconType.Heart -> drawHeartGlyph(color)
-            MetroSystemIconType.DialPad -> drawDialPadGlyph(color, glyphStroke)
-            MetroSystemIconType.People -> drawPeopleGlyph(color, glyphStroke)
-            MetroSystemIconType.Delete -> drawDeleteGlyph(color, glyphStroke)
-            MetroSystemIconType.Check -> drawCheckGlyph(color, glyphStroke)
-            MetroSystemIconType.Play -> drawPlayGlyph(color)
-            MetroSystemIconType.Pause -> drawPauseGlyph(color)
-            MetroSystemIconType.Next -> drawSkipGlyph(color, forward = true)
-            MetroSystemIconType.Previous -> drawSkipGlyph(color, forward = false)
-        }
+        drawMetroSystemIconGlyph(type, color)
+    }
+}
+
+/**
+ * Draws a [MetroSystemIconType] glyph into an arbitrary [DrawScope] (no outer ring).
+ * Used by [MetroSystemIcon] for shared suite / SIP chrome glyphs.
+ *
+ * Stroke language matches WP8.1 Segoe UI Symbol chrome: relatively thick lines with
+ * square terminals ([StrokeCap.Butt]) and sharp corners ([StrokeJoin.Miter]).
+ */
+fun DrawScope.drawMetroSystemIconGlyph(
+    type: MetroSystemIconType,
+    color: Color,
+) {
+    val strokeWidth = size.minDimension * MetroSystemIconStrokeFraction
+    val glyphStroke = Stroke(
+        width = strokeWidth,
+        cap = StrokeCap.Butt,
+        join = StrokeJoin.Miter,
+        miter = 4f,
+    )
+    val forwardGlyphStroke = Stroke(
+        width = strokeWidth * 1.1f,
+        cap = StrokeCap.Butt,
+        join = StrokeJoin.Miter,
+        miter = 4f,
+    )
+    when (type) {
+        MetroSystemIconType.Forward -> drawForwardGlyph(color, forwardGlyphStroke)
+        MetroSystemIconType.Back -> drawBackGlyph(color, glyphStroke)
+        MetroSystemIconType.Search -> drawSearchGlyph(color, glyphStroke)
+        MetroSystemIconType.Close -> drawCloseGlyph(color, glyphStroke)
+        MetroSystemIconType.Unpin -> drawUnpinGlyph(color, glyphStroke)
+        MetroSystemIconType.Resize -> drawResizeGlyph(color, glyphStroke)
+        MetroSystemIconType.Add -> drawAddGlyph(color, glyphStroke)
+        MetroSystemIconType.More -> drawMoreGlyph(color, glyphStroke)
+        MetroSystemIconType.SwitchView -> drawSwitchViewGlyph(color, glyphStroke)
+        MetroSystemIconType.Phone -> drawViewportPath(phoneHandsetPath, color, 0.72f)
+        MetroSystemIconType.Message -> drawViewportPath(messagingBubblePath, color, 0.66f)
+        MetroSystemIconType.Heart -> drawHeartGlyph(color)
+        MetroSystemIconType.DialPad -> drawDialPadGlyph(color, glyphStroke)
+        MetroSystemIconType.People -> drawPeopleGlyph(color, glyphStroke)
+        MetroSystemIconType.Delete -> drawDeleteGlyph(color, glyphStroke)
+        MetroSystemIconType.Check -> drawCheckGlyph(color, glyphStroke)
+        MetroSystemIconType.Attach -> drawAttachGlyph(color, glyphStroke)
+        MetroSystemIconType.Microphone -> drawMicrophoneGlyph(color, glyphStroke)
+        MetroSystemIconType.Shift -> drawShiftGlyph(color, locked = false)
+        MetroSystemIconType.ShiftLocked -> drawShiftGlyph(color, locked = true)
+        MetroSystemIconType.Backspace -> drawBackspaceGlyph(color, glyphStroke)
+        MetroSystemIconType.Enter -> drawEnterGlyph(color, glyphStroke)
+        MetroSystemIconType.Emoji -> drawEmojiGlyph(color, glyphStroke)
+        MetroSystemIconType.Undo -> drawUndoRedoGlyph(color, glyphStroke, redo = false)
+        MetroSystemIconType.Redo -> drawUndoRedoGlyph(color, glyphStroke, redo = true)
+        MetroSystemIconType.Settings -> drawSettingsGlyph(color, glyphStroke)
+        MetroSystemIconType.Clipboard -> drawClipboardGlyph(color, glyphStroke)
+        MetroSystemIconType.Copy -> drawCopyGlyph(color, glyphStroke)
+        MetroSystemIconType.Cut -> drawCutGlyph(color, glyphStroke)
+        MetroSystemIconType.Paste -> drawPasteGlyph(color, glyphStroke)
+        MetroSystemIconType.SelectAll -> drawSelectAllGlyph(color, glyphStroke)
+        MetroSystemIconType.Language -> drawLanguageGlyph(color, glyphStroke)
+        MetroSystemIconType.KeyboardHide -> drawKeyboardHideGlyph(color, glyphStroke)
+        MetroSystemIconType.Send -> drawSendGlyph(color)
+        MetroSystemIconType.Autocorrect -> drawAutocorrectGlyph(color, glyphStroke)
+        MetroSystemIconType.ChevronUp -> drawChevronGlyph(color, glyphStroke, direction = 0)
+        MetroSystemIconType.ChevronDown -> drawChevronGlyph(color, glyphStroke, direction = 1)
+        MetroSystemIconType.ChevronLeft -> drawChevronGlyph(color, glyphStroke, direction = 2)
+        MetroSystemIconType.ChevronRight -> drawChevronGlyph(color, glyphStroke, direction = 3)
+        MetroSystemIconType.Play -> drawPlayGlyph(color)
+        MetroSystemIconType.Pause -> drawPauseGlyph(color)
+        MetroSystemIconType.Next -> drawSkipGlyph(color, forward = true)
+        MetroSystemIconType.Previous -> drawSkipGlyph(color, forward = false)
     }
 }
 
@@ -178,7 +252,7 @@ private fun DrawScope.drawBackGlyph(color: Color, stroke: Stroke) {
     val cx = size.width / 2f
     val cy = size.height / 2f
     val arm = size.minDimension * 0.16f
-    drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), stroke.width, StrokeCap.Round)
+    drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), stroke.width, StrokeCap.Butt)
     val path = Path().apply {
         moveTo(cx - arm * 0.2f, cy - arm * 0.85f)
         lineTo(cx - arm, cy)
@@ -197,7 +271,7 @@ private fun DrawScope.drawSearchGlyph(color: Color, stroke: Stroke) {
         Offset(cx - arm * 0.65f, cy + arm * 0.65f),
         Offset(cx - arm * 1.55f, cy + arm * 1.55f),
         stroke.width,
-        StrokeCap.Round,
+        StrokeCap.Butt,
     )
 }
 
@@ -206,7 +280,7 @@ private fun DrawScope.drawCloseGlyph(color: Color, stroke: Stroke) {
     val arm = size.minDimension * 0.14f
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val width = stroke.width * 1.55f
+    val width = stroke.width * 1.15f
     drawLine(color, Offset(cx - arm, cy - arm), Offset(cx + arm, cy + arm), width, StrokeCap.Butt)
     drawLine(color, Offset(cx + arm, cy - arm), Offset(cx - arm, cy + arm), width, StrokeCap.Butt)
 }
@@ -222,7 +296,7 @@ private fun DrawScope.drawCheckGlyph(color: Color, stroke: Stroke) {
         path,
         color,
         style = Stroke(
-            width = stroke.width * 1.85f,
+            width = stroke.width * 1.2f,
             cap = StrokeCap.Butt,
             join = StrokeJoin.Miter,
             miter = 4f,
@@ -261,7 +335,7 @@ private fun DrawScope.drawUnpinGlyph(color: Color, stroke: Stroke) {
         Offset(cx - arm, cy - arm),
         Offset(cx + arm, cy + arm),
         stroke.width,
-        StrokeCap.Round,
+        StrokeCap.Butt,
     )
 }
 
@@ -272,7 +346,7 @@ private fun DrawScope.drawResizeGlyph(color: Color, stroke: Stroke) {
     val cy = size.height / 2f
     val start = Offset(cx + arm * 0.55f, cy - arm * 0.75f)
     val end = Offset(cx - arm * 0.75f, cy + arm * 0.55f)
-    drawLine(color, start, end, stroke.width, StrokeCap.Round)
+    drawLine(color, start, end, stroke.width, StrokeCap.Butt)
     val path = Path().apply {
         moveTo(end.x + arm * 0.38f, end.y)
         lineTo(end.x, end.y)
@@ -285,8 +359,8 @@ private fun DrawScope.drawAddGlyph(color: Color, stroke: Stroke) {
     val arm = size.minDimension * 0.14f
     val cx = size.width / 2f
     val cy = size.height / 2f
-    drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), stroke.width, StrokeCap.Round)
-    drawLine(color, Offset(cx, cy - arm), Offset(cx, cy + arm), stroke.width, StrokeCap.Round)
+    drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), stroke.width, StrokeCap.Butt)
+    drawLine(color, Offset(cx, cy - arm), Offset(cx, cy + arm), stroke.width, StrokeCap.Butt)
 }
 
 private fun DrawScope.drawMoreGlyph(color: Color, stroke: Stroke) {
@@ -308,7 +382,7 @@ internal fun DrawScope.drawSwitchViewGlyph(color: Color, stroke: Stroke) {
     val topY = size.height / 2f - offsetY
     val botY = size.height / 2f + offsetY
 
-    drawLine(color, Offset(cx - halfLen, topY), Offset(cx + halfLen, topY), stroke.width, StrokeCap.Round)
+    drawLine(color, Offset(cx - halfLen, topY), Offset(cx + halfLen, topY), stroke.width, StrokeCap.Butt)
     drawPath(
         Path().apply {
             moveTo(cx + halfLen - head, topY - head)
@@ -319,7 +393,7 @@ internal fun DrawScope.drawSwitchViewGlyph(color: Color, stroke: Stroke) {
         style = stroke,
     )
 
-    drawLine(color, Offset(cx - halfLen, botY), Offset(cx + halfLen, botY), stroke.width, StrokeCap.Round)
+    drawLine(color, Offset(cx - halfLen, botY), Offset(cx + halfLen, botY), stroke.width, StrokeCap.Butt)
     drawPath(
         Path().apply {
             moveTo(cx - halfLen + head, botY - head)
@@ -424,12 +498,390 @@ private fun DrawScope.drawDeleteGlyph(color: Color, stroke: Stroke) {
     val bottom = size.height * 0.78f
     val left = cx - s * 0.22f
     val right = cx + s * 0.22f
-    drawLine(color, Offset(cx - s * 0.12f, top), Offset(cx + s * 0.12f, top), stroke.width, StrokeCap.Round)
-    drawLine(color, Offset(left - s * 0.06f, lidY), Offset(right + s * 0.06f, lidY), stroke.width, StrokeCap.Round)
-    drawLine(color, Offset(left, lidY), Offset(left + s * 0.04f, bottom), stroke.width, StrokeCap.Round)
-    drawLine(color, Offset(right, lidY), Offset(right - s * 0.04f, bottom), stroke.width, StrokeCap.Round)
-    drawLine(color, Offset(left + s * 0.04f, bottom), Offset(right - s * 0.04f, bottom), stroke.width, StrokeCap.Round)
-    drawLine(color, Offset(cx, lidY + s * 0.06f), Offset(cx, bottom - s * 0.06f), stroke.width, StrokeCap.Round)
+    val cap = StrokeCap.Butt
+    drawLine(color, Offset(cx - s * 0.12f, top), Offset(cx + s * 0.12f, top), stroke.width, cap)
+    drawLine(color, Offset(left - s * 0.06f, lidY), Offset(right + s * 0.06f, lidY), stroke.width, cap)
+    drawLine(color, Offset(left, lidY), Offset(left + s * 0.04f, bottom), stroke.width, cap)
+    drawLine(color, Offset(right, lidY), Offset(right - s * 0.04f, bottom), stroke.width, cap)
+    drawLine(color, Offset(left + s * 0.04f, bottom), Offset(right - s * 0.04f, bottom), stroke.width, cap)
+    drawLine(color, Offset(cx, lidY + s * 0.06f), Offset(cx, bottom - s * 0.06f), stroke.width, cap)
+}
+
+/** WP paperclip / attach affordance. */
+private fun DrawScope.drawAttachGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val path = Path().apply {
+        moveTo(cx + s * 0.08f, cy - s * 0.28f)
+        lineTo(cx + s * 0.08f, cy + s * 0.12f)
+        cubicTo(
+            cx + s * 0.08f, cy + s * 0.28f,
+            cx - s * 0.20f, cy + s * 0.28f,
+            cx - s * 0.20f, cy + s * 0.08f,
+        )
+        lineTo(cx - s * 0.20f, cy - s * 0.18f)
+        cubicTo(
+            cx - s * 0.20f, cy - s * 0.30f,
+            cx - s * 0.02f, cy - s * 0.30f,
+            cx - s * 0.02f, cy - s * 0.16f,
+        )
+        lineTo(cx - s * 0.02f, cy + s * 0.06f)
+    }
+    drawPath(
+        path,
+        color,
+        style = Stroke(
+            width = stroke.width * 1.1f,
+            cap = StrokeCap.Butt,
+            join = StrokeJoin.Miter,
+            miter = 4f,
+        ),
+    )
+}
+
+/** WP microphone. */
+private fun DrawScope.drawMicrophoneGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val micTop = cy - s * 0.28f
+    val micBot = cy + s * 0.02f
+    val micW = s * 0.11f
+    // Mic capsule keeps rounded ends (real WP glyph); stroke terminals stay square.
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(cx - micW, micTop),
+        size = Size(micW * 2f, micBot - micTop),
+        cornerRadius = CornerRadius(micW, micW),
+        style = stroke,
+    )
+    val arc = Path().apply {
+        moveTo(cx - s * 0.20f, cy - s * 0.02f)
+        quadraticBezierTo(cx - s * 0.20f, cy + s * 0.22f, cx, cy + s * 0.22f)
+        quadraticBezierTo(cx + s * 0.20f, cy + s * 0.22f, cx + s * 0.20f, cy - s * 0.02f)
+    }
+    drawPath(arc, color, style = stroke)
+    drawLine(color, Offset(cx, cy + s * 0.22f), Offset(cx, cy + s * 0.32f), stroke.width, StrokeCap.Butt)
+    drawLine(
+        color,
+        Offset(cx - s * 0.12f, cy + s * 0.32f),
+        Offset(cx + s * 0.12f, cy + s * 0.32f),
+        stroke.width,
+        StrokeCap.Butt,
+    )
+}
+
+/**
+ * WP SIP shift arrow — open chevron head with a stem through the center
+ * (Segoe UI Symbol / WP8.1 SIP). No filled body and no base bar on the head.
+ * [locked] adds the caps-lock underline under the stem.
+ */
+private fun DrawScope.drawShiftGlyph(color: Color, locked: Boolean) {
+    val s = size.minDimension
+    // Stem/arm weight ≈ WP8.1 reference (~1/5 of glyph width).
+    val strokeWidth = s * 0.16f
+    val cx = size.width / 2f
+    val top = size.height * 0.16f
+    val baseY = size.height * 0.52f
+    val stemBot = size.height * (if (locked) 0.70f else 0.84f)
+    val headHalf = s * 0.32f
+
+    // Open chevron (two diagonals) — matches WP8.1 hollow ↑, not a closed triangle.
+    drawLine(color, Offset(cx, top), Offset(cx - headHalf, baseY), strokeWidth, StrokeCap.Butt)
+    drawLine(color, Offset(cx, top), Offset(cx + headHalf, baseY), strokeWidth, StrokeCap.Butt)
+    // Stem tip → below so the head reads left | stem | right.
+    drawLine(color, Offset(cx, top), Offset(cx, stemBot), strokeWidth, StrokeCap.Butt)
+    if (locked) {
+        val barY = size.height * 0.78f
+        val barHalf = headHalf * 0.55f
+        drawLine(
+            color,
+            Offset(cx - barHalf, barY),
+            Offset(cx + barHalf, barY),
+            strokeWidth,
+            StrokeCap.Butt,
+        )
+    }
+}
+
+/** WP SIP backspace — left-pointing key body with an X. */
+private fun DrawScope.drawBackspaceGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val left = size.width * 0.18f
+    val right = size.width * 0.82f
+    val top = size.height * 0.30f
+    val bottom = size.height * 0.70f
+    val midY = (top + bottom) / 2f
+    val body = Path().apply {
+        moveTo(left, midY)
+        lineTo(left + s * 0.16f, top)
+        lineTo(right, top)
+        lineTo(right, bottom)
+        lineTo(left + s * 0.16f, bottom)
+        close()
+    }
+    drawPath(body, color, style = Stroke(width = stroke.width * 1.05f, cap = StrokeCap.Butt, join = StrokeJoin.Miter, miter = 4f))
+    val xArm = s * 0.09f
+    val xCx = left + (right - left) * 0.58f
+    drawLine(color, Offset(xCx - xArm, midY - xArm), Offset(xCx + xArm, midY + xArm), stroke.width, StrokeCap.Butt)
+    drawLine(color, Offset(xCx + xArm, midY - xArm), Offset(xCx - xArm, midY + xArm), stroke.width, StrokeCap.Butt)
+}
+
+/** WP SIP enter / return arrow. */
+private fun DrawScope.drawEnterGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val thick = Stroke(
+        width = stroke.width * 1.1f,
+        cap = StrokeCap.Butt,
+        join = StrokeJoin.Miter,
+        miter = 4f,
+    )
+    val right = size.width * 0.72f
+    val left = size.width * 0.28f
+    val top = size.height * 0.32f
+    val midY = size.height * 0.58f
+    // Single path so Miter join fills the outer corner (two drawLine butts leave a gap).
+    val shaft = Path().apply {
+        moveTo(right, top)
+        lineTo(right, midY)
+        lineTo(left, midY)
+    }
+    drawPath(shaft, color, style = thick)
+    val head = Path().apply {
+        moveTo(left + s * 0.14f, midY - s * 0.12f)
+        lineTo(left, midY)
+        lineTo(left + s * 0.14f, midY + s * 0.12f)
+    }
+    drawPath(head, color, style = thick)
+}
+
+/** WP SIP emoji / emoticon key. */
+private fun DrawScope.drawEmojiGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val r = s * 0.28f
+    drawCircle(color, r, Offset(cx, cy), style = stroke)
+    val eyeY = cy - s * 0.06f
+    val eyeR = stroke.width * 0.85f
+    drawCircle(color, eyeR, Offset(cx - s * 0.10f, eyeY))
+    drawCircle(color, eyeR, Offset(cx + s * 0.10f, eyeY))
+    val smile = Path().apply {
+        moveTo(cx - s * 0.12f, cy + s * 0.06f)
+        quadraticBezierTo(cx, cy + s * 0.18f, cx + s * 0.12f, cy + s * 0.06f)
+    }
+    drawPath(smile, color, style = stroke)
+}
+
+/** Curved undo/redo arrow; [redo] mirrors horizontally. */
+private fun DrawScope.drawUndoRedoGlyph(color: Color, stroke: Stroke, redo: Boolean) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val dir = if (redo) 1f else -1f
+    val arc = Path().apply {
+        moveTo(cx + dir * s * 0.22f, cy - s * 0.08f)
+        quadraticBezierTo(cx, cy - s * 0.28f, cx - dir * s * 0.22f, cy - s * 0.08f)
+        lineTo(cx - dir * s * 0.22f, cy + s * 0.12f)
+    }
+    drawPath(arc, color, style = stroke)
+    val tipX = cx - dir * s * 0.22f
+    val tipY = cy + s * 0.12f
+    drawLine(color, Offset(tipX, tipY), Offset(tipX + dir * s * 0.12f, tipY - s * 0.02f), stroke.width, StrokeCap.Butt)
+    drawLine(color, Offset(tipX, tipY), Offset(tipX + dir * s * 0.02f, tipY - s * 0.12f), stroke.width, StrokeCap.Butt)
+}
+
+private fun DrawScope.drawSettingsGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    drawCircle(color, s * 0.10f, Offset(cx, cy), style = stroke)
+    drawCircle(color, s * 0.26f, Offset(cx, cy), style = stroke)
+    for (i in 0 until 6) {
+        val a = Math.toRadians((i * 60).toDouble()).toFloat()
+        val inner = s * 0.26f
+        val outer = s * 0.34f
+        drawLine(
+            color,
+            Offset(cx + kotlin.math.cos(a) * inner, cy + kotlin.math.sin(a) * inner),
+            Offset(cx + kotlin.math.cos(a) * outer, cy + kotlin.math.sin(a) * outer),
+            stroke.width,
+            StrokeCap.Butt,
+        )
+    }
+}
+
+private fun DrawScope.drawClipboardGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val left = size.width * 0.28f
+    val top = size.height * 0.28f
+    drawRect(
+        color = color,
+        topLeft = Offset(left, top),
+        size = Size(s * 0.44f, s * 0.52f),
+        style = stroke,
+    )
+    drawRect(
+        color = color,
+        topLeft = Offset(size.width * 0.36f, size.height * 0.20f),
+        size = Size(s * 0.28f, s * 0.12f),
+        style = stroke,
+    )
+}
+
+private fun DrawScope.drawCopyGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    drawRect(
+        color = color,
+        topLeft = Offset(size.width * 0.34f, size.height * 0.26f),
+        size = Size(s * 0.38f, s * 0.44f),
+        style = stroke,
+    )
+    drawRect(
+        color = color,
+        topLeft = Offset(size.width * 0.26f, size.height * 0.34f),
+        size = Size(s * 0.38f, s * 0.44f),
+        style = stroke,
+    )
+}
+
+private fun DrawScope.drawCutGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    drawCircle(color, s * 0.08f, Offset(cx - s * 0.14f, cy + s * 0.12f), style = stroke)
+    drawCircle(color, s * 0.08f, Offset(cx + s * 0.14f, cy + s * 0.12f), style = stroke)
+    drawLine(color, Offset(cx - s * 0.14f, cy + s * 0.12f), Offset(cx + s * 0.18f, cy - s * 0.22f), stroke.width, StrokeCap.Butt)
+    drawLine(color, Offset(cx + s * 0.14f, cy + s * 0.12f), Offset(cx - s * 0.18f, cy - s * 0.22f), stroke.width, StrokeCap.Butt)
+}
+
+private fun DrawScope.drawPasteGlyph(color: Color, stroke: Stroke) {
+    drawClipboardGlyph(color, stroke)
+    val s = size.minDimension
+    drawLine(
+        color,
+        Offset(size.width * 0.42f, size.height * 0.48f),
+        Offset(size.width * 0.58f, size.height * 0.48f),
+        stroke.width,
+        StrokeCap.Butt,
+    )
+    drawLine(
+        color,
+        Offset(size.width * 0.42f, size.height * 0.58f),
+        Offset(size.width * 0.54f, size.height * 0.58f),
+        stroke.width,
+        StrokeCap.Butt,
+    )
+}
+
+private fun DrawScope.drawSelectAllGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    drawRect(
+        color = color,
+        topLeft = Offset(size.width * 0.26f, size.height * 0.26f),
+        size = Size(s * 0.48f, s * 0.48f),
+        style = stroke,
+    )
+    drawCheckGlyph(color, stroke)
+}
+
+private fun DrawScope.drawLanguageGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    drawCircle(color, s * 0.28f, Offset(cx, cy), style = stroke)
+    drawOval(
+        color = color,
+        topLeft = Offset(cx - s * 0.14f, cy - s * 0.28f),
+        size = Size(s * 0.28f, s * 0.56f),
+        style = stroke,
+    )
+    drawLine(color, Offset(cx - s * 0.28f, cy), Offset(cx + s * 0.28f, cy), stroke.width, StrokeCap.Butt)
+}
+
+private fun DrawScope.drawKeyboardHideGlyph(color: Color, stroke: Stroke) {
+    // WP8.1 SIP dismiss: compact keyboard body + clear downward chevron (not a Material “monitor”).
+    val s = size.minDimension
+    val kbLeft = size.width * 0.24f
+    val kbTop = size.height * 0.22f
+    val kbW = s * 0.52f
+    val kbH = s * 0.30f
+    drawRect(
+        color = color,
+        topLeft = Offset(kbLeft, kbTop),
+        size = Size(kbW, kbH),
+        style = stroke,
+    )
+    // Key separators so the body reads as a keyboard.
+    val rowY = kbTop + kbH * 0.55f
+    drawLine(color, Offset(kbLeft + kbW * 0.22f, rowY), Offset(kbLeft + kbW * 0.78f, rowY), stroke.width * 0.85f, StrokeCap.Butt)
+    val cx = size.width / 2f
+    val chevronY = size.height * 0.72f
+    val arm = s * 0.14f
+    drawLine(color, Offset(cx - arm, chevronY - arm * 0.35f), Offset(cx, chevronY + arm * 0.35f), stroke.width, StrokeCap.Butt)
+    drawLine(color, Offset(cx + arm, chevronY - arm * 0.35f), Offset(cx, chevronY + arm * 0.35f), stroke.width, StrokeCap.Butt)
+}
+
+private fun DrawScope.drawSendGlyph(color: Color) {
+    val s = size.minDimension
+    val path = Path().apply {
+        moveTo(size.width * 0.22f, size.height * 0.28f)
+        lineTo(size.width * 0.78f, size.height * 0.50f)
+        lineTo(size.width * 0.22f, size.height * 0.72f)
+        lineTo(size.width * 0.22f, size.height * 0.58f)
+        lineTo(size.width * 0.52f, size.height * 0.50f)
+        lineTo(size.width * 0.22f, size.height * 0.42f)
+        close()
+    }
+    drawPath(path, color)
+}
+
+private fun DrawScope.drawAutocorrectGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    drawLine(
+        color,
+        Offset(size.width * 0.28f, size.height * 0.68f),
+        Offset(size.width * 0.42f, size.height * 0.32f),
+        stroke.width,
+        StrokeCap.Butt,
+    )
+    drawLine(
+        color,
+        Offset(size.width * 0.42f, size.height * 0.32f),
+        Offset(size.width * 0.56f, size.height * 0.68f),
+        stroke.width,
+        StrokeCap.Butt,
+    )
+    drawLine(
+        color,
+        Offset(size.width * 0.34f, size.height * 0.54f),
+        Offset(size.width * 0.50f, size.height * 0.54f),
+        stroke.width,
+        StrokeCap.Butt,
+    )
+    drawCircle(color, s * 0.06f, Offset(size.width * 0.68f, size.height * 0.38f), style = stroke)
+}
+
+/** [direction]: 0 up, 1 down, 2 left, 3 right. */
+private fun DrawScope.drawChevronGlyph(color: Color, stroke: Stroke, direction: Int) {
+    val s = size.minDimension
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val arm = s * 0.16f
+    val (a, b, c) = when (direction) {
+        0 -> Triple(Offset(cx - arm, cy + arm * 0.4f), Offset(cx, cy - arm * 0.4f), Offset(cx + arm, cy + arm * 0.4f))
+        1 -> Triple(Offset(cx - arm, cy - arm * 0.4f), Offset(cx, cy + arm * 0.4f), Offset(cx + arm, cy - arm * 0.4f))
+        2 -> Triple(Offset(cx + arm * 0.4f, cy - arm), Offset(cx - arm * 0.4f, cy), Offset(cx + arm * 0.4f, cy + arm))
+        else -> Triple(Offset(cx - arm * 0.4f, cy - arm), Offset(cx + arm * 0.4f, cy), Offset(cx - arm * 0.4f, cy + arm))
+    }
+    // Single path so the chevron tip stays a sharp miter (not two rounded strokes).
+    val path = Path().apply {
+        moveTo(a.x, a.y)
+        lineTo(b.x, b.y)
+        lineTo(c.x, c.y)
+    }
+    drawPath(path, color, style = stroke)
 }
 
 internal fun DrawScope.drawPlayGlyph(color: Color) {
@@ -482,13 +934,16 @@ internal fun DrawScope.drawSkipGlyph(color: Color, forward: Boolean) {
     }
 
     if (forward) {
-        triangle(x); x += triangleWidth + gap
-        triangle(x); x += triangleWidth + gap
+        triangle(x)
+        x += triangleWidth + gap
+        triangle(x)
+        x += triangleWidth + gap
         drawRect(color, Offset(x, cy - height / 2f), Size(barWidth, height))
     } else {
         drawRect(color, Offset(x, cy - height / 2f), Size(barWidth, height))
         x += barWidth + gap
-        triangle(x); x += triangleWidth + gap
+        triangle(x)
+        x += triangleWidth + gap
         triangle(x)
     }
 }

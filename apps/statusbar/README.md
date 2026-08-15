@@ -8,13 +8,16 @@
 **Implemented** — renders the WP8.1 system tray on top of the Android status bar: collapsed clock
 only, tap/home staggered indicator reveal (drop from above R→L, 3/5/10s hold, exit upward),
 minute-boundary clock ticks, indeterminate progress affordance, and per-app opaque/translucent/hidden
-modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`) with proportional fill + charging
-plug; the remaining radio indicators are static v1 glyphs.
+modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`) with proportional fill (red at
+≤20%, foreground above) and a charging plug that interrupts the casing outline; the remaining radio
+indicators are static v1 glyphs.
 
 The setup screen’s **Show status bar** master toggle starts and stops the overlay. **Hide icons
 after** (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds (WP default
-5s). Boot auto-starts only when that toggle is on and permissions are granted. Per-app tray styling
-goes through `MetroStatusBar` in `metro-system-sdk`.
+5s). **Notch position** (`MetroListPicker`) chooses Center / Left / Right — Center keeps the default
+tray insets; Left/Right add side clearance so icons clear a corner punch-hole. Boot auto-starts only
+when that toggle is on and permissions are granted. Per-app tray styling goes through `MetroStatusBar`
+in `metro-system-sdk`.
 
 ### Permissions required
 
@@ -66,6 +69,7 @@ It does not host Action Center, toasts, or a notification shade.
 - Default resting state
 - Clock only, right-aligned (battery and other indicators hidden)
 - Overlay window is sized to the full system status-bar inset (incl. notch/cutout) so the Android bar is fully covered
+- Horizontal padding uses physical safe edges: display-cutout / waterfall insets, top rounded-corner chords (API 31+), and privacy-indicator bounds — so clock/icons are not clipped on heavily rounded screens
 - Expected reference: `references/images/collapsed_dark.png`
 
 ### 2. Expanded tray
@@ -115,6 +119,7 @@ It does not host Action Center, toasts, or a notification shade.
 - Expand animation: staggered drop from above, **200ms**/icon, **90ms** R→L stagger
 - Collapse animation: staggered exit upward, same timing
 - Auto-collapse hold: **3s / 5s / 10s** after enter finishes (setup ListPicker; default **5000ms**)
+- Swipe down opens the Android notification shade; Metro tray hides until the shade closes
 - No Material status bar styling, dropdown shade affordances, cards, or quick settings metaphors
 - Avoid oversized icons; keep glyphs minimal and monochrome per theme
 - Respect WP8.1 chrome opacity behavior when translucent mode is requested
@@ -142,6 +147,7 @@ It does not host Action Center, toasts, or a notification shade.
 4. Minute boundary updates clock correctly
 5. Progress request shows and clears progress state predictably
 6. Hidden/translucent tray modes honor app requests
+7. Swipe down opens the system notification shade and hides the Metro tray until the shade closes
 
 ## Reference and golden expectations
 
@@ -177,6 +183,7 @@ cd apps/statusbar
 |----------------|-------------------|------------|
 | Real carrier/radio signal behavior mirrors system internals | Android app-level access to all shell telemetry can be restricted or OEM-specific | Radio indicators (cellular, data, call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving, ringer, location) use static v1 glyphs; battery uses real `ACTION_BATTERY_CHANGED` telemetry. Tray layout and timing are exact. |
 | Status bar is a true system-reserved region | An installed app can only overlay via `SYSTEM_ALERT_WINDOW`, which is layered below the system status bar | The tray is hosted as a `TYPE_ACCESSIBILITY_OVERLAY` (via `StatusBarAccessibilityService`) so it draws above the system status bar; requires enabling the accessibility service. Falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the system bar) when not enabled. |
+| Action Center owns the top chrome while open | Metro Action Center is out of scope; Android's notification shade still expands under the a11y overlay | Swipe-down opens the system shade via `GLOBAL_ACTION_NOTIFICATIONS`; the tray hides for the shade lifetime (detected via interactive windows / shade class names). |
 
 ## Agent postmortem
 

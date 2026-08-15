@@ -83,7 +83,7 @@
   "key[code=32]": {
     "background": "var(--surface)",
     "foreground": "var(--on-surface)",
-    "font-size": "15sp",
+    "font-size": "24sp",
     "text-overflow": "ellipsis"
   },
   "key[code=-201,-202,-203]": {
@@ -101,7 +101,6 @@
   "key-hint": {
     "background": "transparent",
     "foreground": "var(--on-surface-variant)",
-    "font-family": "monospace",
     "font-size": "12sp",
     "padding": "0dp 1dp 1dp 0dp",
     "text-max-lines": "1"
@@ -137,43 +136,111 @@
     "font-size": "18sp"
   },
   "smartbar-shared-actions-toggle": {
-    "background": "var(--surface)",
-    "foreground": "var(--on-surface)",
-    "margin": "6dp",
+    "background": "transparent",
+    "foreground": "var(--on-background)",
+    "margin": "4dp",
     "shape": "circle()",
-    "shadow-elevation": "2dp"
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp",
+    "shadow-elevation": "0dp"
+  },
+  "smartbar-shared-actions-toggle:pressed": {
+    "background": "var(--on-background)",
+    "foreground": "var(--background)",
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp"
   },
   "smartbar-extended-actions-toggle": {
     "background": "transparent",
-    "foreground": "var(--on-surface-variant)",
-    "margin": "6dp",
-    "shape": "circle()"
+    "foreground": "var(--on-background)",
+    "margin": "4dp",
+    "shape": "circle()",
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp",
+    "shadow-elevation": "0dp"
+  },
+  "smartbar-extended-actions-toggle:pressed": {
+    "background": "var(--on-background)",
+    "foreground": "var(--background)",
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp"
   },
   "smartbar-action-key": {
     "background": "transparent",
     "foreground": "var(--on-background)",
-    "shape": "var(--shape)"
+    "margin": "4dp",
+    "shape": "circle()",
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp",
+    "shadow-elevation": "0dp"
   },
-  "smartbar-action-key:disabled": {
+  "smartbar-action-key-icon": {
+    "font-size": "26sp",
+    "foreground": "var(--on-background)"
+  },
+  "smartbar-action-key-icon:pressed": {
+    "foreground": "var(--background)"
+  },
+  "smartbar-action-key-icon:disabled": {
     "foreground": "var(--on-background-disabled)"
   },
+  "smartbar-action-key-icon[code=-232]": {
+    "font-size": "26sp",
+    "foreground": "var(--on-background)"
+  },
+  "smartbar-action-key-icon[code=-232]:pressed": {
+    "foreground": "var(--background)"
+  },
+  "smartbar-action-key:pressed": {
+    "background": "var(--on-background)",
+    "foreground": "var(--background)",
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp"
+  },
+  "smartbar-action-key:disabled": {
+    "foreground": "var(--on-background-disabled)",
+    "border-color": "var(--on-background-disabled)"
+  },
+  "smartbar-action-key[code=-232]": {
+    "background": "transparent",
+    "foreground": "var(--on-background)",
+    "margin": "4dp",
+    "shape": "circle()",
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp",
+    "shadow-elevation": "0dp"
+  },
+  "smartbar-action-key[code=-232]:pressed": {
+    "background": "var(--on-background)",
+    "foreground": "var(--background)",
+    "border-color": "var(--on-background)",
+    "border-width": "1.5dp"
+  },
   "smartbar-actions-overflow": {
-    "margin": "4dp"
+    "margin": "0dp",
+    "background": "var(--background)"
   },
   "smartbar-actions-overflow-customize-button": {
-    "background": "var(--primary)",
-    "foreground": "var(--on-primary)",
-    "font-size": "14sp",
-    "margin": "0dp 8dp 0dp 0dp",
-    "shape": "rounded-corner(24dp, 24dp, 24dp, 24dp)"
+    "background": "transparent",
+    "foreground": "var(--on-background)",
+    "border-color": "var(--on-background)",
+    "border-width": "2dp",
+    "font-size": "16sp",
+    "font-weight": "600",
+    "margin": "4dp 8dp 0dp 0dp",
+    "padding": "10dp 6dp",
+    "shape": "rectangle()"
+  },
+  "smartbar-actions-overflow-customize-button:pressed": {
+    "background": "rgba(0, 0, 0, 0.2)"
   },
   "smartbar-action-tile": {
-    "background": "var(--background-variant)",
+    "background": "transparent",
     "foreground": "var(--on-background)",
-    "font-size": "14sp",
-    "margin": "4dp",
-    "padding": "4dp",
-    "shape": "rounded-corner(20%, 20%, 20%, 20%)",
+    "font-size": "15sp",
+    "margin": "0dp",
+    "padding": "8dp",
+    "shape": "rectangle()",
     "text-align": "center",
     "text-max-lines": "2",
     "text-overflow": "ellipsis"
@@ -182,7 +249,7 @@
     "foreground": "var(--on-background-disabled)"
   },
   "smartbar-action-tile-icon": {
-    "font-size": "24sp",
+    "font-size": "32sp",
     "margin": "0dp 0dp 0dp 8dp"
   },
   "smartbar-actions-editor": {
