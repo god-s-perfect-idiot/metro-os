@@ -183,9 +183,9 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
                 if (it) 180f else 0f
             }
             val arrowType = if (flipToggles) {
-                MetroSystemIconType.ChevronLeft
+                MetroSystemIconType.Back
             } else {
-                MetroSystemIconType.ChevronRight
+                MetroSystemIconType.Forward
             }
             val incognitoIcon = ImageVector.vectorResource(id = R.drawable.ic_incognito)
             val incognitoDisplayMode = prefs.keyboard.incognitoDisplayMode.collectAsState()
@@ -201,7 +201,8 @@ private fun SmartbarMainRow(modifier: Modifier = Modifier) {
                     modifier = Modifier.rotate(
                         if (incognitoDisplayMode.value == IncognitoDisplayMode.DISPLAY_BEHIND_KEYBOARD) rotation else 0f,
                     ),
-                    iconSize = MetroSystemIconDefaultSize,
+                    // Slightly above default chrome size so the ←/→ reads clearly in the SIP bar.
+                    iconSize = 44.dp,
                     color = toggleStyle.foreground(),
                     showCircle = false,
                 )

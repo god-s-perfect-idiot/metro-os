@@ -83,7 +83,7 @@
   "key[code=32]": {
     "background": "var(--surface)",
     "foreground": "var(--on-surface)",
-    "font-size": "24sp",
+    "font-size": "18sp",
     "text-overflow": "ellipsis"
   },
   "key[code=-201,-202,-203]": {

@@ -45,14 +45,14 @@ import dev.patrickgold.jetpref.datastore.model.collectAsState
 import org.florisboard.lib.compose.stringRes
 import org.florisboard.lib.snygg.ui.SnyggBox
 
-/** WP8.1 Start tile gap (scope.md / METRO-UX-LANGUAGE §3.1). */
-private val OverflowTileGap = 4.dp
+/** Gap between overflow tiles — roomier than Start’s 4dp for the 2-col panel. */
+private val OverflowTileGap = 12.dp
 
 /** Screen side margin for Metro grids. */
 private val OverflowGridPadding = 12.dp
 
-/** Dense phone overflow grid — square cells like Start small tiles. */
-private const val OverflowColumns = 4
+/** Three tiles per row in the more-options overflow panel. */
+private const val OverflowColumns = 3
 
 @Composable
 fun QuickActionsOverflowPanel() {

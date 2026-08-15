@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 
 /**
@@ -21,6 +22,9 @@ fun metroSystemIconPainter(
 
 @Composable
 fun rememberMetroSystemIconPainter(type: MetroSystemIconType): Painter {
+    if (type == MetroSystemIconType.Microphone) {
+        return painterResource(id = R.drawable.metro_system_microphone)
+    }
     return remember(type) { metroSystemIconPainter(type) }
 }
 

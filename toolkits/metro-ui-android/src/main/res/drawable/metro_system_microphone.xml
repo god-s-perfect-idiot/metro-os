@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Studio mic — geometry traced from the provided SIP voice reference asset. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12.000,1.500L12.000,1.500A3.140,3.140 0 0 1 15.140,4.640L15.140,11.784A3.140,3.140 0 0 1 12.000,14.925L12.000,14.925A3.140,3.140 0 0 1 8.860,11.784L8.860,4.640A3.140,3.140 0 0 1 12.000,1.500Z"/>
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M6.654,9.747L6.654,11.784A5.346,5.346 0 0 1 17.346,11.784L17.346,9.747"
+        android:strokeWidth="2.110"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round"/>
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12.000,18.185L12.000,21.397"
+        android:strokeWidth="2.110"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="butt"/>
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M7.757,21.397L16.243,21.397"
+        android:strokeWidth="2.110"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="butt"/>
+</vector>

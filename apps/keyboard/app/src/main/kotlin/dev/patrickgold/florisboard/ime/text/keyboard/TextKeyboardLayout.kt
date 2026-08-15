@@ -57,8 +57,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconType
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.editorInstance
@@ -374,8 +377,39 @@ private fun TextKeyButton(
         }
         if (metroIcon != null) {
             val iconColor = LocalContentColor.current
-            // Prefer key height so narrow emoji/shift keys stay readable; cap by width.
-            val iconSize = minOf(size.height * 0.72f, size.width * 0.92f)
+            // Match letter glyph weight (theme font-size), not key face fill — WP8.1 SIP
+            // chrome icons sit near letter height with clear padding inside the key.
+            val keyStyle = rememberSnyggThemeQuery(
+                elementName = FlorisImeUi.Key.elementName,
+                attributes = attributes,
+                selector = selector,
+            )
+            val iconSize = with(LocalDensity.current) {
+                val fontSize = keyStyle.fontSize(default = 24.sp)
+                val fromTheme = if (fontSize.isSp && fontSize >= 1.sp) {
+                    fontSize.toDp()
+                } else {
+                    24.dp
+                }
+                val base = minOf(fromTheme, size.width * 0.55f, size.height * 0.42f)
+                when (metroIcon) {
+                    // Backspace: larger box, thinner stroke (see drawBackspaceGlyph).
+                    MetroSystemIconType.Backspace ->
+                        minOf(base * 1.35f, size.width * 0.70f, size.height * 0.56f)
+                    // Enter / tick / search (and other IME-action glyphs on that key).
+                    MetroSystemIconType.Enter,
+                    MetroSystemIconType.Check,
+                    MetroSystemIconType.Search,
+                    MetroSystemIconType.Send,
+                    MetroSystemIconType.Forward,
+                    MetroSystemIconType.Back ->
+                        minOf(base * 1.55f, size.width * 0.78f, size.height * 0.68f)
+                    // Emoji face already fills its canvas — grow the key icon box instead.
+                    MetroSystemIconType.Emoji ->
+                        minOf(base * 1.55f, size.width * 0.78f, size.height * 0.68f)
+                    else -> base
+                }
+            }
             MetroSystemIcon(
                 type = metroIcon,
                 modifier = Modifier.align(Alignment.Center),
