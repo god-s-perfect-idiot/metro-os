@@ -209,11 +209,12 @@ private fun MusicTrackMeta(
     modifier: Modifier = Modifier,
     maxTitleLines: Int = 1,
 ) {
+    val chrome = LocalTileChrome.current
     Column(modifier = modifier) {
         if (!title.isNullOrBlank()) {
             TileText(
                 text = title,
-                style = TileTextStyles.Body,
+                style = chrome.liveBodyStyle,
                 color = Color.White,
                 maxLines = maxTitleLines,
                 overflow = TextOverflow.Ellipsis,
@@ -222,7 +223,7 @@ private fun MusicTrackMeta(
         if (!artist.isNullOrBlank()) {
             TileText(
                 text = artist,
-                style = TileTextStyles.Body,
+                style = chrome.liveBodyStyle,
                 color = Color.White.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

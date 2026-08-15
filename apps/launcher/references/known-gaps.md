@@ -6,7 +6,7 @@ Blueprint: [`guides/blueprint.md`](guides/blueprint.md)
 
 | Item | Fix |
 |------|-----|
-| 6-column grid | 4-column grid per blueprint |
+| 6-column grid | Optional via Settings `show_more_columns` (default remains 4-col) |
 | Wallpaper on Start | Black background per blueprint |
 | Wrong tile sizes | 1×1, 2×2, 4×2 cycle |
 | Centered edit overlay | In-grid edit: dim all tiles, focus active, corner buttons |
@@ -27,4 +27,4 @@ Blueprint: [`guides/blueprint.md`](guides/blueprint.md)
 
 ## Images vs blueprint
 
-Files like `start_wallpaper_*.jpeg` show WP8.1 with wallpaper — **not** this project's Start page (black bg). Use them for tile icon/color inspiration only.
+Files like `start_wallpaper_*.jpeg` show WP8.1 with wallpaper — useful for transparent-tile / window framing. Gaps between tiles stay black; only accent tiles reveal the photo.

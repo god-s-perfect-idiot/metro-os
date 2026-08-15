@@ -15,9 +15,11 @@ import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
 import com.metro.system.MetroTilePhotoGrid
-import com.metro.launcher.data.compactEmptyRows
-import com.metro.launcher.data.ensureGridPositions
+import com.metro.launcher.data.adaptTilesToColumnCount
+import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT
 import com.metro.system.MetroAppBranding
+import com.metro.system.MetroStartBackground
+import com.metro.launcher.data.CustomTileBranding
 
 data class DisplayTile(
     val entry: PinnedTileEntry,
@@ -26,6 +28,10 @@ data class DisplayTile(
     val counter: Int?,
     val deepLinkUri: String?,
     val hasFlipFace: Boolean,
+    /**
+     * When true and a Start background is set, the tile fill is a viewport window.
+     */
+    val revealsStartBackground: Boolean = false,
     val backFaceTitle: String? = null,
     /** Middle peek line when a provider/notification supplies three stacked fields. */
     val backFaceSubtitle: String? = null,
@@ -46,10 +52,10 @@ class LauncherRepository(private val context: Context) {
     private val store = PinnedTileStore(context)
     private val packageManager = context.packageManager
 
-    fun loadPinnedTiles(): List<PinnedTileEntry> {
+    fun loadPinnedTiles(columns: Int = TILE_GRID_COLUMN_COUNT): List<PinnedTileEntry> {
         val loaded = store.load()
         val installed = loaded.filter { isPackageInstalled(it.packageName) }
-        val positioned = compactEmptyRows(ensureGridPositions(installed))
+        val positioned = adaptTilesToColumnCount(installed, columns)
         if (installed.size != loaded.size || positioned != installed) {
             store.save(positioned)
         }
@@ -122,6 +128,7 @@ class LauncherRepository(private val context: Context) {
                 packageName = packageName,
                 providerBackgroundHex = providerData?.backgroundColorHex,
             )
+        val revealsStartBackground = tileRevealsStartBackground(packageName)
         val photoGrid = providerData?.photoGrid
         val agenda = providerData?.agenda?.takeIf { it.hasContent }
         val imageUri = providerData?.imageUri?.takeIf { it.isNotBlank() }
@@ -147,6 +154,7 @@ class LauncherRepository(private val context: Context) {
             entry = this,
             title = title,
             backgroundColor = background,
+            revealsStartBackground = revealsStartBackground,
             // Now-playing owns the tile; progress overlays the front but still peeks/flips.
             counter = if (musicNowPlaying != null) null else merged.counter,
             deepLinkUri = providerData?.deepLinkUri,
@@ -165,6 +173,19 @@ class LauncherRepository(private val context: Context) {
             musicNowPlaying = musicNowPlaying,
             progress = progress,
         )
+    }
+
+    /**
+     * Accent-following tiles become transparent windows when a Start background is set.
+     * Fixed-brand custom tiles stay opaque.
+     */
+    private fun tileRevealsStartBackground(packageName: String): Boolean {
+        if (!MetroStartBackground.isEnabled(context)) return false
+        CustomTileBranding.entry(packageName)?.let { entry ->
+            // Explicit brand hex → opaque; accent-tracking custom glyph → transparent.
+            return entry.backgroundHex == null
+        }
+        return MetroStartBackground.revealsThroughPackage(context, packageName)
     }
 
     private fun resolveAppLabel(packageName: String): String? = try {

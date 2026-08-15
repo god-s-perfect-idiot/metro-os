@@ -7,6 +7,14 @@ object MetroPreferenceKeys {
     const val FONT_SCALE = "font_scale"
     const val NAV_BAR_COLOR = "nav_bar_color"
     const val NAV_BAR_ENABLED = "nav_bar_enabled"
+    /** When true, Start uses a 6-column grid (3 medium tiles across) instead of 4 (2 across). */
+    const val SHOW_MORE_COLUMNS = "show_more_columns"
+
+    /**
+     * When true, Start shows a user photo behind accent/transparent tiles (WP8.1 Start background).
+     * Image bytes live at [MetroStartBackground.CONTENT_URI]; this flag is the cross-app signal.
+     */
+    const val START_BACKGROUND_ENABLED = "start_background_enabled"
 }
 
 enum class MetroThemeMode(val storageValue: String) {

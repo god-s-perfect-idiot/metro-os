@@ -5,7 +5,7 @@
 
 ## Status
 
-**Core flows implemented** — persisted tile grid, app launch, swipe-right app list with search, long-press tile edit (resize/unpin), live tile contract + `TILE_UPDATE` receiver, theme/accent propagation. Wallpaper/parallax polish deferred per implementation order step 6.
+**Core flows implemented** — persisted tile grid, app launch, swipe-right app list with search, long-press tile edit (resize/unpin), live tile contract + `TILE_UPDATE` receiver, theme/accent propagation, Start background (fixed viewport windows on accent tiles).
 
 ## App role
 
@@ -29,12 +29,12 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Long-press tile edit overlay: resize (cycles small/medium/wide when `BuildConfig.WIDE_TILES`), unpin, and drag-to-reorder (tile follows thumb; magnet reflow; order persisted on drop)
 - `TILE_UPDATE` and `THEME_CHANGED` broadcasts refresh tile content and shell theme
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
-- While live tile content (contacts / photos / …) is loading past 500ms — or until the first cold-start refresh finishes — Start shows `MetroSplashLoadingScreen` (accent splash + Start glyph + dancing dots)
+- Cold start shows `MetroSplashLoadingScreen` (accent splash + Start glyph + dancing dots) only until the Start shell paints; live tile providers (contacts / photos / …) fill in afterward without re-covering Start. Resume refreshes also update tiles in place — no splash.
 - System notifications (via `NotificationListenerService`) drive tile badges, WP8.1 flip/peek faces, and progress overlays (charging / downloads) for pinned apps
 - Custom Start faces for select third-party apps (Chrome: three brand wedges + blue center disc)
 - Music apps (`com.metro.music`, YouTube Music, Spotify, `CATEGORY_AUDIO`, …): when a media session is active, the pinned tile shows an Xbox Music–style now-playing face (album art; 1×1 play/pause; 2×2 / 4×2 song+artist+transport)
 - Progress-bar notifications (charging remaining, downloads) overlay a WP8.1 rectangular bar on the pinned tile; remaining time still peeks on the flip face
-- Wallpaper/parallax not yet implemented
+- Wallpaper/parallax: Settings → start+theme → choose photo; accent tiles reveal a fixed Start background
 
 ## Screen inventory
 

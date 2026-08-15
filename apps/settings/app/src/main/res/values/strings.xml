@@ -30,6 +30,14 @@
     <string name="settings_start_theme_intro_prefix">Change your phone\'s background and\u0020</string>
     <string name="settings_start_theme_intro_accent">accent colour</string>
     <string name="settings_start_theme_intro_suffix">\u0020to suit your mood today, this week or all month.</string>
+    <string name="settings_show_more_columns">Show more columns</string>
+    <string name="settings_show_more_columns_help">Fits three medium tiles across Start instead of two.</string>
+    <string name="settings_start_background_label">Start background</string>
+    <string name="settings_start_background_choose">choose photo</string>
+    <string name="settings_start_background_remove">remove</string>
+    <string name="settings_start_background_save">save</string>
+    <string name="settings_start_background_cancel">cancel</string>
+    <string name="settings_start_background_load_failed">Couldn\'t open that photo. Try another.</string>
     <string name="settings_text_size">Text size</string>
     <string name="settings_sample">Sample</string>
     <string name="settings_text_size_help">Changes the text size in People, phone, messaging, and other Metro apps.</string>

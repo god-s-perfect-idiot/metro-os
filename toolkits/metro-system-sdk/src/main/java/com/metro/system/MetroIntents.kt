@@ -78,6 +78,7 @@ object MetroBroadcasts {
     const val EXTRA_TILE_PACKAGE = MetroIntents.EXTRA_PACKAGE
     const val EXTRA_TILE_ID = MetroIntents.EXTRA_TILE_ID
     const val EXTRA_NAVBAR_ENABLED = MetroPreferenceKeys.NAV_BAR_ENABLED
+    const val EXTRA_START_BACKGROUND_ENABLED = MetroPreferenceKeys.START_BACKGROUND_ENABLED
 }
 
 object MetroContentProviderContract {
@@ -86,4 +87,6 @@ object MetroContentProviderContract {
     const val HOST_PACKAGE = "com.metro.settings"
     const val PATH_PREFERENCES = "preferences"
     const val PATH_APPS = "apps"
+    /** Cropped Start background JPEG hosted by Settings (`MetroStartBackground`). */
+    const val PATH_START_BACKGROUND = "start_background"
 }

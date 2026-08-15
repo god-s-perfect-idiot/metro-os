@@ -20,6 +20,8 @@ Cross-app system contracts: shared preferences, intents, broadcasts, content pro
 | `accent_color` | `String` (hex) | `#1BA1E2` | Accent from palette |
 | `font_scale` | `Float` | `1.0` | Font scaling |
 | `nav_bar_color` | `String?` | null | Nav bar override |
+| `show_more_columns` | `Boolean` | `false` | Start 6-col grid (3 medium tiles across) when true; 4-col when false |
+| `start_background_enabled` | `Boolean` | `false` | Start background photo active; image at `/start_background` |
 
 Storage: Settings-hosted ContentProvider (`content://com.metro.system`) backed by
 `SharedPreferences` file `metro_system`. Client apps always attempt ContentResolver first,
@@ -51,6 +53,7 @@ Authority: `com.metro.system` — **hosted by Settings** (`MetroSystemPreference
 |----------|---------|
 | `/preferences` | All system preferences |
 | `/preferences/{key}` | Single preference value |
+| `/start_background` | Cropped Start background JPEG (`openFile`) |
 | `/apps` | Installed metro apps registry |
 
 ## Rules

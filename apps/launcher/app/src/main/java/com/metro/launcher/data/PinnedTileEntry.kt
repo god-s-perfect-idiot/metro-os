@@ -1,7 +1,7 @@
 package com.metro.launcher.data
 
 /**
- * Tile footprint on the 4-column Start grid.
+ * Tile footprint on the Start grid (4 columns default; 6 when show more columns is on).
  * Reference: references/guides/blueprint.md
  */
 enum class PinnedTileSize(

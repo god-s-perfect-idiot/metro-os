@@ -16,17 +16,20 @@ import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileEntry
+import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileNotificationAccess
 import com.metro.launcher.data.TileSizeCycle
+import com.metro.launcher.data.tileGridColumnCount
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroIntents
 import com.metro.system.MetroPreferenceKeys
 import com.metro.system.MetroPreferences
+import com.metro.system.MetroStartBackground
 import com.metro.system.MetroThemeMode
 import com.metro.system.MetroTileContract
 import kotlinx.coroutines.Dispatchers
@@ -42,13 +45,19 @@ class LauncherState(context: Context) {
 
     var darkTheme by mutableStateOf(metroPrefs.isDark)
     var accent by mutableStateOf(metroPrefs.accentColor)
+    /** Decoded Start background for viewport-window tiles; null when unset. */
+    var startBackgroundBitmap by mutableStateOf<android.graphics.Bitmap?>(null)
+        private set
+    /** 4 (default) or 6 when Settings → show more columns is on. */
+    var gridColumns by mutableIntStateOf(tileGridColumnCount(metroPrefs.showMoreColumns))
+        private set
     var currentPage by mutableIntStateOf(0)
     var searchActive by mutableStateOf(false)
     var searchQuery by mutableStateOf("")
     var editingTile by mutableStateOf<DisplayTile?>(null)
     var showNotificationAccessPrompt by mutableStateOf(false)
 
-    private var pinnedEntries by mutableStateOf(repository.loadPinnedTiles())
+    private var pinnedEntries by mutableStateOf(repository.loadPinnedTiles(gridColumns))
     /**
      * Bumped on every pin/unpin/reorder mutation. [refreshAllAsync] discards results started
      * before the latest bump so an in-flight reload cannot wipe a just-pinned contact tile.
@@ -62,13 +71,16 @@ class LauncherState(context: Context) {
 
     /**
      * True while [refreshAllAsync] is resolving live tile providers (contacts, photos, …).
-     * Start shows [com.metro.ui.MetroSplashLoadingScreen] when this stretches past the
-     * perceived-instant threshold (or until the first load finishes).
+     * Live refresh updates tiles in place; it does not drive the splash loader.
      */
     var isRefreshingContent by mutableStateOf(false)
         private set
 
-    /** False until the first [refreshAllAsync] completes — cold start keeps the splash loader up. */
+    /**
+     * False until Start can paint its shell (pinned layout + static tile chrome).
+     * Cold start keeps the splash loader up only until this flips and Start has drawn —
+     * not until live providers finish.
+     */
     var hasCompletedInitialLoad by mutableStateOf(false)
         private set
 
@@ -86,6 +98,11 @@ class LauncherState(context: Context) {
                 // System/Metro tiles follow accent; re-resolve fills immediately.
                 displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
                 clearAppListIconCache()
+            }
+            MetroPreferenceKeys.SHOW_MORE_COLUMNS -> applyShowMoreColumns(metroPrefs.showMoreColumns)
+            MetroPreferenceKeys.START_BACKGROUND_ENABLED -> {
+                reloadStartBackground()
+                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
             }
         }
     }
@@ -111,9 +128,10 @@ class LauncherState(context: Context) {
             }
             accentExtra?.let { hex ->
                 accent = MetroPreferences.parseAccentHex(hex)
-                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
                 clearAppListIconCache()
             }
+            reloadStartBackground()
+            displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
         }
     }
 
@@ -133,6 +151,8 @@ class LauncherState(context: Context) {
         prefsObserver = metroPrefs.registerObserver {
             darkTheme = metroPrefs.isDark
             accent = metroPrefs.accentColor
+            applyShowMoreColumns(metroPrefs.showMoreColumns)
+            reloadStartBackground()
             displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
             clearAppListIconCache()
         }
@@ -148,11 +168,13 @@ class LauncherState(context: Context) {
     }
 
     fun refreshAll() {
-        pinnedEntries = repository.loadPinnedTiles()
+        applyShowMoreColumns(metroPrefs.showMoreColumns)
+        pinnedEntries = repository.loadPinnedTiles(gridColumns)
         displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
         apps = repository.discoverApps(pinnedEntries)
         darkTheme = metroPrefs.isDark
         accent = metroPrefs.accentColor
+        reloadStartBackground()
         refreshNotificationAccessPrompt()
     }
 
@@ -164,7 +186,9 @@ class LauncherState(context: Context) {
         isRefreshingContent = true
         try {
             val epochAtStart = layoutEpoch
-            val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles() }
+            applyShowMoreColumns(metroPrefs.showMoreColumns)
+            val columns = gridColumns
+            val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles(columns) }
             if (epochAtStart != layoutEpoch) return
             pinnedEntries = pinned
             apps = withContext(Dispatchers.IO) { repository.discoverApps(pinned) }
@@ -172,6 +196,13 @@ class LauncherState(context: Context) {
             darkTheme = metroPrefs.isDark
             accent = metroPrefs.accentColor
             refreshNotificationAccessPrompt()
+            withContext(Dispatchers.IO) { reloadStartBackground() }
+            // Paint static chrome first so cold-start splash can lift; live providers fill in.
+            displayTiles = withContext(Dispatchers.IO) {
+                repository.resolveDisplayTiles(pinned, liveContent = false)
+            }
+            if (epochAtStart != layoutEpoch) return
+            hasCompletedInitialLoad = true
             val liveTiles = withContext(Dispatchers.IO) {
                 repository.resolveDisplayTiles(pinned, liveContent = true)
             }
@@ -196,6 +227,15 @@ class LauncherState(context: Context) {
     fun dismissNotificationAccessPrompt() {
         launcherPrefs.edit().putBoolean(KEY_NOTIF_PROMPT_DISMISSED, true).apply()
         showNotificationAccessPrompt = false
+    }
+
+    /** Loads or clears the cropped Start background JPEG from Settings. */
+    fun reloadStartBackground() {
+        startBackgroundBitmap = if (metroPrefs.startBackgroundEnabled) {
+            MetroStartBackground.decode(appContext)
+        } else {
+            null
+        }
     }
 
     fun refreshTile(packageName: String) {
@@ -323,6 +363,7 @@ class LauncherState(context: Context) {
             packageName = entry.packageName,
             tileId = entry.tileId,
             newSize = size,
+            columns = gridColumns,
         )
         persistAndRefresh()
     }
@@ -341,6 +382,7 @@ class LauncherState(context: Context) {
                 packageName = app.packageName,
                 size = PinnedTileSize.OneByOne,
             ),
+            columns = gridColumns,
         )
         persistAndRefresh()
         currentPage = 0
@@ -365,6 +407,7 @@ class LauncherState(context: Context) {
                 tileId = tileId,
                 size = size,
             ),
+            columns = gridColumns,
         )
         persistAndRefresh()
         currentPage = 0
@@ -416,6 +459,15 @@ class LauncherState(context: Context) {
         repository.savePinnedTiles(pinnedEntries)
         displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
         apps = repository.discoverApps(pinnedEntries)
+    }
+
+    /** Applies Settings → show more columns; reflows when the column count changes. */
+    private fun applyShowMoreColumns(enabled: Boolean) {
+        val columns = tileGridColumnCount(enabled)
+        if (columns == gridColumns) return
+        gridColumns = columns
+        pinnedEntries = adaptTilesToColumnCount(pinnedEntries, columns)
+        persistAndRefresh()
     }
 
     companion object {

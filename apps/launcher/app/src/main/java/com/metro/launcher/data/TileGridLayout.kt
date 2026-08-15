@@ -1,6 +1,13 @@
 package com.metro.launcher.data
 
+/** Default Start grid — 2 medium tiles across (WP8.1 phone default). */
 const val TILE_GRID_COLUMN_COUNT = 4
+
+/** Expanded Start grid when Settings → show more columns is on — 3 medium tiles across. */
+const val TILE_GRID_COLUMN_COUNT_EXPANDED = 6
+
+fun tileGridColumnCount(showMoreColumns: Boolean): Int =
+    if (showMoreColumns) TILE_GRID_COLUMN_COUNT_EXPANDED else TILE_GRID_COLUMN_COUNT
 
 /**
  * Assigns [gridCol]/[gridRow] to entries that lack them using first-fit packing.
@@ -23,6 +30,55 @@ fun ensureGridPositions(
             entry.copy(gridCol = col, gridRow = row)
         }
     }
+}
+
+/**
+ * Keeps tiles whose footprints still fit [columns]; first-fit packs the rest (and any
+ * unpositioned tiles) so shrinking from 6→4 columns never leaves overflow cells.
+ */
+fun adaptTilesToColumnCount(
+    entries: List<PinnedTileEntry>,
+    columns: Int,
+): List<PinnedTileEntry> {
+    val readingOrder = entries.sortedWith(
+        compareBy(
+            { it.gridRow ?: Int.MAX_VALUE },
+            { it.gridCol ?: Int.MAX_VALUE },
+            { it.packageName },
+            { it.tileId },
+        ),
+    )
+    val occupied = mutableSetOf<Pair<Int, Int>>()
+    val kept = mutableListOf<PinnedTileEntry>()
+    val displaced = mutableListOf<PinnedTileEntry>()
+
+    for (entry in readingOrder) {
+        if (!entry.hasGridPosition()) {
+            displaced += entry
+            continue
+        }
+        val col = entry.gridCol!!
+        val row = entry.gridRow!!
+        if (canPlaceAt(occupied, col, row, entry.size.colSpan, entry.size.rowSpan, columns)) {
+            markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
+            kept += entry
+        } else {
+            displaced += entry
+        }
+    }
+
+    val relocated = displaced.map { entry ->
+        val (col, row) = findFirstOpenSlot(
+            occupied,
+            entry.size.colSpan,
+            entry.size.rowSpan,
+            columns,
+        )
+        markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
+        entry.copy(gridCol = col, gridRow = row)
+    }
+
+    return compactEmptyRows(kept + relocated)
 }
 
 internal fun markTileCells(
@@ -129,7 +185,7 @@ fun applyTileResize(
     newSize: PinnedTileSize,
     columns: Int = TILE_GRID_COLUMN_COUNT,
 ): List<PinnedTileEntry> {
-    val positioned = ensureGridPositions(entries)
+    val positioned = ensureGridPositions(entries, columns)
     val target = positioned.firstOrNull { it.packageName == packageName && it.tileId == tileId }
         ?: return entries
     val newCol = target.gridCol!!.coerceIn(0, columns - newSize.colSpan)

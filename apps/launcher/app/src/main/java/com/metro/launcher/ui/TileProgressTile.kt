@@ -43,18 +43,28 @@ internal fun BoxScope.TileProgressOverlay(
 ) {
     val nowMs = rememberProgressClock(progress.countdownEndsAtMs)
     val caption = progress.caption(nowMs)?.takeIf { it.isNotBlank() }
+    val chrome = LocalTileChrome.current
     if (showCaption && !caption.isNullOrBlank()) {
         TileText(
             text = caption,
-            style = TileTextStyles.Body,
+            style = chrome.titleStyle,
             color = contentColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 8.dp)
-                .padding(bottom = if (progress.hasBar) TILE_PROGRESS_BAR_HEIGHT + 6.dp else 8.dp),
+                .padding(
+                    start = chrome.contentInset,
+                    end = chrome.contentInset,
+                )
+                .padding(
+                    bottom = if (progress.hasBar) {
+                        TILE_PROGRESS_BAR_HEIGHT + chrome.titlePaddingV
+                    } else {
+                        chrome.contentInset
+                    },
+                ),
         )
     }
     if (progress.hasBar) {

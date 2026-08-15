@@ -23,6 +23,8 @@ references/
 |--------|-------|-------|
 | Settings root | _gap_ — [`known-gaps.md`](known-gaps.md) | System list |
 | start+theme | `images/start_theme_dark_cobalt.png` | Intro + Accent colour combo (omit Background row) |
+| start+theme Start background (unset) | `images/start_theme_background_unset_dark_cobalt.png` | Gray thumb + choose photo |
+| start+theme Start background (set) | `images/start_theme_background_set_dark_yellow.png` | Photo thumb + choose photo + remove |
 | Accents picker | `images/accents_picker_dark.png` | `ACCENTS` title, 4×5 grid (Eight Forums WP8 capture) |
 | Accent palette aid | `images/accent_palette_wp8_dark.png` | Generated 20-colour HEX strip |
 | ease of access | `images/ease_of_access_dark_cyan.png` | Text size Sample + 7-step slider |

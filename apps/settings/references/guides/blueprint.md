@@ -43,11 +43,18 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   1. Intro body: “Change your phone's background and **accent colour** to suit your mood today, this week or all month.” — the words `accent colour` use the current accent colour; the rest is primary text.
   2. **Accent colour** — secondary label, then a full-width bordered combo (1dp primary stroke, 0dp corners) containing a small square swatch (~24dp) + lowercase colour name. Tap opens accent picker (Page 3).
   3. **Background** dark/light ListPicker — **omitted** (theme stays dark; see known-gaps / platform exceptions).
-  4. **Show more Tiles** / **Choose photo** — out of scope.
-- **Navigation:** Back → Settings root.
-- **Interactions:** Changing accent writes `MetroPreferences` and broadcasts `THEME_CHANGED` immediately (suite-wide).
+  4. **Start background** — square thumbnail (~108dp) left; gray placeholder when unset, cropped photo when set. To the right: primary label `Start background`, then `MetroBorderButton` **choose photo**, then underlined plain text **remove** (only when set — not a border button). Opens system photo picker → crop page. Ignore Background dark/light ListPicker if present in captures.
+  5. **Show more columns** — `MetroToggleSwitch`. Off (default) = 4-column Start (2 medium tiles across). On = 6-column Start (3 medium tiles across). Writes `MetroPreferences.show_more_columns`; launcher observes and reflows. WP8.1 labeled this “Show more tiles”; metro-os uses the clearer “Show more columns” label.
+- **Navigation:** Back → Settings root. Crop page Back / close → start+theme without saving.
+- **Interactions:** Changing accent writes `MetroPreferences` and broadcasts `THEME_CHANGED` immediately (suite-wide). Saving/clearing Start background writes `start_background_enabled` + JPEG, then broadcasts `THEME_CHANGED`. Toggling show more columns writes the preference immediately (ContentProvider notify; no theme broadcast).
 - **Background:** Theme background.
-- **Reference:** `images/start_theme_dark_cobalt.png` (Background row present in capture — do not implement that row).
+- **Reference:** `images/start_theme_background_unset_dark_cobalt.png`, `images/start_theme_background_set_dark_yellow.png` (Background dark/light row in some captures — do not implement).
+
+### Page 2b — Start background crop
+
+- **Layout:** Full-bleed photo with pan/pinch; bottom `MetroAppBar` check (save) + close (cancel).
+- **Navigation:** Save → start+theme; Cancel/Back → start+theme (no change).
+- **Interactions:** Saves cropped JPEG to Settings files + enables Start background.
 
 ### Page 3 — Accents picker
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,20 +22,20 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.metro.launcher.R
 import com.metro.ui.MetroSplashLoadingScreen
 import com.metro.ui.metroNavBarPadding
-import kotlinx.coroutines.delay
-
-/** scope.md §11 — show progress when live-tile refresh exceeds perceived-instant. */
-private const val ContentLoadFeedbackMs = 500L
 
 /**
  * Two-page shell: Start tiles (page 0) and app menu (page 1).
@@ -55,24 +56,9 @@ fun LauncherShell(
     // remounts tiles without replaying a wave that already ran (or was left mid-flight).
     var consumedEnterWaveKey by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    // Subsequent refreshes only show the splash loader after the perceived-instant threshold.
-    var showDelayedSplashLoader by remember { mutableStateOf(false) }
-    // Keep splash until Start has actually drawn — dismissing on data-ready alone leaves a
-    // long black gap while the tile grid mounts / decodes photos.
+    // Keep splash until Start has actually drawn — dismissing on shell-ready alone leaves a
+    // brief black gap while the tile grid mounts. Live-tile refreshes update in place.
     var startDrawn by remember { mutableStateOf(false) }
-
-    LaunchedEffect(state.isRefreshingContent, state.hasCompletedInitialLoad) {
-        if (!state.hasCompletedInitialLoad) {
-            showDelayedSplashLoader = false
-            return@LaunchedEffect
-        }
-        if (state.isRefreshingContent) {
-            delay(ContentLoadFeedbackMs)
-            showDelayedSplashLoader = state.isRefreshingContent
-        } else {
-            showDelayedSplashLoader = false
-        }
-    }
 
     LaunchedEffect(state.hasCompletedInitialLoad) {
         if (!state.hasCompletedInitialLoad) {
@@ -85,8 +71,8 @@ fun LauncherShell(
         startDrawn = true
     }
 
-    val showSplashLoader =
-        !state.hasCompletedInitialLoad || !startDrawn || showDelayedSplashLoader
+    // Splash only for cold-start handoff — not resume / live-provider refreshes.
+    val showSplashLoader = !state.hasCompletedInitialLoad || !startDrawn
 
     LaunchedEffect(showSplashLoader) {
         if (showSplashLoader) {
@@ -149,6 +135,20 @@ fun LauncherShell(
         // Mount Start as soon as live data is ready, but keep the splash on top until
         // Start has drawn (View-backed dots keep moving during that mount).
         if (state.hasCompletedInitialLoad) {
+            val density = LocalDensity.current
+            val configuration = LocalConfiguration.current
+            val viewportWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+            val viewportHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+            val startBackground = remember(state.startBackgroundBitmap, viewportWidthPx, viewportHeightPx) {
+                state.startBackgroundBitmap?.let { bmp ->
+                    StartBackgroundViewport(
+                        bitmap = bmp.asImageBitmap(),
+                        viewportWidthPx = viewportWidthPx,
+                        viewportHeightPx = viewportHeightPx,
+                    )
+                }
+            }
+            CompositionLocalProvider(LocalStartBackgroundViewport provides startBackground) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -168,6 +168,7 @@ fun LauncherShell(
                             onTileClick = if (editing) ({}) else state::onTileClick,
                             onTileLongPress = state::onTileLongPress,
                             onOpenAppList = { state.currentPage = 1 },
+                            columns = state.gridColumns,
                             editMode = editing,
                             editingTile = state.editingTile,
                             onDismissEdit = state::dismissEdit,
@@ -206,6 +207,7 @@ fun LauncherShell(
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
+            }
             }
         }
 

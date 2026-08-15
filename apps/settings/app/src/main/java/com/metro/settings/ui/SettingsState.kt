@@ -2,6 +2,8 @@ package com.metro.settings.ui
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -14,11 +16,13 @@ import com.metro.settings.data.SystemSettingsBridge
 import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
+import com.metro.system.MetroStartBackground
 
 enum class SettingsRoute {
     Root,
     StartTheme,
     AccentPicker,
+    StartBackgroundCrop,
     EaseOfAccess,
     Brightness,
     StorageSense,
@@ -70,6 +74,20 @@ class SettingsState(
     var fontScale by mutableFloatStateOf(prefs.fontScale)
         private set
 
+    var showMoreColumns by mutableStateOf(prefs.showMoreColumns)
+        private set
+
+    var startBackgroundEnabled by mutableStateOf(prefs.startBackgroundEnabled)
+        private set
+
+    /** Bumped on save/clear so the start+theme thumbnail reloads even when still enabled. */
+    var startBackgroundEpoch by mutableIntStateOf(0)
+        private set
+
+    /** Source photo for the Start background crop page (cleared on cancel / save). */
+    var cropSourceUri by mutableStateOf<Uri?>(null)
+        private set
+
     var brightness by mutableFloatStateOf(system.brightnessFraction())
         private set
 
@@ -111,6 +129,10 @@ class SettingsState(
             SettingsRoute.Root -> Unit
             SettingsRoute.StartTheme -> route = SettingsRoute.Root
             SettingsRoute.AccentPicker -> route = SettingsRoute.StartTheme
+            SettingsRoute.StartBackgroundCrop -> {
+                cropSourceUri = null
+                route = SettingsRoute.StartTheme
+            }
             SettingsRoute.AppDetail -> {
                 showUninstallConfirm = false
                 selectedApp = null
@@ -134,6 +156,34 @@ class SettingsState(
     fun applyFontScaleIndex(index: Int) {
         fontScale = MetroFontScale.fromIndex(index)
         prefs.applyThemeChange(fontScale = fontScale)
+    }
+
+    fun applyShowMoreColumns(enabled: Boolean) {
+        showMoreColumns = enabled
+        prefs.showMoreColumns = enabled
+    }
+
+    /** Opens the crop page for a photo picked from the system picker. */
+    fun beginStartBackgroundCrop(uri: Uri) {
+        cropSourceUri = uri
+        route = SettingsRoute.StartBackgroundCrop
+    }
+
+    fun saveStartBackground(cropped: Bitmap): Boolean {
+        val ok = MetroStartBackground.save(appContext, cropped)
+        if (ok) {
+            startBackgroundEnabled = true
+            startBackgroundEpoch++
+            cropSourceUri = null
+            route = SettingsRoute.StartTheme
+        }
+        return ok
+    }
+
+    fun clearStartBackground() {
+        MetroStartBackground.clear(appContext)
+        startBackgroundEnabled = false
+        startBackgroundEpoch++
     }
 
     fun applyBrightness(fraction: Float) {
@@ -218,6 +268,8 @@ class SettingsState(
         brightness = system.brightnessFraction()
         accentHex = prefs.accentColorHex
         fontScale = prefs.fontScale
+        showMoreColumns = prefs.showMoreColumns
+        startBackgroundEnabled = prefs.startBackgroundEnabled
         applicationEntries = applications.listInstalledApps()
         selectedApp?.packageName?.let { pkg ->
             selectedApp = applications.loadApp(pkg)

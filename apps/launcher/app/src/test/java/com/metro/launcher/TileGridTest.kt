@@ -5,13 +5,17 @@ import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.PinnedTileStore
 import com.metro.launcher.data.TileSizeCycle
+import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
+import com.metro.launcher.data.tileGridColumnCount
 import com.metro.launcher.data.tileOverlapsRegion
+import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT_EXPANDED
 import com.metro.launcher.ui.compactEmptyRowPlacements
 import com.metro.system.MetroTileContract
 import com.metro.ui.MetroColors
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -20,8 +24,54 @@ import org.junit.Test
 
 class TileGridTest {
     @Test
-    fun grid_hasFourColumns() {
+    fun grid_hasFourColumnsByDefault() {
         assertEquals(4, TILE_GRID_COLUMNS)
+        assertEquals(4, tileGridColumnCount(showMoreColumns = false))
+    }
+
+    @Test
+    fun grid_hasSixColumnsWhenShowMoreColumns() {
+        assertEquals(6, TILE_GRID_COLUMNS_EXPANDED)
+        assertEquals(6, TILE_GRID_COLUMN_COUNT_EXPANDED)
+        assertEquals(6, tileGridColumnCount(showMoreColumns = true))
+    }
+
+    @Test
+    fun tileChrome_standardMatchesLegacyFourColumnMetrics() {
+        val chrome = TileChrome.Standard
+        assertEquals(8f, chrome.contentInset.value)
+        assertEquals(10f, chrome.smallIconInset.value)
+        assertEquals(0.55f, chrome.mediumIconFraction)
+        assertEquals(0.42f, chrome.wideIconFraction)
+        assertEquals(16f, chrome.titleSp)
+        assertEquals(TileChrome.Standard, TileChrome.forColumns(4))
+    }
+
+    @Test
+    fun tileChrome_denseExtendsIconsAndShrinksTitles() {
+        val chrome = TileChrome.Dense
+        assertTrue(chrome.contentInset < TileChrome.Standard.contentInset)
+        assertTrue(chrome.smallIconInset < TileChrome.Standard.smallIconInset)
+        assertTrue(chrome.mediumIconFraction > TileChrome.Standard.mediumIconFraction)
+        assertTrue(chrome.wideIconFraction > TileChrome.Standard.wideIconFraction)
+        assertTrue(chrome.titleSp < TileChrome.Standard.titleSp)
+        assertEquals(TileChrome.Dense, TileChrome.forColumns(6))
+    }
+
+    @Test
+    fun tileChrome_denseSmallIconFillsMoreOfCell() {
+        val tile = 50.dp
+        val standard = TileChrome.Standard.iconSize(tile, tile, PinnedTileSize.OneByOne)
+        val dense = TileChrome.Dense.iconSize(tile, tile, PinnedTileSize.OneByOne)
+        assertTrue(dense > standard)
+    }
+
+    @Test
+    fun tileChrome_denseMediumIconFillsMoreOfCell() {
+        val tile = 110.dp
+        val standard = TileChrome.Standard.iconSize(tile, tile, PinnedTileSize.TwoByTwo)
+        val dense = TileChrome.Dense.iconSize(tile, tile, PinnedTileSize.TwoByTwo)
+        assertTrue(dense > standard)
     }
 
     @Test
@@ -211,6 +261,50 @@ class TileGridTest {
         assertEquals(0, positioned[0].gridRow)
         assertEquals(2, positioned[1].gridCol)
         assertEquals(0, positioned[1].gridRow)
+    }
+
+    @Test
+    fun ensureGridPositions_packsThreeMediumsAcrossWhenExpanded() {
+        val entries = listOf(
+            PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo),
+            PinnedTileEntry("b", size = PinnedTileSize.TwoByTwo),
+            PinnedTileEntry("c", size = PinnedTileSize.TwoByTwo),
+        )
+        val positioned = ensureGridPositions(entries, columns = 6)
+        assertEquals(0, positioned[0].gridCol)
+        assertEquals(2, positioned[1].gridCol)
+        assertEquals(4, positioned[2].gridCol)
+        assertTrue(positioned.all { it.gridRow == 0 })
+    }
+
+    @Test
+    fun adaptTilesToColumnCount_reflowsOverflowWhenShrinkingToFour() {
+        val entries = listOf(
+            PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo, gridCol = 0, gridRow = 0),
+            PinnedTileEntry("b", size = PinnedTileSize.TwoByTwo, gridCol = 2, gridRow = 0),
+            PinnedTileEntry("c", size = PinnedTileSize.TwoByTwo, gridCol = 4, gridRow = 0),
+        )
+        val adapted = adaptTilesToColumnCount(entries, columns = 4)
+        adapted.forEach { entry ->
+            assertTrue(entry.gridCol!! + entry.size.colSpan <= 4)
+        }
+        assertEquals(3, adapted.size)
+        assertEquals(
+            setOf("a", "b", "c"),
+            adapted.map { it.packageName }.toSet(),
+        )
+    }
+
+    @Test
+    fun adaptTilesToColumnCount_keepsValidPositionsWhenExpanding() {
+        val entries = listOf(
+            PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo, gridCol = 0, gridRow = 0),
+            PinnedTileEntry("b", size = PinnedTileSize.TwoByTwo, gridCol = 2, gridRow = 0),
+        )
+        val adapted = adaptTilesToColumnCount(entries, columns = 6)
+        assertEquals(0, adapted.first { it.packageName == "a" }.gridCol)
+        assertEquals(2, adapted.first { it.packageName == "b" }.gridCol)
+        assertTrue(adapted.all { it.gridRow == 0 })
     }
 
     @Test

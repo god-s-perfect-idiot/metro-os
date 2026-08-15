@@ -202,11 +202,32 @@ private fun DrawScope.drawSearchGlyph(color: Color, stroke: Stroke) {
 }
 
 private fun DrawScope.drawCloseGlyph(color: Color, stroke: Stroke) {
+    // WP8.1 cancel: square-ended X (StrokeCap.Butt), inset from the ring.
     val arm = size.minDimension * 0.14f
     val cx = size.width / 2f
     val cy = size.height / 2f
-    drawLine(color, Offset(cx - arm, cy - arm), Offset(cx + arm, cy + arm), stroke.width, StrokeCap.Round)
-    drawLine(color, Offset(cx + arm, cy - arm), Offset(cx - arm, cy + arm), stroke.width, StrokeCap.Round)
+    val width = stroke.width * 1.55f
+    drawLine(color, Offset(cx - arm, cy - arm), Offset(cx + arm, cy + arm), width, StrokeCap.Butt)
+    drawLine(color, Offset(cx + arm, cy - arm), Offset(cx - arm, cy + arm), width, StrokeCap.Butt)
+}
+
+private fun DrawScope.drawCheckGlyph(color: Color, stroke: Stroke) {
+    // WP8.1 accept: compact, thick check with square terminals (not round).
+    val path = Path().apply {
+        moveTo(size.width * 0.30f, size.height * 0.52f)
+        lineTo(size.width * 0.44f, size.height * 0.66f)
+        lineTo(size.width * 0.70f, size.height * 0.36f)
+    }
+    drawPath(
+        path,
+        color,
+        style = Stroke(
+            width = stroke.width * 1.85f,
+            cap = StrokeCap.Butt,
+            join = StrokeJoin.Miter,
+            miter = 4f,
+        ),
+    )
 }
 
 private fun DrawScope.drawUnpinGlyph(color: Color, stroke: Stroke) {
@@ -409,16 +430,6 @@ private fun DrawScope.drawDeleteGlyph(color: Color, stroke: Stroke) {
     drawLine(color, Offset(right, lidY), Offset(right - s * 0.04f, bottom), stroke.width, StrokeCap.Round)
     drawLine(color, Offset(left + s * 0.04f, bottom), Offset(right - s * 0.04f, bottom), stroke.width, StrokeCap.Round)
     drawLine(color, Offset(cx, lidY + s * 0.06f), Offset(cx, bottom - s * 0.06f), stroke.width, StrokeCap.Round)
-}
-
-private fun DrawScope.drawCheckGlyph(color: Color, stroke: Stroke) {
-    val s = size.minDimension
-    val path = Path().apply {
-        moveTo(size.width * 0.22f, size.height * 0.52f)
-        lineTo(size.width * 0.42f, size.height * 0.72f)
-        lineTo(size.width * 0.78f, size.height * 0.28f)
-    }
-    drawPath(path, color, style = Stroke(width = stroke.width * 1.2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
 internal fun DrawScope.drawPlayGlyph(color: Color) {

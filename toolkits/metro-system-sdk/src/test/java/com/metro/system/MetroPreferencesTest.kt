@@ -61,4 +61,22 @@ class MetroPreferencesTest {
         prefs.fontScale = 1.3f
         assertEquals(1.3f, prefs.fontScale)
     }
+
+    @Test
+    fun showMoreColumns_defaultsOffAndRoundTrips() {
+        assertFalse(prefs.showMoreColumns)
+        prefs.showMoreColumns = true
+        assertTrue(prefs.showMoreColumns)
+        prefs.showMoreColumns = false
+        assertFalse(prefs.showMoreColumns)
+    }
+
+    @Test
+    fun startBackgroundEnabled_defaultsOffAndRoundTrips() {
+        assertFalse(prefs.startBackgroundEnabled)
+        prefs.startBackgroundEnabled = true
+        assertTrue(prefs.startBackgroundEnabled)
+        prefs.startBackgroundEnabled = false
+        assertFalse(prefs.startBackgroundEnabled)
+    }
 }

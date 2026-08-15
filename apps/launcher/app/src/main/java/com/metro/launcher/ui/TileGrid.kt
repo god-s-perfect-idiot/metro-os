@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -92,12 +93,11 @@ import kotlinx.coroutines.delay
 private const val MESSAGING_PACKAGE = "com.metro.messaging"
 
 const val TILE_GRID_COLUMNS = 4
+const val TILE_GRID_COLUMNS_EXPANDED = 6
 val TILE_GRID_GAP = 8.dp
 val TILE_GRID_PADDING = 12.dp
 /** How far edit corner discs hang past the tile into the side gutter (≤ [TILE_GRID_PADDING]). */
 private val TileCornerSideHang = TILE_GRID_PADDING
-private val TILE_CONTENT_INSET = 8.dp
-private val TILE_SMALL_ICON_INSET = 10.dp
 /** Duration for tile resize / magnet reflow — matches Metro page transition timing. */
 private const val TILE_RESIZE_MS = 300
 /** Slightly snappier magnet motion while a tile is mid-drag. */
@@ -409,6 +409,7 @@ fun TileGrid(
     onTileClick: (DisplayTile) -> Unit,
     onTileLongPress: (DisplayTile) -> Unit,
     modifier: Modifier = Modifier,
+    columns: Int = TILE_GRID_COLUMNS,
     editMode: Boolean = false,
     activeTile: DisplayTile? = null,
     onDismissEdit: () -> Unit = {},
@@ -467,6 +468,8 @@ fun TileGrid(
     )
     val scrimAlpha = 0.55f * editVisualProgress
 
+    val chrome = remember(columns) { TileChrome.forColumns(columns) }
+    CompositionLocalProvider(LocalTileChrome provides chrome) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         // Side gutters stay at TILE_GRID_PADDING (scope.md). Corner discs hang into that gutter
         // (see TileCornerSideHang) so edit mode never widens the grid or reflows `unit`.
@@ -474,19 +477,19 @@ fun TileGrid(
         val cornerOverhang = TileCornerButtonSize / 2
         val horizontalPad = TILE_GRID_PADDING
         val topPad = maxOf(8.dp, cornerOverhang)
-        val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1)) /
-            TILE_GRID_COLUMNS
+        val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (columns - 1)) /
+            columns
         val cellStridePx = with(density) { (unit + TILE_GRID_GAP).toPx() }
         val placed = if (isDragging && draggingKey != null) {
             val dragged = tiles.firstOrNull { it.tileKey() == draggingKey }
             val baseline = dragBaselinePositions
             if (dragged != null && baseline != null) {
-                layoutTilesForDrag(tiles, dragged, dragSlotCol, dragSlotRow, baseline)
+                layoutTilesForDrag(tiles, dragged, dragSlotCol, dragSlotRow, baseline, columns)
             } else {
-                layoutTilesOnGrid(tiles)
+                layoutTilesOnGrid(tiles, columns)
             }
         } else {
-            layoutTilesOnGrid(tiles)
+            layoutTilesOnGrid(tiles, columns)
         }
         val (enterMaxRight, enterMaxBottom) = tileEnterGridExtents(placed)
         val enterMaxDiagonal = tileEnterMaxDiagonal(placed)
@@ -541,12 +544,13 @@ fun TileGrid(
                 centerRow,
                 tile.entry.size.colSpan,
                 tile.entry.size.rowSpan,
+                columns = columns,
             )
             dragSlotCol = slotCol
             dragSlotRow = slotRow
             // Seed magnet layout immediately so neighbors flex into place as the lift starts.
             onDragLayoutState.value(
-                layoutTilesForDrag(tilesState.value, tile, slotCol, slotRow, baseline),
+                layoutTilesForDrag(tilesState.value, tile, slotCol, slotRow, baseline, columns),
             )
         }
 
@@ -571,11 +575,12 @@ fun TileGrid(
                 rowSpan = dragged.entry.size.rowSpan,
                 currentCol = dragSlotCol,
                 currentRow = dragSlotRow,
+                columns = columns,
             )
             if (slotCol == dragSlotCol && slotRow == dragSlotRow) return
             dragSlotCol = slotCol
             dragSlotRow = slotRow
-            val layout = layoutTilesForDrag(latestTiles, dragged, slotCol, slotRow, baseline)
+            val layout = layoutTilesForDrag(latestTiles, dragged, slotCol, slotRow, baseline, columns)
             onDragLayoutState.value(layout)
         }
 
@@ -828,6 +833,7 @@ fun TileGrid(
             }
         }
     }
+    }
 }
 
 /**
@@ -932,8 +938,8 @@ private fun LauncherTileCell(
         bounceScale.animateTo(TileTapBounceDipScale, animationSpec = TileTapBounceDownAnimation)
         onTapBounceCompleteState.value()
     }
-    val iconSize = tileIconSize(width, height, tile.entry.size)
-    val contentColor = MetroColors.tileContentColor(tile.backgroundColor)
+    val chrome = LocalTileChrome.current
+    val iconSize = chrome.iconSize(width, height, tile.entry.size)
     val photoGrid = tile.photoGrid
     val gridDimensions = MetroTileContract.photoGridDimensions(
         tile.entry.size.colSpan,
@@ -962,6 +968,18 @@ private fun LauncherTileCell(
     val showChromeFace = isChromeTilePackage(tile.entry.packageName) &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
         !showMusicNowPlaying
+    val startBackground = LocalStartBackgroundViewport.current
+    val useWindowFill = tile.revealsStartBackground &&
+        startBackground != null &&
+        !showPhotoContent &&
+        !showStaticPhoto &&
+        !showChromeFace &&
+        !showMusicNowPlaying
+    val contentColor = if (useWindowFill) {
+        Color.White
+    } else {
+        MetroColors.tileContentColor(tile.backgroundColor)
+    }
     // Contact photo tiles flip to the app icon; mosaic photos live-flip per sub-tile;
     // cycle photos never flip as a whole tile.
     val canFlip = tile.hasFlipFace &&
@@ -1022,8 +1040,8 @@ private fun LauncherTileCell(
                     translationY = if (isDragging) 0f else floatTy
                 },
         ) {
-            // Flip tiles keep a black void in the slot; the accent fill rides on the rotating
-            // face so the Start-screen black shows through during the 3D flip.
+            // Flip tiles keep a black (or wallpaper) void in the slot; the fill rides on the
+            // rotating face so the Start surface shows through during the 3D flip.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1032,12 +1050,22 @@ private fun LauncherTileCell(
                         when {
                             showPhotoContent || showStaticPhoto || showChromeFace ||
                                 showMusicNowPlaying -> Modifier
-                            canFlip || showProgressOverlay -> Modifier.background(
-                                if (canFlip) MetroColors.DarkBackground else tile.backgroundColor,
-                            )
+                            canFlip -> if (useWindowFill) {
+                                Modifier.drawStartBackgroundWindow(startBackground)
+                            } else {
+                                Modifier.background(MetroColors.DarkBackground)
+                            }
+                            showProgressOverlay -> if (useWindowFill) {
+                                Modifier.drawStartBackgroundWindow(startBackground)
+                            } else {
+                                Modifier.background(tile.backgroundColor)
+                            }
+                            useWindowFill -> Modifier
+                                .drawStartBackgroundWindow(startBackground)
+                                .padding(chrome.contentInset)
                             else -> Modifier
                                 .background(tile.backgroundColor)
-                                .padding(TILE_CONTENT_INSET)
+                                .padding(chrome.contentInset)
                         },
                     ),
             ) {
@@ -1121,7 +1149,7 @@ private fun LauncherTileCell(
                                 contentDescription = tile.title,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(TILE_SMALL_ICON_INSET),
+                                    .padding(chrome.smallIconInset),
                             )
                         }
                         isMessaging -> {
@@ -1155,7 +1183,7 @@ private fun LauncherTileCell(
                                 size = iconSize,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(TILE_SMALL_ICON_INSET),
+                                    .padding(chrome.smallIconInset),
                                 contentDescription = tile.title,
                                 fallbackLabel = tile.title,
                                 fallbackColor = contentColor,
@@ -1173,7 +1201,7 @@ private fun LauncherTileCell(
                         }
                     }
                 }
-                // Edge-to-edge faces skip TILE_CONTENT_INSET on the container; pad the badge
+                // Edge-to-edge faces skip chrome content inset on the container; pad the badge
                 // itself so the numeral keeps the same margin as inset tiles.
                 val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto || showChromeFace ||
                     showMusicNowPlaying || showProgressOverlay ||
@@ -1186,7 +1214,7 @@ private fun LauncherTileCell(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(TILE_CONTENT_INSET),
+                                .padding(chrome.contentInset),
                         ) {
                             frontFace()
                         }
@@ -1199,6 +1227,7 @@ private fun LauncherTileCell(
                     LiveTileFlipFace(
                         flipSeed = floatSeed,
                         faceColor = tile.backgroundColor,
+                        startBackground = startBackground.takeIf { useWindowFill },
                         edgeToEdge = tile.flipToIcon,
                         enabled = liveMotionEnabled,
                         front = wrappedFront,
@@ -1435,6 +1464,7 @@ private fun BoxScope.TileNotificationBadge(
     iconPackageName: String? = null,
     iconTitle: String? = null,
 ) {
+    val chrome = LocalTileChrome.current
     val display = if (count > 99) "99+" else count.toString()
     val digits = display.length
     // Multi-digit counts shrink so "12" / "99+" stay on one line beside the icon.
@@ -1445,22 +1475,27 @@ private fun BoxScope.TileNotificationBadge(
         else -> 0.62f
     }
     // Floor scales with digits — a fixed 16sp minimum forced "99+" to wrap on 1×1 overlays.
+    val dense = chrome == TileChrome.Dense
     val minSp = when {
-        digits <= 1 -> 16f
-        digits == 2 -> 13f
-        else -> 11f
+        digits <= 1 -> if (dense) 12f else 16f
+        digits == 2 -> if (dense) 10f else 13f
+        else -> if (dense) 9f else 11f
     }
-    val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, 40f)
+    val maxSp = if (dense) 28f else 40f
+    val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
     val alignment = when (tileSize) {
         PinnedTileSize.FourByTwo -> Alignment.BottomEnd
         else -> Alignment.CenterEnd
     }
-    val badgeIconSize = (tileMinEdge.value * 0.28f).coerceIn(20f, 36f).dp
+    val badgeIconSize = (tileMinEdge.value * 0.28f).coerceIn(
+        if (dense) 16f else 20f,
+        if (dense) 28f else 36f,
+    ).dp
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .align(alignment)
-            .then(if (inset) Modifier.padding(TILE_CONTENT_INSET) else Modifier),
+            .then(if (inset) Modifier.padding(chrome.contentInset) else Modifier),
     ) {
         if (iconPackageName != null) {
             MetroAppIcon(
@@ -1505,6 +1540,7 @@ private fun AgendaTileContent(
     contentColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    val chrome = LocalTileChrome.current
     val lines = agenda.lines.filter { it.isNotBlank() }
     val shown = when {
         wide -> lines.take(3)
@@ -1519,7 +1555,7 @@ private fun AgendaTileContent(
         shown.forEachIndexed { index, line ->
             TileText(
                 text = line,
-                style = if (index == 0) TileTextStyles.Title else TileTextStyles.Body,
+                style = if (index == 0) chrome.liveTitleStyle else chrome.liveBodyStyle,
                 color = contentColor,
                 maxLines = 1,
                 softWrap = false,
@@ -1536,7 +1572,7 @@ private fun AgendaTileContent(
             if (footer != null) {
                 TileText(
                     text = footer,
-                    style = TileTextStyles.Body,
+                    style = chrome.titleStyle,
                     color = contentColor,
                     maxLines = 1,
                     softWrap = false,
@@ -1560,7 +1596,11 @@ private fun AgendaTileContent(
                     style = TextStyle(
                         fontFamily = MetroFontFamily,
                         fontWeight = FontWeight.Bold,
-                        fontSize = if (wide) 40.sp else 30.sp,
+                        fontSize = if (wide) {
+                            chrome.agendaDateWideSp.sp
+                        } else {
+                            chrome.agendaDateMediumSp.sp
+                        },
                         color = contentColor,
                     ),
                 )
@@ -1578,6 +1618,7 @@ private fun StaticIconTileContent(
     modifier: Modifier = Modifier,
     iconOffsetX: Dp = 0.dp,
 ) {
+    val chrome = LocalTileChrome.current
     Column(modifier = modifier) {
         Box(
             modifier = Modifier
@@ -1598,7 +1639,7 @@ private fun StaticIconTileContent(
         }
         TileText(
             text = title,
-            style = TileTextStyles.Body,
+            style = chrome.titleStyle,
             color = contentColor,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -1616,6 +1657,7 @@ private fun MessagingIdleTileContent(
     modifier: Modifier = Modifier,
     iconOffsetX: Dp = 0.dp,
 ) {
+    val chrome = LocalTileChrome.current
     Column(modifier = modifier) {
         Box(
             modifier = Modifier
@@ -1634,7 +1676,7 @@ private fun MessagingIdleTileContent(
         }
         TileText(
             text = title,
-            style = TileTextStyles.Body,
+            style = chrome.titleStyle,
             color = contentColor,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -1721,6 +1763,7 @@ private fun NotificationPeekTileContent(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
 ) {
+    val chrome = LocalTileChrome.current
     val lines = buildList {
         title?.takeIf { it.isNotBlank() }?.let { add(it) }
         subtitle?.takeIf { it.isNotBlank() }?.let { add(it) }
@@ -1749,7 +1792,7 @@ private fun NotificationPeekTileContent(
                 // From / sender: larger and bolder than the content preview under it.
                 TileText(
                     text = line,
-                    style = TileTextStyles.Title,
+                    style = chrome.liveTitleStyle,
                     color = contentColor,
                     maxLines = maxLines,
                     overflow = TextOverflow.Ellipsis,
@@ -1758,7 +1801,7 @@ private fun NotificationPeekTileContent(
             } else {
                 TileText(
                     text = line,
-                    style = TileTextStyles.Body,
+                    style = chrome.liveBodyStyle,
                     color = contentColor,
                     maxLines = maxLines,
                     overflow = TextOverflow.Ellipsis,
@@ -1769,7 +1812,7 @@ private fun NotificationPeekTileContent(
         Spacer(modifier = Modifier.weight(1f))
         TileText(
             text = footer,
-            style = TileTextStyles.Body,
+            style = chrome.titleStyle,
             color = contentColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1798,8 +1841,11 @@ private fun LiveTileFlipFace(
     badge: (@Composable BoxScope.(showingBack: Boolean) -> Unit)? = null,
     edgeToEdge: Boolean = false,
     enabled: Boolean = true,
+    startBackground: StartBackgroundViewport? = null,
     modifier: Modifier = Modifier,
 ) {
+    val chrome = LocalTileChrome.current
+    val density = LocalDensity.current.density
     val rotation = remember { Animatable(0f) }
     var showingBack by remember { mutableStateOf(false) }
 
@@ -1837,15 +1883,21 @@ private fun LiveTileFlipFace(
                 transformOrigin = TransformOrigin(0.5f, 0.5f)
                 cameraDistance = TILE_FLIP_CAMERA_DISTANCE * density
             }
-            .background(faceColor)
-            .then(if (edgeToEdge) Modifier else Modifier.padding(TILE_CONTENT_INSET)),
+            .then(
+                if (startBackground != null) {
+                    Modifier.drawStartBackgroundWindow(startBackground)
+                } else {
+                    Modifier.background(faceColor)
+                },
+            )
+            .then(if (edgeToEdge) Modifier else Modifier.padding(chrome.contentInset)),
     ) {
         if (showingBack) {
             if (edgeToEdge) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(TILE_CONTENT_INSET),
+                        .padding(chrome.contentInset),
                 ) {
                     back()
                 }
@@ -1856,16 +1908,6 @@ private fun LiveTileFlipFace(
             front()
         }
         badge?.invoke(this, showingBack)
-    }
-}
-
-private fun tileIconSize(tileWidth: Dp, tileHeight: Dp, size: PinnedTileSize): Dp {
-    val base = min(tileWidth.value, tileHeight.value)
-    val content = base - TILE_CONTENT_INSET.value * 2
-    return when (size) {
-        PinnedTileSize.OneByOne -> (content - TILE_SMALL_ICON_INSET.value * 2).dp
-        PinnedTileSize.TwoByTwo -> (content * 0.55f).dp
-        PinnedTileSize.FourByTwo -> (content * 0.42f).dp
     }
 }
 

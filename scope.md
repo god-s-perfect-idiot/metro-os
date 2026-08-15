@@ -376,7 +376,7 @@ Reusable scaffolding so animations and UX stay consistent across apps.
 
 ### `metro-system-sdk`
 
-- `MetroPreferences`: read/write `accent_color`, `theme_mode`, `font_scale`, `nav_bar_color`
+- `MetroPreferences`: read/write `accent_color`, `theme_mode`, `font_scale`, `nav_bar_color`, `show_more_columns`
 - Intent contracts: `MetroIntents.LAUNCH_APP`, `MetroIntents.SEARCH`, `MetroIntents.SHARE`
 - `ContentProvider` URI scheme: `content://com.metro.system/...`
 - Broadcast: `com.metro.system.THEME_CHANGED`

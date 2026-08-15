@@ -18,7 +18,7 @@ Curated links for WP8.1 Start screen look, layout, and interaction.
 |----------|-----|-------|
 | Tiles on Start | [MSDN — App tiles and badges](https://learn.microsoft.com/en-us/previous-versions/windows/apps/hh202806(v=win.10)) | Small 159×159, medium 336×336 logical; map to 99/198 dp in scope |
 | Live tiles | [MSDN — Live tile overview](https://learn.microsoft.com/en-us/previous-versions/windows/apps/hh465391(v=win.10)) | Flip/cycle timing; 600ms turnstile in scope |
-| Wallpaper on Start | Search: *Windows Phone 8.1 start screen wallpaper parallax* | Full-bleed background behind tiles; parallax on scroll — **not implemented yet** |
+| Wallpaper on Start | Search: *Windows Phone 8.1 start screen wallpaper parallax* | Full-bleed background behind transparent tiles; fixed viewport windows (parallax 0) — implemented via Settings → start+theme → choose photo |
 
 **Layout rules (from scope + references):**
 

@@ -5,7 +5,7 @@
 
 ## Status
 
-Implemented — Settings root with `system` | `applications` pivot (all launchable user + system apps; in-Settings app detail with toggles/open/uninstall), start+theme (accent colour only), accent picker (20 WP8 colours), ease of access (10-step text size), brightness, storage sense, navigation bar / status bar / notifications / volume (launch shell setup apps), keyboard (launches `com.metro.keyboard`), and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
+Implemented — Settings root with `system` | `applications` pivot (all launchable user + system apps; in-Settings app detail with toggles/open/uninstall), start+theme (accent colour + Start background choose photo + show more columns), accent picker (20 WP8 colours), ease of access (10-step text size), brightness, storage sense, navigation bar / status bar / notifications / volume (launch shell setup apps), keyboard (launches `com.metro.keyboard`), and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
 
 ## App role
 
@@ -26,7 +26,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 | Settings root (`system` \| `applications` pivot) | Done |
 | applications list | Done (all launchable user + system apps) |
 | application detail | Done (info, background/notifications toggles, open, uninstall) |
-| start+theme | Done (accent colour only) |
+| start+theme | Done (accent colour + Start background + show more columns) |
 | Accent colour picker | Done (20 official) |
 | ease of access (text size) | Done |
 | brightness | Done (`WRITE_SETTINGS` when granted) |

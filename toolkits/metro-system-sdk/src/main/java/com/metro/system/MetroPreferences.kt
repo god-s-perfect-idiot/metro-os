@@ -63,6 +63,22 @@ class MetroPreferences(context: Context) {
         get() = readBoolean(MetroPreferenceKeys.NAV_BAR_ENABLED, false)
         set(value) = writeBoolean(MetroPreferenceKeys.NAV_BAR_ENABLED, value)
 
+    /**
+     * Start screen density: off = 4-column grid (2 medium tiles across), on = 6-column
+     * (3 medium tiles across). Settings owns the write; launcher observes and reflows.
+     */
+    var showMoreColumns: Boolean
+        get() = readBoolean(MetroPreferenceKeys.SHOW_MORE_COLUMNS, false)
+        set(value) = writeBoolean(MetroPreferenceKeys.SHOW_MORE_COLUMNS, value)
+
+    /**
+     * Whether a cropped Start background photo is active (WP8.1 Start background).
+     * Image bytes: [MetroStartBackground.CONTENT_URI]. Settings owns writes.
+     */
+    var startBackgroundEnabled: Boolean
+        get() = readBoolean(MetroPreferenceKeys.START_BACKGROUND_ENABLED, false)
+        set(value) = writeBoolean(MetroPreferenceKeys.START_BACKGROUND_ENABLED, value)
+
     /** Writes theme/accent/font and broadcasts [MetroBroadcasts.ACTION_THEME_CHANGED]. */
     fun applyThemeChange(
         themeMode: MetroThemeMode? = null,
@@ -105,6 +121,10 @@ class MetroPreferences(context: Context) {
             putExtra(MetroBroadcasts.EXTRA_THEME_MODE, themeMode.storageValue)
             putExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR, this@MetroPreferences.accentColorHex)
             putExtra(MetroBroadcasts.EXTRA_FONT_SCALE, fontScale)
+            putExtra(
+                MetroBroadcasts.EXTRA_START_BACKGROUND_ENABLED,
+                this@MetroPreferences.startBackgroundEnabled,
+            )
             navBarColorHex?.let { putExtra(MetroBroadcasts.EXTRA_NAV_BAR_COLOR, it) }
             // Reach every metro package; receivers declare the action in their manifests / runtime.
             setPackage(null)

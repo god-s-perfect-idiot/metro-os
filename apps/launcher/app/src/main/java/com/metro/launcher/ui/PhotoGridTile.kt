@@ -218,13 +218,16 @@ fun PhotoGridTileContent(
         }
         TileText(
             text = title,
-            style = TileTextStyles.Body,
+            style = LocalTileChrome.current.titleStyle,
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+                .padding(
+                    horizontal = LocalTileChrome.current.titlePaddingH,
+                    vertical = LocalTileChrome.current.titlePaddingV,
+                ),
         )
     }
 }
@@ -294,13 +297,16 @@ fun CyclingPhotoTileContent(
         }
         TileText(
             text = title,
-            style = TileTextStyles.Body,
+            style = LocalTileChrome.current.titleStyle,
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+                .padding(
+                    horizontal = LocalTileChrome.current.titlePaddingH,
+                    vertical = LocalTileChrome.current.titlePaddingV,
+                ),
         )
     }
 }
@@ -468,15 +474,19 @@ fun StaticPhotoTileContent(
             )
         }
         if (!title.isNullOrBlank()) {
+            val chrome = LocalTileChrome.current
             TileText(
                 text = title,
-                style = TileTextStyles.Body,
+                style = chrome.titleStyle,
                 color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                    .padding(
+                        horizontal = chrome.titlePaddingH,
+                        vertical = chrome.titlePaddingV,
+                    ),
             )
         }
     }

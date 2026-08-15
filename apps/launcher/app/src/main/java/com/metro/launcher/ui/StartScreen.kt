@@ -26,7 +26,7 @@ import com.metro.ui.MetroSystemIconType
 private val StartBottomScrollPadding = 120.dp
 
 /**
- * Start menu — 4-column tile grid on black.
+ * Start menu — tile grid on black (4 columns default; 6 when show more columns is on).
  * Reference: references/images/start_dark_blue.png
  */
 @Composable
@@ -36,6 +36,7 @@ fun StartScreen(
     onTileLongPress: (DisplayTile) -> Unit,
     onOpenAppList: () -> Unit,
     modifier: Modifier = Modifier,
+    columns: Int = TILE_GRID_COLUMNS,
     editMode: Boolean = false,
     editingTile: DisplayTile? = null,
     onDismissEdit: () -> Unit = {},
@@ -80,6 +81,7 @@ fun StartScreen(
                 tiles = tiles,
                 onTileClick = onTileClick,
                 onTileLongPress = onTileLongPress,
+                columns = columns,
                 editMode = editMode,
                 activeTile = editingTile,
                 onDismissEdit = onDismissEdit,
