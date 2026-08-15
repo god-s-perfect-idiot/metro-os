@@ -167,6 +167,34 @@ class TileGridTest {
     }
 
     @Test
+    fun tileExitDiagonal_matchesEnterWaveOrder() {
+        assertEquals(
+            0,
+            tileExitDiagonalIndex(
+                col = 1, row = 1, colSpan = 1, rowSpan = 1,
+                maxRight = 1, maxBottom = 1,
+            ),
+        )
+        assertEquals(
+            2,
+            tileExitDiagonalIndex(
+                col = 0, row = 0, colSpan = 1, rowSpan = 1,
+                maxRight = 1, maxBottom = 1,
+            ),
+        )
+    }
+
+    @Test
+    fun tileExitWaveDuration_includesTappedTileAfterLastDiagonal() {
+        val placed = listOf(
+            PlacedTile(displayTile("br", PinnedTileSize.OneByOne, col = 1, row = 1), 1, 1),
+            PlacedTile(displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0), 0, 0),
+        )
+        // maxEnterDiagonal 2 → tapped step 3 → 3×55 + 200
+        assertEquals(3L * 55L + 200L, tileExitWaveDurationMs(placed))
+    }
+
+    @Test
     fun ensureGridPositions_assignsFirstFitForMissingSlots() {
         val entries = listOf(
             PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo),

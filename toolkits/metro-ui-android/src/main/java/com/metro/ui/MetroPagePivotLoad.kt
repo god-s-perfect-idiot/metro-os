@@ -118,8 +118,8 @@ fun MetroPagePivotLoad(
  *
  * [cameraWidthPx] sizes perspective (defaults to this layer's width). [hingeInsetPx] is the
  * distance from the page/camera left edge to this layer's left edge so several children can
- * share one page hinge (local origin may be &lt; 0). [delayMs] waits before enter starts.
- * [onEnterComplete] runs after the enter swing finishes (not on exit).
+ * share one page hinge on enter and exit (local origin may be &lt; 0). [delayMs] waits before
+ * enter or exit starts. [onEnterComplete] runs after the enter swing finishes (not on exit).
  * [skipEnter] holds the layer at rest so callers can keep [content] mounted after a wave.
  */
 @Composable
@@ -201,6 +201,8 @@ private fun MetroPagePivotMotion(
             rotationY.snapTo(0f)
             alpha.snapTo(1f)
             if (translateX) translationXFraction.snapTo(0f)
+            // Stay at rest through the stagger so later diagonals do not pre-tilt.
+            if (delayMs > 0L) delay(delayMs)
             coroutineScope {
                 val fade = launch { alpha.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
                 val pivot = launch {
@@ -260,8 +262,15 @@ private fun MetroPagePivotMotion(
             if (translateX) {
                 translationX = translationXFraction.value * layerWidth
             }
+            val cameraWidth = cameraWidthPx?.takeIf { it > 0f } ?: size.width
             transformOrigin = if (exiting) {
-                TransformOrigin(MetroTransitions.PagePivotExitOriginX, 0.5f)
+                // Shared page exit hinge at PagePivotExitOriginX × camera width from page left.
+                val exitHingePageX =
+                    MetroTransitions.PagePivotExitOriginX * cameraWidth.coerceAtLeast(1f)
+                TransformOrigin(
+                    pivotFractionX = (exitHingePageX - hingeInsetPx) / layerWidth,
+                    pivotFractionY = 0.5f,
+                )
             } else {
                 // Shared page hinge: inset maps page-left into this layer's local origin.
                 TransformOrigin(
@@ -271,7 +280,6 @@ private fun MetroPagePivotMotion(
                 )
             }
             clip = false
-            val cameraWidth = cameraWidthPx?.takeIf { it > 0f } ?: size.width
             cameraDistance = metroPagePivotCameraDistance(
                 widthPx = cameraWidth,
                 widthFactor = if (exiting) {

@@ -118,6 +118,16 @@ private const val TILE_EDIT_FLOAT_DELAY_MS = 120L
  * reads clearly across the larger Start tiles.
  */
 private const val TileEnterStaggerMs = 55L
+/**
+ * Subtle press-in on the tapped tile before the exit weave (WP8.1 PointerDown → continuum).
+ * Ease to a slight dip and hold — no overshoot / rebound (scale-only; tiles do not tilt).
+ */
+private const val TileTapBounceMs = 100
+private const val TileTapBounceDipScale = 0.97f
+private val TileTapBounceDownAnimation = tween<Float>(
+    durationMillis = TileTapBounceMs,
+    easing = FastOutSlowInEasing,
+)
 private val TileResizeAnimation: AnimationSpec<Dp> = tween(
 
     durationMillis = TILE_RESIZE_MS,
@@ -309,6 +319,26 @@ fun tileEnterDiagonalIndex(
     return (maxRight - right) + (maxBottom - bottom)
 }
 
+/**
+ * Exit wave index — same BR→TL diagonal progression as [tileEnterDiagonalIndex].
+ * The tapped tile is scheduled after the last diagonal by the caller.
+ */
+fun tileExitDiagonalIndex(
+    col: Int,
+    row: Int,
+    colSpan: Int,
+    rowSpan: Int,
+    maxRight: Int,
+    maxBottom: Int,
+): Int = tileEnterDiagonalIndex(
+    col = col,
+    row = row,
+    colSpan = colSpan,
+    rowSpan = rowSpan,
+    maxRight = maxRight,
+    maxBottom = maxBottom,
+)
+
 /** Max right / bottom cell indices across [placed] (inclusive). */
 fun tileEnterGridExtents(placed: List<PlacedTile>): Pair<Int, Int> {
     if (placed.isEmpty()) return 0 to 0
@@ -317,14 +347,11 @@ fun tileEnterGridExtents(placed: List<PlacedTile>): Pair<Int, Int> {
     return maxRight to maxBottom
 }
 
-/**
- * Total time for the Start enter wave: last diagonal's stagger + page-pivot swing duration.
- * Live-tile motion should wait this long before starting.
- */
-fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
-    if (placed.isEmpty()) return MetroTransitions.PagePivotLoadMs.toLong()
+/** Highest enter-diagonal index among [placed] (0 when empty). */
+fun tileEnterMaxDiagonal(placed: List<PlacedTile>): Int {
+    if (placed.isEmpty()) return 0
     val (maxRight, maxBottom) = tileEnterGridExtents(placed)
-    val maxDiagonal = placed.maxOf { placement ->
+    return placed.maxOf { placement ->
         tileEnterDiagonalIndex(
             col = placement.col,
             row = placement.row,
@@ -334,7 +361,31 @@ fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
             maxBottom = maxBottom,
         )
     }
-    return maxDiagonal * TileEnterStaggerMs + MetroTransitions.PagePivotLoadMs
+}
+
+/**
+ * Total time for the Start enter wave: last diagonal's stagger + page-pivot swing duration.
+ * Live-tile motion should wait this long before starting.
+ */
+fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
+    if (placed.isEmpty()) return MetroTransitions.PagePivotLoadMs.toLong()
+    return tileEnterMaxDiagonal(placed) * TileEnterStaggerMs + MetroTransitions.PagePivotLoadMs
+}
+
+/**
+ * Total time for the Start exit wave including the tapped tile as a final stagger step
+ * after the last BR→TL diagonal (`(maxEnterDiagonal + 1) × stagger + swing`).
+ */
+fun tileExitWaveDurationMs(placed: List<PlacedTile>): Long {
+    if (placed.isEmpty()) return MetroTransitions.PagePivotLoadMs.toLong()
+    return (tileEnterMaxDiagonal(placed) + 1) * TileEnterStaggerMs +
+        MetroTransitions.PagePivotLoadMs
+}
+
+/** 1×1 music now-playing is transport-only — no app launch / exit wave. */
+fun tileClickUsesExitWave(tile: DisplayTile): Boolean {
+    val music = tile.musicNowPlaying
+    return !(music != null && tile.entry.size == PinnedTileSize.OneByOne)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -364,11 +415,16 @@ fun TileGrid(
     var dragSlotCol by remember { mutableIntStateOf(0) }
     var dragSlotRow by remember { mutableIntStateOf(0) }
     var dragBaselinePositions by remember { mutableStateOf<Map<TileKey, Pair<Int, Int>>?>(null) }
+    // Package launch: tap bounce on the pressed tile, then exit wave (tapped tile last).
+    var bounceThenExitKey by remember { mutableStateOf<TileKey?>(null) }
+    var exitingTileKey by remember { mutableStateOf<TileKey?>(null) }
     val isDragging = draggingKey != null
+    val launchInProgress = bounceThenExitKey != null || exitingTileKey != null
     val tilesState = rememberUpdatedState(tiles)
     val onDragLayoutState = rememberUpdatedState(onDragLayout)
     val onReorderCommitState = rememberUpdatedState(onReorderCommit)
     val onTileLongPressState = rememberUpdatedState(onTileLongPress)
+    val onTileClickState = rememberUpdatedState(onTileClick)
     val reflowSpec: AnimationSpec<Dp> =
         if (isDragging) TileMagnetAnimation else TileResizeAnimation
 
@@ -379,6 +435,12 @@ fun TileGrid(
             dragSlotRow = 0
             dragBaselinePositions = null
         }
+    }
+
+    // Home-resume bumps enterWaveKey — clear any leftover exit pose so enter can replay.
+    LaunchedEffect(enterWaveKey) {
+        bounceThenExitKey = null
+        exitingTileKey = null
     }
 
     // One shared clock for every idle float — avoids 2 Animatable loops per tile on enter.
@@ -413,6 +475,7 @@ fun TileGrid(
             layoutTilesOnGrid(tiles)
         }
         val (enterMaxRight, enterMaxBottom) = tileEnterGridExtents(placed)
+        val enterMaxDiagonal = tileEnterMaxDiagonal(placed)
         val pageWidthPx = with(density) { maxWidth.toPx() }
         val horizontalPadPx = with(density) { horizontalPad.toPx() }
         // Hold live-tile flips/pans until the enter wave finishes (or was already consumed).
@@ -420,6 +483,8 @@ fun TileGrid(
         // restart this and flash People/Photos bitmaps.
         var liveMotionEnabled by remember { mutableStateOf(false) }
         val enterWaveDurationMs = tileEnterWaveDurationMs(placed)
+        val exitWaveDurationMs = tileExitWaveDurationMs(placed)
+        val isExiting = exitingTileKey != null
         LaunchedEffect(enterWaveKey, consumedEnterWaveKey, editMode, enterWaveDurationMs) {
             if (editMode || enterWaveKey <= consumedEnterWaveKey) {
                 liveMotionEnabled = true
@@ -428,6 +493,17 @@ fun TileGrid(
             liveMotionEnabled = false
             delay(enterWaveDurationMs)
             liveMotionEnabled = true
+        }
+        // Freeze live motion for the tap bounce + exit wave; launch after the tapped tile finishes.
+        LaunchedEffect(bounceThenExitKey) {
+            if (bounceThenExitKey != null) liveMotionEnabled = false
+        }
+        LaunchedEffect(exitingTileKey, exitWaveDurationMs) {
+            val key = exitingTileKey ?: return@LaunchedEffect
+            liveMotionEnabled = false
+            val tile = tilesState.value.firstOrNull { it.tileKey() == key } ?: return@LaunchedEffect
+            delay(exitWaveDurationMs)
+            onTileClickState.value(tile)
         }
         val contentHeight = gridContentHeight(unit, placed)
         val animatedContentHeight by animateDpAsState(
@@ -666,15 +742,30 @@ fun TileGrid(
                         maxRight = enterMaxRight,
                         maxBottom = enterMaxBottom,
                     ) * TileEnterStaggerMs
+                    val exitDelayMs = if (exitingTileKey == tileKey) {
+                        // Tapped tile leaves after every BR→TL diagonal group.
+                        (enterMaxDiagonal + 1) * TileEnterStaggerMs
+                    } else {
+                        tileExitDiagonalIndex(
+                            col = placement.col,
+                            row = placement.row,
+                            colSpan = tile.entry.size.colSpan,
+                            rowSpan = tile.entry.size.rowSpan,
+                            maxRight = enterMaxRight,
+                            maxBottom = enterMaxBottom,
+                        ) * TileEnterStaggerMs
+                    }
                     // Layout slot (not finger offset) — page hinge is left of the Start viewport.
                     val tileLeftInPagePx = horizontalPadPx + with(density) { layoutX.toPx() }
 
                     Box(modifier = positionModifier) {
                         TilePivotEnter(
                             delayMs = enterDelayMs,
+                            exitDelayMs = exitDelayMs,
                             playKey = enterWaveKey,
                             consumedKey = consumedEnterWaveKey,
                             skip = editMode || tileIsDragging,
+                            exiting = isExiting,
                             pageWidthPx = pageWidthPx,
                             tileLeftInPagePx = tileLeftInPagePx,
                         ) {
@@ -688,14 +779,24 @@ fun TileGrid(
                                 editVisualProgress = editVisualProgress,
                                 floatTimeSec = floatTimeSec,
                                 liveMotionEnabled = liveMotionEnabled,
+                                playTapBounce = bounceThenExitKey == tileKey && !isExiting,
+                                onTapBounceComplete = {
+                                    if (bounceThenExitKey == tileKey) {
+                                        exitingTileKey = tileKey
+                                    }
+                                },
                                 onClick = {
                                     when {
                                         editMode && isActive -> Unit
                                         editMode -> onDismissEdit()
-                                        else -> onTileClick(tile)
+                                        launchInProgress -> Unit
+                                        !tileClickUsesExitWave(tile) -> onTileClick(tile)
+                                        else -> bounceThenExitKey = tileKey
                                     }
                                 },
-                                onLongClick = { onTileLongPress(tile) },
+                                onLongClick = {
+                                    if (!launchInProgress) onTileLongPress(tile)
+                                },
                                 onResize = onResize,
                                 onUnpin = onUnpin,
                                 dragModifier = tileDragModifier,
@@ -709,10 +810,10 @@ fun TileGrid(
 }
 
 /**
- * WP8.1 Start enter — [MetroPagePivotSwing] (page-left hinge, rotateY + fade, **no** X
- * slide) with a shared page hinge via [tileLeftInPagePx]. [delayMs] staggers the wave
- * from bottom-right. [skip] shows content flat (edit / drag). [consumedKey] skips waves
- * that already ran before Start was disposed (app-list round-trip).
+ * WP8.1 Start enter/exit — [MetroPagePivotSwing] shared page-hinge rotateY + fade (**no** X
+ * slide). Enter and exit both stagger BR→TL; exit uses [exitDelayMs] so the tapped tile
+ * leaves last. [skip] shows content flat (edit / drag). [consumedKey] skips waves that
+ * already ran before Start was disposed (app-list round-trip).
  *
  * Always wraps [content] in the swing layer so People/Photos bitmaps are not disposed
  * when a wave starts or finishes.
@@ -720,9 +821,11 @@ fun TileGrid(
 @Composable
 private fun TilePivotEnter(
     delayMs: Long,
+    exitDelayMs: Long,
     playKey: Int,
     consumedKey: Int,
     skip: Boolean,
+    exiting: Boolean,
     pageWidthPx: Float,
     tileLeftInPagePx: Float,
     content: @Composable () -> Unit,
@@ -736,7 +839,12 @@ private fun TilePivotEnter(
 
     MetroPagePivotSwing(
         loadKey = playKey,
-        delayMs = if (skipEnter) 0L else delayMs,
+        delayMs = when {
+            exiting -> exitDelayMs
+            skipEnter -> 0L
+            else -> delayMs
+        },
+        exiting = exiting,
         skipEnter = skipEnter,
         cameraWidthPx = pageWidthPx,
         hingeInsetPx = tileLeftInPagePx,
@@ -757,6 +865,8 @@ private fun LauncherTileCell(
     editVisualProgress: Float,
     floatTimeSec: State<Float>,
     liveMotionEnabled: Boolean,
+    playTapBounce: Boolean,
+    onTapBounceComplete: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onResize: () -> Unit,
@@ -785,6 +895,17 @@ private fun LauncherTileCell(
         isActive -> 1.02f
         editMode -> 1f - 0.03f * editVisualProgress
         else -> 1f
+    }
+    val bounceScale = remember { Animatable(1f) }
+    val onTapBounceCompleteState = rememberUpdatedState(onTapBounceComplete)
+    LaunchedEffect(playTapBounce) {
+        if (!playTapBounce) {
+            bounceScale.snapTo(1f)
+            return@LaunchedEffect
+        }
+        bounceScale.snapTo(1f)
+        bounceScale.animateTo(TileTapBounceDipScale, animationSpec = TileTapBounceDownAnimation)
+        onTapBounceCompleteState.value()
     }
     val iconSize = tileIconSize(width, height, tile.entry.size)
     val contentColor = MetroColors.tileContentColor(tile.backgroundColor)
@@ -853,8 +974,9 @@ private fun LauncherTileCell(
             .size(width, height)
             .graphicsLayer {
                 alpha = tileAlpha
-                scaleX = tileScale
-                scaleY = tileScale
+                val scale = tileScale * bounceScale.value
+                scaleX = scale
+                scaleY = scale
             }
             .combinedClickable(
                 onClick = onClick,
