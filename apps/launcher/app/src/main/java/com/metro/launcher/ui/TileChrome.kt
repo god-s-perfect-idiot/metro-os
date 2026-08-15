@@ -11,10 +11,12 @@ import com.metro.launcher.data.PinnedTileSize
  * Start-tile icon / title metrics for the active grid density.
  *
  * [Standard] matches the default 4-column Start (2 medium tiles across).
- * [Dense] is Settings → show more columns (6-column / 3 medium across): tighter insets so
- * glyphs fill the smaller cells, and smaller titles so labels stay controlled like WP8.1.
+ * [Dense] is Settings → show more columns (6-column / 3 medium across): tighter side
+ * gutters, fuller glyphs, and slightly smaller titles (still readable) like WP8.1.
  */
 data class TileChrome(
+    /** Start screen left/right gutter outside the tile grid. */
+    val horizontalPadding: Dp,
     val contentInset: Dp,
     val smallIconInset: Dp,
     val mediumIconFraction: Float,
@@ -65,6 +67,7 @@ data class TileChrome(
     companion object {
         /** 4-column Start — keep these values unchanged for visual parity. */
         val Standard = TileChrome(
+            horizontalPadding = 12.dp,
             contentInset = 8.dp,
             smallIconInset = 10.dp,
             mediumIconFraction = 0.55f,
@@ -82,24 +85,25 @@ data class TileChrome(
         )
 
         /**
-         * 6-column Start — icons extend further into the cell; titles scale down so they
-         * don't crowd the glyph (WP8.1 "show more tiles" density).
+         * 6-column Start — narrower side gutters reclaim width; icons fill more of each
+         * cell; titles sit between Standard and the denser WP8.1 label scale for readability.
          */
         val Dense = TileChrome(
-            contentInset = 5.dp,
-            smallIconInset = 5.dp,
-            mediumIconFraction = 0.62f,
-            wideIconFraction = 0.50f,
-            titleSp = 12f,
-            titleLineHeightSp = 14f,
+            horizontalPadding = 8.dp,
+            contentInset = 4.dp,
+            smallIconInset = 3.dp,
+            mediumIconFraction = 0.68f,
+            wideIconFraction = 0.55f,
+            titleSp = 14f,
+            titleLineHeightSp = 17f,
             titlePaddingH = 4.dp,
             titlePaddingV = 3.dp,
-            liveTitleSp = 15f,
-            liveTitleLineHeightSp = 18f,
-            liveBodySp = 12f,
-            liveBodyLineHeightSp = 15f,
-            agendaDateMediumSp = 22f,
-            agendaDateWideSp = 28f,
+            liveTitleSp = 16f,
+            liveTitleLineHeightSp = 19f,
+            liveBodySp = 13f,
+            liveBodyLineHeightSp = 16f,
+            agendaDateMediumSp = 24f,
+            agendaDateWideSp = 30f,
         )
 
         fun forColumns(columns: Int): TileChrome =
@@ -108,3 +112,7 @@ data class TileChrome(
 }
 
 val LocalTileChrome = compositionLocalOf { TileChrome.Standard }
+
+/** Naked tile counter text — never shows `99+`; max two digits. */
+internal fun tileNotificationDisplayCount(count: Int): String =
+    count.coerceAtMost(99).toString()

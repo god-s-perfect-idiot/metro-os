@@ -39,6 +39,7 @@ class TileGridTest {
     @Test
     fun tileChrome_standardMatchesLegacyFourColumnMetrics() {
         val chrome = TileChrome.Standard
+        assertEquals(12f, chrome.horizontalPadding.value)
         assertEquals(8f, chrome.contentInset.value)
         assertEquals(10f, chrome.smallIconInset.value)
         assertEquals(0.55f, chrome.mediumIconFraction)
@@ -50,12 +51,22 @@ class TileGridTest {
     @Test
     fun tileChrome_denseExtendsIconsAndShrinksTitles() {
         val chrome = TileChrome.Dense
+        assertTrue(chrome.horizontalPadding < TileChrome.Standard.horizontalPadding)
         assertTrue(chrome.contentInset < TileChrome.Standard.contentInset)
         assertTrue(chrome.smallIconInset < TileChrome.Standard.smallIconInset)
         assertTrue(chrome.mediumIconFraction > TileChrome.Standard.mediumIconFraction)
         assertTrue(chrome.wideIconFraction > TileChrome.Standard.wideIconFraction)
         assertTrue(chrome.titleSp < TileChrome.Standard.titleSp)
+        assertTrue(chrome.titleSp >= 13f)
         assertEquals(TileChrome.Dense, TileChrome.forColumns(6))
+    }
+
+    @Test
+    fun tileNotificationDisplayCount_capsAtNinetyNineWithoutPlus() {
+        assertEquals("1", tileNotificationDisplayCount(1))
+        assertEquals("99", tileNotificationDisplayCount(99))
+        assertEquals("99", tileNotificationDisplayCount(100))
+        assertEquals("99", tileNotificationDisplayCount(999))
     }
 
     @Test

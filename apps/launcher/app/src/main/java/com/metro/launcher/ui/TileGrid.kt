@@ -95,9 +95,10 @@ private const val MESSAGING_PACKAGE = "com.metro.messaging"
 const val TILE_GRID_COLUMNS = 4
 const val TILE_GRID_COLUMNS_EXPANDED = 6
 val TILE_GRID_GAP = 8.dp
-val TILE_GRID_PADDING = 12.dp
-/** How far edit corner discs hang past the tile into the side gutter (≤ [TILE_GRID_PADDING]). */
-private val TileCornerSideHang = TILE_GRID_PADDING
+/** Default (4-col) Start side gutter — dense grid uses [TileChrome.horizontalPadding]. */
+val TILE_GRID_PADDING = TileChrome.Standard.horizontalPadding
+/** How far edit corner discs hang past the tile into the side gutter. */
+private fun tileCornerSideHang(horizontalPad: Dp) = minOf(horizontalPad, TILE_GRID_PADDING)
 /** Duration for tile resize / magnet reflow — matches Metro page transition timing. */
 private const val TILE_RESIZE_MS = 300
 /** Slightly snappier magnet motion while a tile is mid-drag. */
@@ -471,11 +472,12 @@ fun TileGrid(
     val chrome = remember(columns) { TileChrome.forColumns(columns) }
     CompositionLocalProvider(LocalTileChrome provides chrome) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        // Side gutters stay at TILE_GRID_PADDING (scope.md). Corner discs hang into that gutter
-        // (see TileCornerSideHang) so edit mode never widens the grid or reflows `unit`.
+        // Side gutters from [TileChrome.horizontalPadding]. Corner discs hang into that gutter
+        // so edit mode never widens the grid or reflows `unit`.
         // Top keeps half-button room so the unpin disc above row 0 is not clipped by scroll.
         val cornerOverhang = TileCornerButtonSize / 2
-        val horizontalPad = TILE_GRID_PADDING
+        val horizontalPad = chrome.horizontalPadding
+        val cornerSideHang = tileCornerSideHang(horizontalPad)
         val topPad = maxOf(8.dp, cornerOverhang)
         val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (columns - 1)) /
             columns
@@ -1003,7 +1005,7 @@ private fun LauncherTileCell(
         badgeCount == null -> 0.dp
         tile.entry.size != PinnedTileSize.TwoByTwo -> 0.dp
         else -> {
-            val digits = if (badgeCount > 99) 3 else badgeCount.toString().length
+            val digits = badgeCount.coerceAtMost(99).toString().length
             (tileMinEdge.value * (0.06f + digits * 0.035f)).dp
         }
     }
@@ -1302,6 +1304,7 @@ private fun LauncherTileCell(
             // Vertical hang is half the disc; horizontal hang matches the grid gutter so edge
             // tiles never paint past the screen (scroll clips overflow).
             val cornerOffsetY = TileCornerButtonSize / 2
+            val cornerSideHang = tileCornerSideHang(chrome.horizontalPadding)
             val controlsVisible = !isDragging
             TileEditCornerButton(
                 onClick = onUnpin,
@@ -1310,7 +1313,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = TileCornerSideHang, y = -cornerOffsetY)
+                    .offset(x = cornerSideHang, y = -cornerOffsetY)
                     // Keep composed while dragging so removing the clickable child cannot
                     // cancel the tile's in-progress pointerInput gesture.
                     .alpha(if (controlsVisible) 1f else 0f),
@@ -1322,7 +1325,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = TileCornerSideHang, y = cornerOffsetY)
+                    .offset(x = cornerSideHang, y = cornerOffsetY)
                     .alpha(if (controlsVisible) 1f else 0f),
             )
         }
@@ -1341,7 +1344,7 @@ private fun SmallTileIconBadgeContent(
     modifier: Modifier = Modifier,
     icon: @Composable (iconSize: Dp) -> Unit,
 ) {
-    val display = if (count > 99) "99+" else count.toString()
+    val display = tileNotificationDisplayCount(count)
     val digits = display.length
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -1356,8 +1359,7 @@ private fun SmallTileIconBadgeContent(
         // Multi-digit counts need a larger share; glyph takes the rest.
         val countShare = when {
             digits <= 1 -> 0.30f
-            digits == 2 -> 0.40f
-            else -> 0.50f
+            else -> 0.40f
         }
         val maxGlyph = min(availableH * 0.68f, 36f)
         val minGlyph = 14f
@@ -1452,7 +1454,7 @@ private fun SmallTileIconBadgeContent(
  * WP tile notification count: naked content-colored bold numeral, no circle/pill/Material chrome.
  * 2×2 → center-right; 4×2 → bottom-right; 1×1 photo/chrome overlays also use center-right
  * (icon+count 1×1 faces use [SmallTileIconBadgeContent] instead). Optional [iconPackageName]
- * draws the app glyph immediately left of the count (wide notification peek face). Caps at `99+`.
+ * draws the app glyph immediately left of the count (wide notification peek face). Caps at `99`.
  */
 @Composable
 private fun BoxScope.TileNotificationBadge(
@@ -1465,21 +1467,19 @@ private fun BoxScope.TileNotificationBadge(
     iconTitle: String? = null,
 ) {
     val chrome = LocalTileChrome.current
-    val display = if (count > 99) "99+" else count.toString()
+    val display = tileNotificationDisplayCount(count)
     val digits = display.length
-    // Multi-digit counts shrink so "12" / "99+" stay on one line beside the icon.
+    // Multi-digit counts shrink so "12" / "99" stay on one line beside the icon.
     val baseRatio = 0.22f
     val digitScale = when {
         digits <= 1 -> 1f
-        digits == 2 -> 0.78f
-        else -> 0.62f
+        else -> 0.78f
     }
-    // Floor scales with digits — a fixed 16sp minimum forced "99+" to wrap on 1×1 overlays.
+    // Floor scales with digits — keep two-digit counts from wrapping on small overlays.
     val dense = chrome == TileChrome.Dense
     val minSp = when {
         digits <= 1 -> if (dense) 12f else 16f
-        digits == 2 -> if (dense) 10f else 13f
-        else -> if (dense) 9f else 11f
+        else -> if (dense) 10f else 13f
     }
     val maxSp = if (dense) 28f else 40f
     val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)

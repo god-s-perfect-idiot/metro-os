@@ -104,7 +104,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Tile sizes: Small `99x99dp`, Medium `198x99dp`, Wide `198x198dp`
 - Tile grid: 6 columns with `4dp` gap
 - Tile art source asset target: `173x173px`
-- Counter badge: content-colored bold naked numeral; center-right on 1×1/2×2, bottom-right on 4×2; never circle/pill/Material badge styling; cap at `99+`; wide peek shows app icon left of count
+- Counter badge: content-colored bold naked numeral; center-right on 1×1/2×2, bottom-right on 4×2; never circle/pill/Material badge styling; cap at `99` (no `+`); wide peek shows app icon left of count
 - Never use pure black or pure white tile backgrounds
 - Live tile flip timing: `600ms` turnstile-style motion
 - Start to app list navigation is a horizontal relationship, not a drawer reveal

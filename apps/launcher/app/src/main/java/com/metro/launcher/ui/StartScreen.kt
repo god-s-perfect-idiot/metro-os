@@ -97,8 +97,8 @@ fun StartScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = TILE_GRID_PADDING,
-                        end = TILE_GRID_PADDING,
+                        start = TileChrome.forColumns(columns).horizontalPadding,
+                        end = TileChrome.forColumns(columns).horizontalPadding,
                         top = TILE_GRID_GAP,
                         bottom = StartBottomScrollPadding,
                     ),
