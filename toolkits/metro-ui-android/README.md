@@ -30,6 +30,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroMessageDialog` | Centered modal dialog |
 | `MetroLoadingScreen` | Full-page await — centered label + dancing dots |
 | `MetroLoadingDots` | Inline WP8.1 indeterminate dancing-dots indicator |
+| `MetroSplashLoadingScreen` | Accent splash + app glyph + white dancing dots (no label) |
 | `MetroPagePivotLoad` | Page enter — left-hinge 3D pivot + X slide + fade |
 | `MetroPagePivotSwing` | Same hinge `rotateY` + fade as page pivot load, **no** X slide (Start tiles) |
 | `MetroAppPivotShell` | Activity wrapper — pivot enter on launch, flip-out on Back then `finish()` |
@@ -79,6 +80,7 @@ adaptive icons stay identical across the suite.
 if (isLoading) {
     MetroLoadingScreen()                 // default "Loading..."
     // MetroLoadingScreen(message = "syncing…")
+    // MetroSplashLoadingScreen(icon = painterResource(R.drawable.ic_launcher_foreground))
 } else {
     Content()
 }

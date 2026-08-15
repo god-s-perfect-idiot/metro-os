@@ -60,6 +60,18 @@ class LauncherState(context: Context) {
     )
     var apps by mutableStateOf(repository.discoverApps(pinnedEntries))
 
+    /**
+     * True while [refreshAllAsync] is resolving live tile providers (contacts, photos, …).
+     * Start shows [com.metro.ui.MetroSplashLoadingScreen] when this stretches past the
+     * perceived-instant threshold (or until the first load finishes).
+     */
+    var isRefreshingContent by mutableStateOf(false)
+        private set
+
+    /** False until the first [refreshAllAsync] completes — cold start keeps the splash loader up. */
+    var hasCompletedInitialLoad by mutableStateOf(false)
+        private set
+
     val filteredApps: List<MetroAppInfo>
         get() = repository.filterApps(apps, searchQuery)
 
@@ -149,20 +161,26 @@ class LauncherState(context: Context) {
      * [Dispatchers.IO] so Start can paint before SMS/contacts/media queries finish.
      */
     suspend fun refreshAllAsync() {
-        val epochAtStart = layoutEpoch
-        val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles() }
-        if (epochAtStart != layoutEpoch) return
-        pinnedEntries = pinned
-        apps = withContext(Dispatchers.IO) { repository.discoverApps(pinned) }
-        if (epochAtStart != layoutEpoch) return
-        darkTheme = metroPrefs.isDark
-        accent = metroPrefs.accentColor
-        refreshNotificationAccessPrompt()
-        val liveTiles = withContext(Dispatchers.IO) {
-            repository.resolveDisplayTiles(pinned, liveContent = true)
+        isRefreshingContent = true
+        try {
+            val epochAtStart = layoutEpoch
+            val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles() }
+            if (epochAtStart != layoutEpoch) return
+            pinnedEntries = pinned
+            apps = withContext(Dispatchers.IO) { repository.discoverApps(pinned) }
+            if (epochAtStart != layoutEpoch) return
+            darkTheme = metroPrefs.isDark
+            accent = metroPrefs.accentColor
+            refreshNotificationAccessPrompt()
+            val liveTiles = withContext(Dispatchers.IO) {
+                repository.resolveDisplayTiles(pinned, liveContent = true)
+            }
+            if (epochAtStart != layoutEpoch) return
+            displayTiles = liveTiles
+        } finally {
+            isRefreshingContent = false
+            hasCompletedInitialLoad = true
         }
-        if (epochAtStart != layoutEpoch) return
-        displayTiles = liveTiles
     }
 
     fun refreshNotificationAccessPrompt() {

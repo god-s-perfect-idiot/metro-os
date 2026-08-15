@@ -57,6 +57,20 @@ private const val CYCLE_SLIDE_MS = 600
 /** Extra scale so the cropped photo can drift upward without empty edges. */
 private const val CYCLE_PAN_OVERFLOW = 0.18f
 
+/** Pick a different cell at random so the Photos live tile never walks library order. */
+internal fun nextRandomCycleIndex(
+    current: Int,
+    size: Int,
+    random: Random = Random.Default,
+): Int {
+    if (size <= 1) return 0
+    var next: Int
+    do {
+        next = random.nextInt(size)
+    } while (next == current)
+    return next
+}
+
 /** How long a People mosaic cell stays before the next flip attempt. */
 private const val MOSAIC_FLIP_HOLD_MS = 3_200L
 private const val MOSAIC_FLIP_HOLD_JITTER_MS = 1_400L
@@ -218,6 +232,7 @@ fun PhotoGridTileContent(
 /**
  * WP8.1 Photos-tile style: each photo slowly pans up for [CYCLE_PAN_MS], then slides up as
  * the next photo enters from below. Color-only fallback cells are ignored.
+ * Photos advance in random order (never sequential library / date order).
  */
 @Composable
 fun CyclingPhotoTileContent(
@@ -228,7 +243,9 @@ fun CyclingPhotoTileContent(
 ) {
     val context = LocalContext.current
     val accent = MetroPreferences(context).accentColor
-    val photoCells = remember(cells) { cells.filter { !it.imageUri.isNullOrBlank() } }
+    val photoCells = remember(cells) {
+        cells.filter { !it.imageUri.isNullOrBlank() }.shuffled()
+    }
 
     Box(
         modifier = modifier
@@ -238,12 +255,14 @@ fun CyclingPhotoTileContent(
             .background(accent),
     ) {
         if (photoCells.isNotEmpty()) {
-            var index by remember(photoCells) { mutableIntStateOf(0) }
+            var index by remember(photoCells) {
+                mutableIntStateOf(Random.nextInt(photoCells.size))
+            }
             LaunchedEffect(photoCells, animate) {
                 if (!animate || photoCells.size <= 1) return@LaunchedEffect
                 while (true) {
                     delay(CYCLE_PAN_MS.toLong())
-                    index = (index + 1) % photoCells.size
+                    index = nextRandomCycleIndex(index, photoCells.size)
                     delay(CYCLE_SLIDE_MS.toLong())
                 }
             }

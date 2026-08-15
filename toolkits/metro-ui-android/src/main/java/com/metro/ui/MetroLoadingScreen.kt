@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -172,6 +175,9 @@ private fun LoadingDot(
  *     Content()
  * }
  * ```
+ *
+ * For cold-start / shell awaits that should match the system splash chrome, prefer
+ * [MetroSplashLoadingScreen] (accent fill + app glyph + dots, no label).
  */
 @Composable
 fun MetroLoadingScreen(
@@ -207,6 +213,54 @@ fun MetroLoadingScreen(
     }
 }
 
+/**
+ * Matches Android SplashScreen without icon background ([Theme.SplashScreen]):
+ * 288×288 dp icon box (inner circle 192 dp). [Theme.SplashScreen.IconBackground] is 240 dp.
+ */
+private val SplashIconSize = 288.dp
+private val SplashIconToDotsGap = 40.dp
+
+/**
+ * Splash-matched await surface — full-bleed accent, centered app glyph, white dancing
+ * dots underneath (no label). Use while shell/content work exceeds the perceived-instant
+ * threshold so the cold-start splash does not “hang” without feedback.
+ *
+ * Pass the app’s `@drawable/ic_launcher_foreground` painter (same art as [MetroSplash]).
+ */
+@Composable
+fun MetroSplashLoadingScreen(
+    icon: Painter,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MetroTheme.colors.accent,
+    dotsColor: Color = Color.White,
+    contentDescription: String = "Loading",
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+            .semantics {
+                this.contentDescription = contentDescription
+                liveRegion = LiveRegionMode.Polite
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(SplashIconToDotsGap),
+        ) {
+            Image(
+                painter = icon,
+                contentDescription = null,
+                modifier = Modifier.size(SplashIconSize),
+            )
+            // View/ObjectAnimator dots — Compose InfiniteTransition freezes when Start
+            // (or other UI work) saturates the main thread during contact/photo loads.
+            MetroLoadingDotsAndroid(color = dotsColor)
+        }
+    }
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFF000000, widthDp = 360, heightDp = 640)
 @Composable
 private fun MetroLoadingScreenDarkPreview() {
@@ -220,5 +274,15 @@ private fun MetroLoadingScreenDarkPreview() {
 private fun MetroLoadingScreenLightPreview() {
     MetroTheme(darkTheme = false) {
         MetroLoadingScreen()
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF00ABA9, widthDp = 360, heightDp = 640)
+@Composable
+private fun MetroSplashLoadingScreenPreview() {
+    MetroTheme(darkTheme = true, accent = Color(0xFF00ABA9)) {
+        MetroSplashLoadingScreen(
+            icon = painterResource(id = R.drawable.ic_launcher_foreground),
+        )
     }
 }

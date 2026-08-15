@@ -418,7 +418,7 @@ WP8.1 `TextBox` is a **light rectangle with black text on every theme** — neve
 | Determinate | Rectangular accent fill |
 | Label | Sentence caps; ellipsis allowed for ongoing ("downloading…") |
 
-### 6.14a Loading screen (`MetroLoadingScreen` / `MetroLoadingDots`)
+### 6.14a Loading screen (`MetroLoadingScreen` / `MetroLoadingDots` / `MetroSplashLoadingScreen`)
 
 Full-page await surface — use whenever a page is blocked on async work (> 500ms per scope §11).
 
@@ -427,6 +427,7 @@ Full-page await surface — use whenever a page is blocked on async work (> 500m
 | Layout | Theme background, content **centered** on the page |
 | Label | 18sp Light Noto Sans, primary text, sentence caps (`Loading...`) |
 | Indicator | Accent **dancing dots** below the label — four 3dp squares, 140dp clipped track, 1.8s cycle |
+| Splash variant | `MetroSplashLoadingScreen` — full-bleed **accent** + app glyph (`ic_launcher_foreground`) + **white** dancing dots under the icon (no label). Matches cold-start splash chrome for shell / long content awaits. |
 | Inline | Prefer `MetroLoadingDots` alone when progress sits inside an existing layout |
 | Anti-pattern | Material circular spinner, Lottie blobs, or centered indeterminate bars |
 
@@ -644,7 +645,7 @@ Need a container shape?
 | §6.12 Text box | `MetroTextBox` | Implemented |
 | §6.13 Slider | `MetroSlider`, `MetroStepSlider`, `MetroBarStepSlider` | Implemented |
 | §6.14 Progress | `MetroProgressBar` | Planned |
-| §6.14a Loading screen | `MetroLoadingScreen`, `MetroLoadingDots` | Implemented |
+| §6.14a Loading screen | `MetroLoadingScreen`, `MetroLoadingDots`, `MetroSplashLoadingScreen` | Implemented |
 | §6.15 Dialog | `MetroMessageDialog` | Done |
 | §6.16 Hub | `MetroHub` | Planned |
 | §6.17 Page header | `MetroPageHeader` | Implemented |

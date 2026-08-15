@@ -13,19 +13,28 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.metro.launcher.R
+import com.metro.ui.MetroSplashLoadingScreen
 import com.metro.ui.metroNavBarPadding
+import kotlinx.coroutines.delay
+
+/** scope.md §11 — show progress when live-tile refresh exceeds perceived-instant. */
+private const val ContentLoadFeedbackMs = 500L
 
 /**
  * Two-page shell: Start tiles (page 0) and app menu (page 1).
@@ -36,15 +45,57 @@ import com.metro.ui.metroNavBarPadding
 fun LauncherShell(
     state: LauncherState,
     modifier: Modifier = Modifier,
+    onComposeSplashReady: () -> Unit = {},
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val editing = state.editingTile != null
-    // Cold start / Home-resume play the enter wave. App-list round-trips must not.
-    var enterWaveKey by remember { mutableIntStateOf(1) }
+    // Cold start waits for the splash loader to lift before playing the enter wave.
+    var enterWaveKey by remember { mutableIntStateOf(0) }
     // Survives Start dispose when the pager drops page 0 — returning from the app list
     // remounts tiles without replaying a wave that already ran (or was left mid-flight).
     var consumedEnterWaveKey by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    // Subsequent refreshes only show the splash loader after the perceived-instant threshold.
+    var showDelayedSplashLoader by remember { mutableStateOf(false) }
+    // Keep splash until Start has actually drawn — dismissing on data-ready alone leaves a
+    // long black gap while the tile grid mounts / decodes photos.
+    var startDrawn by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.isRefreshingContent, state.hasCompletedInitialLoad) {
+        if (!state.hasCompletedInitialLoad) {
+            showDelayedSplashLoader = false
+            return@LaunchedEffect
+        }
+        if (state.isRefreshingContent) {
+            delay(ContentLoadFeedbackMs)
+            showDelayedSplashLoader = state.isRefreshingContent
+        } else {
+            showDelayedSplashLoader = false
+        }
+    }
+
+    LaunchedEffect(state.hasCompletedInitialLoad) {
+        if (!state.hasCompletedInitialLoad) {
+            startDrawn = false
+            return@LaunchedEffect
+        }
+        // Start composes under the splash this frame; wait until it has been presented.
+        withFrameNanos { }
+        withFrameNanos { }
+        startDrawn = true
+    }
+
+    val showSplashLoader =
+        !state.hasCompletedInitialLoad || !startDrawn || showDelayedSplashLoader
+
+    LaunchedEffect(showSplashLoader) {
+        if (showSplashLoader) {
+            onComposeSplashReady()
+        }
+        if (!showSplashLoader && enterWaveKey == 0) {
+            enterWaveKey = 1
+        }
+    }
 
     // Home must consume Back: the default finish/relaunch path resumes Start and replays
     // the enter wave (hang). App-list search keeps its own BackHandler (child wins).
@@ -93,55 +144,78 @@ fun LauncherShell(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .metroNavBarPadding()
-            .semantics { testTagsAsResourceId = true }
-            .background(Color.Black),
+            .semantics { testTagsAsResourceId = true },
     ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 0,
-            userScrollEnabled = !editing,
-        ) { page ->
-            when (page) {
-                0 -> StartScreen(
-                    tiles = state.displayTiles,
-                    onTileClick = if (editing) ({}) else state::onTileClick,
-                    onTileLongPress = state::onTileLongPress,
-                    onOpenAppList = { state.currentPage = 1 },
-                    editMode = editing,
-                    editingTile = state.editingTile,
-                    onDismissEdit = state::dismissEdit,
-                    onResize = state::resizeEditingTile,
-                    onUnpin = state::unpinEditingTile,
-                    onDragLayout = state::applyDragLayout,
-                    onReorderCommit = state::commitTileOrder,
-                    enterWaveKey = enterWaveKey,
-                    consumedEnterWaveKey = consumedEnterWaveKey,
-                    modifier = Modifier.testTag("metro_page_start"),
-                )
-                1 -> AppListScreen(
-                    apps = state.filteredApps,
-                    searchActive = state.searchActive,
-                    searchQuery = state.searchQuery,
-                    onSearchActiveChange = state::onSearchActiveChange,
-                    onSearchQueryChange = state::onSearchQueryChange,
-                    onAppClick = state::launchApp,
-                    onPinToStart = state::pinApp,
-                    onUninstall = state::uninstallApp,
-                    queryAppOptions = state::queryAppOptions,
-                    onLaunchAppOption = state::launchAppOption,
-                    modifier = Modifier.testTag("metro_page_app_list"),
-                )
+        // Mount Start as soon as live data is ready, but keep the splash on top until
+        // Start has drawn (View-backed dots keep moving during that mount).
+        if (state.hasCompletedInitialLoad) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .metroNavBarPadding()
+                    .background(Color.Black),
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 0,
+                    userScrollEnabled = !editing && !showSplashLoader,
+                ) { page ->
+                    when (page) {
+                        0 -> StartScreen(
+                            tiles = state.displayTiles,
+                            onTileClick = if (editing) ({}) else state::onTileClick,
+                            onTileLongPress = state::onTileLongPress,
+                            onOpenAppList = { state.currentPage = 1 },
+                            editMode = editing,
+                            editingTile = state.editingTile,
+                            onDismissEdit = state::dismissEdit,
+                            onResize = state::resizeEditingTile,
+                            onUnpin = state::unpinEditingTile,
+                            onDragLayout = state::applyDragLayout,
+                            onReorderCommit = state::commitTileOrder,
+                            enterWaveKey = enterWaveKey,
+                            consumedEnterWaveKey = consumedEnterWaveKey,
+                            modifier = Modifier.testTag("metro_page_start"),
+                        )
+                        1 -> AppListScreen(
+                            apps = state.filteredApps,
+                            searchActive = state.searchActive,
+                            searchQuery = state.searchQuery,
+                            onSearchActiveChange = state::onSearchActiveChange,
+                            onSearchQueryChange = state::onSearchQueryChange,
+                            onAppClick = state::launchApp,
+                            onPinToStart = state::pinApp,
+                            onUninstall = state::uninstallApp,
+                            queryAppOptions = state::queryAppOptions,
+                            onLaunchAppOption = state::launchAppOption,
+                            modifier = Modifier.testTag("metro_page_app_list"),
+                        )
+                    }
+                }
+
+                if (state.showNotificationAccessPrompt &&
+                    state.currentPage == 0 &&
+                    !editing &&
+                    !showSplashLoader
+                ) {
+                    NotificationAccessPrompt(
+                        onGrant = state::openNotificationAccessSettings,
+                        onDismiss = state::dismissNotificationAccessPrompt,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
             }
         }
 
-        if (state.showNotificationAccessPrompt && state.currentPage == 0 && !editing) {
-            NotificationAccessPrompt(
-                onGrant = state::openNotificationAccessSettings,
-                onDismiss = state::dismissNotificationAccessPrompt,
-                modifier = Modifier.align(Alignment.BottomCenter),
+        if (showSplashLoader) {
+            MetroSplashLoadingScreen(
+                icon = painterResource(id = R.drawable.ic_launcher_foreground),
+                backgroundColor = state.accent,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("metro_start_splash_loader"),
             )
         }
     }

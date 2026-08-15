@@ -65,7 +65,8 @@ object PhotosTileLogic {
         accentHex: String,
         context: Context,
     ): List<MetroTileGridCell> {
-        val recent = photos.take(MAX_CELLS)
+        // Shuffle so the live tile never walks MediaStore / date order.
+        val recent = photos.take(MAX_CELLS).shuffled()
         val cells = recent.mapIndexed { index, photo ->
             cacheThumbnail(context, photo.id, photo.uri)
             MetroTileGridCell(
