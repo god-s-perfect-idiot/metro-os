@@ -9,8 +9,9 @@
 only, tap/home staggered indicator reveal (drop from above R→L, 3/5/10s hold, exit upward),
 minute-boundary clock ticks, indeterminate progress affordance, and per-app opaque/translucent/hidden
 modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`) with proportional fill (red at
-≤20%, foreground above) and a charging plug that interrupts the casing outline; the remaining radio
-indicators are static v1 glyphs.
+≤20%, foreground above) and a charging plug that interrupts the casing outline. Cellular bars use
+`SignalStrength` (`0..4` → four filled bars); the data label uses telephony display info; Wi-Fi arcs
+use `WifiManager` RSSI (`0..3` bands, icon hidden when disconnected).
 
 The setup screen’s **Show status bar** master toggle starts and stops the overlay. **Hide icons
 after** (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds (WP default
@@ -44,10 +45,14 @@ on this app. Requests are broadcasts targeted at the tray's exported `StatusBarR
 ```kotlin
 MetroStatusBar.requestProgress(context, visible = true)        // show the indeterminate affordance
 MetroStatusBar.requestVisibility(context, MetroStatusBar.MODE_TRANSLUCENT) // 0.5 opacity
-MetroStatusBar.requestVisibility(context, MetroStatusBar.MODE_HIDDEN)
+MetroStatusBar.requestFullscreen(context, fullscreen = true)  // hide for fullscreen surfaces
 MetroStatusBar.requestExpand(context)                           // reveal indicators (home / Start)
 MetroStatusBar.requestRefresh(context)                          // re-read theme/accent
 ```
+
+Fullscreen Compose surfaces should call `MetroStatusBarFullscreenEffect(active = true)` from
+`metro-ui-android` (hides Metro tray + Android status bars; restores on dispose). Going home /
+Start also restores a hidden tray via `requestExpand`.
 
 ## App role
 
@@ -99,7 +104,7 @@ It does not host Action Center, toasts, or a notification shade.
 
 - Clock updates every minute with zero visible layout jump
 - Indicator order (left): cellular + data connection label, Wi-Fi; battery + clock on the right
-- v1 may use a static Wi-Fi glyph; cellular/data and battery use device telemetry
+- Cellular bars, data label, Wi-Fi arcs, and battery use device telemetry
 
 ### Theme and app integration
 
@@ -146,8 +151,9 @@ It does not host Action Center, toasts, or a notification shade.
 3. Theme change updates tray colors without restart
 4. Minute boundary updates clock correctly
 5. Progress request shows and clears progress state predictably
-6. Hidden/translucent tray modes honor app requests
+6. Hidden/translucent tray modes honor app requests; fullscreen surfaces creep the tray away
 7. Swipe down opens the system notification shade and hides the Metro tray until the shade closes
+8. Immersive system-bar hide (API 30+) creeps the Metro tray away until bars return
 
 ## Reference and golden expectations
 
@@ -181,9 +187,10 @@ cd apps/statusbar
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
-| Real carrier/radio signal behavior mirrors system internals | Android app-level access to all shell telemetry can be restricted or OEM-specific | Radio indicators (cellular, data, call forwarding, roaming, Wi-Fi, Bluetooth, quiet hours, driving, ringer, location) use static v1 glyphs; battery uses real `ACTION_BATTERY_CHANGED` telemetry. Tray layout and timing are exact. |
+| Real carrier/radio signal behavior mirrors system internals | Android app-level access to all shell telemetry can be restricted or OEM-specific | Cellular bars (`SignalStrength` level), data label (telephony display info), Wi-Fi arcs (`WifiManager` RSSI), and battery (`ACTION_BATTERY_CHANGED`) use real telemetry. Unused tray glyphs (call forwarding, roaming, Bluetooth, quiet hours, driving, ringer, location) remain out of the expanded row. Tray layout and timing are exact. |
 | Status bar is a true system-reserved region | An installed app can only overlay via `SYSTEM_ALERT_WINDOW`, which is layered below the system status bar | The tray is hosted as a `TYPE_ACCESSIBILITY_OVERLAY` (via `StatusBarAccessibilityService`) so it draws above the system status bar; requires enabling the accessibility service. Falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the system bar) when not enabled. |
 | Action Center owns the top chrome while open | Metro Action Center is out of scope; Android's notification shade still expands under the a11y overlay | Swipe-down opens the system shade via `GLOBAL_ACTION_NOTIFICATIONS`; the tray hides for the shade lifetime (detected via interactive windows / shade class names). |
+| Fullscreen apps hide SystemTray | Accessibility overlay would stay above immersive content | Apps call `MetroStatusBarFullscreenEffect` / `requestFullscreen`; shell also creeps away when `WindowInsets` reports status bars hidden (API 30+). |
 
 ## Agent postmortem
 

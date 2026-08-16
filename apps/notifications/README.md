@@ -42,8 +42,8 @@ adb shell pm grant com.metro.notifications android.permission.WRITE_SECURE_SETTI
 
 ### 1. Toast
 
-- Accent bar (min ~52dp, grows with wrapped text) below the status-bar / cutout inset so it clears the notch
-- Square app logo + wrapping `sender: message` line; no clock (the tray already shows time)
+- Accent bar (~52dp) below the status-bar / cutout inset so it clears the notch
+- Square app logo + single-line `sender: message` with ellipsis; no clock (the tray already shows time)
 - Reference: `references/images/toast.png`
 - Auto-dismiss after 3 / 5 / 10 seconds (setup ListPicker; default 5s); swipe right dismisses the banner; tap opens the notifying app
 - Enter/exit: perspective 3D tile flip (`rotationX` 90° → 0°, reverse on dismiss)

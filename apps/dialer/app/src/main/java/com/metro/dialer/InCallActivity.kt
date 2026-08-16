@@ -21,6 +21,7 @@ import com.metro.dialer.telecom.MetroCallSession
 import com.metro.dialer.telecom.ProximityScreenController
 import com.metro.dialer.ui.InCallScreen
 import com.metro.dialer.ui.IncomingCallScreen
+import com.metro.ui.MetroStatusBarFullscreenEffect
 import com.metro.ui.MetroSystemTheme
 
 class InCallActivity : ComponentActivity() {
@@ -60,6 +61,7 @@ class InCallActivity : ComponentActivity() {
             }
 
             MetroSystemTheme {
+                MetroStatusBarFullscreenEffect(active = call != null)
                 call?.let { activeCall ->
                     if (DialerCallLogic.isIncomingRinging(activeCall)) {
                         IncomingCallScreen(

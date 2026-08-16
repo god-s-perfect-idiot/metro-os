@@ -31,6 +31,8 @@ object MetroTransitions {
     const val StatusTrayIconStaggerMs = 90
     /** Hold after staggered enter before staggered exit. */
     const val StatusTrayAutoCollapseMs = 5000
+    /** Whole-tray hide / reveal creep (slides into / out of the top edge). */
+    const val StatusTrayCreepMs = 200
     /** Action Center shade open / close. */
     const val ActionCenterOpenMs = 280
     const val ActionCenterCloseMs = 240
@@ -127,6 +129,11 @@ object MetroTransitions {
 
     fun <T> appBarCreepTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = AppBarSlideMs,
+        easing = PageEasing,
+    )
+
+    fun <T> statusTrayCreepTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = StatusTrayCreepMs,
         easing = PageEasing,
     )
 

@@ -408,6 +408,18 @@ class StatusBarOverlayService :
         }
 
         /**
+         * Creeps the Metro tray away when Android status bars are immersive-hidden (fullscreen),
+         * and restores when they become visible again.
+         */
+        fun onSystemStatusBarsHiddenChanged(hidden: Boolean) {
+            instance?.let { svc ->
+                svc.handler.post {
+                    svc.trayState.applySystemStatusBarsHidden(hidden)
+                }
+            }
+        }
+
+        /**
          * Rebuilds the overlay in place (same window type) so inset / notch preference changes
          * take effect without restarting the service.
          */

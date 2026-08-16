@@ -4,15 +4,17 @@ import android.graphics.drawable.Drawable
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,17 +25,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -48,7 +54,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /**
- * WP8.1 toast: accent-filled bar, square app logo + wrapping `sender: message` line.
+ * WP8.1 toast: accent-filled bar, square app logo + single-line `sender: message` with ellipsis.
  * Clock is owned by the status tray — not drawn here.
  *
  * Enters with a perspective 3D tile flip (`rotationX` 90° → 0°) and leaves as the reverse.
@@ -71,6 +77,8 @@ fun ToastBanner(
     var dragPx by remember(toast.key) { mutableFloatStateOf(0f) }
     val dismissPx = with(density) { ToastSpec.SWIPE_DISMISS_DP.dp.toPx() }
     val line = remember(toast.key, toast.title, toast.body) { toast.displayLine() }
+    val onTapState = rememberUpdatedState(onTap)
+    val onSwipeDismissState = rememberUpdatedState(onSwipeDismiss)
 
     key(toast.key) {
         LaunchedEffect(exiting) {
@@ -87,41 +95,51 @@ fun ToastBanner(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .defaultMinSize(minHeight = ToastSpec.HEIGHT_DP.dp)
+                    .height(ToastSpec.HEIGHT_DP.dp)
                     .offset { IntOffset(dragPx.roundToInt().coerceAtLeast(0), 0) }
                     .background(accent)
-                    .pointerInput(toast.key, exiting) {
+                    .pointerInput(toast.key, exiting, dismissPx) {
                         if (exiting) return@pointerInput
-                        detectHorizontalDragGestures(
-                            onHorizontalDrag = { _, amount ->
-                                dragPx = (dragPx + amount).coerceAtLeast(0f)
-                            },
-                            onDragEnd = {
-                                if (dragPx >= dismissPx) {
-                                    onSwipeDismiss()
-                                } else {
-                                    dragPx = 0f
-                                }
-                            },
-                            onDragCancel = { dragPx = 0f },
-                        )
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            var overSlop = Offset.Zero
+                            val slopChange = awaitTouchSlopOrCancellation(down.id) { change, over ->
+                                overSlop = over
+                                change.consume()
+                            }
+                            if (slopChange == null) {
+                                // Released before touch slop → tap opens the notification.
+                                onTapState.value()
+                                return@awaitEachGesture
+                            }
+                            if (overSlop.x <= 0f) {
+                                // Non-rightward drag: ignore for dismiss.
+                                horizontalDrag(slopChange.id) { it.consume() }
+                                return@awaitEachGesture
+                            }
+                            var totalDx = overSlop.x
+                            dragPx = totalDx
+                            horizontalDrag(slopChange.id) { change ->
+                                totalDx += change.positionChange().x
+                                dragPx = totalDx.coerceAtLeast(0f)
+                                change.consume()
+                            }
+                            if (dragPx >= dismissPx) {
+                                onSwipeDismissState.value()
+                            } else {
+                                dragPx = 0f
+                            }
+                        }
                     }
-                    .clickable(
-                        enabled = !exiting,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onTap,
-                    )
-                    .padding(
-                        horizontal = ToastSpec.HORIZONTAL_PADDING_DP.dp,
-                        vertical = ToastSpec.VERTICAL_PADDING_DP.dp,
-                    )
+                    .padding(horizontal = ToastSpec.HORIZONTAL_PADDING_DP.dp)
                     .testTag("metro_toast_banner"),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ToastAppGlyph(
                         drawable = iconAsset.drawable,
@@ -133,7 +151,9 @@ fun ToastBanner(
                         text = line,
                         style = MetroTextStyle.DialogBody,
                         color = MetroColors.TileContentOnAccent,
-                        softWrap = true,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
                 }

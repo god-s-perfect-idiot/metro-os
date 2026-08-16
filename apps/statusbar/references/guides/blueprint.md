@@ -18,7 +18,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Layout: same height; full indicator row left-aligned in WP order; battery + clock on the right
 - Indicator order L→R: cellular + data label, Wi-Fi; battery + clock on the right
 - Interactions: icons drop in one-by-one from above (**200ms**/icon, **90ms** stagger, right → left); hold **3s / 5s / 10s** (setup **Hide icons after** ListPicker; WP default **5000ms**); exit upward one-by-one (same R→L order)
-- v1 may use static/stub Wi-Fi glyph; cellular/data and battery are real telemetry
+- Cellular bars, data label, Wi-Fi arcs, and battery use live device telemetry
 
 ### Page 3 — Progress tray state
 
@@ -31,9 +31,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 |--------|----------|
 | Clock | Updates on minute boundary without layout jump |
 | Theme | Observe `com.metro.system.THEME_CHANGED` |
-| Visibility | Apps request opaque / translucent (0.5) / hidden modes via `metro-system-sdk` API |
+| Visibility | Apps request opaque / translucent (0.5) / hidden modes via `metro-system-sdk` API; fullscreen surfaces use `MetroStatusBarFullscreenEffect` / `requestFullscreen` |
+| Immersive | When Android status bars are hidden (API 30+), the Metro tray creeps out like `MODE_HIDDEN` |
 | Overlay | `SYSTEM_ALERT_WINDOW` foreground service, hosted as a `TYPE_ACCESSIBILITY_OVERLAY` so it draws above the native status bar |
 | Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally (red ≤20%, foreground above) and shows a plug that interrupts the casing while charging |
+| Cellular | Real `SignalStrength` level (`0..4`) mapped to four filled bars; data label from telephony display info |
+| Wi-Fi | Real `WifiManager` RSSI mapped to three arcs (`0..3`); icon hidden when Wi-Fi is off/disconnected |
 | Coverage | Window height = system status-bar inset (incl. cutout), so the Android bar is fully covered |
 | Side insets | Physical left/right padding from cutout + waterfall + top rounded-corner chords + privacy dots |
 | Notification shade | Swipe down on the tray opens the Android notification shade; the Metro overlay hides while the shade is open (accessibility overlay would otherwise paint on top of SystemUI) |
@@ -48,6 +51,6 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ## Out of scope (v1)
 
-- True carrier signal strength telemetry
+- Privileged OEM carrier internals beyond app-level `SignalStrength` / Wi-Fi RSSI
 - Action Center / notification shade / toast banners
 - Quick settings metaphors

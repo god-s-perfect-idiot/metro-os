@@ -1,12 +1,17 @@
 package com.metro.notifications
 
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 
 /**
  * Watches posted notifications and asks the overlay to raise a WP toast for peek-class posts.
@@ -66,6 +71,7 @@ class ActionNotificationListenerService : NotificationListenerService() {
     }
 
     companion object {
+        private const val TAG = "ActionNotificationListener"
         private const val DIALER_PACKAGE = "com.metro.dialer"
         private const val ACTIVE_CALL_TAG = "active_call"
 
@@ -86,19 +92,53 @@ class ActionNotificationListenerService : NotificationListenerService() {
             runCatching { service.requestListenerHints(0) }
         }
 
-        fun openNotification(itemKey: String, cancelAfterOpen: Boolean = true) {
-            val service = instance ?: return
-            val active = runCatching { service.activeNotifications }.getOrNull() ?: return
+        /**
+         * Launch the notifying app via the notification's content intent (WP8.1 toast tap).
+         * Must run in the tap callback — delaying past the exit flip loses the user-gesture
+         * window and Android blocks the activity start.
+         */
+        fun openNotification(itemKey: String, cancelAfterOpen: Boolean = true): Boolean {
+            val service = instance ?: return false
+            val active = runCatching { service.activeNotifications }.getOrNull() ?: return false
             val match = active.firstOrNull { sbn ->
-                "${sbn.packageName}:${sbn.id}:${sbn.tag.orEmpty()}" == itemKey ||
-                    sbn.key == itemKey
-            } ?: return
-            runCatching {
-                match.notification.contentIntent?.send()
-                if (cancelAfterOpen) {
-                    service.cancelNotification(match.key)
+                sbn.key == itemKey ||
+                    "${sbn.packageName}:${sbn.id}:${sbn.tag.orEmpty()}" == itemKey
+            } ?: return false
+            val opened = runCatching {
+                val content = match.notification.contentIntent
+                if (content != null) {
+                    sendContentIntent(service, content)
+                    true
+                } else {
+                    launchPackage(service, match.packageName)
                 }
+            }.onFailure {
+                Log.w(TAG, "Failed to open notification $itemKey", it)
+            }.getOrDefault(false)
+            if (opened && cancelAfterOpen) {
+                runCatching { service.cancelNotification(match.key) }
             }
+            return opened
+        }
+
+        private fun sendContentIntent(service: ActionNotificationListenerService, intent: PendingIntent) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val options = ActivityOptions.makeBasic().apply {
+                    pendingIntentBackgroundActivityStartMode =
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                }
+                intent.send(service, 0, null, null, null, null, options.toBundle())
+            } else {
+                intent.send()
+            }
+        }
+
+        private fun launchPackage(service: ActionNotificationListenerService, packageName: String): Boolean {
+            val launch = service.packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+            } ?: return false
+            service.startActivity(launch)
+            return true
         }
 
         fun isEnabled(context: android.content.Context): Boolean {

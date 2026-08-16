@@ -3,6 +3,7 @@ package com.metro.statusbar.ui
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,7 +26,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -40,6 +46,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -51,6 +58,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.metro.statusbar.BatteryStatus
+import com.metro.statusbar.SignalBarsStatus
 import com.metro.statusbar.TrayIndicator
 import com.metro.statusbar.TrayIndicatorOrder
 import com.metro.statusbar.TraySnapshot
@@ -61,6 +69,9 @@ import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTransitions
 import kotlin.math.abs
 
+/** Empty cellular / Wi-Fi segments — darker than secondary text so they sit back on the tray. */
+private val SignalInactiveDark = Color(0xFF4A4A4A)
+private val SignalInactiveLight = Color(0xFFB0B0B0)
 private val GlyphHeight = 14.dp
 private val GlyphWidth = 16.dp
 // Cellular signal bars: slightly wider and shorter than the shared glyph box.
@@ -82,10 +93,11 @@ private const val DataLabelTextSizeFactor = 0.98f
  * WP8.1 system tray.
  *
  * Default = clock only (right-aligned). Tap or going home drops the other icons in one-by-one
- * from above (right → left), holds briefly, then exits upward the same way. Swipe down opens the
- * Android notification shade and hides this overlay while the shade is expanded. [barHeightDp]
- * lets the overlay fill the whole system status-bar region (including notch/cutout); defaults to
- * the WP 32dp strip for in-app previews.
+ * from above (right → left), holds briefly, then exits upward the same way. Per-app
+ * [TrayVisibilityMode.Hidden] and immersive system-bar hide creep the whole strip into / out of
+ * the top edge (200ms). Swipe down opens the Android notification shade and hides this overlay
+ * while the shade is expanded. [barHeightDp] lets the overlay fill the whole system status-bar
+ * region (including notch/cutout); defaults to the WP 32dp strip for in-app previews.
  */
 @Composable
 fun StatusTray(
@@ -99,95 +111,140 @@ fun StatusTray(
     /** Physical right inset (cutout / rounded corner / privacy dots); not RTL end. */
     rightPaddingDp: Int = TraySpec.END_PADDING_DP,
 ) {
-    if (snapshot.theme.visibilityMode == TrayVisibilityMode.Hidden) return
+    // Shade still hides instantly (overlay must drop so SystemUI is not covered).
     if (snapshot.notificationShadeOpen) return
 
-    val foreground = snapshot.theme.foregroundColor
-    val background = snapshot.theme.backgroundColor
+    val trayVisible = snapshot.theme.visibilityMode != TrayVisibilityMode.Hidden &&
+        !snapshot.systemStatusBarsHidden
+    var onScreen by remember { mutableStateOf(trayVisible) }
+    val barOffset = remember { Animatable(if (trayVisible) 0f else 1f) }
+
+    // Keep last opaque/translucent chrome while creeping out — Hidden resolves to Transparent.
+    var paintTheme by remember { mutableStateOf(snapshot.theme) }
+    SideEffect {
+        if (snapshot.theme.visibilityMode != TrayVisibilityMode.Hidden) {
+            paintTheme = snapshot.theme
+        }
+    }
+
+    LaunchedEffect(trayVisible) {
+        if (trayVisible) {
+            barOffset.snapTo(1f)
+            onScreen = true
+            barOffset.animateTo(0f, MetroTransitions.statusTrayCreepTween())
+        } else if (onScreen) {
+            barOffset.animateTo(1f, MetroTransitions.statusTrayCreepTween())
+            onScreen = false
+        }
+    }
+
+    if (!onScreen) return
+
+    val foreground = paintTheme.foregroundColor
+    val background = paintTheme.backgroundColor
+        .takeUnless { it == Color.Transparent }
+        ?: MetroColors.background(paintTheme.darkTheme)
     val density = LocalDensity.current
+    val slidePx = with(density) { barHeightDp.dp.toPx() }
+    // 1 = fully tucked above the top edge; 0 = resting.
+    val creepTranslationY = -barOffset.value * slidePx
     val shadeOpenDragPx = with(density) { TraySpec.SHADE_OPEN_DRAG_DP.dp.toPx() }
-    val leftVisible = remember(snapshot.dataConnectionLabel) {
-        TrayIndicatorOrder.visibleLeft(snapshot.dataConnectionLabel)
+    val leftVisible = remember(snapshot.dataConnectionLabel, snapshot.signalBars.wifiBands) {
+        TrayIndicatorOrder.visibleLeft(
+            dataConnectionLabel = snapshot.dataConnectionLabel,
+            wifiConnected = snapshot.signalBars.wifiBands != null,
+        )
     }
     val batteryPresent = snapshot.battery.present
     // Right → left: battery (if any) is reverseIndex 0; leftmost left-icon is highest delay.
     val batteryReverseIndex = 0
     val leftBatteryOffset = if (batteryPresent) 1 else 0
+    val acceptInput = trayVisible && barOffset.value < 0.01f
 
-    Row(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(barHeightDp.dp)
-            .clipToBounds()
-            .background(background)
-            .pointerInput(shadeOpenDragPx) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    var totalDragY = 0f
-                    var dragged = false
-                    val pointerId = down.id
-                    drag(pointerId) { change ->
-                        val dy = change.positionChange().y
-                        totalDragY += dy
-                        if (abs(totalDragY) > viewConfiguration.touchSlop) {
-                            dragged = true
+            .clipToBounds(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(barHeightDp.dp)
+                .graphicsLayer { translationY = creepTranslationY }
+                .background(background)
+                .pointerInput(shadeOpenDragPx, acceptInput) {
+                    if (!acceptInput) return@pointerInput
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var totalDragY = 0f
+                        var dragged = false
+                        val pointerId = down.id
+                        drag(pointerId) { change ->
+                            val dy = change.positionChange().y
+                            totalDragY += dy
+                            if (abs(totalDragY) > viewConfiguration.touchSlop) {
+                                dragged = true
+                            }
+                            if (dragged && onSwipeOpenNotifications != null && totalDragY > 0f) {
+                                change.consume()
+                            }
                         }
-                        if (dragged && onSwipeOpenNotifications != null && totalDragY > 0f) {
-                            change.consume()
+                        when {
+                            dragged &&
+                                onSwipeOpenNotifications != null &&
+                                totalDragY >= shadeOpenDragPx -> onSwipeOpenNotifications.invoke()
+                            !dragged -> onTrayTap()
                         }
-                    }
-                    when {
-                        dragged &&
-                            onSwipeOpenNotifications != null &&
-                            totalDragY >= shadeOpenDragPx -> onSwipeOpenNotifications.invoke()
-                        !dragged -> onTrayTap()
                     }
                 }
-            }
-            .absolutePadding(left = leftPaddingDp.dp, right = rightPaddingDp.dp)
-            .testTag("metro_status_tray"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        TrayIndicatorRow(
-            indicators = leftVisible,
-            expanded = snapshot.expanded,
-            color = foreground,
-            backgroundColor = background,
-            dataConnectionLabel = snapshot.dataConnectionLabel,
-            reverseIndexOffset = leftBatteryOffset,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .clipToBounds(),
-        )
-
-        Row(
+                .absolutePadding(left = leftPaddingDp.dp, right = rightPaddingDp.dp)
+                .testTag("metro_status_tray"),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            if (snapshot.showProgress) {
-                TrayProgressSpinner(color = snapshot.theme.accentColor)
-            }
-            AnimatedVisibility(
-                visible = snapshot.expanded && batteryPresent,
-                enter = trayIconEnter(batteryReverseIndex),
-                exit = trayIconExit(batteryReverseIndex),
+            TrayIndicatorRow(
+                indicators = leftVisible,
+                expanded = snapshot.expanded,
+                color = foreground,
+                inactiveColor = if (paintTheme.darkTheme) SignalInactiveDark else SignalInactiveLight,
+                backgroundColor = background,
+                dataConnectionLabel = snapshot.dataConnectionLabel,
+                signalBars = snapshot.signalBars,
+                reverseIndexOffset = leftBatteryOffset,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clipToBounds(),
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                TrayBatteryGlyph(
-                    battery = snapshot.battery,
-                    color = foreground,
+                if (snapshot.showProgress) {
+                    TrayProgressSpinner(color = paintTheme.accentColor)
+                }
+                AnimatedVisibility(
+                    visible = snapshot.expanded && batteryPresent,
+                    enter = trayIconEnter(batteryReverseIndex),
+                    exit = trayIconExit(batteryReverseIndex),
+                ) {
+                    TrayBatteryGlyph(
+                        battery = snapshot.battery,
+                        color = foreground,
+                    )
+                }
+                BasicText(
+                    text = snapshot.clockText,
+                    style = MetroTextStyle.DialogBody.toTextStyle().copy(
+                        color = foreground,
+                        fontSize = TrayClockFontSize,
+                        lineHeight = TrayClockLineHeight,
+                    ),
+                    modifier = Modifier.semantics { contentDescription = "Clock" },
                 )
             }
-            BasicText(
-                text = snapshot.clockText,
-                style = MetroTextStyle.DialogBody.toTextStyle().copy(
-                    color = foreground,
-                    fontSize = TrayClockFontSize,
-                    lineHeight = TrayClockLineHeight,
-                ),
-                modifier = Modifier.semantics { contentDescription = "Clock" },
-            )
         }
     }
 }
@@ -229,8 +286,10 @@ private fun TrayIndicatorRow(
     indicators: List<TrayIndicator>,
     expanded: Boolean,
     color: Color,
+    inactiveColor: Color,
     backgroundColor: Color,
     dataConnectionLabel: String?,
+    signalBars: SignalBarsStatus,
     reverseIndexOffset: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -259,7 +318,9 @@ private fun TrayIndicatorRow(
                         TrayIndicatorItem(
                             indicator = TrayIndicator.Cellular,
                             color = color,
+                            inactiveColor = inactiveColor,
                             backgroundColor = backgroundColor,
+                            signalBars = signalBars,
                         )
                     }
                     StaggeredTrayIcon(
@@ -269,8 +330,10 @@ private fun TrayIndicatorRow(
                         TrayIndicatorItem(
                             indicator = TrayIndicator.DataConnection,
                             color = color,
+                            inactiveColor = inactiveColor,
                             backgroundColor = backgroundColor,
                             dataConnectionLabel = dataConnectionLabel,
+                            signalBars = signalBars,
                         )
                     }
                 }
@@ -283,8 +346,10 @@ private fun TrayIndicatorRow(
                     TrayIndicatorItem(
                         indicator = indicator,
                         color = color,
+                        inactiveColor = inactiveColor,
                         backgroundColor = backgroundColor,
                         dataConnectionLabel = dataConnectionLabel,
+                        signalBars = signalBars,
                         modifier = if (indicator == TrayIndicator.Wifi) {
                             Modifier.padding(start = TraySpec.WIFI_LEADING_PADDING_DP.dp)
                         } else {
@@ -316,8 +381,10 @@ private fun StaggeredTrayIcon(
 private fun TrayIndicatorItem(
     indicator: TrayIndicator,
     color: Color,
+    inactiveColor: Color,
     backgroundColor: Color,
     dataConnectionLabel: String? = null,
+    signalBars: SignalBarsStatus = SignalBarsStatus.Unknown,
     modifier: Modifier = Modifier,
 ) {
     val (width, height) = when (indicator) {
@@ -327,15 +394,24 @@ private fun TrayIndicatorItem(
         else -> GlyphWidth to GlyphHeight
     }
     Canvas(modifier = modifier.size(width = width, height = height)) {
-        drawIndicator(indicator, color, backgroundColor, dataConnectionLabel)
+        drawIndicator(
+            indicator = indicator,
+            color = color,
+            inactiveColor = inactiveColor,
+            backgroundColor = backgroundColor,
+            dataConnectionLabel = dataConnectionLabel,
+            signalBars = signalBars,
+        )
     }
 }
 
 private fun DrawScope.drawIndicator(
     indicator: TrayIndicator,
     color: Color,
+    inactiveColor: Color,
     backgroundColor: Color,
     dataConnectionLabel: String? = null,
+    signalBars: SignalBarsStatus = SignalBarsStatus.Unknown,
 ) {
     val w = size.width
     val h = size.height
@@ -343,10 +419,11 @@ private fun DrawScope.drawIndicator(
         TrayIndicator.Cellular -> {
             val barWidth = w * 0.20f
             val gap = w * 0.065f
-            repeat(4) { index ->
+            val filled = signalBars.cellularBars.coerceIn(0, SignalBarsStatus.CELLULAR_BAR_COUNT)
+            repeat(SignalBarsStatus.CELLULAR_BAR_COUNT) { index ->
                 val barHeight = h * (0.4f + index * 0.2f)
                 drawRect(
-                    color = color,
+                    color = if (index < filled) color else inactiveColor,
                     topLeft = Offset(index * (barWidth + gap), h - barHeight),
                     size = Size(barWidth, barHeight),
                 )
@@ -391,6 +468,7 @@ private fun DrawScope.drawIndicator(
             // WP8.1 tray Wi-Fi: thick quarter-bands, flat ends, bottom-right origin.
             // Pack: dot | gap | band | gap | band | gap | band (stroke ≈ gap).
             // Origin diameter matches band stroke — WP references use a small hub, not a fat disc.
+            val bands = (signalBars.wifiBands ?: 0).coerceIn(0, SignalBarsStatus.WIFI_BAND_COUNT)
             val anchor = Offset(w * 0.94f, h * 0.94f)
             val avail = minOf(anchor.x, anchor.y)
             // Slightly denser than a strict 1:1 pack so bands read as bold as the Microsoft glyph.
@@ -403,9 +481,11 @@ private fun DrawScope.drawIndicator(
             // Keep outer half-stroke inside the canvas.
             val outerEdge = band2 + strokeWidth * 0.5f
             val scale = if (outerEdge > avail) avail / outerEdge else 1f
-            for (radius in floatArrayOf(band0 * scale, band1 * scale, band2 * scale)) {
+            val radii = floatArrayOf(band0 * scale, band1 * scale, band2 * scale)
+            for (index in radii.indices) {
+                val radius = radii[index]
                 drawArc(
-                    color = color,
+                    color = if (index < bands) color else inactiveColor,
                     startAngle = 180f,
                     sweepAngle = 90f,
                     useCenter = false,
@@ -414,6 +494,7 @@ private fun DrawScope.drawIndicator(
                     style = Stroke(width = strokeWidth * scale, cap = StrokeCap.Butt),
                 )
             }
+            // Hub stays active while connected (wifiBands != null → icon shown).
             drawCircle(color, dotR * scale, anchor)
         }
         TrayIndicator.Bluetooth -> {

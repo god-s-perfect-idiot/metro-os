@@ -41,7 +41,7 @@ data class ToastSnapshot(
 ) {
     /**
      * Message toast copy next to the icon: `sender: message` when both parts exist
-     * (Messaging + social). Soft-wraps in the banner; does not ellipsize mid-line.
+     * (Messaging + social). Rendered as one line with ellipsis when it overflows.
      */
     fun displayLine(): String {
         val t = title.trim()

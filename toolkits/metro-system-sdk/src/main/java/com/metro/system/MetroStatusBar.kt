@@ -58,7 +58,10 @@ object MetroStatusBar {
     /** Translucent tray at [TRANSLUCENT_OPACITY] over content. */
     const val MODE_TRANSLUCENT = "Translucent"
 
-    /** Fully hidden tray (clock still considered essential — use sparingly). */
+    /**
+     * Fully hidden tray — use for fullscreen surfaces (photo viewer, in-call, immersive video).
+     * Prefer [requestFullscreen] so exit restores [MODE_OPAQUE].
+     */
     const val MODE_HIDDEN = "Hidden"
 
     /** Ask the tray to re-read preferences and redraw. */
@@ -74,6 +77,15 @@ object MetroStatusBar {
     /** Ask the tray to switch visibility mode. [mode] must be one of the MODE_* constants. */
     fun requestVisibility(context: Context, mode: String) {
         context.sendBroadcast(request(ACTION_SET_VISIBILITY).putExtra(EXTRA_VISIBILITY_MODE, mode))
+    }
+
+    /**
+     * Hide or show the tray for a fullscreen surface.
+     * [fullscreen] true → [MODE_HIDDEN]; false → [MODE_OPAQUE].
+     * Pair with hiding Android status bars so nothing peeks through under the overlay.
+     */
+    fun requestFullscreen(context: Context, fullscreen: Boolean) {
+        requestVisibility(context, if (fullscreen) MODE_HIDDEN else MODE_OPAQUE)
     }
 
     /** Ask the tray to reveal indicators (tap-equivalent; used when returning home). */

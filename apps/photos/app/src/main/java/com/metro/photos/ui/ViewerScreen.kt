@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import com.metro.photos.R
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroStatusBarFullscreenEffect
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.metroNavBarPadding
 import kotlinx.coroutines.launch
@@ -35,6 +36,8 @@ fun ViewerScreen(
         LaunchedEffect(Unit) { state.navigateBack() }
         return
     }
+
+    MetroStatusBarFullscreenEffect(active = true)
 
     val pagerState = rememberPagerState(
         initialPage = state.viewerIndex.coerceIn(0, photos.lastIndex),

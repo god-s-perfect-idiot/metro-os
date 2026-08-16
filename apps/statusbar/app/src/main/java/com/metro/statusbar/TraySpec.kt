@@ -23,6 +23,8 @@ object TraySpec {
     /** Per-icon slide duration when dropping in or exiting upward. */
     const val EXPAND_ANIMATION_MS = 200L
     const val COLLAPSE_ANIMATION_MS = 200L
+    /** Whole-tray hide / reveal creep into / out of the top edge. */
+    const val CREEP_MS = 200L
     /** Delay between successive icons (right → left) on enter and exit. */
     const val ICON_STAGGER_MS = 90L
     /** WP8.1 default hold after the last enter finishes; setup can choose 3s / 5s / 10s. */
@@ -182,6 +184,8 @@ data class TraySnapshot(
     val indicators: List<TrayIndicator>,
     /** WP8.1 data connection label (4G, LTE, 5G, 3G, 2G, G) shown after cellular bars. */
     val dataConnectionLabel: String?,
+    /** Live cellular bar count and Wi-Fi arc count (null Wi-Fi = icon hidden). */
+    val signalBars: SignalBarsStatus,
     val battery: BatteryStatus,
     val theme: TrayThemeSnapshot,
     /**
@@ -189,6 +193,11 @@ data class TraySnapshot(
      * over SystemUI's panel; [StatusTray] returns without content when this is set.
      */
     val notificationShadeOpen: Boolean = false,
+    /**
+     * True while Android system status bars are hidden (immersive fullscreen). The overlay must
+     * not draw over edge-to-edge fullscreen content.
+     */
+    val systemStatusBarsHidden: Boolean = false,
 )
 
 object TrayIndicatorOrder {
@@ -206,11 +215,21 @@ object TrayIndicatorOrder {
     )
 
     /**
-     * Left-row glyphs that actually draw for [dataConnectionLabel]. Skips [TrayIndicator.DataConnection]
-     * when there is no label so stagger timing matches visible icons.
+     * Left-row glyphs that actually draw for [dataConnectionLabel] / [wifiConnected].
+     * Skips [TrayIndicator.DataConnection] when there is no label and [TrayIndicator.Wifi] when
+     * Wi-Fi is off/disconnected so stagger timing matches visible icons.
      */
-    fun visibleLeft(dataConnectionLabel: String?): List<TrayIndicator> =
-        expanded.filter { it != TrayIndicator.DataConnection || dataConnectionLabel != null }
+    fun visibleLeft(
+        dataConnectionLabel: String?,
+        wifiConnected: Boolean,
+    ): List<TrayIndicator> =
+        expanded.filter {
+            when (it) {
+                TrayIndicator.DataConnection -> dataConnectionLabel != null
+                TrayIndicator.Wifi -> wifiConnected
+                else -> true
+            }
+        }
 }
 
 object TrayCollapseScheduler {

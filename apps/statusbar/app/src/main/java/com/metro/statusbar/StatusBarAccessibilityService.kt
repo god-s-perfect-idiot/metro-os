@@ -18,11 +18,11 @@ import java.util.concurrent.atomic.AtomicReference
  * Android status bar. Mirrors the navbar's accessibility-driven overlay.
  *
  * Also watches interactive windows so the tray can hide while the Android notification shade is
- * open (the overlay would otherwise sit on top of the shade).
+ * open or while system status bars are immersive-hidden (fullscreen).
  */
 class StatusBarAccessibilityService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val shadePoll = Runnable { publishShadeState() }
+    private val chromePoll = Runnable { publishChromeState() }
 
     override fun onServiceConnected() {
         instance.set(this)
@@ -40,11 +40,11 @@ class StatusBarAccessibilityService : AccessibilityService() {
             notificationTimeout = 16
         }
         StatusBarOverlayService.onAccessibilityServiceConnected()
-        publishShadeState()
+        publishChromeState()
     }
 
     override fun onDestroy() {
-        mainHandler.removeCallbacks(shadePoll)
+        mainHandler.removeCallbacks(chromePoll)
         instance.compareAndSet(this, null)
         StatusBarOverlayService.onAccessibilityServiceDisconnected()
         super.onDestroy()
@@ -55,19 +55,19 @@ class StatusBarAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOWS_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            -> scheduleShadeProbe(event)
+            -> scheduleChromeProbe(event)
 
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             -> {
                 // Content churn is noisy across apps; only care when SystemUI is the source.
                 if (NotificationShadeDetector.isSystemUiPackage(event.packageName?.toString())) {
-                    scheduleShadeProbe(event)
+                    scheduleChromeProbe(event)
                 }
             }
         }
     }
 
-    private fun scheduleShadeProbe(event: AccessibilityEvent) {
+    private fun scheduleChromeProbe(event: AccessibilityEvent) {
         if (
             NotificationShadeDetector.isShadeRelatedEvent(
                 packageName = event.packageName,
@@ -76,21 +76,24 @@ class StatusBarAccessibilityService : AccessibilityService() {
         ) {
             StatusBarOverlayService.onNotificationShadeOpenChanged(true)
         }
-        mainHandler.removeCallbacks(shadePoll)
-        // Immediate probe + short follow-up — shade bounds often settle after the event.
-        mainHandler.post(shadePoll)
-        mainHandler.postDelayed(shadePoll, SHADE_POLL_FOLLOWUP_MS)
+        mainHandler.removeCallbacks(chromePoll)
+        // Immediate probe + short follow-up — shade / immersive bounds often settle after the event.
+        mainHandler.post(chromePoll)
+        mainHandler.postDelayed(chromePoll, CHROME_POLL_FOLLOWUP_MS)
     }
 
     override fun onInterrupt() = Unit
 
-    private fun publishShadeState() {
-        val open = NotificationShadeDetector.isShadeOpen(windows, screenHeightPx())
-        StatusBarOverlayService.onNotificationShadeOpenChanged(open)
+    private fun publishChromeState() {
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val shadeOpen = NotificationShadeDetector.isShadeOpen(windows, screenHeightPx(wm))
+        StatusBarOverlayService.onNotificationShadeOpenChanged(shadeOpen)
+        StatusBarOverlayService.onSystemStatusBarsHiddenChanged(
+            SystemStatusBarsDetector.areHidden(wm),
+        )
     }
 
-    private fun screenHeightPx(): Int {
-        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+    private fun screenHeightPx(wm: WindowManager): Int {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             wm.currentWindowMetrics.bounds.height()
         } else {
@@ -102,7 +105,7 @@ class StatusBarAccessibilityService : AccessibilityService() {
     }
 
     companion object {
-        private const val SHADE_POLL_FOLLOWUP_MS = 120L
+        private const val CHROME_POLL_FOLLOWUP_MS = 120L
 
         private val instance = AtomicReference<StatusBarAccessibilityService?>()
 

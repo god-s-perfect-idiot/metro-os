@@ -27,8 +27,9 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 - Height **32dp**; no Material status bar icons
 - Indicator order L→R: cellular + data label, Wi-Fi; battery + clock on the right
 - Tap tray / go home → indicators drop in R→L from above; hold **3s / 5s / 10s** (setup ListPicker, default **5000ms**); exit upward R→L
-- Per-app: apps request opaque / translucent (0.5) / hidden via `metro-system-sdk` API
-- Stub cellular/Wi-Fi data acceptable in v1 (static icons)
+- Per-app: apps request opaque / translucent (0.5) / hidden via `metro-system-sdk` API; fullscreen surfaces use `MetroStatusBarFullscreenEffect`
+- Immersive: when Android status bars are hidden, the Metro tray creeps away (same motion as `MODE_HIDDEN`)
+- Stub call-forwarding / roaming / Bluetooth / quiet-hours glyphs acceptable in v1 (not in expanded row)
 
 ## Primary flows
 
@@ -40,7 +41,8 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 3. Clock updates every minute
 4. Tap tray or Start/home expands indicators (staggered drop); auto-collapse after hold
 5. Swipe down on tray opens the Android notification shade; Metro overlay hides until the shade closes
-6. `ThemeChangeReceiver` updates foreground colors
+6. Immersive / fullscreen apps hide the tray (contract `MODE_HIDDEN` or system status-bar hide)
+7. `ThemeChangeReceiver` updates foreground colors
 
 ## Golden screenshots
 
@@ -65,5 +67,5 @@ screenshots/golden/expanded_dark_blue.png
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
-| True signal strength | Privileged APIs | Static icon set; document in README |
+| True signal strength | Privileged OEM internals | App-level `SignalStrength` + `WifiManager` RSSI mapped to WP bar/arc counts |
 | Action Center chrome while shade open | Metro Action Center out of scope; a11y overlay paints above SystemUI | Hide Metro tray while Android notification shade is open; swipe-down opens shade via `GLOBAL_ACTION_NOTIFICATIONS` |

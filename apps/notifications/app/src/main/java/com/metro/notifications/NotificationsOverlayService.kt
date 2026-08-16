@@ -81,10 +81,8 @@ class NotificationsOverlayService :
         private set
     var accent by mutableStateOf(Color(0xFF1BA1E2))
         private set
-    private var acknowledgeOnExit = false
-
     private val toastTimeout = Runnable {
-        dismissToast(acknowledged = false)
+        dismissToast()
     }
 
     override fun onCreate() {
@@ -129,7 +127,6 @@ class NotificationsOverlayService :
 
     private fun showToast(snapshot: ToastSnapshot) {
         toastExiting = false
-        acknowledgeOnExit = false
         toast = snapshot
         handler.removeCallbacks(toastTimeout)
         handler.postDelayed(toastTimeout, NotificationsPreferences(this).toastDurationMs)
@@ -147,23 +144,25 @@ class NotificationsOverlayService :
         )
     }
 
-    private fun dismissToast(acknowledged: Boolean) {
+    /** Open the notifying app immediately, then flip the toast away. */
+    private fun acknowledgeToast() {
+        val current = toast ?: return
+        if (toastExiting) return
+        // Fire content intent in the tap callback — waiting for the exit flip loses BAL.
+        ActionNotificationListenerService.openNotification(current.key)
+        dismissToast()
+    }
+
+    private fun dismissToast() {
         handler.removeCallbacks(toastTimeout)
         if (toast == null || toastExiting) return
-        acknowledgeOnExit = acknowledged
         toastExiting = true
     }
 
     private fun finishExit() {
         if (!toastExiting) return
-        val current = toast
-        val acknowledged = acknowledgeOnExit
         toastExiting = false
-        acknowledgeOnExit = false
         toast = null
-        if (acknowledged && current != null) {
-            ActionNotificationListenerService.openNotification(current.key)
-        }
         removeOverlay()
     }
 
@@ -210,8 +209,8 @@ class NotificationsOverlayService :
                             toast = current,
                             accent = accent,
                             exiting = toastExiting,
-                            onTap = { dismissToast(acknowledged = true) },
-                            onSwipeDismiss = { dismissToast(acknowledged = false) },
+                            onTap = { acknowledgeToast() },
+                            onSwipeDismiss = { dismissToast() },
                             onExitFinished = { handler.post { finishExit() } },
                         )
                     }
@@ -457,7 +456,7 @@ class NotificationsOverlayService :
             instance?.handler?.post {
                 instance?.toastedKeys?.remove(key)
                 if (instance?.toast?.key == key) {
-                    instance?.dismissToast(acknowledged = false)
+                    instance?.dismissToast()
                 }
             }
         }

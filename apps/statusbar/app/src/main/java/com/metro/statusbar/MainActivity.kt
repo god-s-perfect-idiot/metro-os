@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 permissionTick++
                 if (granted) {
                     state.refreshDataConnectionLabel()
+                    state.refreshSignalBars()
                 }
             }
             val canToggleTray = overlayGranted && accessibilityEnabled
