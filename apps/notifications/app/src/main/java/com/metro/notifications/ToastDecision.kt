@@ -39,7 +39,10 @@ data class ToastSnapshot(
     val title: String,
     val body: String?,
 ) {
-    /** Single truncated line shown next to the icon (WP Phone ToastText01 treatment). */
+    /**
+     * Message toast copy next to the icon: `sender: message` when both parts exist
+     * (Messaging + social). Soft-wraps in the banner; does not ellipsize mid-line.
+     */
     fun displayLine(): String {
         val t = title.trim()
         val b = body?.trim().orEmpty()
@@ -48,7 +51,7 @@ data class ToastSnapshot(
             b.isEmpty() -> t
             b.startsWith(t, ignoreCase = true) -> b
             t.startsWith(b, ignoreCase = true) -> t
-            else -> "$t $b"
+            else -> "$t: $b"
         }
     }
 }

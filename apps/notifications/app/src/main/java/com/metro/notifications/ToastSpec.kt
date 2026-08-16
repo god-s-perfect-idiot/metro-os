@@ -2,7 +2,7 @@ package com.metro.notifications
 
 /** WP8.1 toast banner tokens. Reference: `references/images/toast.png`. */
 object ToastSpec {
-    /** Accent strip: square icon + one message line. Clock lives in the status tray. */
+    /** Accent strip min height: square icon + wrapping message. Clock lives in the status tray. */
     const val HEIGHT_DP = 52
     const val ICON_DP = 32
     const val HORIZONTAL_PADDING_DP = 12
@@ -16,7 +16,7 @@ object ToastSpec {
     val DURATION_OPTIONS_MS: List<Long> = listOf(DURATION_3S_MS, DURATION_5S_MS, DURATION_10S_MS)
     const val SWIPE_DISMISS_DP = 72
     /**
-     * Extra overlay height below the 52dp bar so a perspective `rotationX` trapezoid is not
+     * Extra overlay height below the accent bar so a perspective `rotationX` trapezoid is not
      * clipped by the WindowManager surface.
      */
     const val FLIP_PROJECTION_PAD_DP = 24

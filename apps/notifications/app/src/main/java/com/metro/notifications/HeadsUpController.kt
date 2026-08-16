@@ -19,19 +19,25 @@ object HeadsUpController {
     fun disableStockHeadsUp(context: Context) {
         val prefs = NotificationsPreferences(context)
         val cr = context.contentResolver
-        val current = runCatching {
-            Settings.Global.getInt(cr, HEADS_UP_NOTIFICATIONS_ENABLED, 1)
-        }.getOrDefault(1)
-        prefs.previousHeadsUpEnabled = current
+        val current = readHeadsUpEnabled(cr)
+        // Keep the pre-Metro value across re-entrant disables (FGS restart, listener connect).
+        if (current != 0) {
+            prefs.previousHeadsUpEnabled = current
+        }
         val ok = runCatching {
             Settings.Global.putInt(cr, HEADS_UP_NOTIFICATIONS_ENABLED, 0)
         }.getOrDefault(false)
-        if (!ok) {
+        if (!ok || readHeadsUpEnabled(cr) != 0) {
             Log.w(TAG, "Could not set heads_up_notifications_enabled=0 (need WRITE_SECURE_SETTINGS)")
         }
     }
 
+    /**
+     * Restores the pre-Metro heads-up setting. No-ops while the master toggle is still on so an
+     * overlay FGS restart does not re-enable stock peeks.
+     */
     fun restoreStockHeadsUp(context: Context) {
+        if (NotificationsPreferences(context).enabled) return
         val prefs = NotificationsPreferences(context)
         val ok = runCatching {
             Settings.Global.putInt(
@@ -44,4 +50,12 @@ object HeadsUpController {
             Log.w(TAG, "Could not restore heads_up_notifications_enabled")
         }
     }
+
+    fun isStockHeadsUpDisabled(context: Context): Boolean =
+        readHeadsUpEnabled(context.contentResolver) == 0
+
+    private fun readHeadsUpEnabled(cr: android.content.ContentResolver): Int =
+        runCatching {
+            Settings.Global.getInt(cr, HEADS_UP_NOTIFICATIONS_ENABLED, 1)
+        }.getOrDefault(1)
 }

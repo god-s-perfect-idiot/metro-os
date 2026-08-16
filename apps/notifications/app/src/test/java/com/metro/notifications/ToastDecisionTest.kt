@@ -85,7 +85,7 @@ class ToastDecisionTest {
     }
 
     @Test
-    fun displayLine_joinsTitleAndBody() {
+    fun displayLine_joinsTitleAndBodyWithColon() {
         assertEquals(
             "Carl Cubillas also commented on your post",
             ToastSnapshot(
@@ -96,11 +96,11 @@ class ToastDecisionTest {
             ).displayLine(),
         )
         assertEquals(
-            "Mail Hello from Sam",
+            "Mom: Hello from Sam",
             ToastSnapshot(
                 key = "2",
-                packageName = "com.example",
-                title = "Mail",
+                packageName = "com.metro.messaging",
+                title = "Mom",
                 body = "Hello from Sam",
             ).displayLine(),
         )
@@ -111,6 +111,15 @@ class ToastDecisionTest {
                 packageName = "com.example",
                 title = "Hello",
                 body = "Hello from Sam",
+            ).displayLine(),
+        )
+        assertEquals(
+            "Alex: are you free later?",
+            ToastSnapshot(
+                key = "4",
+                packageName = "com.whatsapp",
+                title = "Alex",
+                body = "are you free later?",
             ).displayLine(),
         )
     }

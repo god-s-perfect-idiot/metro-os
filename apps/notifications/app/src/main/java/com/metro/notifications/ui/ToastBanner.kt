@@ -10,9 +10,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,7 +34,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -49,7 +48,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /**
- * WP8.1 toast: accent-filled bar, square app logo + one truncated line.
+ * WP8.1 toast: accent-filled bar, square app logo + wrapping `sender: message` line.
  * Clock is owned by the status tray — not drawn here.
  *
  * Enters with a perspective 3D tile flip (`rotationX` 90° → 0°) and leaves as the reverse.
@@ -81,12 +80,14 @@ fun ToastBanner(
         }
         ToastFlip(
             exiting = exiting,
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(bottom = ToastSpec.FLIP_PROJECTION_PAD_DP.dp),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(ToastSpec.HEIGHT_DP.dp)
+                    .defaultMinSize(minHeight = ToastSpec.HEIGHT_DP.dp)
                     .offset { IntOffset(dragPx.roundToInt().coerceAtLeast(0), 0) }
                     .background(accent)
                     .pointerInput(toast.key, exiting) {
@@ -120,7 +121,7 @@ fun ToastBanner(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                 ) {
                     ToastAppGlyph(
                         drawable = iconAsset.drawable,
@@ -132,8 +133,7 @@ fun ToastBanner(
                         text = line,
                         style = MetroTextStyle.DialogBody,
                         color = MetroColors.TileContentOnAccent,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        softWrap = true,
                         modifier = Modifier.weight(1f),
                     )
                 }

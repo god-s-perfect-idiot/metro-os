@@ -194,9 +194,6 @@ class NotificationsOverlayService :
                 applicationOverlayWindowType()
             }
         topInsetPx = statusBarInsetPx()
-        val heightPx = ((ToastSpec.HEIGHT_DP + ToastSpec.FLIP_PROJECTION_PAD_DP) *
-            resources.displayMetrics.density).roundToInt()
-            .coerceAtLeast(1)
         val composeView = ComposeView(host).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             clipChildren = false
@@ -223,7 +220,14 @@ class NotificationsOverlayService :
         }
         val manager = host.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         runCatching {
-            manager.addView(composeView, createLayoutParams(windowType, heightPx, topInsetPx))
+            manager.addView(
+                composeView,
+                createLayoutParams(
+                    windowType,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    topInsetPx,
+                ),
+            )
             overlayView = composeView
             overlayManager = manager
             currentWindowType = windowType
@@ -371,9 +375,14 @@ class NotificationsOverlayService :
             val prefs = NotificationsPreferences(context)
             prefs.enabled = enabled
             if (!enabled) {
+                ActionNotificationListenerService.clearHeadsUpSuppression()
+                HeadsUpController.restoreStockHeadsUp(context)
                 stop(context)
                 return
             }
+            // Suppress stock peeks as soon as Metro owns toasts — do not wait for FGS attach.
+            HeadsUpController.disableStockHeadsUp(context)
+            ActionNotificationListenerService.requestHeadsUpSuppression()
             if (!Settings.canDrawOverlays(context) || !NotificationsAccessibilityService.isEnabled()) {
                 return
             }

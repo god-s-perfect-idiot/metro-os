@@ -63,6 +63,10 @@ class MainActivity : ComponentActivity() {
                     if (event == Lifecycle.Event.ON_RESUME) {
                         permissionTick++
                         enabled = notifPrefs.enabled
+                        if (notifPrefs.enabled) {
+                            HeadsUpController.disableStockHeadsUp(context)
+                            ActionNotificationListenerService.requestHeadsUpSuppression()
+                        }
                         if (notifPrefs.enabled &&
                             Settings.canDrawOverlays(context) &&
                             NotificationsAccessibilityService.isEnabled() &&

@@ -10,7 +10,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 - Layout: full-width **accent** bar (~52dp) pinned **below** the status-bar / cutout inset so the banner never draws under a notch. Reference: `images/toast.png` (clock in that capture is tray chrome — do not draw a second clock on the toast).
   - **Square app logo** on the left (manifest / package icon, never a payload image)
-  - **One** truncated white line next to the icon (title, body, or both joined); ellipsis if it does not fit
+  - **Wrapping** white text next to the icon as `sender: message` when both parts exist (MessagingStyle / social title+body); soft-wrap onto new lines instead of ellipsis
 - Navigation: tap launches the notifying app via the notification content intent.
 - Interactions: auto-dismiss after the setup **toast timeout** (3 / 5 / 10 seconds, default **5 seconds**); **swipe right** dismisses the banner. One toast at a time; a new peek replaces the current banner.
 - Do not show for ongoing/FGS, group summaries, shell packages, or active-call notifications.

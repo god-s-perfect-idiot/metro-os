@@ -9,6 +9,8 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
         if (!NotificationsPreferences(context).enabled) return
+        HeadsUpController.disableStockHeadsUp(context)
+        ActionNotificationListenerService.requestHeadsUpSuppression()
         if (!Settings.canDrawOverlays(context)) return
         NotificationsOverlayService.start(context)
     }

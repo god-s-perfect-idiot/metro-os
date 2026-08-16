@@ -23,11 +23,12 @@ statusbar, and not Action Center.
 
 ## WP8.1 rules
 
-- Toast: accent fill, square logo + one truncated line; no clock (tray already shows time); 3/5/10s timeout (setup ListPicker, default 5s), swipe right to dismiss, tap to open
+- Toast: accent fill, square logo + wrapping `sender: message` text; no clock (tray already shows time); 3/5/10s timeout (setup ListPicker, default 5s), swipe right to dismiss, tap to open
 - Enter/exit: perspective 3D tile flip (`rotationX` 90° ↔ 0°, camera from banner width); exit is the reverse of enter
 - Overlay is offset below the status-bar / cutout inset so it does not draw under a notch
 - Overlay window exists **only** while a toast is visible
-- Stock Android heads-up disabled while the overlay FGS runs (`heads_up_notifications_enabled=0`)
+- Stock Android heads-up disabled while **Show notifications** is on
+  (`heads_up_notifications_enabled=0` + listener hints; restore when toggle off)
 - No Action Center, no tray hide/show, no shade contract
 
 ## Primary flows

@@ -72,6 +72,16 @@ cp -f "$APK_BUILD" "$APK_DEPLOY"
 echo "==> install"
 adb install -r "$APK_DEPLOY"
 
+# Notifications replaces AOSP heads-up; grant overlay + secure-settings when installing that app.
+if [[ "$APP" == "notifications" ]]; then
+  adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow >/dev/null 2>&1 \
+    && echo "OK  overlay: notifications" \
+    || echo "WARN  overlay grant failed: notifications"
+  adb shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 \
+    && echo "OK  WRITE_SECURE_SETTINGS: notifications" \
+    || echo "WARN  WRITE_SECURE_SETTINGS grant failed"
+fi
+
 if [[ "$DO_LAUNCH" -eq 1 ]]; then
   echo "==> launch $COMPONENT"
   adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
