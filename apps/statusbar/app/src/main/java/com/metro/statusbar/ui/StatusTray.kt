@@ -67,6 +67,8 @@ import com.metro.statusbar.TrayVisibilityMode
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTransitions
+import com.metro.ui.MetroWifiBandCount
+import com.metro.ui.drawMetroWifiGlyph
 import kotlin.math.abs
 
 /** Empty cellular / Wi-Fi segments — darker than secondary text so they sit back on the tray. */
@@ -77,8 +79,9 @@ private val GlyphWidth = 16.dp
 // Cellular signal bars: slightly wider and shorter than the shared glyph box.
 private val CellularGlyphHeight = 13.dp
 private val CellularGlyphWidth = 18.dp
-private val WifiGlyphHeight = GlyphHeight
-private val WifiGlyphWidth = 18.dp
+// Shared [drawMetroWifiGlyph] is square; outer arc clips the box edges.
+private val WifiGlyphHeight = 13.dp
+private val WifiGlyphWidth = 13.dp
 private val DataGlyphWidth = 22.dp
 // WP8.1 battery sits close to clock cap height, with a slightly longer and shallower silhouette.
 private val BatteryWidth = 29.dp
@@ -465,37 +468,12 @@ private fun DrawScope.drawIndicator(
             drawPath(tri, color)
         }
         TrayIndicator.Wifi -> {
-            // WP8.1 tray Wi-Fi: thick quarter-bands, flat ends, bottom-right origin.
-            // Pack: dot | gap | band | gap | band | gap | band (stroke ≈ gap).
-            // Origin diameter matches band stroke — WP references use a small hub, not a fat disc.
-            val bands = (signalBars.wifiBands ?: 0).coerceIn(0, SignalBarsStatus.WIFI_BAND_COUNT)
-            val anchor = Offset(w * 0.94f, h * 0.94f)
-            val avail = minOf(anchor.x, anchor.y)
-            // Slightly denser than a strict 1:1 pack so bands read as bold as the Microsoft glyph.
-            val strokeWidth = avail / 6.0f
-            val gap = strokeWidth * 0.85f
-            val dotR = strokeWidth * 0.5f
-            val band0 = dotR + gap + strokeWidth * 0.5f
-            val band1 = band0 + strokeWidth + gap
-            val band2 = band1 + strokeWidth + gap
-            // Keep outer half-stroke inside the canvas.
-            val outerEdge = band2 + strokeWidth * 0.5f
-            val scale = if (outerEdge > avail) avail / outerEdge else 1f
-            val radii = floatArrayOf(band0 * scale, band1 * scale, band2 * scale)
-            for (index in radii.indices) {
-                val radius = radii[index]
-                drawArc(
-                    color = if (index < bands) color else inactiveColor,
-                    startAngle = 180f,
-                    sweepAngle = 90f,
-                    useCenter = false,
-                    topLeft = Offset(anchor.x - radius, anchor.y - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = strokeWidth * scale, cap = StrokeCap.Butt),
-                )
-            }
-            // Hub stays active while connected (wifiBands != null → icon shown).
-            drawCircle(color, dotR * scale, anchor)
+            drawMetroWifiGlyph(
+                color = color,
+                inactiveColor = inactiveColor,
+                filledBands = (signalBars.wifiBands ?: 0).coerceIn(0, MetroWifiBandCount),
+                bandCount = MetroWifiBandCount,
+            )
         }
         TrayIndicator.Bluetooth -> {
             val stroke = h * 0.1f

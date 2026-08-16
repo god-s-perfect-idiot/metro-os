@@ -36,6 +36,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.asin
+import kotlin.math.min
 
 /**
  * Shared WP7/8.1 chrome glyphs for the whole suite.
@@ -97,7 +99,13 @@ enum class MetroSystemIconType {
     Pause,
     Next,
     Previous,
+
+    // Status / connectivity (also [drawMetroWifiGlyph] for live signal bands)
+    Wifi,
 }
+
+/** WP8.1 Wi-Fi tray / Settings glyph arc count (excludes the hub). */
+const val MetroWifiBandCount = 3
 
 /** Fraction of icon min-dimension used as chrome glyph stroke (WP8.1-weight). */
 internal const val MetroSystemIconStrokeFraction = 0.085f
@@ -218,7 +226,54 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.Pause -> drawPauseGlyph(color)
         MetroSystemIconType.Next -> drawSkipGlyph(color, forward = true)
         MetroSystemIconType.Previous -> drawSkipGlyph(color, forward = false)
+        MetroSystemIconType.Wifi -> drawMetroWifiGlyph(color = color)
     }
+}
+
+/**
+ * WP8.1 Wi-Fi glyph: hub at bottom-right, three thick quarter-arcs toward top-left.
+ * Outer arc intentionally clips the canvas edges (Settings tile / system-tray look).
+ *
+ * Hub is a full disc that touches the bottom + right edges of the glyph box. Each arc
+ * is concentric with the hub and swept slightly past 90° so its butt ends land on those
+ * same edges — the hub does not bulge past the bars.
+ *
+ * Full-strength chrome uses [MetroSystemIconType.Wifi]. Status tray passes [filledBands]
+ * for live RSSI; inactive arcs use [inactiveColor].
+ */
+fun DrawScope.drawMetroWifiGlyph(
+    color: Color,
+    inactiveColor: Color = color,
+    filledBands: Int = MetroWifiBandCount,
+    bandCount: Int = MetroWifiBandCount,
+) {
+    val bands = filledBands.coerceIn(0, bandCount)
+    val count = bandCount.coerceAtLeast(1)
+    val avail = min(size.width, size.height)
+    // Equal stroke ≈ gap. Sized so the outer half-stroke exceeds [avail] and clips
+    // the top/left edges — matches the Segoe / WP Settings Wi-Fi tile.
+    val strokeWidth = avail * 1.1f / (2f * count + 0.5f)
+    val gap = strokeWidth
+    val hubR = strokeWidth * 0.5f
+    // Inset so the full hub disc stays inside and touches bottom + right.
+    val anchor = Offset(size.width - hubR, size.height - hubR)
+    val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+    for (index in 0 until count) {
+        val radius = hubR + gap + strokeWidth * 0.5f + index * (strokeWidth + gap)
+        // Extend past 180°/270° so butt ends reach the box edges (y = height, x = width).
+        val alpha = Math.toDegrees(asin((hubR / radius).coerceIn(0f, 1f)).toDouble()).toFloat()
+        drawArc(
+            color = if (index < bands) color else inactiveColor,
+            startAngle = 180f - alpha,
+            sweepAngle = 90f + 2f * alpha,
+            useCenter = false,
+            topLeft = Offset(anchor.x - radius, anchor.y - radius),
+            size = Size(radius * 2f, radius * 2f),
+            style = stroke,
+        )
+    }
+    // Hub stays active while connected (callers hide the glyph when disconnected).
+    drawCircle(color, hubR, anchor)
 }
 
 /**

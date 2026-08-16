@@ -11,6 +11,7 @@ import android.os.Build
 import android.telephony.SignalStrength
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import com.metro.ui.MetroWifiBandCount
 
 /**
  * Decoupled radio-strength snapshot so cellular / Wi-Fi telemetry can swap without touching
@@ -26,7 +27,7 @@ data class SignalBarsStatus(
 ) {
     companion object {
         const val CELLULAR_BAR_COUNT = 4
-        const val WIFI_BAND_COUNT = 3
+        const val WIFI_BAND_COUNT = MetroWifiBandCount
 
         /** Neutral full-strength fallback used before the first telemetry read. */
         val Unknown = SignalBarsStatus(
