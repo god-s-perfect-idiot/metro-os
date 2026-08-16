@@ -1,5 +1,6 @@
 package com.metro.launcher.ui
 
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -34,8 +36,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.metro.launcher.R
+import com.metro.ui.MetroAppOpenSplash
 import com.metro.ui.MetroSplashLoadingScreen
 import com.metro.ui.metroNavBarPadding
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+
+/** First dots need ~150–600ms delay + travel before they read as “dancing”. */
+private const val MIN_SPLASH_DOTS_VISIBLE_MS = 700L
 
 /**
  * Two-page shell: Start tiles (page 0) and app menu (page 1).
@@ -59,6 +67,9 @@ fun LauncherShell(
     // Keep splash until Start has actually drawn — dismissing on shell-ready alone leaves a
     // brief black gap while the tile grid mounts. Live-tile refreshes update in place.
     var startDrawn by remember { mutableStateOf(false) }
+    // Cold-start only: do not re-cover Start on resume / live refresh.
+    var coldSplashActive by remember { mutableStateOf(true) }
+    var splashDotsStarted by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.hasCompletedInitialLoad) {
         if (!state.hasCompletedInitialLoad) {
@@ -71,17 +82,25 @@ fun LauncherShell(
         startDrawn = true
     }
 
-    // Splash only for cold-start handoff — not resume / live-provider refreshes.
-    val showSplashLoader = !state.hasCompletedInitialLoad || !startDrawn
-
-    LaunchedEffect(showSplashLoader) {
-        if (showSplashLoader) {
-            onComposeSplashReady()
-        }
-        if (!showSplashLoader && enterWaveKey == 0) {
+    // Hold system splash until Compose dots are actually running, then keep the Compose
+    // loader up until Start has painted *and* dots have had a visible beat (fast loads
+    // were lifting before the delayed off-screen dots entered the track).
+    LaunchedEffect(splashDotsStarted) {
+        if (!coldSplashActive || !splashDotsStarted) return@LaunchedEffect
+        onComposeSplashReady()
+        val visibleSince = SystemClock.elapsedRealtime()
+        snapshotFlow { state.hasCompletedInitialLoad && startDrawn }
+            .first { ready -> ready }
+        val remaining = MIN_SPLASH_DOTS_VISIBLE_MS -
+            (SystemClock.elapsedRealtime() - visibleSince)
+        if (remaining > 0L) delay(remaining)
+        coldSplashActive = false
+        if (enterWaveKey == 0) {
             enterWaveKey = 1
         }
     }
+
+    val showSplashLoader = coldSplashActive
 
     // Home must consume Back: the default finish/relaunch path resumes Start and replays
     // the enter wave (hang). App-list search keeps its own BackHandler (child wins).
@@ -114,13 +133,23 @@ fun LauncherShell(
     DisposableEffect(lifecycleOwner) {
         var skipNextResume = true
         val observer = LifecycleEventObserver { _, event ->
-            if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
-            if (skipNextResume) {
-                skipNextResume = false
-                return@LifecycleEventObserver
-            }
-            if (state.currentPage == 0 && state.editingTile == null) {
-                enterWaveKey++
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    // Target is in front — drop the open splash so it is not stuck on return.
+                    if (state.appOpenSplash?.launched == true) {
+                        state.clearAppOpenSplash()
+                    }
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    if (skipNextResume) {
+                        skipNextResume = false
+                        return@LifecycleEventObserver
+                    }
+                    if (state.currentPage == 0 && state.editingTile == null) {
+                        enterWaveKey++
+                    }
+                }
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -160,7 +189,7 @@ fun LauncherShell(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
                     beyondViewportPageCount = 0,
-                    userScrollEnabled = !editing && !showSplashLoader,
+                    userScrollEnabled = !editing && !showSplashLoader && state.appOpenSplash == null,
                 ) { page ->
                     when (page) {
                         0 -> StartScreen(
@@ -215,10 +244,37 @@ fun LauncherShell(
             MetroSplashLoadingScreen(
                 icon = painterResource(id = R.drawable.ic_launcher_foreground),
                 backgroundColor = state.accent,
+                onDotsStarted = { splashDotsStarted = true },
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("metro_start_splash_loader"),
             )
+        }
+
+        // System-wide app open: splash pivots in over Start, then the activity starts underneath.
+        val openSplash = state.appOpenSplash
+        if (openSplash != null) {
+            val bitmapPainter = openSplash.iconBitmap?.let { bmp ->
+                remember(bmp) { BitmapPainter(bmp) }
+            }
+            val iconPainter = when {
+                openSplash.glyphResId != null -> painterResource(openSplash.glyphResId)
+                else -> bitmapPainter
+            }
+            MetroAppOpenSplash(
+                icon = iconPainter,
+                backgroundColor = openSplash.backgroundColor,
+                onEnterComplete = state::onAppOpenSplashEnterComplete,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("metro_app_open_splash"),
+            )
+            // Fallback if the target never brings us to pause (launch failure).
+            LaunchedEffect(openSplash.launched, openSplash.packageName) {
+                if (!openSplash.launched) return@LaunchedEffect
+                delay(1_500L)
+                state.clearAppOpenSplash()
+            }
         }
     }
 }

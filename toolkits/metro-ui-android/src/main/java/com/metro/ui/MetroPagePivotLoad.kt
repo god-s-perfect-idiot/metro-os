@@ -14,8 +14,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.coroutineScope
@@ -42,18 +44,21 @@ fun metroPagePivotCameraDistance(
 }
 
 /**
- * Full-screen app wrapper — page pivot load on launch; Back runs the flip-out
- * then invokes [onExit] (typically [MetroActivities.finishWithExitTransition]).
+ * Full-screen app wrapper — content at rest on open; Back runs the flip-out then invokes
+ * [onExit] (typically [MetroActivities.finishWithExitTransition]).
  *
- * Place inside [MetroTheme]. Call [MetroActivities.applyLaunchTransition] from
- * the activity `onCreate` so the platform open animation does not fight this
- * Compose pivot. Nested `BackHandler`s take priority, so in-app navigation can
- * intercept Back before this shell exits the activity.
+ * App **open** splash pivot is owned by the Start launcher ([MetroAppOpenSplash]), not by
+ * individual activities — so every package (suite + third-party) gets the same open motion.
+ * Call [MetroActivities.applyLaunchTransition] from `onCreate` so the platform open animation
+ * does not fight Back’s Compose flip-out. Nested `BackHandler`s take priority for in-app nav.
+ *
+ * Pass [skipEnter] false only for rare in-app full-page pivot loads (not Start launches).
  */
 @Composable
 fun MetroAppPivotShell(
     modifier: Modifier = Modifier,
     onExit: () -> Unit,
+    skipEnter: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     var exiting by remember { mutableStateOf(false) }
@@ -69,9 +74,44 @@ fun MetroAppPivotShell(
     MetroPagePivotLoad(
         modifier = modifier.background(MetroTheme.colors.background),
         exiting = exiting,
+        skipEnter = skipEnter,
         onExitComplete = onExit,
     ) {
         content()
+    }
+}
+
+/**
+ * Full-screen splash chrome that page-pivots in — used by the Start launcher as the
+ * system-wide app-open animation (covers Start while the target activity starts underneath).
+ *
+ * [icon] is optional (accent-only splash when null). Prefer a raster/vector [Painter] from the
+ * package’s launcher glyph — do not pass adaptive-icon XML via [painterResource].
+ */
+@Composable
+fun MetroAppOpenSplash(
+    onEnterComplete: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: Painter? = null,
+    backgroundColor: Color = MetroTheme.colors.accent,
+) {
+    MetroPagePivotLoad(
+        modifier = modifier.fillMaxSize(),
+        skipEnter = false,
+        onEnterComplete = onEnterComplete,
+    ) {
+        if (icon != null) {
+            MetroSplashFace(
+                icon = icon,
+                backgroundColor = backgroundColor,
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor),
+            )
+        }
     }
 }
 
@@ -85,6 +125,7 @@ fun MetroAppPivotShell(
  *
  * Pass a distinct [loadKey] when replacing page content so the enter animation runs again.
  * Set [exiting] for the flip-out; [onExitComplete] runs once that outro finishes.
+ * [onEnterComplete] runs after the enter swing finishes (not on exit / [skipEnter]).
  * [skipEnter] keeps content at rest (no swing) without disposing [content].
  *
  * For a hinge-only swing with no X slide (e.g. Start tiles), use [MetroPagePivotSwing].
@@ -96,6 +137,7 @@ fun MetroPagePivotLoad(
     exiting: Boolean = false,
     skipEnter: Boolean = false,
     onExitComplete: (() -> Unit)? = null,
+    onEnterComplete: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     MetroPagePivotMotion(
@@ -104,6 +146,7 @@ fun MetroPagePivotLoad(
         exiting = exiting,
         skipEnter = skipEnter,
         onExitComplete = onExitComplete,
+        onEnterComplete = onEnterComplete,
         translateX = true,
         content = content,
     )

@@ -1,7 +1,6 @@
 package com.metro.ui
 
 import android.animation.Animator
-import android.animation.AnimatorSet
 import android.animation.Keyframe
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
@@ -16,6 +15,7 @@ import androidx.annotation.ColorInt
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
@@ -26,6 +26,9 @@ import androidx.compose.ui.graphics.Color as ComposeColor
  * View-backed WP8.1 dancing dots. Pure [ObjectAnimator] property animation (no update
  * listeners) so the RenderThread can keep the indicator moving when the UI thread is
  * busy — Compose [MetroLoadingDots] shares the UI thread and freezes under load.
+ *
+ * Animators are started individually (not via [android.animation.AnimatorSet]): a set
+ * with infinite-repeating children often never runs or stops after one cycle.
  */
 class MetroLoadingDotsView @JvmOverloads constructor(
     context: Context,
@@ -58,7 +61,10 @@ class MetroLoadingDotsView @JvmOverloads constructor(
         }
     }
 
-    private var animator: AnimatorSet? = null
+    private val running = ArrayList<Animator>(DOT_COUNT * 2 + 1)
+
+    /** Fired once per attach after animators have been started (post-layout). */
+    var onStarted: (() -> Unit)? = null
 
     @ColorInt
     var dotColor: Int = Color.WHITE
@@ -73,11 +79,20 @@ class MetroLoadingDotsView @JvmOverloads constructor(
         setLayerType(LAYER_TYPE_HARDWARE, null)
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = "Loading"
+        // Park dots at their staged offsets before the first frame so a brief flash
+        // still shows the track is “armed” (not four stacked squares at x=0).
+        applyRestingPositions()
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        start()
+        // post: window token + first layout are ready; starting sync from attach can
+        // drop the first delayed keyframes on some API levels.
+        post {
+            if (!isAttachedToWindow) return@post
+            start()
+            onStarted?.invoke()
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -86,13 +101,11 @@ class MetroLoadingDotsView @JvmOverloads constructor(
     }
 
     fun start() {
-        if (animator?.isStarted == true) return
+        if (running.any { it.isStarted }) return
         stop()
+        applyRestingPositions()
 
-        val parts = ArrayList<Animator>(DOT_COUNT * 2 + 1)
-
-        // Container nudge: hold 0 through 25%, then ramp to end (matches Compose dots).
-        parts.add(
+        running.add(
             ObjectAnimator.ofPropertyValuesHolder(
                 this,
                 PropertyValuesHolder.ofKeyframe(
@@ -104,6 +117,7 @@ class MetroLoadingDotsView @JvmOverloads constructor(
             ).apply {
                 duration = CYCLE_MS
                 repeatCount = ValueAnimator.INFINITE
+                start()
             },
         )
 
@@ -117,7 +131,7 @@ class MetroLoadingDotsView @JvmOverloads constructor(
             val tEnd = Keyframe.ofFloat(0.75f, start + travelEndPx).apply {
                 interpolator = easeInOut
             }
-            parts.add(
+            running.add(
                 ObjectAnimator.ofPropertyValuesHolder(
                     dot,
                     PropertyValuesHolder.ofKeyframe(
@@ -131,10 +145,11 @@ class MetroLoadingDotsView @JvmOverloads constructor(
                     duration = CYCLE_MS
                     startDelay = delay
                     repeatCount = ValueAnimator.INFINITE
+                    start()
                 },
             )
 
-            parts.add(
+            running.add(
                 ObjectAnimator.ofPropertyValuesHolder(
                     dot,
                     PropertyValuesHolder.ofKeyframe(
@@ -148,23 +163,23 @@ class MetroLoadingDotsView @JvmOverloads constructor(
                     duration = CYCLE_MS
                     startDelay = delay
                     repeatCount = ValueAnimator.INFINITE
+                    start()
                 },
             )
-        }
-
-        animator = AnimatorSet().apply {
-            playTogether(parts)
-            start()
         }
     }
 
     fun stop() {
-        animator?.cancel()
-        animator = null
+        running.forEach { it.cancel() }
+        running.clear()
         translationX = 0f
-        dots.forEach { dot ->
-            dot.translationX = 0f
-            dot.alpha = 1f
+        applyRestingPositions()
+        dots.forEach { it.alpha = 1f }
+    }
+
+    private fun applyRestingPositions() {
+        dots.forEachIndexed { index, dot ->
+            dot.translationX = startOffsetsPx[index]
         }
     }
 
@@ -186,13 +201,22 @@ class MetroLoadingDotsView @JvmOverloads constructor(
 fun MetroLoadingDotsAndroid(
     modifier: Modifier = Modifier,
     color: ComposeColor = MetroTheme.colors.accent,
+    onStarted: () -> Unit = {},
 ) {
     val argb = color.toArgb()
+    val startedCallback = rememberUpdatedState(onStarted)
     AndroidView(
-        factory = { context -> MetroLoadingDotsView(context) },
+        factory = { context ->
+            MetroLoadingDotsView(context).also { view ->
+                view.onStarted = { startedCallback.value() }
+            }
+        },
         modifier = modifier
             .width(140.dp)
             .height(3.dp),
-        update = { it.dotColor = argb },
+        update = { view ->
+            view.dotColor = argb
+            view.onStarted = { startedCallback.value() }
+        },
     )
 }

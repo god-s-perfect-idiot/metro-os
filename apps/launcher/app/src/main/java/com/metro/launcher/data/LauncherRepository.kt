@@ -20,6 +20,7 @@ import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroStartBackground
 import com.metro.launcher.data.CustomTileBranding
+import com.metro.ui.MetroActivities
 
 data class DisplayTile(
     val entry: PinnedTileEntry,
@@ -91,7 +92,8 @@ class LauncherRepository(private val context: Context) {
     fun queryAppOptions(packageName: String): List<AppLauncherOption> =
         AppLauncherOptions.query(context, packageName)
 
-    fun launchAppOption(option: AppLauncherOption) = AppLauncherOptions.launch(context, option)
+    fun launchAppOption(option: AppLauncherOption, launchContext: Context = context) =
+        AppLauncherOptions.launch(launchContext, option)
 
     fun requestUninstall(hostContext: Context, packageName: String) {
         if (packageName == hostContext.packageName) return
@@ -102,7 +104,11 @@ class LauncherRepository(private val context: Context) {
         hostContext.startActivity(intent)
     }
 
-    fun launchApp(packageName: String, deepLinkUri: String?) {
+    fun launchApp(
+        packageName: String,
+        deepLinkUri: String?,
+        launchContext: Context = context,
+    ) {
         val intent = when {
             !deepLinkUri.isNullOrBlank() -> Intent(Intent.ACTION_VIEW, Uri.parse(deepLinkUri))
             else -> packageManager.getLaunchIntentForPackage(packageName)
@@ -111,7 +117,8 @@ class LauncherRepository(private val context: Context) {
             putExtra(MetroIntents.EXTRA_PACKAGE, packageName)
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        // No platform slide — Start launches are instant until a custom open anim ships.
+        MetroActivities.startActivityWithoutTransition(launchContext, intent)
     }
 
     private fun PinnedTileEntry.toDisplayTile(liveContent: Boolean): DisplayTile {

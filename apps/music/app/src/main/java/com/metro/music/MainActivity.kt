@@ -5,16 +5,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.music.ui.MusicShell
 import com.metro.music.ui.MusicState
 import com.metro.music.ui.PermissionScreen
+import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroSystemTheme
 import com.metro.ui.MetroSplash
 
@@ -31,7 +35,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         MetroSplash.install(this)
         super.onCreate(savedInstanceState)
-        // Music uses a custom launch/exit transition (not MetroAppPivotShell).
+        MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val state = remember { MusicState(this) }
@@ -61,18 +65,23 @@ class MainActivity : ComponentActivity() {
             }
 
             MetroSystemTheme {
-                if (!state.hasAudioPermission) {
-                    PermissionScreen(
-                        onGrant = {
-                            permissionCallback = { granted ->
-                                state.refreshPermissions(this@MainActivity)
-                                if (granted) state.reloadLibrary()
-                            }
-                            requestPermission.launch(MusicState.audioPermissions())
-                        },
-                    )
-                } else {
-                    MusicShell(state = state)
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    if (!state.hasAudioPermission) {
+                        PermissionScreen(
+                            onGrant = {
+                                permissionCallback = { granted ->
+                                    state.refreshPermissions(this@MainActivity)
+                                    if (granted) state.reloadLibrary()
+                                }
+                                requestPermission.launch(MusicState.audioPermissions())
+                            },
+                        )
+                    } else {
+                        MusicShell(state = state)
+                    }
                 }
             }
         }

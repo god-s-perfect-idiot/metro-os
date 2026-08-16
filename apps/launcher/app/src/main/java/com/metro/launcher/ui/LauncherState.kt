@@ -6,12 +6,18 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.database.ContentObserver
+import androidx.annotation.DrawableRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import com.metro.launcher.BuildConfig
 import com.metro.launcher.data.AppLauncherOption
+import com.metro.launcher.data.CustomTileBranding
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.MusicNowPlayingStore
@@ -24,6 +30,7 @@ import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileNotificationAccess
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.launcher.data.tileGridColumnCount
+import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroIntents
@@ -35,6 +42,17 @@ import com.metro.system.MetroTileContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+
+/** Start-owned open animation request — splash pivots in, then the activity starts underneath. */
+data class AppOpenSplashRequest(
+    val packageName: String,
+    val deepLinkUri: String?,
+    val backgroundColor: Color,
+    val iconBitmap: ImageBitmap?,
+    @DrawableRes val glyphResId: Int?,
+    val shortcut: AppLauncherOption? = null,
+    val launched: Boolean = false,
+)
 
 class LauncherState(context: Context) {
     private val appContext = context.applicationContext
@@ -60,6 +78,9 @@ class LauncherState(context: Context) {
     var searchQuery by mutableStateOf("")
     var editingTile by mutableStateOf<DisplayTile?>(null)
     var showNotificationAccessPrompt by mutableStateOf(false)
+    /** Non-null while Start is playing the system-wide splash open for a package. */
+    var appOpenSplash by mutableStateOf<AppOpenSplashRequest?>(null)
+        private set
 
     private var pinnedEntries by mutableStateOf(repository.loadPinnedTiles(gridColumns))
     /**
@@ -267,7 +288,11 @@ class LauncherState(context: Context) {
             MusicNowPlayingStore.togglePlayPause(music.packageName)
             return
         }
-        repository.launchApp(tile.entry.packageName, tile.deepLinkUri)
+        beginAppOpen(
+            packageName = tile.entry.packageName,
+            deepLinkUri = tile.deepLinkUri,
+            backgroundColor = tile.backgroundColor,
+        )
     }
 
     fun launchApp(app: MetroAppInfo) {
@@ -275,8 +300,59 @@ class LauncherState(context: Context) {
         if (pinnedTile != null) {
             onTileClick(pinnedTile)
         } else {
-            repository.launchApp(app.packageName, null)
+            beginAppOpen(packageName = app.packageName, deepLinkUri = null)
         }
+    }
+
+    /**
+     * Shows [MetroAppOpenSplash] for [packageName], then starts the activity when the
+     * pivot enter completes. Covers suite and third-party packages alike.
+     */
+    fun beginAppOpen(
+        packageName: String,
+        deepLinkUri: String?,
+        backgroundColor: Color? = null,
+        shortcut: AppLauncherOption? = null,
+    ) {
+        if (appOpenSplash != null) return
+        val glyphResId = CustomTileBranding.glyphResId(packageName)
+        val bg = backgroundColor
+            ?: CustomTileBranding.resolveBackgroundColor(appContext, packageName)
+            ?: MetroAppBranding.resolveTileBackgroundColor(appContext, packageName)
+        val iconBitmap = if (glyphResId == null) {
+            val px = (OPEN_SPLASH_ICON_DP * appContext.resources.displayMetrics.density)
+                .toInt()
+                .coerceAtLeast(1)
+            MetroAppBranding.loadAppIcon(appContext, packageName)
+                ?.toBitmap(px, px)
+                ?.asImageBitmap()
+        } else {
+            null
+        }
+        appOpenSplash = AppOpenSplashRequest(
+            packageName = packageName,
+            deepLinkUri = deepLinkUri,
+            backgroundColor = bg,
+            iconBitmap = iconBitmap,
+            glyphResId = glyphResId,
+            shortcut = shortcut,
+        )
+    }
+
+    /** Pivot enter finished — start the target under the splash, then clear on pause. */
+    fun onAppOpenSplashEnterComplete() {
+        val req = appOpenSplash ?: return
+        if (req.launched) return
+        if (req.shortcut != null) {
+            repository.launchAppOption(req.shortcut, hostContext)
+        } else {
+            repository.launchApp(req.packageName, req.deepLinkUri, hostContext)
+        }
+        appOpenSplash = req.copy(launched = true)
+    }
+
+    fun clearAppOpenSplash() {
+        appOpenSplash = null
     }
 
     fun onTileLongPress(tile: DisplayTile) {
@@ -449,7 +525,11 @@ class LauncherState(context: Context) {
         }
 
     fun launchAppOption(option: AppLauncherOption) {
-        repository.launchAppOption(option)
+        beginAppOpen(
+            packageName = option.packageName,
+            deepLinkUri = null,
+            shortcut = option,
+        )
     }
 
     fun onSearchQueryChange(query: String) {
@@ -485,5 +565,7 @@ class LauncherState(context: Context) {
     companion object {
         private const val PREFS_LAUNCHER = "metro_launcher"
         private const val KEY_NOTIF_PROMPT_DISMISSED = "notification_access_prompt_dismissed"
+        /** Matches toolkit splash glyph box (288dp). */
+        private const val OPEN_SPLASH_ICON_DP = 288f
     }
 }

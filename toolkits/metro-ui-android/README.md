@@ -134,10 +134,15 @@ MetroTheme { /* … */ ->
 }
 ```
 
-Wraps an activity with page pivot enter on launch and flip-out on Back before
-`finish()`. Call [MetroActivities.applyLaunchTransition] in `onCreate` so the
-platform transition does not fight the Compose pivot. Nested `BackHandler`s
-inside the content take priority for in-app navigation.
+Wraps an activity with content at rest on open and flip-out on Back before
+`finish()`. App-open splash pivot lives on the Start launcher
+([MetroAppOpenSplash]) so every package gets the same motion. Call
+[MetroActivities.applyLaunchTransition] in `onCreate` so the platform transition
+stays off. Nested `BackHandler`s inside the content take priority for in-app
+navigation.
+
+Start / app-list launches should use [MetroActivities.startActivityWithoutTransition]
+(or [MetroActivities.optionsBundleWithoutTransition] for shortcuts).
 
 ### Splash screen
 

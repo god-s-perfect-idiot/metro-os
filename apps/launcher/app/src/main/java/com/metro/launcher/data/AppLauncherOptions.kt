@@ -3,6 +3,7 @@ package com.metro.launcher.data
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.Process
+import com.metro.ui.MetroActivities
 
 object AppLauncherOptions {
     fun query(context: Context, packageName: String): List<AppLauncherOption> {
@@ -34,7 +35,7 @@ object AppLauncherOptions {
                 option.packageName,
                 option.shortcutId,
                 null,
-                null,
+                MetroActivities.optionsBundleWithoutTransition(context),
                 Process.myUserHandle(),
             )
         } catch (_: SecurityException) {

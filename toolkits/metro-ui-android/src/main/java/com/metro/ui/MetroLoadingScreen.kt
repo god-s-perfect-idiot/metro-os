@@ -221,6 +221,30 @@ private val SplashIconSize = 288.dp
 private val SplashIconToDotsGap = 40.dp
 
 /**
+ * Splash chrome only — full-bleed accent + centered app glyph (no dots).
+ * Used as the surface that page-pivots in on app open ([MetroAppPivotShell]).
+ */
+@Composable
+fun MetroSplashFace(
+    icon: Painter,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MetroTheme.colors.accent,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(backgroundColor),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = icon,
+            contentDescription = null,
+            modifier = Modifier.size(SplashIconSize),
+        )
+    }
+}
+
+/**
  * Splash-matched await surface — full-bleed accent, centered app glyph, white dancing
  * dots underneath (no label). Use while shell/content work exceeds the perceived-instant
  * threshold so the cold-start splash does not “hang” without feedback.
@@ -234,6 +258,7 @@ fun MetroSplashLoadingScreen(
     backgroundColor: Color = MetroTheme.colors.accent,
     dotsColor: Color = Color.White,
     contentDescription: String = "Loading",
+    onDotsStarted: () -> Unit = {},
 ) {
     Box(
         modifier = modifier
@@ -256,7 +281,10 @@ fun MetroSplashLoadingScreen(
             )
             // View/ObjectAnimator dots — Compose InfiniteTransition freezes when Start
             // (or other UI work) saturates the main thread during contact/photo loads.
-            MetroLoadingDotsAndroid(color = dotsColor)
+            MetroLoadingDotsAndroid(
+                color = dotsColor,
+                onStarted = onDotsStarted,
+            )
         }
     }
 }
@@ -274,6 +302,16 @@ private fun MetroLoadingScreenDarkPreview() {
 private fun MetroLoadingScreenLightPreview() {
     MetroTheme(darkTheme = false) {
         MetroLoadingScreen()
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF00ABA9, widthDp = 360, heightDp = 640)
+@Composable
+private fun MetroSplashFacePreview() {
+    MetroTheme(darkTheme = true, accent = Color(0xFF00ABA9)) {
+        MetroSplashFace(
+            icon = painterResource(id = R.drawable.ic_launcher_foreground),
+        )
     }
 }
 
