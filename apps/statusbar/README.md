@@ -9,7 +9,7 @@
 only, tap/home staggered indicator reveal (drop from above R→L, 3/5/10s hold, exit upward),
 minute-boundary clock ticks, indeterminate progress affordance, and per-app opaque/translucent/hidden
 modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`) with proportional fill (red at
-≤20%, foreground above) and a charging plug that interrupts the casing outline. Cellular bars use
+≤20%, foreground above). While charging, a solid two-prong plug with a black edge stroke interrupts the casing (head at the top gap, cord ending at the bottom line). Cellular bars use
 `SignalStrength` (`0..4` → four filled bars); the data label uses telephony display info; Wi-Fi arcs
 use `WifiManager` RSSI (`0..3` bands, icon hidden when disconnected).
 
@@ -74,7 +74,8 @@ It does not host Action Center, toasts, or a notification shade.
 - Default resting state
 - Clock only, right-aligned (battery and other indicators hidden)
 - Overlay window is sized to the full system status-bar inset (incl. notch/cutout) so the Android bar is fully covered
-- Horizontal padding uses physical safe edges: display-cutout / waterfall insets, top rounded-corner chords (API 31+), and privacy-indicator bounds — so clock/icons are not clipped on heavily rounded screens
+- Horizontal padding uses physical safe edges: display-cutout / waterfall insets and top rounded-corner chords (API 31+) — so clock/icons are not clipped on heavily rounded screens
+- When Android privacy dots (camera / mic / location) appear near the clock, the clock animates a small end nudge left (200ms); the tray stays opaque and the system dots paint on top
 - Expected reference: `references/images/collapsed_dark.png`
 
 ### 2. Expanded tray

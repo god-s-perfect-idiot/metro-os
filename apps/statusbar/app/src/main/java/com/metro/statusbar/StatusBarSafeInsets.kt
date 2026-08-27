@@ -66,4 +66,21 @@ internal object StatusBarSafeInsets {
 
     fun pxToDpCeil(px: Float, density: Float): Int =
         ceil(px / density).toInt().coerceAtLeast(0)
+
+    /**
+     * True when Android privacy dots occupy the right half of the tray (where the Metro clock
+     * sits). Empty / invalid bounds do not nudge the clock.
+     */
+    fun privacyDotsNearClock(
+        boundsLeft: Float,
+        boundsRight: Float,
+        boundsTop: Float,
+        boundsBottom: Float,
+        windowWidth: Float,
+    ): Boolean {
+        if (windowWidth <= 0f) return false
+        if (boundsRight <= boundsLeft || boundsBottom < boundsTop) return false
+        val centerX = (boundsLeft + boundsRight) / 2f
+        return centerX >= windowWidth / 2f
+    }
 }

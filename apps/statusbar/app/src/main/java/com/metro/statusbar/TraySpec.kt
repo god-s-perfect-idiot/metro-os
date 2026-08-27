@@ -15,7 +15,11 @@ object TraySpec {
      * Center keeps the base paddings only (plus any system cutout / corner / privacy insets).
      */
     const val NOTCH_SIDE_CLEARANCE_DP = 56
-    const val PRIVACY_INDICATOR_GAP_DP = 2
+    /**
+     * Extra end padding applied (and animated) while Android privacy dots sit near the clock.
+     * Small on purpose — the system dots paint on top; this only slides the clock a touch left.
+     */
+    const val PRIVACY_CLOCK_NUDGE_DP = 14
     /** Gap between cellular signal bars and the data connection label (4G, 5G, …). */
     const val CELLULAR_DATA_LABEL_GAP_DP = 2
     /** Extra leading space before Wi-Fi so it sits clearly apart from the network group. */
@@ -25,6 +29,8 @@ object TraySpec {
     const val COLLAPSE_ANIMATION_MS = 200L
     /** Whole-tray hide / reveal creep into / out of the top edge. */
     const val CREEP_MS = 200L
+    /** Clock nudge when privacy dots appear / disappear. */
+    const val PRIVACY_CLOCK_NUDGE_MS = 200L
     /** Delay between successive icons (right → left) on enter and exit. */
     const val ICON_STAGGER_MS = 90L
     /** WP8.1 default hold after the last enter finishes; setup can choose 3s / 5s / 10s. */

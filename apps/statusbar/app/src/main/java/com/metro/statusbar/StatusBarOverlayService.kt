@@ -17,6 +17,9 @@ import android.view.RoundedCorner
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
@@ -54,6 +57,11 @@ class StatusBarOverlayService :
     private var overlayView: ComposeView? = null
     private var overlayManager: WindowManager? = null
     private var currentWindowType: Int? = null
+    /** Cutout / corner / notch chrome padding. */
+    private var leftPaddingDp by mutableStateOf(TraySpec.START_PADDING_DP)
+    private var rightPaddingDp by mutableStateOf(TraySpec.END_PADDING_DP)
+    /** True while Android privacy dots sit near the clock — StatusTray animates a small nudge. */
+    private var privacyDotsNearClock by mutableStateOf(false)
     // Lazily created so it is only built after the service's base context is attached (onCreate),
     // never in the constructor where `this` is not yet a usable Context.
     private val trayState by lazy { TrayState(this) }
@@ -68,6 +76,7 @@ class StatusBarOverlayService :
     private val autoCollapseRunnable = object : Runnable {
         override fun run() {
             trayState.tickAutoCollapse()
+            refreshHorizontalInsets()
             handler.postDelayed(this, 500L)
         }
     }
@@ -140,7 +149,7 @@ class StatusBarOverlayService :
 
         val manager = hostContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val barHeightDp = statusBarInsetDp(manager)
-        val horizontalPadding = statusBarHorizontalPaddingDp(manager, barHeightDp)
+        applyHorizontalInsets(manager, barHeightDp)
         val composeView = ComposeView(hostContext).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             suppressSystemBarInsets()
@@ -157,8 +166,9 @@ class StatusBarOverlayService :
                         onTrayTap = { trayState.toggleExpanded() },
                         onSwipeOpenNotifications = { openNotificationShadeFromTray() },
                         barHeightDp = barHeightDp,
-                        leftPaddingDp = horizontalPadding.left,
-                        rightPaddingDp = horizontalPadding.right,
+                        leftPaddingDp = leftPaddingDp,
+                        rightPaddingDp = rightPaddingDp,
+                        privacyDotsNearClock = privacyDotsNearClock,
                     )
                 }
             }
@@ -243,8 +253,8 @@ class StatusBarOverlayService :
 
     /**
      * Physical left/right padding so tray glyphs clear the configured notch side, cutouts,
-     * waterfall edges, top rounded corners, and Android privacy indicators. Uses absolute edges
-     * (not RTL start/end) because WP tray chrome stays clock-on-right regardless of locale.
+     * waterfall edges, and top rounded corners. Uses absolute edges (not RTL start/end)
+     * because WP tray chrome stays clock-on-right regardless of locale.
      */
     private fun statusBarHorizontalPaddingDp(
         wm: WindowManager,
@@ -306,18 +316,6 @@ class StatusBarOverlayService :
                         ),
                     )
                 }
-
-                val privacyBounds = insets.privacyIndicatorBounds
-                if (privacyBounds != null && !privacyBounds.isEmpty) {
-                    val gapPx = TraySpec.PRIVACY_INDICATOR_GAP_DP * density
-                    val widthPx = bounds.width().toFloat()
-                    if (privacyBounds.centerX() >= widthPx / 2f) {
-                        // Tiny trailing cushion next to the privacy dots — not the full dots width.
-                        systemRightPx = maxOf(systemRightPx, widthPx - privacyBounds.right + gapPx)
-                    } else {
-                        systemLeftPx = maxOf(systemLeftPx, privacyBounds.right + gapPx)
-                    }
-                }
             }
         }
 
@@ -328,10 +326,41 @@ class StatusBarOverlayService :
         )
     }
 
+    /** True when privacy dots are showing on the clock side of the tray (API 31+). */
+    private fun readPrivacyDotsNearClock(wm: WindowManager): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        val metrics = wm.currentWindowMetrics
+        val privacyBounds = metrics.windowInsets.privacyIndicatorBounds ?: return false
+        return StatusBarSafeInsets.privacyDotsNearClock(
+            boundsLeft = privacyBounds.left.toFloat(),
+            boundsRight = privacyBounds.right.toFloat(),
+            boundsTop = privacyBounds.top.toFloat(),
+            boundsBottom = privacyBounds.bottom.toFloat(),
+            windowWidth = metrics.bounds.width().toFloat(),
+        )
+    }
+
+    private fun applyHorizontalInsets(wm: WindowManager, barHeightDp: Int) {
+        val padding = statusBarHorizontalPaddingDp(wm, barHeightDp)
+        leftPaddingDp = padding.left
+        rightPaddingDp = padding.right
+        privacyDotsNearClock = readPrivacyDotsNearClock(wm)
+    }
+
+    /** Re-reads cutout / privacy insets without rebuilding the overlay window. */
+    private fun refreshHorizontalInsets() {
+        val manager = overlayManager ?: return
+        applyHorizontalInsets(manager, statusBarInsetDp(manager))
+    }
+
     /** Draw to the very top edge instead of being pushed below the status bar inset. */
     private fun View.suppressSystemBarInsets() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            setOnApplyWindowInsetsListener { _, _ -> WindowInsets.CONSUMED }
+            setOnApplyWindowInsetsListener { _, _ ->
+                // Privacy-indicator bounds ride on WindowInsets; refresh when they change.
+                refreshHorizontalInsets()
+                WindowInsets.CONSUMED
+            }
         } else {
             @Suppress("DEPRECATION")
             systemUiVisibility = systemUiVisibility or

@@ -33,6 +33,8 @@ object MetroTransitions {
     const val StatusTrayAutoCollapseMs = 5000
     /** Whole-tray hide / reveal creep (slides into / out of the top edge). */
     const val StatusTrayCreepMs = 200
+    /** Clock/battery row slides left/right when Android privacy dots appear or clear. */
+    const val StatusTrayPrivacyNudgeMs = 200
     /** Action Center shade open / close. */
     const val ActionCenterOpenMs = 280
     const val ActionCenterCloseMs = 240
@@ -134,6 +136,11 @@ object MetroTransitions {
 
     fun <T> statusTrayCreepTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = StatusTrayCreepMs,
+        easing = PageEasing,
+    )
+
+    fun <T> statusTrayPrivacyNudgeTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = StatusTrayPrivacyNudgeMs,
         easing = PageEasing,
     )
 

@@ -4,6 +4,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,6 +44,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -101,6 +103,10 @@ private const val DataLabelTextSizeFactor = 0.98f
  * the top edge (200ms). Swipe down opens the Android notification shade and hides this overlay
  * while the shade is expanded. [barHeightDp] lets the overlay fill the whole system status-bar
  * region (including notch/cutout); defaults to the WP 32dp strip for in-app previews.
+ *
+ * When Android privacy dots (camera / mic / location) appear near the clock,
+ * [privacyDotsNearClock] adds a small animated end nudge so the clock slides a touch left.
+ * The tray stays fully opaque — system dots paint on top of the overlay.
  */
 @Composable
 fun StatusTray(
@@ -111,8 +117,10 @@ fun StatusTray(
     barHeightDp: Int = TraySpec.TRAY_HEIGHT_DP,
     /** Physical left inset (cutout / rounded corner); not RTL start. */
     leftPaddingDp: Int = TraySpec.START_PADDING_DP,
-    /** Physical right inset (cutout / rounded corner / privacy dots); not RTL end. */
+    /** Physical right inset (cutout / rounded corner); not RTL end. */
     rightPaddingDp: Int = TraySpec.END_PADDING_DP,
+    /** True while privacy dots sit on the right; animates a small clock nudge left. */
+    privacyDotsNearClock: Boolean = false,
 ) {
     // Shade still hides instantly (overlay must drop so SystemUI is not covered).
     if (snapshot.notificationShadeOpen) return
@@ -164,6 +172,12 @@ fun StatusTray(
     val leftBatteryOffset = if (batteryPresent) 1 else 0
     val acceptInput = trayVisible && barOffset.value < 0.01f
 
+    val privacyNudge by animateDpAsState(
+        targetValue = if (privacyDotsNearClock) TraySpec.PRIVACY_CLOCK_NUDGE_DP.dp else 0.dp,
+        animationSpec = MetroTransitions.statusTrayPrivacyNudgeTween(),
+        label = "privacyClockNudge",
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -201,7 +215,10 @@ fun StatusTray(
                         }
                     }
                 }
-                .absolutePadding(left = leftPaddingDp.dp, right = rightPaddingDp.dp)
+                .absolutePadding(
+                    left = leftPaddingDp.dp,
+                    right = rightPaddingDp.dp + privacyNudge,
+                )
                 .testTag("metro_status_tray"),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -236,6 +253,7 @@ fun StatusTray(
                     TrayBatteryGlyph(
                         battery = snapshot.battery,
                         color = foreground,
+                        backgroundColor = background,
                     )
                 }
                 BasicText(
@@ -550,38 +568,55 @@ private fun DrawScope.drawRoundRectPath(
 }
 
 /**
- * WP8.1 charging overlay: solid two-prong plug with cord. Geometry is sized so prongs and cord
- * interrupt the battery outline (caller draws the casing with matching gaps).
+ * WP8.1 charging overlay — solid two-prong plug with a dark edge stroke.
+ * Rounded head interrupts the top casing; cord runs to the bottom casing line
+ * (does not extend past the battery frame).
  */
 private data class ChargingPlugLayout(
-    val gapLeft: Float,
-    val gapRight: Float,
+    val topGapLeft: Float,
+    val topGapRight: Float,
+    val bottomGapLeft: Float,
+    val bottomGapRight: Float,
+    val outlineWidth: Float,
     val path: Path,
 )
 
 private fun chargingPlugLayout(
     centerX: Float,
-    centerY: Float,
-    bodyHeight: Float,
+    bodyTop: Float,
+    bodyBottom: Float,
+    bodyWidth: Float,
+    strokeWidth: Float,
 ): ChargingPlugLayout {
-    val plugW = bodyHeight * 0.78f
-    val prongW = plugW * 0.20f
-    val prongGap = plugW * 0.24f
-    val prongH = bodyHeight * 0.48f
-    val headH = bodyHeight * 0.40f
-    val cordH = bodyHeight * 0.28f
-    val cordW = prongW * 1.1f
-    val corner = CornerRadius(prongW * 0.65f, prongW * 0.65f)
+    val bodyHeight = bodyBottom - bodyTop
+    val plugW = bodyWidth * 0.32f
+    // Prong/cord weight matches the battery stroke.
+    val prongW = strokeWidth * 1.15f
+    val prongGap = plugW * 0.30f
+    val cordW = strokeWidth * 1.25f
+    val corner = CornerRadius(plugW * 0.18f, plugW * 0.18f)
+    val outlineWidth = strokeWidth * 1.15f
 
-    // Head sits near vertical center; prongs/cord overhang so they cut the casing strokes.
-    val headTop = centerY - headH * 0.42f
-    val prongTop = headTop - prongH * 0.78f
+    // Rounded-square head; top edge covers the top casing stroke.
+    val headH = plugW * 0.95f
+    val headTop = bodyTop - strokeWidth * 0.5f
+    val headBottom = headTop + headH
+    val headLeft = centerX - plugW / 2f
+    val headRight = headLeft + plugW
+
+    // Prongs sit entirely above the battery top border.
+    val prongH = (headTop - 0f).coerceIn(bodyHeight * 0.22f, bodyHeight * 0.38f)
+    val prongTop = headTop - prongH
     val leftProngX = centerX - prongGap / 2f - prongW
     val rightProngX = centerX + prongGap / 2f
-    val headLeft = centerX - plugW / 2f
-    val cordTop = headTop + headH - bodyHeight * 0.02f
-    val gapPad = bodyHeight * 0.08f
 
+    // Cord ends so its dark outline sits flush with the outer bottom casing line.
+    val cordTop = headBottom - strokeWidth * 0.25f
+    val cordBottom = bodyBottom + strokeWidth * 0.5f - outlineWidth * 0.5f
+    val cordH = (cordBottom - cordTop).coerceAtLeast(strokeWidth)
+
+    // Gap pad absorbs half the plug outline so casing meets the dark edge cleanly.
+    val gapPad = outlineWidth * 0.5f + strokeWidth * 0.08f
     val path = Path().apply {
         addRect(Rect(Offset(leftProngX, prongTop), Size(prongW, prongH)))
         addRect(Rect(Offset(rightProngX, prongTop), Size(prongW, prongH)))
@@ -589,43 +624,48 @@ private fun chargingPlugLayout(
             RoundRect(
                 left = headLeft,
                 top = headTop,
-                right = headLeft + plugW,
-                bottom = headTop + headH,
+                right = headRight,
+                bottom = headBottom,
                 cornerRadius = corner,
             ),
         )
         addRect(Rect(Offset(centerX - cordW / 2f, cordTop), Size(cordW, cordH)))
     }
     return ChargingPlugLayout(
-        gapLeft = headLeft - gapPad,
-        gapRight = headLeft + plugW + gapPad,
+        topGapLeft = headLeft - gapPad,
+        topGapRight = headRight + gapPad,
+        bottomGapLeft = centerX - cordW / 2f - gapPad,
+        bottomGapRight = centerX + cordW / 2f + gapPad,
+        outlineWidth = outlineWidth,
         path = path,
     )
 }
 
-/** Battery casing drawn as two open U-paths so the plug can interrupt top/bottom strokes. */
-private fun DrawScope.drawBatteryOutlineWithPlugGap(
+/** Open U-shells: top gap matches the plug head; bottom gap matches the cord. */
+private fun DrawScope.drawBatteryOutlineWithPlugGaps(
     left: Float,
     top: Float,
     right: Float,
     bottom: Float,
-    gapLeft: Float,
-    gapRight: Float,
+    topGapLeft: Float,
+    topGapRight: Float,
+    bottomGapLeft: Float,
+    bottomGapRight: Float,
     strokeWidth: Float,
     color: Color,
 ) {
-    val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+    val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Butt, join = StrokeJoin.Miter)
     val leftShell = Path().apply {
-        moveTo(gapLeft, top)
+        moveTo(topGapLeft, top)
         lineTo(left, top)
         lineTo(left, bottom)
-        lineTo(gapLeft, bottom)
+        lineTo(bottomGapLeft, bottom)
     }
     val rightShell = Path().apply {
-        moveTo(gapRight, top)
+        moveTo(topGapRight, top)
         lineTo(right, top)
         lineTo(right, bottom)
-        lineTo(gapRight, bottom)
+        lineTo(bottomGapRight, bottom)
     }
     drawPath(leftShell, color = color, style = stroke)
     drawPath(rightShell, color = color, style = stroke)
@@ -635,19 +675,32 @@ private fun DrawScope.drawBatteryOutlineWithPlugGap(
 private fun TrayBatteryGlyph(
     battery: BatteryStatus,
     color: Color,
+    backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier.size(width = BatteryWidth, height = BatteryHeight)) {
         val bodyWidth = size.width * 0.898f
-        val bodyHeight = size.height * 0.78f
+        val bodyHeight = size.height * 0.70f
         val left = 0f
         val top = (size.height - bodyHeight) / 2f
         val right = left + bodyWidth
         val bottom = top + bodyHeight
-        val strokeWidth = bodyHeight * 0.078f
+        val strokeWidth = bodyHeight * 0.13f
         val fillColor = if (battery.isLow) MetroColors.AccentRed else color
 
-        val inset = strokeWidth * 1.8f
+        val plug = if (battery.charging) {
+            chargingPlugLayout(
+                centerX = left + bodyWidth * 0.5f,
+                bodyTop = top,
+                bodyBottom = bottom,
+                bodyWidth = bodyWidth,
+                strokeWidth = strokeWidth,
+            )
+        } else {
+            null
+        }
+
+        val inset = strokeWidth * 1.55f
         val fillTrackWidth = bodyWidth - inset * 2f
         val fillWidth = fillTrackWidth * battery.fraction.coerceIn(0f, 1f)
         if (fillWidth > 0f) {
@@ -658,24 +711,21 @@ private fun TrayBatteryGlyph(
             )
         }
 
-        val plug = if (battery.charging) {
-            chargingPlugLayout(
-                centerX = left + bodyWidth * 0.5f,
-                centerY = top + bodyHeight / 2f,
-                bodyHeight = bodyHeight,
-            )
-        } else {
-            null
+        // Clear charge fill under the plug so red/white fill does not show through.
+        if (plug != null) {
+            drawPath(plug.path, color = backgroundColor)
         }
 
         if (plug != null) {
-            drawBatteryOutlineWithPlugGap(
+            drawBatteryOutlineWithPlugGaps(
                 left = left,
                 top = top,
                 right = right,
                 bottom = bottom,
-                gapLeft = plug.gapLeft,
-                gapRight = plug.gapRight,
+                topGapLeft = plug.topGapLeft,
+                topGapRight = plug.topGapRight,
+                bottomGapLeft = plug.bottomGapLeft,
+                bottomGapRight = plug.bottomGapRight,
                 strokeWidth = strokeWidth,
                 color = color,
             )
@@ -696,6 +746,15 @@ private fun TrayBatteryGlyph(
         )
 
         if (plug != null) {
+            drawPath(
+                plug.path,
+                color = Color.Black,
+                style = Stroke(
+                    width = plug.outlineWidth,
+                    join = StrokeJoin.Round,
+                    cap = StrokeCap.Round,
+                ),
+            )
             drawPath(plug.path, color = color)
         }
     }

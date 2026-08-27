@@ -34,11 +34,11 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | Visibility | Apps request opaque / translucent (0.5) / hidden modes via `metro-system-sdk` API; fullscreen surfaces use `MetroStatusBarFullscreenEffect` / `requestFullscreen` |
 | Immersive | When Android status bars are hidden (API 30+), the Metro tray creeps out like `MODE_HIDDEN` |
 | Overlay | `SYSTEM_ALERT_WINDOW` foreground service, hosted as a `TYPE_ACCESSIBILITY_OVERLAY` so it draws above the native status bar |
-| Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally (red ≤20%, foreground above) and shows a plug that interrupts the casing while charging |
+| Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally (red ≤20%, foreground above). While charging: solid two-prong plug with a black edge stroke interrupts the casing — head at the top gap, cord ending at the bottom casing line |
 | Cellular | Real `SignalStrength` level (`0..4`) mapped to four filled bars; data label from telephony display info |
 | Wi-Fi | Real `WifiManager` RSSI mapped to three arcs (`0..3`); icon hidden when Wi-Fi is off/disconnected |
 | Coverage | Window height = system status-bar inset (incl. cutout), so the Android bar is fully covered |
-| Side insets | Physical left/right padding from cutout + waterfall + top rounded-corner chords + privacy dots |
+| Side insets | Physical left/right padding from cutout + waterfall + top rounded-corner chords; when Android privacy dots appear near the clock, the clock animates a small end nudge left (200ms, opaque tray — dots paint on top) |
 | Notification shade | Swipe down on the tray opens the Android notification shade; the Metro overlay hides while the shade is open (accessibility overlay would otherwise paint on top of SystemUI) |
 
 ## Images

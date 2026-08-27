@@ -1,6 +1,7 @@
 package com.metro.statusbar
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -95,5 +96,44 @@ class StatusBarSafeInsetsTest {
         assertEquals(10, StatusBarSafeInsets.pxToDpCeil(30f, 3f))
         assertEquals(0, StatusBarSafeInsets.pxToDpCeil(0f, 2.75f))
         assertEquals(12, StatusBarSafeInsets.pxToDpCeil(32.1f, 2.75f))
+    }
+
+    @Test
+    fun privacyDots_onRight_nudgeClock() {
+        assertTrue(
+            StatusBarSafeInsets.privacyDotsNearClock(
+                boundsLeft = 1000f,
+                boundsRight = 1060f,
+                boundsTop = 4f,
+                boundsBottom = 28f,
+                windowWidth = 1080f,
+            ),
+        )
+    }
+
+    @Test
+    fun privacyDots_onLeft_doNotNudgeClock() {
+        assertFalse(
+            StatusBarSafeInsets.privacyDotsNearClock(
+                boundsLeft = 20f,
+                boundsRight = 80f,
+                boundsTop = 4f,
+                boundsBottom = 28f,
+                windowWidth = 1080f,
+            ),
+        )
+    }
+
+    @Test
+    fun privacyDots_emptyBounds_doNotNudgeClock() {
+        assertFalse(
+            StatusBarSafeInsets.privacyDotsNearClock(
+                boundsLeft = 0f,
+                boundsRight = 0f,
+                boundsTop = 0f,
+                boundsBottom = 0f,
+                windowWidth = 1080f,
+            ),
+        )
     }
 }
