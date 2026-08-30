@@ -1042,8 +1042,8 @@ private fun LauncherTileCell(
                     translationY = if (isDragging) 0f else floatTy
                 },
         ) {
-            // Flip tiles keep a black (or wallpaper) void in the slot; the fill rides on the
-            // rotating face so the Start surface shows through during the 3D flip.
+            // Flip tiles keep a black void in the slot (even transparent window tiles); the
+            // fill rides on the rotating face so black shows through mid-flip like WP8.1.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1052,11 +1052,7 @@ private fun LauncherTileCell(
                         when {
                             showPhotoContent || showStaticPhoto || showChromeFace ||
                                 showMusicNowPlaying -> Modifier
-                            canFlip -> if (useWindowFill) {
-                                Modifier.drawStartBackgroundWindow(startBackground)
-                            } else {
-                                Modifier.background(MetroColors.DarkBackground)
-                            }
+                            canFlip -> Modifier.background(MetroColors.DarkBackground)
                             showProgressOverlay -> if (useWindowFill) {
                                 Modifier.drawStartBackgroundWindow(startBackground)
                             } else {
