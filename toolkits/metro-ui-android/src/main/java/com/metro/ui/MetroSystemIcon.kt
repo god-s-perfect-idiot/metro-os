@@ -59,6 +59,7 @@ enum class MetroSystemIconType {
     Add,
     More,
     SwitchView,
+    Refresh,
 
     // Common app-bar actions
     Phone,
@@ -185,13 +186,14 @@ fun DrawScope.drawMetroSystemIconGlyph(
     when (type) {
         MetroSystemIconType.Forward -> drawForwardGlyph(color, forwardGlyphStroke)
         MetroSystemIconType.Back -> drawBackGlyph(color, glyphStroke)
-        MetroSystemIconType.Search -> drawSearchGlyph(color, glyphStroke)
+        MetroSystemIconType.Search -> drawSearchGlyph(color)
         MetroSystemIconType.Close -> drawCloseGlyph(color)
         MetroSystemIconType.Unpin -> drawUnpinGlyph(color, glyphStroke)
         MetroSystemIconType.Resize -> drawResizeGlyph(color, glyphStroke)
-        MetroSystemIconType.Add -> drawAddGlyph(color, glyphStroke)
+        MetroSystemIconType.Add -> drawAddGlyph(color)
         MetroSystemIconType.More -> drawMoreGlyph(color, glyphStroke)
-        MetroSystemIconType.SwitchView -> drawSwitchViewGlyph(color, glyphStroke)
+        MetroSystemIconType.SwitchView -> drawRefreshGlyph(color)
+        MetroSystemIconType.Refresh -> drawRefreshGlyph(color)
         MetroSystemIconType.Phone -> drawViewportPath(phoneHandsetPath, color, 0.72f)
         MetroSystemIconType.Message -> drawViewportPath(messagingBubblePath, color, 0.66f)
         MetroSystemIconType.Heart -> drawHeartGlyph(color)
@@ -347,18 +349,28 @@ private fun DrawScope.drawBackGlyph(color: Color, stroke: Stroke) {
     drawPath(path, color, style = stroke)
 }
 
-private fun DrawScope.drawSearchGlyph(color: Color, stroke: Stroke) {
-    val arm = size.minDimension * 0.16f
-    val cx = size.width / 2f + arm * 0.375f
-    val cy = size.height / 2f - arm * 0.375f
-    drawCircle(color, arm, Offset(cx, cy), style = stroke)
-    drawLine(
-        color,
-        Offset(cx - arm * 0.65f, cy + arm * 0.65f),
-        Offset(cx - arm * 1.55f, cy + arm * 1.55f),
-        stroke.width,
-        StrokeCap.Butt,
-    )
+/** Filled search — 512 viewBox path from the WP8.1 search reference SVG. */
+private const val SEARCH_GLYPH_PATH =
+    "M325.8 0C223 0 139.6 83.4 139.6 186.2c0 33.5 9 64.8 24.4 92L0 442.2l23.3 46.5L69.8 512l164-164c27.1 15.5 58.5 24.4 92 24.4C428.6 372.4 512 289 512 186.2S428.6 0 325.8 0zm0 314.2c-70.7 0-128-57.3-128-128s57.3-128 128-128s128 57.3 128 128s-57.3 128-128 128z"
+
+private val searchGlyphPath: Path by lazy {
+    PathParser().parsePathString(SEARCH_GLYPH_PATH).toPath().apply {
+        fillType = PathFillType.EvenOdd
+    }
+}
+
+private fun DrawScope.drawSearchGlyph(color: Color) {
+    // Scale the filled reference into the ring inset (same footprint as Close / Check / Add).
+    val scale = size.minDimension / 512f * 0.38f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(searchGlyphPath, color)
+    }
 }
 
 /** Filled cancel X — 512 viewBox path from the WP8.1 close reference SVG. */
@@ -465,12 +477,26 @@ private fun DrawScope.drawResizeGlyph(color: Color, stroke: Stroke) {
     drawPath(path, color, style = stroke)
 }
 
-private fun DrawScope.drawAddGlyph(color: Color, stroke: Stroke) {
-    val arm = size.minDimension * 0.14f
+/** Filled plus — 512 viewBox path from the WP8.1 add reference SVG. */
+private const val ADD_GLYPH_PATH =
+    "M298.7 213.3V0h-85.4v213.3H0v85.4h213.3V512h85.4V298.7H512v-85.4z"
+
+private val addGlyphPath: Path by lazy {
+    PathParser().parsePathString(ADD_GLYPH_PATH).toPath()
+}
+
+private fun DrawScope.drawAddGlyph(color: Color) {
+    // Scale the filled reference plus into the ring inset (same footprint as Close / Check).
+    val scale = size.minDimension / 512f * 0.38f
     val cx = size.width / 2f
     val cy = size.height / 2f
-    drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), stroke.width, StrokeCap.Butt)
-    drawLine(color, Offset(cx, cy - arm), Offset(cx, cy + arm), stroke.width, StrokeCap.Butt)
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(addGlyphPath, color)
+    }
 }
 
 private fun DrawScope.drawMoreGlyph(color: Color, stroke: Stroke) {
@@ -484,36 +510,27 @@ private fun DrawScope.drawMoreGlyph(color: Color, stroke: Stroke) {
     drawCircle(color, r, Offset(cx + spacing, cy))
 }
 
-/** Two opposing horizontal arrows (calendar "switch view"). */
-internal fun DrawScope.drawSwitchViewGlyph(color: Color, stroke: Stroke) {
+/** Filled refresh / rotate — 512 viewBox path from the WP8.1 refresh reference SVG. */
+private const val REFRESH_GLYPH_PATH =
+    "M247.6 393.8c-37.4 0-71.1-15.2-95.9-39.4h95.9l-59.1-59.1H31v157.5L90.1 512V403.6c39.5 42.2 95.2 69 157.5 69c113 0 205.7-86.5 215.6-196.9h-79.8c-9.6 66.7-66.4 118.1-135.8 118.1zM405.2 0v108.4c-39.5-42.2-95.2-69-157.5-69C134.6 39.4 42 125.9 32 236.3h79.8c9.6-66.7 66.5-118.2 135.9-118.2c37.4 0 71.1 15.2 95.9 39.4h-95.9l59.1 59.1h157.5V59.1L405.2 0z"
+
+private val refreshGlyphPath: Path by lazy {
+    PathParser().parsePathString(REFRESH_GLYPH_PATH).toPath()
+}
+
+/** Calendar switch-view and general refresh — filled circular arrows. */
+internal fun DrawScope.drawRefreshGlyph(color: Color) {
+    // Scale the filled reference into the ring inset (same footprint as Close / Check / Add).
+    val scale = size.minDimension / 512f * 0.38f
     val cx = size.width / 2f
-    val halfLen = size.minDimension * 0.22f
-    val offsetY = size.minDimension * 0.10f
-    val head = size.minDimension * MetroSystemIconStrokeFraction
-    val topY = size.height / 2f - offsetY
-    val botY = size.height / 2f + offsetY
-
-    drawLine(color, Offset(cx - halfLen, topY), Offset(cx + halfLen, topY), stroke.width, StrokeCap.Butt)
-    drawPath(
-        Path().apply {
-            moveTo(cx + halfLen - head, topY - head)
-            lineTo(cx + halfLen, topY)
-            lineTo(cx + halfLen - head, topY + head)
-        },
-        color,
-        style = stroke,
-    )
-
-    drawLine(color, Offset(cx - halfLen, botY), Offset(cx + halfLen, botY), stroke.width, StrokeCap.Butt)
-    drawPath(
-        Path().apply {
-            moveTo(cx - halfLen + head, botY - head)
-            lineTo(cx - halfLen, botY)
-            lineTo(cx - halfLen + head, botY + head)
-        },
-        color,
-        style = stroke,
-    )
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(refreshGlyphPath, color)
+    }
 }
 
 private const val PHONE_HANDSET_PATH =
@@ -557,18 +574,26 @@ internal fun DrawScope.drawViewportPath(path: Path, color: Color, glyphScale: Fl
     }
 }
 
+/** Filled heart — 512 viewBox path from the WP8.1 heart reference SVG. */
+private const val HEART_GLYPH_PATH =
+    "M384 28.3c-64 0-96.2 27.6-128 64c-31.8-36.4-64-64-128-64S0 71 0 199c0 64 64 192 256 298.7C448 391 512 263 512 199c0-128-64-170.7-128-170.7"
+
+private val heartGlyphPath: Path by lazy {
+    PathParser().parsePathString(HEART_GLYPH_PATH).toPath()
+}
+
 internal fun DrawScope.drawHeartGlyph(color: Color) {
-    val w = size.width
-    val h = size.height
-    val path = Path().apply {
-        moveTo(w * 0.50f, h * 0.78f)
-        cubicTo(w * 0.22f, h * 0.58f, w * 0.10f, h * 0.38f, w * 0.28f, h * 0.26f)
-        cubicTo(w * 0.40f, h * 0.18f, w * 0.50f, h * 0.28f, w * 0.50f, h * 0.28f)
-        cubicTo(w * 0.50f, h * 0.28f, w * 0.60f, h * 0.18f, w * 0.72f, h * 0.26f)
-        cubicTo(w * 0.90f, h * 0.38f, w * 0.78f, h * 0.58f, w * 0.50f, h * 0.78f)
-        close()
+    // Scale the filled reference heart into the ring inset (same footprint as Close / Check / Add).
+    val scale = size.minDimension / 512f * 0.38f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(heartGlyphPath, color)
     }
-    drawPath(path, color)
 }
 
 private fun DrawScope.drawDialPadGlyph(color: Color, stroke: Stroke) {

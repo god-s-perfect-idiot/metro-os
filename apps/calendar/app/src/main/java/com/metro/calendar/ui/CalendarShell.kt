@@ -133,7 +133,7 @@ fun CalendarShell(
         MetroAppBar(
             icons = listOf(
                 MetroAppBarIcon(
-                    type = MetroSystemIconType.SwitchView,
+                    type = MetroSystemIconType.Refresh,
                     label = stringResource(R.string.view_type),
                     onClick = state::toggleTypePicker,
                     contentDescription = stringResource(R.string.view_type),
