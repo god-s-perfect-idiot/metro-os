@@ -565,7 +565,7 @@ Show progress for operations **> 500ms**. No Material shared-element transitions
 
 All Metro apps use the same icon catalog from `metro-ui-android`. Do not ship duplicate vectors or invent local Canvas glyphs for icons that already exist.
 
-**Stroke language (WP8.1 Segoe UI Symbol):** chrome glyphs use a relatively thick stroke (`~8.5%` of icon min-dimension) with **square terminals** (`StrokeCap.Butt`) and **sharp corners** (`StrokeJoin.Miter`). Do not use thin Material-style round-capped strokes for app-bar / smartbar / SIP chrome.
+**Stroke language (WP8.1 Segoe UI Symbol):** chrome glyphs use a medium stroke (`~4%` of icon min-dimension; matches measured WP8.1 ring/glyph weight on `system_icon_close_check_wp81.png`) with **square terminals** (`StrokeCap.Butt`) and **sharp corners** (`StrokeJoin.Miter`). Do not use thin Material-style round-capped strokes for app-bar / smartbar / SIP chrome.
 
 | Need | Use |
 |------|-----|

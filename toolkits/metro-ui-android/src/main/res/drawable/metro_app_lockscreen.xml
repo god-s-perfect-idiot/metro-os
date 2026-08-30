@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 lock padlock (Segoe / Settings language): arched shackle + hollow body.
+     Scaled into the adaptive-icon safe zone (~70% of the 108dp canvas). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <!-- Shackle: thick U (outer minus inner). -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M34,52L34,36C34,24.4 43.4,16 54,16C64.6,16 74,24.4 74,36L74,52L65.5,52L65.5,36C65.5,29.1 60.4,23.5 54,23.5C47.6,23.5 42.5,29.1 42.5,36L42.5,52Z" />
+        <!-- Body: outer rect minus inset hollow. -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M28,48h52v44h-52zM35,55h38v30h-38z" />
+    </group>
+</vector>

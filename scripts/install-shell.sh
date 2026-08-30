@@ -31,7 +31,7 @@ install_app() {
 echo "==> install-shell: Tier 0 Metro Shell"
 
 # Order matters: launcher sets home, overlays depend on it
-for app in launcher statusbar notifications navbar volume; do
+for app in launcher statusbar notifications navbar volume lockscreen; do
   install_app "$app"
 done
 
@@ -57,6 +57,7 @@ adb shell pm grant com.metro.notifications android.permission.WRITE_SECURE_SETTI
 echo ""
 echo "Enable Volume accessibility (volume keys + overlay layer) from the Volume app setup screen."
 echo "Enable Notifications accessibility + notification access from the Notifications app setup screen."
+echo "Enable Lock screen accessibility + Show lock screen toggle from the Lock screen app setup."
 echo "With Show notifications on, Metro sets heads_up_notifications_enabled=0 so stock peeks do not compete."
 echo ""
 echo "install-shell: done"

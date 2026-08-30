@@ -108,7 +108,7 @@ enum class MetroSystemIconType {
 const val MetroWifiBandCount = 3
 
 /** Fraction of icon min-dimension used as chrome glyph stroke (WP8.1-weight). */
-internal const val MetroSystemIconStrokeFraction = 0.085f
+internal const val MetroSystemIconStrokeFraction = 0.04f
 
 @Composable
 fun MetroSystemIcon(
@@ -465,7 +465,7 @@ internal fun DrawScope.drawSwitchViewGlyph(color: Color, stroke: Stroke) {
     val cx = size.width / 2f
     val halfLen = size.minDimension * 0.22f
     val offsetY = size.minDimension * 0.10f
-    val head = size.minDimension * 0.085f
+    val head = size.minDimension * MetroSystemIconStrokeFraction
     val topY = size.height / 2f - offsetY
     val botY = size.height / 2f + offsetY
 
@@ -1092,8 +1092,8 @@ internal fun DrawScope.drawPlayGlyph(color: Color) {
 internal fun DrawScope.drawPauseGlyph(color: Color) {
     val d = size.minDimension
     val height = d * 0.34f
-    val barWidth = d * 0.085f
-    val gap = d * 0.085f
+    val barWidth = d * MetroSystemIconStrokeFraction
+    val gap = d * MetroSystemIconStrokeFraction
     val cy = size.height / 2f
     val left = size.width / 2f - (barWidth * 2f + gap) / 2f
     drawRect(color, Offset(left, cy - height / 2f), Size(barWidth, height))

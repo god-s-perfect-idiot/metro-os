@@ -30,9 +30,10 @@ Each app is an independent Android project. Package name: `com.metro.<app>`.
 | **Notifications** | `com.metro.notifications` | WP8.1 toast banners; replaces Android heads-up (light overlay, like volume) |
 | **Navigation bar** | `com.metro.navbar` | Soft keys: Back, Start, Search; theme-colored bar; swipe-to-hide on supported layouts |
 | **Volume** | `com.metro.volume` | WP8.1 volume HUD overlay (ringer / media / call); hardware rocker → charcoal panel |
+| **Lock screen** | `com.metro.lockscreen` | WP8.1 lock screen overlay above the system keyguard; swipe-up reveals system unlock; biometrics pass through |
 | **Keyboard** | `com.metro.keyboard` | WP8.1 SIP / Word Flow–style touch keyboard IME + keyboard settings |
 
-These apps form the **Metro Shell** (launcher, status bar, notifications, navigation bar, volume) plus system input. Consumer apps assume the shell is installed and expose WP8.1-standard intents/contracts.
+These apps form the **Metro Shell** (launcher, status bar, notifications, navigation bar, volume, lock screen) plus system input. Consumer apps assume the shell is installed and expose WP8.1-standard intents/contracts.
 
 ### Tier 1 — Core apps (first wave)
 
@@ -517,7 +518,7 @@ All screenshot tests run against `lumia-925` profile unless app README specifies
 ```
 Phase 1: toolkits (metro-ui-android, metro-system-sdk, metro-test-harness)
     ↓
-Phase 2: Tier 0 shell (launcher → statusbar → navbar → volume → keyboard)
+Phase 2: Tier 0 shell (launcher → statusbar → navbar → volume → lockscreen → keyboard)
     ↓
 Phase 3: Tier 1 apps (browser, notes, music) — parallel allowed
     ↓

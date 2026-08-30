@@ -27,12 +27,12 @@ source "$ROOT/scripts/lib/metro-common.sh"
 
 # Same tier order as build-apks.sh / verify-all.sh
 APP_ORDER=(
-  launcher statusbar notifications navbar volume
+  launcher statusbar notifications navbar volume lockscreen
   browser notes music
   photos calendar mail messaging people dialer store settings calculator clock files discord
 )
 
-SHELL_APPS=(launcher statusbar notifications navbar volume)
+SHELL_APPS=(launcher statusbar notifications navbar volume lockscreen)
 
 DO_BUILD=1
 BUILD_VARIANT="debug"

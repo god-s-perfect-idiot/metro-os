@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lock screen</string>
+    <string name="setup_title">customisation</string>
+    <string name="setup_body">Enable accessibility, allow notifications, allow calendar (for the next appointment), allow phone state (for signal bars), and allow full-screen unlock. Swipe up on the Metro lock fill to open the system biometric / PIN unlock screen (not a custom auth page).</string>
+    <string name="enable_accessibility">enable accessibility</string>
+    <string name="grant_notifications">allow notifications</string>
+    <string name="grant_calendar">allow calendar</string>
+    <string name="grant_phone_state">allow signal strength</string>
+    <string name="grant_fullscreen_intent">allow full-screen unlock</string>
+    <string name="fullscreen_intent_granted">Full-screen unlock is already allowed.</string>
+    <string name="show_lockscreen">Show lock screen</string>
+    <string name="show_lockscreen_hint">Enable accessibility first. Allow notifications and full-screen unlock so swipe-up can open the system unlock keypad.</string>
+    <string name="setup_ready">Ready. Turn the screen off and on, then swipe up for the system unlock screen.</string>
+    <string name="permissions_section">permissions</string>
+    <string name="background_mode_label">Background</string>
+    <string name="background_mode_accent">Accent colour</string>
+    <string name="background_mode_custom">Custom background</string>
+    <string name="background_mode_bing">Bing wallpaper</string>
+    <string name="lock_background_label">Lock background</string>
+    <string name="lock_background_choose">choose photo</string>
+    <string name="lock_background_remove">remove</string>
+    <string name="lock_background_save">save</string>
+    <string name="lock_background_cancel">cancel</string>
+    <string name="lock_background_load_failed">Couldn\'t open that photo. Try another.</string>
+    <string name="accessibility_service_description">Metro Lock screen draws a Metro lock surface above the system keyguard and opens the system unlock keypad on swipe-up.</string>
+    <string name="overlay_notification_title">Metro Lock screen</string>
+    <string name="overlay_notification_body">Lock screen host is active</string>
+    <string name="unlock_title">Unlock</string>
+    <string name="unlock_description">System unlock</string>
+    <string name="unlock_notification_channel">Unlock</string>
+</resources>

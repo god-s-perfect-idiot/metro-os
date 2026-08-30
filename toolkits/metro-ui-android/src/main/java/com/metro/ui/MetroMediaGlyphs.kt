@@ -197,7 +197,7 @@ private fun DrawScope.drawShuffleGlyph(color: Color) {
     val s = size.minDimension
     val ox = (size.width - s) / 2f
     val oy = (size.height - s) / 2f
-    val stroke = Stroke(width = s * 0.09f, cap = StrokeCap.Round)
+    val stroke = Stroke(width = s * MetroSystemIconStrokeFraction * 1.06f, cap = StrokeCap.Round)
     val top = 0.27f
     val bottom = 0.73f
 
@@ -225,7 +225,7 @@ private fun DrawScope.drawRepeatGlyph(color: Color) {
     val s = size.minDimension
     val center = Offset(size.width / 2f, size.height / 2f)
     val radius = s * 0.34f
-    val strokeWidth = s * 0.09f
+    val strokeWidth = s * MetroSystemIconStrokeFraction * 1.06f
 
     drawArc(
         color = color,
@@ -257,7 +257,7 @@ private fun DrawScope.drawRepeatOneNumeral(color: Color) {
     val s = size.minDimension
     val ox = (size.width - s) / 2f
     val oy = (size.height - s) / 2f
-    val strokeWidth = s * 0.075f
+    val strokeWidth = s * MetroSystemIconStrokeFraction * 0.88f
     drawLine(
         color,
         Offset(ox + 0.5f * s, oy + 0.35f * s),
@@ -278,7 +278,7 @@ private fun DrawScope.drawQueueGlyph(color: Color) {
     val s = size.minDimension
     val ox = (size.width - s) / 2f
     val oy = (size.height - s) / 2f
-    val strokeWidth = s * 0.105f
+    val strokeWidth = s * MetroSystemIconStrokeFraction * 1.24f
     val dotRadius = strokeWidth * 0.55f
     listOf(0.24f, 0.5f, 0.76f).forEach { row ->
         val y = oy + row * s
