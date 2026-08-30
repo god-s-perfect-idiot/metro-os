@@ -63,8 +63,8 @@ private val LockDayDateStyle = TextStyle(
 private val LockEventStyle = TextStyle(
     fontFamily = MetroFontFamily,
     fontWeight = FontWeight.Normal,
-    fontSize = 26.sp,
-    lineHeight = 30.sp,
+    fontSize = 22.sp,
+    lineHeight = 26.sp,
     platformStyle = LockChromePlatformStyle,
     lineHeightStyle = LockChromeLineHeightStyle,
 )
