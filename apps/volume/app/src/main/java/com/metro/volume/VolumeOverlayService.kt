@@ -4,8 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -42,6 +44,10 @@ import com.metro.volume.ui.VolumeHud
  * The WindowManager view exists only while the HUD is visible — an empty always-on overlay
  * previously could leave a stuck hit target / dead window after process issues. Volume keys
  * without a running instance are not consumed (see [VolumeAccessibilityService]).
+ *
+ * The HUD may draw over an awake lock screen. It must not present while the display is
+ * off or in Always-On Display / doze — rockers fall through and any attached overlay is
+ * removed on screen-off.
  */
 class VolumeOverlayService :
     Service(),
@@ -73,8 +79,22 @@ class VolumeOverlayService :
     private val rehostLock = Any()
     private val tickRunnable = object : Runnable {
         override fun run() {
-            runCatching { controller.tickDismiss() }
+            runCatching {
+                if (!VolumeDisplayGate.shouldPresentHud(this@VolumeOverlayService)) {
+                    hideWhenDisplayAsleepLocked()
+                } else {
+                    controller.tickDismiss()
+                }
+            }
             handler.postDelayed(this, 500L)
+        }
+    }
+
+    private var screenOffReceiverRegistered = false
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != Intent.ACTION_SCREEN_OFF) return
+            hideWhenDisplayAsleepLocked()
         }
     }
 
@@ -85,6 +105,7 @@ class VolumeOverlayService :
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         startForeground(NOTIFICATION_ID, buildNotification())
         controller.register()
+        registerScreenOffReceiver()
         // No window until a volume press shows the HUD.
         handler.post(tickRunnable)
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
@@ -102,6 +123,7 @@ class VolumeOverlayService :
         handler.removeCallbacks(tickRunnable)
         handler.removeCallbacksAndMessages(null)
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        unregisterScreenOffReceiver()
         removeOverlay()
         runCatching { controller.unregister() }
         viewModelStore.clear()
@@ -110,7 +132,29 @@ class VolumeOverlayService :
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private fun registerScreenOffReceiver() {
+        if (screenOffReceiverRegistered) return
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenOffReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(screenOffReceiver, filter)
+        }
+        screenOffReceiverRegistered = true
+    }
+
+    private fun unregisterScreenOffReceiver() {
+        if (!screenOffReceiverRegistered) return
+        runCatching { unregisterReceiver(screenOffReceiver) }
+        screenOffReceiverRegistered = false
+    }
+
     private fun ensureOverlayShowing() {
+        if (!VolumeDisplayGate.shouldPresentHud(this)) {
+            hideWhenDisplayAsleepLocked()
+            return
+        }
         synchronized(rehostLock) {
             if (overlayView != null) return
             attachOverlay()
@@ -124,17 +168,28 @@ class VolumeOverlayService :
         }
     }
 
+    /** Tear down the HUD immediately (no exit wipe) when the display leaves STATE_ON. */
+    private fun hideWhenDisplayAsleepLocked() {
+        if (!controller.visible && overlayView == null) return
+        controller.dismiss()
+        removeOverlay()
+    }
+
     private fun rehostOverlay() {
         synchronized(rehostLock) {
             val wasVisible = controller.visible
             removeOverlayLocked()
-            if (wasVisible) {
+            if (wasVisible && VolumeDisplayGate.shouldPresentHud(this)) {
                 attachOverlay()
             }
         }
     }
 
     private fun attachOverlay() {
+        if (!VolumeDisplayGate.shouldPresentHud(this)) {
+            hideWhenDisplayAsleepLocked()
+            return
+        }
         val accessibilityHost = VolumeAccessibilityService.getInstance()
         val host: Context = accessibilityHost ?: this
         val windowType =
@@ -167,7 +222,8 @@ class VolumeOverlayService :
                     onCallLevel = { controller.updateCallLevel(it) },
                     onToggleRingerMute = { controller.toggleRingerMute() },
                     onToggleMediaMute = { controller.toggleMediaMute() },
-                    onToggleVibrate = { controller.toggleVibrate() },
+                    onToggleSilentMode = { controller.toggleSilentMode() },
+                    onOpenSoundSettings = { controller.openSoundSettings() },
                     onWindowHeightDp = { heightDp ->
                         // Compose is on the main thread — update synchronously so the
                         // overlay grows before the wipe starts (handler.post races).
@@ -353,13 +409,26 @@ class VolumeOverlayService :
 
         fun onVolumeKey(delta: Int): Boolean {
             val svc = instance ?: return false
+            if (!VolumeDisplayGate.shouldPresentHud(svc)) {
+                svc.handler.post { svc.hideWhenDisplayAsleepLocked() }
+                return false
+            }
             svc.handler.post {
                 runCatching {
+                    if (!VolumeDisplayGate.shouldPresentHud(svc)) {
+                        svc.hideWhenDisplayAsleepLocked()
+                        return@runCatching
+                    }
                     svc.controller.onVolumeKey(delta)
                     svc.ensureOverlayShowing()
                 }.onFailure { Log.e(TAG, "onVolumeKey failed", it) }
             }
             return true
+        }
+
+        /** Drop any visible HUD when the display turns off or enters AOD/doze. */
+        fun hideWhenDisplayAsleep() {
+            instance?.let { svc -> svc.handler.post { svc.hideWhenDisplayAsleepLocked() } }
         }
 
         fun start(context: Context) {

@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * Keys are only consumed when [VolumeOverlayService] is alive and can adjust volume.
  * Otherwise they fall through to the system so rockers never appear "stuck."
+ * Keys also fall through while the display is off or in AOD/doze so the Metro HUD never
+ * covers Always-On Display; an awake lock screen is fine.
  *
  * Accessibility key filters often omit system key-repeat events, so hold-to-change is
  * implemented here with an explicit auto-repeat timer (initial delay + interval).
@@ -71,6 +73,13 @@ class VolumeAccessibilityService : AccessibilityService() {
         // Master toggle off → never consume rockers; let Android's stock HUD handle them.
         if (!VolumeHudPreferences(this).enabled) {
             stopRepeat()
+            return false
+        }
+
+        // Display off / AOD → never show Metro HUD; fall through to the system.
+        if (!VolumeDisplayGate.shouldPresentHud(this)) {
+            stopRepeat()
+            VolumeOverlayService.hideWhenDisplayAsleep()
             return false
         }
 

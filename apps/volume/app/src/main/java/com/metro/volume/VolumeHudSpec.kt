@@ -20,11 +20,19 @@ object VolumeHudSpec {
      */
     const val SHOW_HIDE_MS = 200
     const val COLLAPSED_HEIGHT_DP = 48
-    /** Dual-slider expanded panel (header + primary slider + other stream + vibrate). */
-    const val EXPANDED_HEIGHT_DP = 220
+    /** Dual-slider expanded panel (header/ringer + media stream + actions + chevron). */
+    const val EXPANDED_HEIGHT_DP = 248
     /** Single call-slider expanded panel (header + slider). */
     const val EXPANDED_IN_CALL_HEIGHT_DP = 92
-    const val BOTTOM_ROW_HEIGHT_DP = 44
+    const val BOTTOM_ROW_HEIGHT_DP = 34
+    /** Row under silent/sound actions that hosts the up chevron. */
+    const val CHEVRON_BELOW_ROW_HEIGHT_DP = 32
+    const val CHEVRON_HEADER_SIZE_DP = 22
+    const val CHEVRON_EXPANDED_SIZE_DP = 18
+    /** Glyph size for silent / sound-settings action icons. */
+    const val ACTION_ICON_SIZE_DP = 16
+    /** Silent mode / sound settings labels — denser than stream DialogBody (16sp). */
+    const val ACTION_LABEL_FONT_SP = 14
     const val HORIZONTAL_PADDING_DP = 12
 
     val PanelBackground = Color(0xFF252525)
@@ -65,7 +73,7 @@ data class VolumeHudSnapshot(
     val ringerLevel: Int,
     val mediaLevel: Int,
     val callLevel: Int,
-    val vibrateOn: Boolean,
+    val silentModeOn: Boolean,
     val inCall: Boolean,
     val accentColor: androidx.compose.ui.graphics.Color,
 ) {
@@ -87,7 +95,7 @@ data class VolumeHudSnapshot(
             ringerLevel = 0,
             mediaLevel = 0,
             callLevel = 0,
-            vibrateOn = true,
+            silentModeOn = false,
             inCall = false,
             accentColor = Color(0xFF1BA1E2),
         )

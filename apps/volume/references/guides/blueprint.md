@@ -18,10 +18,12 @@
 
 ### Page 2 — Volume HUD expanded
 
-- Dual rows (non-call):
+- Dual rows (non-call), **fixed order** (never swap when the other stream becomes active):
   1. **Ringer + Notifications** — header `NN` (large white) `/10` (muted) + gray label; next row: **bell** mute icon **left of** continuous accent slider (0–10)
   2. **Media + Apps** — same pattern with note icon + slider (0–30)
-- Bottom row: vibrate glyph + **VIBRATE ON** (accent) / `vibrate off` (muted); **up** chevron (right) to collapse
+- Actions row: muted-speaker glyph + **SILENT MODE ON** (accent) / **SILENT MODE OFF** (white); gear + **SOUND SETTINGS** (white, opens system sound settings)
+- Silent mode ON (one tap): accent highlight + set **all** stream levels to 0 (ringer / media / call); OFF restores prior levels
+- Smaller **up** chevron below the actions row, right-aligned (not inline with the actions)
 - In-call expanded: single **Call volume** slider only (0–10)
 - Mute: tapping the stream icon sets that stream to 0 (or restores the previous level)
 - Always dark charcoal chrome, independent of light Start
@@ -35,8 +37,9 @@
 | Master toggle | Setup **Show volume controls** starts/stops the overlay FGS; boot respects the same flag |
 | Overlay | `SYSTEM_ALERT_WINDOW` FGS, hosted as `TYPE_ACCESSIBILITY_OVERLAY` when a11y connected |
 | Keys | When enabled, `FLAG_REQUEST_FILTER_KEY_EVENTS` consumes volume rockers (suppresses Android stock HUD); when off, rockers fall through |
-| Theme | Observe `THEME_CHANGED` for accent on sliders / VIBRATE |
-| Scales | WP display scales map proportionally onto `STREAM_RING` / `STREAM_MUSIC` / `STREAM_VOICE_CALL` |
+| Lock / AOD | May present over an awake lock screen; never over display-off or AOD/doze — rockers fall through and any attached overlay is removed on screen-off |
+| Theme | Observe `THEME_CHANGED` for accent on sliders / silent-mode ON |
+| Scales | WP display scales map proportionally onto `STREAM_RING` / `STREAM_MUSIC` / `STREAM_VOICE_CALL`; WP ticks stay source of truth across coarse Android maxima |
 
 ## Images
 
@@ -49,4 +52,4 @@
 
 - Headphone / Bluetooth accessory-specific volume rows
 - SMTC / media transport chrome under the volume HUD
-- Settings → ringtones+sounds deep-link from the HUD
+- Metro Settings → ringtones+sounds deep-link (SOUND SETTINGS opens Android sound settings for now)

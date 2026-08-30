@@ -53,12 +53,32 @@ class VolumeHudLogicTest {
     }
 
     @Test
+    fun stepWpAcrossAndroid_mediaScaleDoesNotPinAtTwo() {
+        // Regression: android 1/15 maps to WP 2/30; without preferred ticks the HUD
+        // looked stuck at 2 when setStreamVolume lagged or failed on some OEMs.
+        var level = 2
+        for (expected in 3..10) {
+            level = VolumeHudLogic.stepWpAcrossAndroid(level, 1, androidMax = 15, wpMax = 30)
+            assertEquals(expected, level)
+        }
+    }
+
+    @Test
     fun stepWpAcrossAndroid_typicalRingMaxSeven() {
         var level = 10
         for (expected in 9 downTo 0) {
             level = VolumeHudLogic.stepWpAcrossAndroid(level, -1, androidMax = 7, wpMax = 10)
             assertEquals(expected, level)
         }
+    }
+
+    @Test
+    fun expandedPanelHeight_fitsActionsAndChevronBelow() {
+        assertEquals(248, VolumeHudSpec.EXPANDED_HEIGHT_DP)
+        assertEquals(18, VolumeHudSpec.CHEVRON_EXPANDED_SIZE_DP)
+        assertEquals(32, VolumeHudSpec.CHEVRON_BELOW_ROW_HEIGHT_DP)
+        assertTrue(VolumeHudSpec.CHEVRON_EXPANDED_SIZE_DP < VolumeHudSpec.CHEVRON_HEADER_SIZE_DP)
+        assertTrue(VolumeHudSpec.CHEVRON_BELOW_ROW_HEIGHT_DP > VolumeHudSpec.CHEVRON_EXPANDED_SIZE_DP)
     }
 
     @Test
@@ -149,5 +169,76 @@ class VolumeHudLogicTest {
     fun keyRepeatTiming_matchesHoldToStepSpec() {
         assertEquals(400L, VolumeHudSpec.KEY_REPEAT_INITIAL_MS)
         assertEquals(100L, VolumeHudSpec.KEY_REPEAT_INTERVAL_MS)
+    }
+
+    @Test
+    fun toggleSilentMode_enterZerosAllStreamsAndHighlights() {
+        val next = VolumeHudLogic.toggleSilentMode(
+            currentlySilent = false,
+            ringerLevel = 7,
+            mediaLevel = 18,
+            callLevel = 4,
+            ringerRestore = 5,
+            mediaRestore = 15,
+            callRestore = 5,
+        )
+        assertTrue(next.silentModeOn)
+        assertEquals(0, next.ringerLevel)
+        assertEquals(0, next.mediaLevel)
+        assertEquals(0, next.callLevel)
+        assertEquals(7, next.ringerRestore)
+        assertEquals(18, next.mediaRestore)
+        assertEquals(4, next.callRestore)
+    }
+
+    @Test
+    fun toggleSilentMode_exitRestoresAllStreams() {
+        val next = VolumeHudLogic.toggleSilentMode(
+            currentlySilent = true,
+            ringerLevel = 0,
+            mediaLevel = 0,
+            callLevel = 0,
+            ringerRestore = 7,
+            mediaRestore = 18,
+            callRestore = 4,
+        )
+        assertFalse(next.silentModeOn)
+        assertEquals(7, next.ringerLevel)
+        assertEquals(18, next.mediaLevel)
+        assertEquals(4, next.callLevel)
+    }
+
+    @Test
+    fun shouldPresentHud_requiresFullyAwakeDisplay() {
+        assertTrue(
+            VolumeDisplayGate.shouldPresentHud(
+                displayState = android.view.Display.STATE_ON,
+                interactive = true,
+            ),
+        )
+        assertFalse(
+            VolumeDisplayGate.shouldPresentHud(
+                displayState = android.view.Display.STATE_OFF,
+                interactive = false,
+            ),
+        )
+        assertFalse(
+            VolumeDisplayGate.shouldPresentHud(
+                displayState = android.view.Display.STATE_DOZE,
+                interactive = true,
+            ),
+        )
+        assertFalse(
+            VolumeDisplayGate.shouldPresentHud(
+                displayState = android.view.Display.STATE_DOZE_SUSPEND,
+                interactive = false,
+            ),
+        )
+        assertFalse(
+            VolumeDisplayGate.shouldPresentHud(
+                displayState = android.view.Display.STATE_ON,
+                interactive = false,
+            ),
+        )
     }
 }

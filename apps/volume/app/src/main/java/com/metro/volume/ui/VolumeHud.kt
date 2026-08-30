@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -29,8 +30,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.metro.ui.MetroBarStepSlider
+import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -38,6 +46,8 @@ import com.metro.volume.VolumeHudLogic
 import com.metro.volume.VolumeHudSnapshot
 import com.metro.volume.VolumeHudSpec
 import com.metro.volume.VolumeStreamKind
+import kotlin.math.atan2
+import kotlin.math.sin
 
 /**
  * WP8.1 volume control HUD — collapsed strip or expanded dual-slider panel.
@@ -58,7 +68,8 @@ fun VolumeHud(
     onCallLevel: (Int) -> Unit,
     onToggleRingerMute: () -> Unit,
     onToggleMediaMute: () -> Unit,
-    onToggleVibrate: () -> Unit,
+    onToggleSilentMode: () -> Unit,
+    onOpenSoundSettings: () -> Unit,
     onWindowHeightDp: (Int) -> Unit = {},
     onExitFinished: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -154,12 +165,14 @@ fun VolumeHud(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .requiredHeight(bodyRestingDp.dp),
+                            onCollapse = onCollapse,
                             onRingerLevel = onRingerLevel,
                             onMediaLevel = onMediaLevel,
                             onCallLevel = onCallLevel,
                             onToggleRingerMute = onToggleRingerMute,
                             onToggleMediaMute = onToggleMediaMute,
-                            onToggleVibrate = onToggleVibrate,
+                            onToggleSilentMode = onToggleSilentMode,
+                            onOpenSoundSettings = onOpenSoundSettings,
                         )
                     }
                 }
@@ -168,13 +181,25 @@ fun VolumeHud(
     }
 }
 
-/** Collapsed top-bar chrome: level label + chevron. Stable across expand / collapse. */
+/**
+ * Collapsed top-bar chrome: level label + down chevron.
+ * When expanded (non-call), the label is always Ringer (fixed dual-row order) and
+ * the up chevron lives below the actions row instead.
+ */
 @Composable
 private fun VolumeHeader(
     snapshot: VolumeHudSnapshot,
     onToggleExpanded: () -> Unit,
     onCollapse: () -> Unit,
 ) {
+    val chevronInHeader = !snapshot.expanded || snapshot.inCall
+    // Expanded dual-slider keeps Ringer on top — header must match that row, not
+    // activeStream, or adjusting Media would make the label disagree with the slider.
+    val headerKind = when {
+        snapshot.expanded && !snapshot.inCall -> VolumeStreamKind.Ringer
+        else -> snapshot.activeStream
+    }
+    val headerLevel = levelOf(headerKind, snapshot)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -189,85 +214,102 @@ private fun VolumeHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         VolumeLevelLabel(
-            level = snapshot.collapsedLevel,
-            max = snapshot.collapsedMax,
-            streamLabel = snapshot.collapsedLabel,
+            level = headerLevel,
+            max = headerKind.wpMax,
+            streamLabel = headerKind.label,
             modifier = Modifier.weight(1f),
         )
-        ChevronIcon(
-            pointingDown = !snapshot.expanded,
-            color = VolumeHudSpec.PrimaryText,
-        )
+        if (chevronInHeader) {
+            ChevronIcon(
+                pointingDown = !snapshot.expanded,
+                color = VolumeHudSpec.PrimaryText,
+                sizeDp = VolumeHudSpec.CHEVRON_HEADER_SIZE_DP,
+            )
+        }
     }
 }
 
 /**
- * Content revealed under the header when expanded. Primary stream matches the
- * header label so the slider appears directly below the text the user already sees.
+ * Content revealed under the header when expanded.
+ * Non-call order is fixed: Ringer slider under the header, then Media — never swap
+ * when [VolumeHudSnapshot.activeStream] changes (that made the lower slider jump).
+ * Actions row: silent mode + sound settings; up chevron sits below that row.
  */
 @Composable
 private fun VolumeBody(
     snapshot: VolumeHudSnapshot,
+    onCollapse: () -> Unit,
     onRingerLevel: (Int) -> Unit,
     onMediaLevel: (Int) -> Unit,
     onCallLevel: (Int) -> Unit,
     onToggleRingerMute: () -> Unit,
     onToggleMediaMute: () -> Unit,
-    onToggleVibrate: () -> Unit,
+    onToggleSilentMode: () -> Unit,
+    onOpenSoundSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val headerKind = snapshot.activeStream
-    val headerLevel = snapshot.collapsedLevel
-    val otherKind = when {
-        snapshot.inCall -> null
-        headerKind == VolumeStreamKind.Ringer -> VolumeStreamKind.Media
-        else -> VolumeStreamKind.Ringer
-    }
-
     Column(modifier = modifier) {
-        StreamSliderRow(
-            kind = headerKind,
-            level = headerLevel,
-            muted = headerLevel <= 0,
-            onLevel = levelHandler(headerKind, onRingerLevel, onMediaLevel, onCallLevel),
-            onToggleMute = muteHandler(
-                kind = headerKind,
-                level = headerLevel,
-                onRingerMute = onToggleRingerMute,
-                onMediaMute = onToggleMediaMute,
-                onCallLevel = onCallLevel,
-            ),
-        )
+        if (snapshot.inCall) {
+            val callLevel = snapshot.callLevel
+            StreamSliderRow(
+                kind = VolumeStreamKind.Call,
+                level = callLevel,
+                muted = callLevel <= 0,
+                onLevel = onCallLevel,
+                onToggleMute = {
+                    onCallLevel(if (callLevel <= 0) 5 else 0)
+                },
+            )
+            return@Column
+        }
 
-        if (otherKind != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            VolumeStreamRow(
-                kind = otherKind,
-                level = levelOf(otherKind, snapshot),
-                muted = levelOf(otherKind, snapshot) <= 0,
-                onLevel = levelHandler(otherKind, onRingerLevel, onMediaLevel, onCallLevel),
-                onToggleMute = muteHandler(
-                    kind = otherKind,
-                    level = levelOf(otherKind, snapshot),
-                    onRingerMute = onToggleRingerMute,
-                    onMediaMute = onToggleMediaMute,
-                    onCallLevel = onCallLevel,
+        val ringerLevel = snapshot.ringerLevel
+        StreamSliderRow(
+            kind = VolumeStreamKind.Ringer,
+            level = ringerLevel,
+            muted = ringerLevel <= 0,
+            onLevel = onRingerLevel,
+            onToggleMute = onToggleRingerMute,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        VolumeStreamRow(
+            kind = VolumeStreamKind.Media,
+            level = snapshot.mediaLevel,
+            muted = snapshot.mediaLevel <= 0,
+            onLevel = onMediaLevel,
+            onToggleMute = onToggleMediaMute,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(VolumeHudSpec.BOTTOM_ROW_HEIGHT_DP.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SilentModeToggle(
+                silentOn = snapshot.silentModeOn,
+                accent = snapshot.accentColor,
+                onToggle = onToggleSilentMode,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            SoundSettingsAction(onClick = onOpenSoundSettings)
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(VolumeHudSpec.CHEVRON_BELOW_ROW_HEIGHT_DP.dp),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            ChevronIcon(
+                pointingDown = false,
+                color = VolumeHudSpec.PrimaryText,
+                sizeDp = VolumeHudSpec.CHEVRON_EXPANDED_SIZE_DP,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCollapse,
                 ),
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(VolumeHudSpec.BOTTOM_ROW_HEIGHT_DP.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                VibrateToggle(
-                    vibrateOn = snapshot.vibrateOn,
-                    accent = snapshot.accentColor,
-                    onToggle = onToggleVibrate,
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -276,29 +318,6 @@ private fun levelOf(kind: VolumeStreamKind, snapshot: VolumeHudSnapshot): Int = 
     VolumeStreamKind.Ringer -> snapshot.ringerLevel
     VolumeStreamKind.Media -> snapshot.mediaLevel
     VolumeStreamKind.Call -> snapshot.callLevel
-}
-
-private fun levelHandler(
-    kind: VolumeStreamKind,
-    onRingerLevel: (Int) -> Unit,
-    onMediaLevel: (Int) -> Unit,
-    onCallLevel: (Int) -> Unit,
-): (Int) -> Unit = when (kind) {
-    VolumeStreamKind.Ringer -> onRingerLevel
-    VolumeStreamKind.Media -> onMediaLevel
-    VolumeStreamKind.Call -> onCallLevel
-}
-
-private fun muteHandler(
-    kind: VolumeStreamKind,
-    level: Int,
-    onRingerMute: () -> Unit,
-    onMediaMute: () -> Unit,
-    onCallLevel: (Int) -> Unit,
-): () -> Unit = when (kind) {
-    VolumeStreamKind.Ringer -> onRingerMute
-    VolumeStreamKind.Media -> onMediaMute
-    VolumeStreamKind.Call -> ({ onCallLevel(if (level <= 0) 5 else 0) })
 }
 
 /** `NN` large white + `/max` muted + stream label muted gray — matches WP8.1 volume chrome. */
@@ -397,12 +416,12 @@ private fun StreamSliderRow(
 }
 
 @Composable
-private fun VibrateToggle(
-    vibrateOn: Boolean,
+private fun SilentModeToggle(
+    silentOn: Boolean,
     accent: Color,
     onToggle: () -> Unit,
 ) {
-    val color = if (vibrateOn) accent else VolumeHudSpec.SecondaryText
+    val color = if (silentOn) accent else VolumeHudSpec.PrimaryText
     Row(
         modifier = Modifier.clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -411,69 +430,153 @@ private fun VibrateToggle(
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        VibrateIcon(
+        SilentModeIcon(
             color = color,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(VolumeHudSpec.ACTION_ICON_SIZE_DP.dp),
         )
-        MetroText(
-            text = if (vibrateOn) "VIBRATE ON" else "vibrate off",
-            style = MetroTextStyle.DialogBody,
+        ActionLabelText(
+            text = if (silentOn) "SILENT MODE ON" else "SILENT MODE OFF",
             color = color,
-            modifier = Modifier.padding(start = 8.dp),
+            modifier = Modifier.padding(start = 6.dp),
         )
     }
 }
 
+@Composable
+private fun SoundSettingsAction(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MetroSystemIcon(
+            type = MetroSystemIconType.Settings,
+            iconSize = VolumeHudSpec.ACTION_ICON_SIZE_DP.dp,
+            color = VolumeHudSpec.PrimaryText,
+            showCircle = false,
+        )
+        ActionLabelText(
+            text = "SOUND SETTINGS",
+            color = VolumeHudSpec.PrimaryText,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+    }
+}
+
+/** Compact Medium-weight action captions under the sliders. */
+@Composable
+private fun ActionLabelText(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    BasicText(
+        text = text,
+        modifier = modifier,
+        style = TextStyle(
+            fontFamily = MetroFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = VolumeHudSpec.ACTION_LABEL_FONT_SP.sp,
+            lineHeight = 18.sp,
+            color = color,
+        ),
+    )
+}
+
+/**
+ * WP8.1 volume HUD caret measured from the system reference:
+ * aspect ≈ 1.49 (wider than tall), tip opening ≈ 76°, fine stroke, flat
+ * horizontal end caps (not stroke-cap ends).
+ */
 @Composable
 private fun ChevronIcon(
     pointingDown: Boolean,
     color: Color,
+    sizeDp: Int,
     modifier: Modifier = Modifier,
 ) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = size.minDimension * 0.1f
-        val midX = size.width / 2f
-        val top = size.height * 0.32f
-        val bot = size.height * 0.68f
-        val wing = size.width * 0.28f
+    Canvas(modifier = modifier.size(sizeDp.dp)) {
+        val s = size.minDimension
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        // Centerline box ≈ 1.49 aspect; arms ~38° from vertical.
+        val halfW = s * 0.34f
+        val halfH = s * 0.228f
+        // Medium-bold stroke — a touch thicker than the hairline WP chrome weight.
+        val t = s * 0.12f
+        val armDx = halfW
+        val armDy = halfH * 2f
+        val theta = atan2(armDy, armDx)
+        val horizInset = t / sin(theta).toFloat()
+        val halfTip = atan2(armDx, armDy)
+        val tipLift = t / sin(halfTip).toFloat()
+        val top = cy - halfH
+        val bot = cy + halfH
+        val left = cx - halfW
+        val right = cx + halfW
+        // Filled down-chevron with axis-aligned end caps, then flip for up.
+        val down = Path().apply {
+            moveTo(left, top)
+            lineTo(cx, bot)
+            lineTo(right, top)
+            lineTo(right - horizInset, top)
+            lineTo(cx, bot - tipLift)
+            lineTo(left + horizInset, top)
+            close()
+        }
         if (pointingDown) {
-            drawLine(color, Offset(midX - wing, top), Offset(midX, bot), strokeWidth, StrokeCap.Square)
-            drawLine(color, Offset(midX + wing, top), Offset(midX, bot), strokeWidth, StrokeCap.Square)
+            drawPath(down, color)
         } else {
-            drawLine(color, Offset(midX - wing, bot), Offset(midX, top), strokeWidth, StrokeCap.Square)
-            drawLine(color, Offset(midX + wing, bot), Offset(midX, top), strokeWidth, StrokeCap.Square)
+            rotate(degrees = 180f, pivot = Offset(cx, cy)) {
+                drawPath(down, color)
+            }
         }
     }
 }
 
+/** Speaker cone with a diagonal slash — WP silent-mode glyph. */
 @Composable
-private fun VibrateIcon(
+private fun SilentModeIcon(
     color: Color,
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier) {
-        val stroke = size.minDimension * 0.12f
-        val midY = size.height / 2f
-        val amp = size.height * 0.28f
-        val xs = listOf(size.width * 0.22f, size.width * 0.5f, size.width * 0.78f)
-        xs.forEach { x ->
-            val path = Path().apply {
-                moveTo(x, midY - amp)
-                cubicTo(
-                    x + stroke * 1.6f, midY - amp * 0.45f,
-                    x - stroke * 1.6f, midY + amp * 0.45f,
-                    x, midY + amp,
-                )
-            }
-            drawPath(
-                path = path,
-                color = color,
-                style = Stroke(
-                    width = stroke,
-                    cap = StrokeCap.Round,
-                ),
-            )
+        val w = size.width
+        val h = size.height
+        val body = Path().apply {
+            moveTo(w * 0.12f, h * 0.38f)
+            lineTo(w * 0.32f, h * 0.38f)
+            lineTo(w * 0.52f, h * 0.18f)
+            lineTo(w * 0.52f, h * 0.82f)
+            lineTo(w * 0.32f, h * 0.62f)
+            lineTo(w * 0.12f, h * 0.62f)
+            close()
         }
+        drawPath(body, color)
+        drawLine(
+            color,
+            Offset(w * 0.62f, h * 0.32f),
+            Offset(w * 0.72f, h * 0.22f),
+            strokeWidth = w * 0.07f,
+            cap = StrokeCap.Square,
+        )
+        drawLine(
+            color,
+            Offset(w * 0.62f, h * 0.68f),
+            Offset(w * 0.72f, h * 0.78f),
+            strokeWidth = w * 0.07f,
+            cap = StrokeCap.Square,
+        )
+        drawLine(
+            color = color,
+            start = Offset(w * 0.08f, h * 0.82f),
+            end = Offset(w * 0.88f, h * 0.18f),
+            strokeWidth = w * 0.1f,
+            cap = StrokeCap.Square,
+        )
     }
 }
 

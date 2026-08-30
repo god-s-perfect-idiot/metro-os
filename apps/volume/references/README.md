@@ -6,7 +6,7 @@
 |--------|-------|-------|
 | Volume HUD collapsed (ringer) | `images/volume_collapsed_ringer_dark_cyan.jpg` | `07/10 Ringer + Notifications` + ↓ |
 | Volume HUD collapsed (media) | `images/volume_collapsed_media_dark_cyan.jpg` | `15/30 Media + Apps` + ↓ |
-| Volume HUD expanded / in-call | _missing — see [`known-gaps.md`](known-gaps.md)_ | Dual sliders + VIBRATE; call-only slider |
+| Volume HUD expanded / in-call | _missing — see [`known-gaps.md`](known-gaps.md)_ | Dual sliders + silent mode / sound settings; call-only slider |
 
 ## Image catalog (attribution)
 

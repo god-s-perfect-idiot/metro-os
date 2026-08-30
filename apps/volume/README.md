@@ -7,7 +7,8 @@
 
 **Implemented** — standalone WP8.1 volume HUD overlay. Hardware Volume Up/Down (via
 accessibility key filter) shows the charcoal collapsed strip; expand for dual sliders
-(ringer 0–10 / media 0–30), mute, and VIBRATE. In-call shows a single call volume slider.
+(ringer 0–10 / media 0–30), mute, silent mode, and sound settings. In-call shows a single
+call volume slider.
 
 ## App role
 
@@ -34,7 +35,7 @@ through to Android’s stock HUD.
 
 ### 2. Expanded HUD
 
-- Dual sliders + mute + VIBRATE (or single call slider in-call)
+- Dual sliders + mute + silent mode / sound settings (or single call slider in-call)
 - See `references/known-gaps.md` for missing expanded captures
 
 ## Commands
@@ -62,7 +63,8 @@ cd apps/volume
 | Native HUD never shows | Consuming keys suppresses it | Intentional **only while overlay FGS is running**; otherwise rockers fall through to the system so volume never bricks |
 | Accessory-specific streams | Complex routing | v1: ringer / media / in-call only |
 | Always-on system volume chrome | Empty overlay windows can steal input after crashes | HUD WindowManager view is attached only while visible |
-| Ringer/call UI is 0–10 | `AudioManager` maxima are often 5–7 | Keep WP ticks as HUD source of truth when they still map to the live Android index; several WP steps may share one hardware step |
+| Accessibility overlay on AOD | `TYPE_ACCESSIBILITY_OVERLAY` can cover Always-On Display | Gate on fully awake display (`STATE_ON`); remove overlay on screen-off / doze; rockers fall through while asleep |
+| Ringer/call UI is 0–10 | `AudioManager` maxima are often 5–7; some devices clamp absolute volume writes | Keep WP ticks as HUD source of truth while the rocker/HUD is driving; verify writes and nudge with `adjustStreamVolume` when needed |
 
 ## Agent postmortem
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -31,8 +33,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.metro.ui.MetroActivities
 import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
-import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroDimens
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -89,17 +91,31 @@ class MainActivity : ComponentActivity() {
                         .metroNavBarPadding(),
                     verticalArrangement = Arrangement.Top,
                 ) {
-                    MetroAppTitle(title = stringResource(R.string.app_name))
+                    // Slightly larger than MetroAppTitle (16sp) for this setup screen.
+                    BasicText(
+                        text = stringResource(R.string.app_name).uppercase(),
+                        style = MetroTextStyle.AppTitle.toTextStyle().copy(
+                            fontSize = 20.sp,
+                            lineHeight = 24.sp,
+                            color = MetroTheme.colors.primaryText,
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(
+                            start = MetroDimens.ScreenHorizontalMargin,
+                            top = 8.dp,
+                        ),
+                    )
                     MetroText(
                         text = stringResource(R.string.setup_title),
-                        style = MetroTextStyle.PivotTab,
+                        style = MetroTextStyle.HubTitle,
                         modifier = Modifier
-                            .padding(horizontal = 12.dp)
+                            .padding(start = MetroDimens.ScreenHorizontalMargin)
                             .padding(bottom = 12.dp),
                     )
                     MetroText(
                         text = stringResource(R.string.setup_body),
-                        style = MetroTextStyle.DialogBody,
+                        style = MetroTextStyle.Body,
                         modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
                     )
 
@@ -115,7 +131,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
+                        fontSize = 18.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
@@ -125,7 +141,7 @@ class MainActivity : ComponentActivity() {
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
+                        fontSize = 18.sp,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -137,8 +153,8 @@ class MainActivity : ComponentActivity() {
                         },
                         enabled = canToggleHud || hudEnabled,
                         label = stringResource(R.string.show_volume_hud),
-                        labelStyle = MetroTextStyle.DialogBody,
-                        statusStyle = MetroTextStyle.Body,
+                        labelStyle = MetroTextStyle.Body,
+                        statusStyle = MetroTextStyle.ListItemTitle,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
@@ -146,7 +162,7 @@ class MainActivity : ComponentActivity() {
                     if (!canToggleHud && !hudEnabled) {
                         MetroText(
                             text = stringResource(R.string.show_volume_hud_hint),
-                            style = MetroTextStyle.DialogBody,
+                            style = MetroTextStyle.Body,
                             color = MetroTheme.colors.secondaryText,
                             modifier = Modifier
                                 .padding(horizontal = 12.dp)
@@ -157,7 +173,7 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(16.dp))
                         MetroText(
                             text = stringResource(R.string.setup_ready),
-                            style = MetroTextStyle.DialogBody,
+                            style = MetroTextStyle.Body,
                             color = MetroTheme.colors.secondaryText,
                             modifier = Modifier.padding(horizontal = 12.dp),
                         )

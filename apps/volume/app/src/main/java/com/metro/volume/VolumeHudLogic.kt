@@ -87,4 +87,50 @@ object VolumeHudLogic {
             0 to current
         }
     }
+
+    /**
+     * Entering silent zeros every stream (after snapshotting restores).
+     * Leaving restores prior levels; ringer is at least 1 so the device is audible again.
+     */
+    fun toggleSilentMode(
+        currentlySilent: Boolean,
+        ringerLevel: Int,
+        mediaLevel: Int,
+        callLevel: Int,
+        ringerRestore: Int,
+        mediaRestore: Int,
+        callRestore: Int,
+    ): SilentModeState {
+        if (!currentlySilent) {
+            return SilentModeState(
+                silentModeOn = true,
+                ringerLevel = 0,
+                mediaLevel = 0,
+                callLevel = 0,
+                ringerRestore = if (ringerLevel > 0) ringerLevel else ringerRestore,
+                mediaRestore = if (mediaLevel > 0) mediaLevel else mediaRestore,
+                callRestore = if (callLevel > 0) callLevel else callRestore,
+            )
+        }
+        return SilentModeState(
+            silentModeOn = false,
+            ringerLevel = ringerRestore.coerceAtLeast(1),
+            mediaLevel = mediaRestore,
+            callLevel = callRestore,
+            ringerRestore = ringerRestore,
+            mediaRestore = mediaRestore,
+            callRestore = callRestore,
+        )
+    }
 }
+
+/** Snapshot of HUD levels after a silent-mode toggle. */
+data class SilentModeState(
+    val silentModeOn: Boolean,
+    val ringerLevel: Int,
+    val mediaLevel: Int,
+    val callLevel: Int,
+    val ringerRestore: Int,
+    val mediaRestore: Int,
+    val callRestore: Int,
+)
