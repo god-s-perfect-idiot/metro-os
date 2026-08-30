@@ -4,7 +4,8 @@ package com.metro.launcher.data
  * Aggregated Android notification state for one package, mapped onto a WP8.1 live-tile face.
  *
  * [count] drives the naked numeral badge (centered beside the icon on 1×1, center-right on
- * 2×2, bottom-right on 4×2).
+ * 2×2 front faces, bottom-right on 4×2 and on any size when the notification peek face is
+ * showing).
  * [peekTitle] / [peekSubtitle] / [peekBody] become the flip (back) face when the app has no
  * richer tile provider face (agenda / photo grid).
  *

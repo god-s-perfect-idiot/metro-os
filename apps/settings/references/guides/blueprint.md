@@ -15,10 +15,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   - `storage sense`
   - `brightness`
   - `ease of access`
+  - `connected apps` — gallery / music live-tile package lists
   - `navigation bar` — launches `com.metro.navbar` MainActivity (soft-key overlay setup / permissions). Does **not** open Android Settings.
   - `status bar` — launches `com.metro.statusbar` MainActivity (system tray overlay setup / permissions). Does **not** open Android Settings.
   - `notifications` — launches `com.metro.notifications` MainActivity (toast banner setup / permissions). Does **not** open Android Settings.
   - `volume` — launches `com.metro.volume` MainActivity (volume HUD setup / permissions). Does **not** open Android Settings.
+  - `lock screen` — launches `com.metro.lockscreen` MainActivity (lock overlay setup / background). Does **not** open Android Settings.
   - `keyboard` — launches `com.metro.keyboard` MainActivity directly (WP8.1 Settings → keyboard lives in a separate APK; see keyboard README platform exceptions). Does **not** open Android Settings.
   - `extras+info`
 - **Interactions — applications:** Alphabetical lists of **all launchable apps**, grouped as `apps` (user-installed) then `system apps` (Android system + metro suite). Subtitles show size (user) or `system`. Tap opens **in-Settings app detail** (Page 1b) — does **not** launch the app and does **not** open Android Settings.
@@ -103,6 +105,28 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Navigation:** Back → Settings root.
 - **Interactions:** Read-only snapshot from `Build.*`, storage `StatFs`, and telephony network name when available. No separate more-info page.
 
+### Page 8 — connected apps
+
+- **Layout:** `SETTINGS` overline + title `connected apps`. Intro body, then two email+account–style rows (leading suite glyph + title + secondary subtitle):
+  - **Gallery apps** — subtitle `photos live tiles` → Page 8a
+  - **Music apps** — subtitle `now playing live tiles` → Page 8b
+- **Navigation:** Back → Settings root.
+- **Interactions:** Hub only; lists live on child pages.
+- **Background:** Theme background.
+- **Reference:** `images/email_account_dark.png` (layout pattern — icon + title + subtitle)
+
+### Page 8a — gallery apps / Page 8b — music apps
+
+- **Layout:** Apps Corner pattern (`images/apps_corner_dark.png`):
+  1. `SETTINGS` overline + lowercase page title (`gallery apps` / `music apps`)
+  2. Intro body explaining Photos-style vs Xbox Music now-playing Start tiles
+  3. Vertical list of selected apps (square icon + display name)
+  4. Trailing **Apps** / **tap to select apps** row → multi-select picker
+- **Picker:** `MetroMultiSelectList` (`APPS` overline; checkbox + icon + name rows; app bar check / close). Saves to `MetroPreferences` (`connected_gallery_apps` / `connected_music_apps` comma-separated packages). Back / close discards draft.
+- **Defaults:** When a key has never been written, suite defaults from `MetroConnectedApps` apply (Photos / Music + common third-party packages). Saving an empty list clears live-tile membership.
+- **Navigation:** Back → connected apps. Picker back → gallery/music page.
+- **Consumers:** Launcher reads lists for music now-playing faces and Photos-style cycle tiles (MediaStore synthesis for any connected gallery package on a medium/wide pin).
+
 ## Images
 
 | Image | Page | Notes |
@@ -111,17 +135,19 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | `ease_of_access_dark_cyan.png` | Page 4 | Official WP ease of access — Text size slider (7 steps), Sample preview, toggles |
 | `accents_picker_dark.png` | Page 3 | Eight Forums WP8 accent grid — `ACCENTS` title, 4×5 tiles |
 | `accent_palette_wp8_dark.png` | Page 3 | Generated strip of the 20 official WP8 accent hex values (palette aid) |
+| `email_account_dark.png` | Page 8 | WP email+account — icon + title + subtitle hub rows |
+| `apps_corner_dark.png` | Page 8a/8b | WP apps corner — selected apps + tap to select |
 
 Missing device captures for root / brightness / storage / extras+info → see [`known-gaps.md`](../known-gaps.md).
 
 ## Out of scope
 
 - Full WP8.1 system settings inventory (Wi‑Fi, Bluetooth, airplane, battery saver, date+time, ringtones+sounds content, cellular, backup, kid’s corner, etc.)
-- In-Settings chrome preference pages for navigation bar / status bar / notifications / volume (setup lives in each shell APK; Settings root launches those apps)
+- In-Settings chrome preference pages for navigation bar / status bar / notifications / volume / lock screen (setup lives in each shell APK; Settings root launches those apps)
 - start+theme Background ListPicker / Choose photo / Show more Tiles
 - Custom / Color Changer RGB accent picker
 - High contrast, Narrator, Screen magnifier, browser captions
 - Sync my settings / Microsoft account
 - In-Settings application hubs (IE advanced, photos+camera auto-upload, people filter options, …) — applications pivot uses a shared app-detail page for all launchable packages
 - OS-level notification / background enforcement for third-party apps (requires privileged AppOps); toggles persist metro-os policy prefs
-- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard`, `com.metro.navbar`, `com.metro.statusbar`, `com.metro.notifications`, and `com.metro.volume` are allowed; package installer uninstall UI is allowed)
+- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard`, `com.metro.navbar`, `com.metro.statusbar`, `com.metro.notifications`, `com.metro.volume`, and `com.metro.lockscreen` are allowed; package installer uninstall UI is allowed)

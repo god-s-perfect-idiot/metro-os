@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -1247,16 +1248,23 @@ private fun LauncherTileCell(
                                     footer = tile.title,
                                     wide = isWide,
                                     contentColor = contentColor,
+                                    // Keep app-name footer clear of the bottom-right badge.
+                                    footerEndReserve = peekBadgeEndReserve(
+                                        tileMinEdge = tileMinEdge,
+                                        count = badgeCount ?: 0,
+                                        withIcon = isWide,
+                                        chrome = chrome,
+                                    ),
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             }
                         },
                         badge = badgeCount?.let { count ->
                             { showingBack ->
+                                val peekFace = showingBack && !tile.flipToIcon
                                 // Wide peek face: app icon sits left of the count (identity + badge).
                                 val peekIconPackage = when {
-                                    showingBack && isWide && !tile.flipToIcon ->
-                                        tile.entry.packageName
+                                    peekFace && isWide -> tile.entry.packageName
                                     else -> null
                                 }
                                 TileNotificationBadge(
@@ -1265,6 +1273,8 @@ private fun LauncherTileCell(
                                     tileMinEdge = tileMinEdge,
                                     tileSize = tile.entry.size,
                                     inset = badgeNeedsOwnInset,
+                                    // Peek content shares the footer band — badge goes bottom-right.
+                                    alignBottom = peekFace,
                                     iconPackageName = peekIconPackage,
                                     iconTitle = tile.title,
                                 )
@@ -1448,9 +1458,11 @@ private fun SmallTileIconBadgeContent(
 
 /**
  * WP tile notification count: naked content-colored bold numeral, no circle/pill/Material chrome.
- * 2×2 → center-right; 4×2 → bottom-right; 1×1 photo/chrome overlays also use center-right
- * (icon+count 1×1 faces use [SmallTileIconBadgeContent] instead). Optional [iconPackageName]
- * draws the app glyph immediately left of the count (wide notification peek face). Caps at `99`.
+ * Front icon faces: 2×2 → center-right; 4×2 → bottom-right; 1×1 photo/chrome overlays also use
+ * center-right (icon+count 1×1 faces use [SmallTileIconBadgeContent] instead).
+ * Notification peek faces always use bottom-right so the count sits in the footer band with the
+ * app name. Optional [iconPackageName] draws the app glyph immediately left of the count (wide
+ * peek). Caps at `99`.
  */
 @Composable
 private fun BoxScope.TileNotificationBadge(
@@ -1459,6 +1471,7 @@ private fun BoxScope.TileNotificationBadge(
     tileMinEdge: Dp,
     tileSize: PinnedTileSize,
     inset: Boolean,
+    alignBottom: Boolean = false,
     iconPackageName: String? = null,
     iconTitle: String? = null,
 ) {
@@ -1479,8 +1492,8 @@ private fun BoxScope.TileNotificationBadge(
     }
     val maxSp = if (dense) 28f else 40f
     val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
-    val alignment = when (tileSize) {
-        PinnedTileSize.FourByTwo -> Alignment.BottomEnd
+    val alignment = when {
+        alignBottom || tileSize == PinnedTileSize.FourByTwo -> Alignment.BottomEnd
         else -> Alignment.CenterEnd
     }
     val badgeIconSize = (tileMinEdge.value * 0.28f).coerceIn(
@@ -1519,6 +1532,36 @@ private fun BoxScope.TileNotificationBadge(
             ),
         )
     }
+}
+
+/** Trailing footer gap so the app name does not run under the peek-face badge (+ optional icon). */
+private fun peekBadgeEndReserve(
+    tileMinEdge: Dp,
+    count: Int,
+    withIcon: Boolean,
+    chrome: TileChrome,
+): Dp {
+    if (count <= 0) return 0.dp
+    val display = tileNotificationDisplayCount(count)
+    val digits = display.length
+    val digitScale = if (digits <= 1) 1f else 0.78f
+    val dense = chrome == TileChrome.Dense
+    val minSp = when {
+        digits <= 1 -> if (dense) 12f else 16f
+        else -> if (dense) 10f else 13f
+    }
+    val maxSp = if (dense) 28f else 40f
+    val fontSp = (tileMinEdge.value * 0.22f * digitScale).coerceIn(minSp, maxSp)
+    // Approximate glyph advance (~0.62em) × digits, plus a small gap before the count.
+    var reserve = fontSp * digits * 0.62f + 4f
+    if (withIcon) {
+        val icon = (tileMinEdge.value * 0.28f).coerceIn(
+            if (dense) 16f else 20f,
+            if (dense) 28f else 36f,
+        )
+        reserve += icon + 6f
+    }
+    return reserve.dp
 }
 
 /**
@@ -1747,7 +1790,9 @@ private fun MessagingGlyph(
  * app name as footer.
  *
  * Mail / Gmail peeks use two lines (From + email content). The From line is larger and
- * semibold. Wide (4×2) tiles wrap body lines; medium (2×2) stays single-line per field.
+ * semibold. Copy wraps to 2–3 lines instead of single-line ellipsis; the content band is
+ * weight-constrained so wrapped lines never paint over the app-name footer. [footerEndReserve]
+ * keeps the footer clear of the bottom-right badge.
  */
 @Composable
 private fun NotificationPeekTileContent(
@@ -1758,6 +1803,7 @@ private fun NotificationPeekTileContent(
     contentColor: Color,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    footerEndReserve: Dp = 0.dp,
 ) {
     val chrome = LocalTileChrome.current
     val lines = buildList {
@@ -1773,47 +1819,61 @@ private fun NotificationPeekTileContent(
     }
 
     Column(modifier = modifier) {
-        lines.forEachIndexed { index, line ->
-            val isTitle = index == 0
-            val isBody = index == lines.lastIndex && lines.size > 1 && !isTitle
-            val maxLines = when {
-                !wide -> 1
-                // Sole peek field can fill the face above the footer.
-                lines.size == 1 -> 5
-                isTitle -> 2
-                isBody -> 3
-                else -> 1
-            }
-            if (isTitle) {
-                // From / sender: larger and bolder than the content preview under it.
-                TileText(
-                    text = line,
-                    style = chrome.liveTitleStyle,
-                    color = contentColor,
-                    maxLines = maxLines,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                TileText(
-                    text = line,
-                    style = chrome.liveBodyStyle,
-                    color = contentColor,
-                    maxLines = maxLines,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        // Weight-bound content band: wrapped peek lines clip here instead of covering the footer.
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clipToBounds(),
+        ) {
+            lines.forEachIndexed { index, line ->
+                val isTitle = index == 0
+                val isBody = index == lines.lastIndex && lines.size > 1 && !isTitle
+                // Fold into 2–3 lines rather than truncating mid-phrase on one line.
+                val maxLines = when {
+                    lines.size == 1 -> if (wide) 5 else 3
+                    isTitle -> 2
+                    isBody -> 3
+                    else -> 1
+                }
+                if (isTitle) {
+                    // From / sender: larger and bolder than the content preview under it.
+                    TileText(
+                        text = line,
+                        style = chrome.liveTitleStyle,
+                        color = contentColor,
+                        maxLines = maxLines,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    TileText(
+                        text = line,
+                        style = chrome.liveBodyStyle,
+                        color = contentColor,
+                        maxLines = maxLines,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
-        Spacer(modifier = Modifier.weight(1f))
-        TileText(
-            text = footer,
-            style = chrome.titleStyle,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            TileText(
+                text = footer,
+                style = chrome.titleStyle,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (footerEndReserve > 0.dp) {
+                Spacer(modifier = Modifier.width(footerEndReserve))
+            }
+        }
     }
 }
 

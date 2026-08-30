@@ -32,7 +32,8 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Cold start shows `MetroSplashLoadingScreen` (accent splash + Start glyph + dancing dots): system splash stays until the View-backed dots start, then Compose holds until Start paints and dots have had a visible beat (~700ms). Live tile providers fill in afterward without re-covering Start; resume refreshes also update in place — no splash.
 - System notifications (via `NotificationListenerService`) drive tile badges, WP8.1 flip/peek faces, and progress overlays (charging / downloads) for pinned apps
 - Custom Start faces for select third-party apps (Chrome: three brand wedges + blue center disc)
-- Music apps (`com.metro.music`, YouTube Music, Spotify, `CATEGORY_AUDIO`, …): when a media session is active, the pinned tile shows an Xbox Music–style now-playing face (album art; 1×1 play/pause; 2×2 / 4×2 song+artist+transport)
+- Music apps (Settings → connected apps → Music apps; defaults include `com.metro.music`, YouTube Music, Spotify, …): when a media session is active, the pinned tile shows an Xbox Music–style now-playing face (album art; 1×1 play/pause; 2×2 / 4×2 song+artist+transport)
+- Gallery apps (Settings → connected apps → Gallery apps): medium/wide pinned tiles use a Photos-style cycling live face fed from MediaStore (launcher requests photo permission when needed). People mosaics stay provider-driven.
 - Progress-bar notifications (charging remaining, downloads) overlay a WP8.1 rectangular bar on the pinned tile; remaining time still peeks on the flip face
 - Wallpaper/parallax: Settings → start+theme → choose photo; accent tiles reveal a fixed Start background
 
@@ -104,7 +105,8 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Tile sizes: Small `99x99dp`, Medium `198x99dp`, Wide `198x198dp`
 - Tile grid: 6 columns with `4dp` gap
 - Tile art source asset target: `173x173px`
-- Counter badge: content-colored bold naked numeral; center-right on 1×1/2×2, bottom-right on 4×2; never circle/pill/Material badge styling; cap at `99` (no `+`); wide peek shows app icon left of count
+- Counter badge: content-colored bold naked numeral; center-right on 1×1/2×2 front faces, bottom-right on 4×2 and on notification peek faces; never circle/pill/Material badge styling; cap at `99` (no `+`); wide peek shows app icon left of count
+- Notification peek copy wraps to 2–3 lines (not single-line ellipsis); content stays above the app-name footer, which reserves trailing space for the badge
 - Never use pure black or pure white tile backgrounds
 - Live tile flip timing: `600ms` turnstile-style motion
 - Start to app list navigation is a horizontal relationship, not a drawer reveal

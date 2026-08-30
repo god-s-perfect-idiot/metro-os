@@ -172,6 +172,9 @@ class MetroSystemPreferencesProvider : ContentProvider() {
             if (prefs.getBoolean(key, false)) 1 else 0
         MetroPreferenceKeys.START_BACKGROUND_ENABLED ->
             if (prefs.getBoolean(key, false)) 1 else 0
+        MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
+        MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
+        -> prefs.getString(key, null)
         else -> prefs.all[key]
     }
 
@@ -192,6 +195,8 @@ class MetroSystemPreferencesProvider : ContentProvider() {
             MetroPreferenceKeys.NAV_BAR_ENABLED,
             MetroPreferenceKeys.SHOW_MORE_COLUMNS,
             MetroPreferenceKeys.START_BACKGROUND_ENABLED,
+            MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
+            MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
         )
 
         fun keyUri(key: String): Uri = PREFERENCES_URI.buildUpon().appendPath(key).build()

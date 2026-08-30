@@ -28,6 +28,11 @@ enum class SettingsRoute {
     StorageSense,
     About,
     AppDetail,
+    ConnectedApps,
+    GalleryApps,
+    MusicApps,
+    GalleryAppPicker,
+    MusicAppPicker,
 }
 
 class SettingsState(
@@ -56,6 +61,9 @@ class SettingsState(
 
         /** Suite toast-banner setup (`com.metro.notifications`), not Android Settings. */
         const val NOTIFICATIONS_PACKAGE = "com.metro.notifications"
+
+        /** Suite lock screen setup (`com.metro.lockscreen`), not Android Settings. */
+        const val LOCKSCREEN_PACKAGE = "com.metro.lockscreen"
 
         const val PIVOT_SYSTEM = 0
         const val PIVOT_APPLICATIONS = 1
@@ -106,6 +114,12 @@ class SettingsState(
     var showUninstallConfirm by mutableStateOf(false)
         private set
 
+    var galleryAppPackages by mutableStateOf(prefs.galleryAppPackages)
+        private set
+
+    var musicAppPackages by mutableStateOf(prefs.musicAppPackages)
+        private set
+
     val accentColor: Color
         get() = MetroPreferences.parseAccentHex(accentHex)
 
@@ -140,6 +154,12 @@ class SettingsState(
                 refreshSystemReads()
                 route = SettingsRoute.Root
             }
+            SettingsRoute.ConnectedApps -> route = SettingsRoute.Root
+            SettingsRoute.GalleryApps,
+            SettingsRoute.MusicApps,
+            -> route = SettingsRoute.ConnectedApps
+            SettingsRoute.GalleryAppPicker -> route = SettingsRoute.GalleryApps
+            SettingsRoute.MusicAppPicker -> route = SettingsRoute.MusicApps
             SettingsRoute.EaseOfAccess,
             SettingsRoute.Brightness,
             SettingsRoute.StorageSense,
@@ -217,6 +237,11 @@ class SettingsState(
         launchPackage(NOTIFICATIONS_PACKAGE)
     }
 
+    /** Opens the metro-os lock screen setup app (overlay + background). */
+    fun openLockscreenSettings() {
+        launchPackage(LOCKSCREEN_PACKAGE)
+    }
+
     /** Opens the metro-os Files app from Storage Sense. */
     fun openFiles() {
         launchPackage(FILES_PACKAGE)
@@ -264,12 +289,24 @@ class SettingsState(
         applications.requestUninstall(pkg)
     }
 
+    fun applyGalleryAppPackages(packages: Set<String>) {
+        galleryAppPackages = packages
+        prefs.galleryAppPackages = packages
+    }
+
+    fun applyMusicAppPackages(packages: Set<String>) {
+        musicAppPackages = packages
+        prefs.musicAppPackages = packages
+    }
+
     fun refreshSystemReads() {
         brightness = system.brightnessFraction()
         accentHex = prefs.accentColorHex
         fontScale = prefs.fontScale
         showMoreColumns = prefs.showMoreColumns
         startBackgroundEnabled = prefs.startBackgroundEnabled
+        galleryAppPackages = prefs.galleryAppPackages
+        musicAppPackages = prefs.musicAppPackages
         applicationEntries = applications.listInstalledApps()
         selectedApp?.packageName?.let { pkg ->
             selectedApp = applications.loadApp(pkg)

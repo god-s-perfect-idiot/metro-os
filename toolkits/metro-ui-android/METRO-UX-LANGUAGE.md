@@ -367,6 +367,16 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Label | Sentence caps; tap label or box |
 | Indeterminate | Avoid unless mirroring WP multi-select edge case |
 
+**Multi-select list (`MetroMultiSelectList`):** Apps Corner–style page for picking many items.
+
+| Property | Spec |
+|----------|------|
+| Header | ALL CAPS overline via `MetroAppTitle` (e.g. `APPS`) — no large page title |
+| Row | Dense: `MetroCheckBox` → optional leading (≈40dp square) → title (`ListItemTitle`) |
+| Row height | ≈48dp min; tight vertical padding (6dp) |
+| App bar | Bottom `MetroAppBar`: check (confirm) + close (cancel) |
+| Selection | Controlled `selectedIds` / `onSelectionChange`; persist on confirm only |
+
 ---
 
 ### 6.11 Radio button (`MetroRadioButton`)
@@ -645,7 +655,7 @@ Need a container shape?
 | §6.7 Pivot | `MetroPivot` | Planned |
 | §6.8 Panorama | `MetroPanorama` | Implemented |
 | §6.9 Toggle | `MetroToggleSwitch` | Implemented |
-| §6.10 Checkbox | `MetroCheckBox` | Planned |
+| §6.10 Checkbox | `MetroCheckBox`, `MetroMultiSelectList` | Implemented |
 | §6.11 Radio | `MetroRadioButton` | Planned |
 | §6.12 Text box | `MetroTextBox` | Implemented |
 | §6.13 Slider | `MetroSlider`, `MetroStepSlider`, `MetroBarStepSlider` | Implemented |

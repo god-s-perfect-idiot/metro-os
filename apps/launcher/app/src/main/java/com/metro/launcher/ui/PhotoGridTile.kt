@@ -3,7 +3,9 @@ package com.metro.launcher.ui
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.util.LruCache
+import android.util.Size
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -85,9 +87,23 @@ private val tilePhotoBitmapCache = object : LruCache<String, ImageBitmap>(64) {}
 
 private fun decodeTilePhoto(context: Context, uriString: String): ImageBitmap? {
     tilePhotoBitmapCache.get(uriString)?.let { return it }
+    val uri = Uri.parse(uriString)
     val decoded = runCatching {
-        context.contentResolver.openInputStream(Uri.parse(uriString))?.use { stream ->
-            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                context.contentResolver.loadThumbnail(
+                    uri,
+                    Size(512, 512),
+                    null,
+                )?.asImageBitmap()
+            }.getOrNull()
+                ?: context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                }
+        } else {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream)?.asImageBitmap()
+            }
         }
     }.getOrNull()
     if (decoded != null) tilePhotoBitmapCache.put(uriString, decoded)

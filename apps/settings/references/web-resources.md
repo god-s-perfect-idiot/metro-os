@@ -55,6 +55,13 @@ Add one `##` section per screen or feature. Keep URLs stable; use archive.org mi
 | Detailed phone information (WP About → more info) | https://windows.fyicenter.com/1764_Getting_Detailed_Phone_Information_on_Windows_Phone.html | Field list: Name, Model, Carrier, Software, storage, OS/firmware/radio/bootloader/chip |
 | Identify OS via Settings → about → more info | (carrier wipe guides / Lumia UG) | Software line is the OS identity; metro-os maps this to the suite release tag |
 
+## connected apps
+
+| Resource | URL | Notes |
+|----------|-----|-------|
+| WP8.1 email+accounts layout | User capture `images/email_account_dark.png` | Icon + title + subtitle rows for Gallery / Music hub |
+| WP8.1 Apps Corner | User capture `images/apps_corner_dark.png` | Selected apps list + Apps / tap to select apps |
+
 ## brightness / storage sense
 
 | Resource | URL | Notes |
@@ -69,3 +76,6 @@ Add one `##` section per screen or feature. Keep URLs stable; use archive.org mi
 | `images/accents_picker_dark.png` | Eight Forums WP8 accent-colour thread | Device-style `ACCENTS` page — 4×5 grid |
 | `images/accent_palette_wp8_dark.png` | Generated from official WP8 HEX list | Palette aid for the 20 official accents |
 | `images/start_theme_dark_cobalt.png` | WP start+theme capture | Intro + Background + Accent colour combo |
+| `images/email_account_dark.png` | User-provided WP8.1 email+account capture | Connected apps hub layout |
+| `images/apps_corner_dark.png` | User-provided WP8.1 Apps Corner capture | Gallery / Music apps selection pages |
+| `images/apps_multiselect_dark.png` | User-provided WP multi-select apps list | Connected apps picker (`MetroMultiSelectList`) |

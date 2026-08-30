@@ -118,6 +118,32 @@ class MetroPreferences(context: Context) {
         get() = readBoolean(MetroPreferenceKeys.START_BACKGROUND_ENABLED, false)
         set(value) = writeBoolean(MetroPreferenceKeys.START_BACKGROUND_ENABLED, value)
 
+    /**
+     * Packages using Photos-style gallery live tiles. Null preference → suite defaults;
+     * empty set when the user cleared the list in Settings → connected apps.
+     */
+    var galleryAppPackages: Set<String>
+        get() = MetroConnectedApps.galleryPackagesOrDefault(
+            readStringNullable(MetroPreferenceKeys.CONNECTED_GALLERY_APPS),
+        )
+        set(value) = writeString(
+            MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
+            MetroConnectedApps.encode(value),
+        )
+
+    /**
+     * Packages using Xbox Music–style now-playing live tiles. Null preference → suite defaults;
+     * empty set when the user cleared the list in Settings → connected apps.
+     */
+    var musicAppPackages: Set<String>
+        get() = MetroConnectedApps.musicPackagesOrDefault(
+            readStringNullable(MetroPreferenceKeys.CONNECTED_MUSIC_APPS),
+        )
+        set(value) = writeString(
+            MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
+            MetroConnectedApps.encode(value),
+        )
+
     /** Writes theme/accent/font and broadcasts [MetroBroadcasts.ACTION_THEME_CHANGED]. */
     fun applyThemeChange(
         themeMode: MetroThemeMode? = null,
@@ -212,6 +238,15 @@ class MetroPreferences(context: Context) {
             return value
         }
         return local ?: default
+    }
+
+    /** Like [readString] but preserves "never written" as null (no default fallback). */
+    private fun readStringNullable(key: String): String? {
+        queryProvider(key)?.let { value ->
+            cacheStringLocally(key, value)
+            return value
+        }
+        return if (localPrefs.contains(key)) localPrefs.getString(key, null) else null
     }
 
     private fun readFloat(key: String, default: Float): Float {

@@ -1,10 +1,12 @@
 package com.metro.launcher
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,8 +15,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.metro.launcher.data.GalleryLiveTileStore
+import com.metro.launcher.data.GalleryTilePackages
 import com.metro.launcher.ui.LauncherShell
 import com.metro.launcher.ui.LauncherState
 import com.metro.system.MetroIntents
@@ -25,6 +30,14 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var launcherState: LauncherState? = null
+
+    private val mediaPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                GalleryLiveTileStore.clearCache()
+                launcherState?.refreshAll()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = MetroSplash.install(this)
@@ -48,6 +61,7 @@ class MainActivity : ComponentActivity() {
                 if (launchIntent?.action == MetroIntents.ACTION_PIN_TILE) {
                     state.handlePinTileIntent(launchIntent)
                 }
+                maybeRequestGalleryMediaPermission(state)
             }
 
             DisposableEffect(state) {
@@ -60,7 +74,10 @@ class MainActivity : ComponentActivity() {
                         if (skipNextResume) {
                             skipNextResume = false
                         } else {
-                            scope.launch { state.refreshAllAsync() }
+                            scope.launch {
+                                state.refreshAllAsync()
+                                maybeRequestGalleryMediaPermission(state)
+                            }
                         }
                     }
                 }
@@ -83,6 +100,27 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * When a connected gallery app is pinned and media access is missing, ask once so
+     * Photos-style cycle tiles can load device images.
+     */
+    private fun maybeRequestGalleryMediaPermission(state: LauncherState) {
+        if (GalleryLiveTileStore.hasMediaPermission(this)) return
+        val needsGalleryPhotos = state.displayTiles.any { tile ->
+            GalleryTilePackages.isGalleryApp(this, tile.entry.packageName) &&
+                tile.entry.size.colSpan >= 2 &&
+                tile.entry.size.rowSpan >= 2
+        }
+        if (!needsGalleryPhotos) return
+        val permission = GalleryLiveTileStore.requiredPermission()
+        if (ContextCompat.checkSelfPermission(this, permission) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        mediaPermissionLauncher.launch(permission)
     }
 
     override fun onNewIntent(intent: Intent) {

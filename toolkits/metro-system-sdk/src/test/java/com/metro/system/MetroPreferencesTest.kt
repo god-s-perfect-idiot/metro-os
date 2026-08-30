@@ -102,4 +102,20 @@ class MetroPreferencesTest {
         prefs.startBackgroundEnabled = false
         assertFalse(prefs.startBackgroundEnabled)
     }
+
+    @Test
+    fun connectedApps_defaultUntilWrittenThenRoundTrip() {
+        assertEquals(MetroConnectedApps.DEFAULT_GALLERY_PACKAGES, prefs.galleryAppPackages)
+        assertEquals(MetroConnectedApps.DEFAULT_MUSIC_PACKAGES, prefs.musicAppPackages)
+
+        prefs.galleryAppPackages = setOf("com.metro.photos")
+        prefs.musicAppPackages = setOf("com.metro.music", "com.spotify.music")
+        assertEquals(setOf("com.metro.photos"), prefs.galleryAppPackages)
+        assertEquals(setOf("com.metro.music", "com.spotify.music"), prefs.musicAppPackages)
+
+        prefs.galleryAppPackages = emptySet()
+        prefs.musicAppPackages = emptySet()
+        assertTrue(prefs.galleryAppPackages.isEmpty())
+        assertTrue(prefs.musicAppPackages.isEmpty())
+    }
 }

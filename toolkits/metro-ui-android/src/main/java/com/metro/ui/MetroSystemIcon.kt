@@ -186,7 +186,7 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.Forward -> drawForwardGlyph(color, forwardGlyphStroke)
         MetroSystemIconType.Back -> drawBackGlyph(color, glyphStroke)
         MetroSystemIconType.Search -> drawSearchGlyph(color, glyphStroke)
-        MetroSystemIconType.Close -> drawCloseGlyph(color, glyphStroke)
+        MetroSystemIconType.Close -> drawCloseGlyph(color)
         MetroSystemIconType.Unpin -> drawUnpinGlyph(color, glyphStroke)
         MetroSystemIconType.Resize -> drawResizeGlyph(color, glyphStroke)
         MetroSystemIconType.Add -> drawAddGlyph(color, glyphStroke)
@@ -198,7 +198,7 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.DialPad -> drawDialPadGlyph(color, glyphStroke)
         MetroSystemIconType.People -> drawPeopleGlyph(color, glyphStroke)
         MetroSystemIconType.Delete -> drawDeleteGlyph(color, glyphStroke)
-        MetroSystemIconType.Check -> drawCheckGlyph(color, glyphStroke)
+        MetroSystemIconType.Check -> drawCheckGlyph(color)
         MetroSystemIconType.Attach -> drawAttachGlyph(color, glyphStroke)
         MetroSystemIconType.Microphone -> drawMicrophoneGlyph(color, glyphStroke)
         MetroSystemIconType.Shift -> drawShiftGlyph(color, locked = false)
@@ -361,33 +361,57 @@ private fun DrawScope.drawSearchGlyph(color: Color, stroke: Stroke) {
     )
 }
 
-private fun DrawScope.drawCloseGlyph(color: Color, stroke: Stroke) {
-    // WP8.1 cancel: square-ended X (StrokeCap.Butt), inset from the ring.
-    val arm = size.minDimension * 0.14f
-    val cx = size.width / 2f
-    val cy = size.height / 2f
-    val width = stroke.width * 1.15f
-    drawLine(color, Offset(cx - arm, cy - arm), Offset(cx + arm, cy + arm), width, StrokeCap.Butt)
-    drawLine(color, Offset(cx + arm, cy - arm), Offset(cx - arm, cy + arm), width, StrokeCap.Butt)
+/** Filled cancel X — 512 viewBox path from the WP8.1 close reference SVG. */
+private const val CLOSE_GLYPH_PATH =
+    "M512 76.8L435.2 0L256 179.2L76.8 0L0 76.8L179.2 256L0 435.2L76.8 512L256 332.8L435.2 512l76.8-76.8L332.8 256z"
+
+private val closeGlyphPath: Path by lazy {
+    PathParser().parsePathString(CLOSE_GLYPH_PATH).toPath()
 }
 
-private fun DrawScope.drawCheckGlyph(color: Color, stroke: Stroke) {
-    // WP8.1 accept: compact, thick check with square terminals (not round).
-    val path = Path().apply {
-        moveTo(size.width * 0.30f, size.height * 0.52f)
-        lineTo(size.width * 0.44f, size.height * 0.66f)
-        lineTo(size.width * 0.70f, size.height * 0.36f)
+private fun DrawScope.drawCloseGlyph(color: Color) {
+    // Scale the filled reference X into the ring inset (same visual footprint as prior stroke X).
+    val scale = size.minDimension / 512f * 0.38f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(closeGlyphPath, color)
     }
-    drawPath(
-        path,
-        color,
-        style = Stroke(
-            width = stroke.width * 1.2f,
-            cap = StrokeCap.Butt,
-            join = StrokeJoin.Miter,
-            miter = 4f,
-        ),
-    )
+}
+
+private fun DrawScope.drawCheckGlyph(color: Color) {
+    // Filled accept check — geometry from the WP8.1 check reference SVG (512 viewBox).
+    drawMetroCheckGlyph(color, glyphScale = 0.38f)
+}
+
+/**
+ * Filled WP8.1 checkmark (512 viewBox reference path). [glyphScale] is the fraction of
+ * [DrawScope] min-dimension occupied by the path's viewBox — ~0.38 inside app-bar rings,
+ * ~0.78 inside [MetroCheckBox].
+ */
+internal fun DrawScope.drawMetroCheckGlyph(color: Color, glyphScale: Float) {
+    val scale = size.minDimension / 512f * glyphScale
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(checkGlyphPath, color)
+    }
+}
+
+/** Filled accept check — 512 viewBox path from the WP8.1 check reference SVG. */
+private const val CHECK_GLYPH_PATH =
+    "M437.3 30L202.7 339.3L64 200.7l-64 64L213.3 478L512 94z"
+
+private val checkGlyphPath: Path by lazy {
+    PathParser().parsePathString(CHECK_GLYPH_PATH).toPath()
 }
 
 private fun DrawScope.drawUnpinGlyph(color: Color, stroke: Stroke) {
@@ -970,7 +994,7 @@ private fun DrawScope.drawSelectAllGlyph(color: Color, stroke: Stroke) {
         size = Size(s * 0.48f, s * 0.48f),
         style = stroke,
     )
-    drawCheckGlyph(color, stroke)
+    drawCheckGlyph(color)
 }
 
 private fun DrawScope.drawLanguageGlyph(color: Color, stroke: Stroke) {

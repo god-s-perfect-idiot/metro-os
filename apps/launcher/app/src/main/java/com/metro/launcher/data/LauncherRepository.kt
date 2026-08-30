@@ -136,7 +136,11 @@ class LauncherRepository(private val context: Context) {
                 providerBackgroundHex = providerData?.backgroundColorHex,
             )
         val revealsStartBackground = tileRevealsStartBackground(packageName)
-        val photoGrid = providerData?.photoGrid
+        val photoGrid = resolvePhotoGrid(
+            packageName = packageName,
+            providerGrid = providerData?.photoGrid,
+            liveContent = liveContent,
+        )
         val agenda = providerData?.agenda?.takeIf { it.hasContent }
         val imageUri = providerData?.imageUri?.takeIf { it.isNotBlank() }
         val musicNowPlaying = if (liveContent && MusicTilePackages.isMusicApp(context, packageName)) {
@@ -208,5 +212,39 @@ class LauncherRepository(private val context: Context) {
         true
     } catch (_: PackageManager.NameNotFoundException) {
         false
+    }
+
+    /**
+     * Connected gallery apps get Photos-style cycle tiles from MediaStore (shared library).
+     * Prefer a provider cycle grid that already has photo URIs (e.g. com.metro.photos with
+     * permission); otherwise synthesize. People mosaics stay provider-only.
+     */
+    private fun resolvePhotoGrid(
+        packageName: String,
+        providerGrid: MetroTilePhotoGrid?,
+        liveContent: Boolean,
+    ): MetroTilePhotoGrid? {
+        val isGallery = GalleryTilePackages.isGalleryApp(context, packageName)
+        if (isGallery) {
+            if (!liveContent) {
+                return providerGrid?.takeIf { it.cycle }
+                    ?: GalleryLiveTileStore.photoGrid(context)
+            }
+            val synthesized = GalleryLiveTileStore.photoGrid(context)
+            val providerCycle = providerGrid?.takeIf { it.cycle && it.hasContent }
+            val providerHasPhotos = providerCycle?.cells?.any { !it.imageUri.isNullOrBlank() } == true
+            val synthesizedHasPhotos =
+                synthesized?.cells?.any { !it.imageUri.isNullOrBlank() } == true
+            return when {
+                synthesizedHasPhotos -> synthesized
+                providerHasPhotos -> providerCycle
+                synthesized != null -> synthesized
+                else -> providerCycle
+            }
+        }
+        // Non-gallery: keep People mosaics; strip Photos-style cycle faces.
+        return providerGrid?.let { grid ->
+            if (grid.cycle) null else grid
+        }
     }
 }

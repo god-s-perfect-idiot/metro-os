@@ -20,6 +20,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroPivot` | Tabbed pivot navigation |
 | `MetroPanorama` | Horizontal hub panorama |
 | `MetroListItem` | List row with tilt-on-press |
+| `MetroCheckBox` | WP8.1 square checkbox (accent fill + check when on) |
+| `MetroMultiSelectList` | Multi-select page — checkbox rows + check/cancel app bar |
 | `MetroToggleSwitch` | WP8.1 rectangular toggle (accent fill when on) |
 | `MetroListPicker` | WP8.1 ListPicker — bordered field, inline inverted options panel |
 | `MetroTextBox` | WP8.1 TextBox — light fill, black text, 3dp accent border when focused |

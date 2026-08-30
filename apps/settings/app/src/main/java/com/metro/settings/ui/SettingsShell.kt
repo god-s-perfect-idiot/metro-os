@@ -26,6 +26,14 @@ fun SettingsShell(
     var suppressEnterFor by remember { mutableStateOf<SettingsRoute?>(null) }
     val isExiting = exitingRoute != null
 
+    // Drop skip-enter only after leaving the restored parent — clearing it while still
+    // on that route remounts MetroPagePivotLoad and replays the enter swing.
+    LaunchedEffect(state.route, suppressEnterFor) {
+        if (suppressEnterFor != null && state.route != suppressEnterFor) {
+            suppressEnterFor = null
+        }
+    }
+
     BackHandler(enabled = state.route != SettingsRoute.Root && !isExiting) {
         exitingRoute = state.route
     }
@@ -62,21 +70,13 @@ fun SettingsShell(
             }
             else -> {
                 val route = state.route
-                if (route == suppressEnterFor) {
-                    LaunchedEffect(route) { suppressEnterFor = null }
-                    SettingsSubpageContent(
-                        route = route,
-                        state = state,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    SettingsSubpage(
-                        route = route,
-                        state = state,
-                        loadKey = subpageLoadKey(route, state),
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+                SettingsSubpage(
+                    route = route,
+                    state = state,
+                    loadKey = subpageLoadKey(route, state),
+                    skipEnter = route == suppressEnterFor,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }
@@ -89,12 +89,14 @@ private fun SettingsSubpage(
     loadKey: Any,
     modifier: Modifier = Modifier,
     exiting: Boolean = false,
+    skipEnter: Boolean = false,
     onExitComplete: () -> Unit = {},
 ) {
     MetroPagePivotLoad(
         modifier = modifier.background(MetroTheme.colors.background),
         loadKey = loadKey,
         exiting = exiting,
+        skipEnter = skipEnter,
         onExitComplete = onExitComplete,
     ) {
         SettingsSubpageContent(route = route, state = state, modifier = Modifier.fillMaxSize())
@@ -116,6 +118,27 @@ private fun SettingsSubpageContent(
         SettingsRoute.StorageSense -> StorageSenseScreen(state = state, modifier = modifier)
         SettingsRoute.About -> AboutScreen(state = state, modifier = modifier)
         SettingsRoute.AppDetail -> AppDetailScreen(state = state, modifier = modifier)
+        SettingsRoute.ConnectedApps -> ConnectedAppsScreen(state = state, modifier = modifier)
+        SettingsRoute.GalleryApps -> ConnectedAppListScreen(
+            state = state,
+            kind = ConnectedAppKind.Gallery,
+            modifier = modifier,
+        )
+        SettingsRoute.MusicApps -> ConnectedAppListScreen(
+            state = state,
+            kind = ConnectedAppKind.Music,
+            modifier = modifier,
+        )
+        SettingsRoute.GalleryAppPicker -> ConnectedAppPickerScreen(
+            state = state,
+            kind = ConnectedAppKind.Gallery,
+            modifier = modifier,
+        )
+        SettingsRoute.MusicAppPicker -> ConnectedAppPickerScreen(
+            state = state,
+            kind = ConnectedAppKind.Music,
+            modifier = modifier,
+        )
         SettingsRoute.Root -> Unit
     }
 }
@@ -124,10 +147,19 @@ private fun SettingsRoute.parentRoute(): SettingsRoute = when (this) {
     SettingsRoute.AccentPicker,
     SettingsRoute.StartBackgroundCrop,
     -> SettingsRoute.StartTheme
+    SettingsRoute.GalleryApps,
+    SettingsRoute.MusicApps,
+    -> SettingsRoute.ConnectedApps
+    SettingsRoute.GalleryAppPicker -> SettingsRoute.GalleryApps
+    SettingsRoute.MusicAppPicker -> SettingsRoute.MusicApps
     else -> SettingsRoute.Root
 }
 
 private fun subpageLoadKey(route: SettingsRoute, state: SettingsState): Any = when (route) {
     SettingsRoute.AppDetail -> "AppDetail:${state.selectedApp?.packageName.orEmpty()}"
+    SettingsRoute.GalleryApps -> "GalleryApps"
+    SettingsRoute.MusicApps -> "MusicApps"
+    SettingsRoute.GalleryAppPicker -> "GalleryAppPicker"
+    SettingsRoute.MusicAppPicker -> "MusicAppPicker"
     else -> route
 }

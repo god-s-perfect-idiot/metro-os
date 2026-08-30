@@ -134,6 +134,14 @@ private fun SystemSettingsList(
         }
         item {
             MetroListItem(
+                title = stringResource(R.string.settings_connected_apps),
+                subtitle = stringResource(R.string.settings_connected_apps_subtitle),
+                modifier = Modifier.height(SettingsRowHeight),
+                onClick = { state.open(SettingsRoute.ConnectedApps) },
+            )
+        }
+        item {
+            MetroListItem(
                 title = stringResource(R.string.settings_navigation_bar),
                 subtitle = stringResource(R.string.settings_navigation_bar_subtitle),
                 modifier = Modifier.height(SettingsRowHeight),
@@ -162,6 +170,14 @@ private fun SystemSettingsList(
                 subtitle = stringResource(R.string.settings_volume_subtitle),
                 modifier = Modifier.height(SettingsRowHeight),
                 onClick = { state.openVolumeSettings() },
+            )
+        }
+        item {
+            MetroListItem(
+                title = stringResource(R.string.settings_lock_screen),
+                subtitle = stringResource(R.string.settings_lock_screen_subtitle),
+                modifier = Modifier.height(SettingsRowHeight),
+                onClick = { state.openLockscreenSettings() },
             )
         }
         item {

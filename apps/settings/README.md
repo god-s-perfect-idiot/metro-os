@@ -5,7 +5,7 @@
 
 ## Status
 
-Implemented — Settings root with `system` | `applications` pivot (all launchable user + system apps; in-Settings app detail with toggles/open/uninstall), start+theme (accent colour + Start background choose photo + show more columns), accent picker (20 WP8 colours), ease of access (10-step text size), brightness, storage sense, navigation bar / status bar / notifications / volume (launch shell setup apps), keyboard (launches `com.metro.keyboard`), and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
+Implemented — Settings root with `system` | `applications` pivot (all launchable user + system apps; in-Settings app detail with toggles/open/uninstall), start+theme (accent colour + Start background choose photo + show more columns), accent picker (20 WP8 colours), ease of access (10-step text size), brightness, storage sense, connected apps (gallery / music live-tile package lists), navigation bar / status bar / notifications / volume / lock screen (launch shell setup apps), keyboard (launches `com.metro.keyboard`), and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
 
 ## App role
 
@@ -35,7 +35,10 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 | status bar | Done (launches `com.metro.statusbar` setup) |
 | notifications | Done (launches `com.metro.notifications` setup) |
 | volume | Done (launches `com.metro.volume` setup) |
+| lock screen | Done (launches `com.metro.lockscreen` setup) |
 | keyboard | Done (launches `com.metro.keyboard` settings) |
+| connected apps | Done (gallery / music live-tile package lists) |
+| gallery apps / music apps | Done (apps corner list + multi-select picker) |
 | about / more info | Done (device information; Software = metro-os alpha-3) |
 
 ## System functions and contracts
@@ -54,6 +57,8 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 - `theme_mode`
 - `accent_color` (official palette hex)
 - `font_scale` (10 discrete steps, 0.625–1.6, default 1.0)
+- `connected_gallery_apps` (comma-separated packages; null → suite defaults)
+- `connected_music_apps` (comma-separated packages; null → suite defaults)
 
 ## Commands
 
@@ -86,7 +91,7 @@ cd apps/settings
 | Brightness write | Needs `WRITE_SETTINGS` app-op | Write `Settings.System` directly; grant via `adb shell appops set com.metro.settings WRITE_SETTINGS allow` |
 | Never open Android Settings from Metro Settings | Permission grant UIs are system activities | No in-app “open settings” buttons; grant permissions out-of-band (adb / privileged install) |
 | Settings → keyboard inside system Settings hub | Keyboard is a separate suite APK | Root `keyboard` row launches `com.metro.keyboard` (not Android Settings) |
-| Settings → navigation bar / status bar / notifications / volume | Overlay + accessibility grants are per shell package | Root rows launch `com.metro.navbar` / `com.metro.statusbar` / `com.metro.notifications` / `com.metro.volume` setup (not Android Settings) |
+| Settings → navigation bar / status bar / notifications / volume / lock screen | Overlay + accessibility grants are per shell package | Root rows launch `com.metro.navbar` / `com.metro.statusbar` / `com.metro.notifications` / `com.metro.volume` / `com.metro.lockscreen` setup (not Android Settings) |
 | About IMEI / MAC / SIM ID | Need telephony / Wi-Fi MAC permissions | Omitted; more info shows Build.* and storage fields without privileged identifiers |
 | ease of access Text size has 7 steps (0.85–1.6) | Modern panels are far denser than a 4.5" WVGA Lumia, so 0.85 is still large | Slider keeps the 7 WP8.1 steps and prepends 0.625 / 0.7 / 0.775 at the same 0.075 spacing (10 total, default 1.0 unchanged) |
 

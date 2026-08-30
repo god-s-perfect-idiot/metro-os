@@ -19,6 +19,7 @@ import com.metro.launcher.BuildConfig
 import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.CustomTileBranding
 import com.metro.launcher.data.DisplayTile
+import com.metro.launcher.data.GalleryLiveTileStore
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileEntry
@@ -127,6 +128,12 @@ class LauncherState(context: Context) {
             MetroPreferenceKeys.SHOW_MORE_COLUMNS -> applyShowMoreColumns(metroPrefs.showMoreColumns)
             MetroPreferenceKeys.START_BACKGROUND_ENABLED -> {
                 reloadStartBackground()
+                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+            }
+            MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
+            MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
+            -> {
+                GalleryLiveTileStore.clearCache()
                 displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
             }
         }

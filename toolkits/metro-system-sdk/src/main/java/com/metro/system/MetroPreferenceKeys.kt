@@ -15,6 +15,18 @@ object MetroPreferenceKeys {
      * Image bytes live at [MetroStartBackground.CONTENT_URI]; this flag is the cross-app signal.
      */
     const val START_BACKGROUND_ENABLED = "start_background_enabled"
+
+    /**
+     * Comma-separated packages whose pinned Start tiles use Photos-style gallery live faces.
+     * Null (never written) → [MetroConnectedApps.DEFAULT_GALLERY_PACKAGES]; blank → none.
+     */
+    const val CONNECTED_GALLERY_APPS = "connected_gallery_apps"
+
+    /**
+     * Comma-separated packages whose pinned Start tiles use Xbox Music–style now-playing faces.
+     * Null (never written) → [MetroConnectedApps.DEFAULT_MUSIC_PACKAGES]; blank → none.
+     */
+    const val CONNECTED_MUSIC_APPS = "connected_music_apps"
 }
 
 enum class MetroThemeMode(val storageValue: String) {

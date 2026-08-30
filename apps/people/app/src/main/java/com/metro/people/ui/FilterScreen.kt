@@ -1,6 +1,5 @@
 package com.metro.people.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -21,11 +19,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.people.R
 import com.metro.people.data.PeopleFilter
+import com.metro.ui.MetroCheckBox
 import com.metro.ui.MetroCircleIconButton
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
@@ -85,7 +83,7 @@ fun FilterScreen(
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MetroCheckBox(checked = checked)
+                AccountCheckBox(checked = checked)
                 MetroText(
                     text = account,
                     style = MetroTextStyle.ListItemTitle,
@@ -116,13 +114,6 @@ fun FilterScreen(
 }
 
 @Composable
-private fun MetroCheckBox(checked: Boolean) {
-    val accent = MetroTheme.colors.accent
-    Canvas(modifier = Modifier.size(20.dp)) {
-        if (checked) {
-            drawRect(color = accent)
-        } else {
-            drawRect(color = Color.White, style = Stroke(width = 2.dp.toPx()))
-        }
-    }
+private fun AccountCheckBox(checked: Boolean) {
+    MetroCheckBox(checked = checked, onCheckedChange = null)
 }

@@ -64,8 +64,29 @@
     <string name="settings_volume">volume</string>
     <string name="settings_volume_subtitle">ringer + media</string>
 
+    <string name="settings_lock_screen">lock screen</string>
+    <string name="settings_lock_screen_subtitle">background + overlay</string>
+
     <string name="settings_keyboard">keyboard</string>
     <string name="settings_keyboard_subtitle">touch keyboard</string>
+
+    <string name="settings_connected_apps">connected apps</string>
+    <string name="settings_connected_apps_subtitle">gallery, music, etc</string>
+    <string name="settings_connected_apps_intro">Choose which apps use gallery or music live tiles on Start.</string>
+    <string name="settings_gallery_apps">Gallery apps</string>
+    <string name="settings_gallery_apps_subtitle">photos live tiles</string>
+    <string name="settings_gallery_apps_title">gallery apps</string>
+    <string name="settings_gallery_apps_intro">Apps on this list use the Photos-style live tile on Start when they publish photo content.</string>
+    <string name="settings_music_apps">Music apps</string>
+    <string name="settings_music_apps_subtitle">now playing live tiles</string>
+    <string name="settings_music_apps_title">music apps</string>
+    <string name="settings_music_apps_intro">Apps on this list show the Xbox Music–style now-playing live tile on Start when media is active.</string>
+    <string name="settings_connected_apps_section">Apps</string>
+    <string name="settings_connected_apps_tap_select">tap to select apps</string>
+    <string name="settings_connected_apps_empty">No apps selected.</string>
+    <string name="settings_connected_apps_select_title">select apps</string>
+    <string name="settings_connected_apps_save">done</string>
+    <string name="settings_connected_apps_cancel">cancel</string>
 
     <string name="settings_about">extras+info</string>
     <string name="settings_about_suite">metro-os</string>
