@@ -205,9 +205,9 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.Microphone -> drawMicrophoneGlyph(color, glyphStroke)
         MetroSystemIconType.Shift -> drawShiftGlyph(color, locked = false)
         MetroSystemIconType.ShiftLocked -> drawShiftGlyph(color, locked = true)
-        MetroSystemIconType.Backspace -> drawBackspaceGlyph(color, glyphStroke)
-        MetroSystemIconType.Enter -> drawEnterGlyph(color, glyphStroke)
-        MetroSystemIconType.Emoji -> drawEmojiGlyph(color, glyphStroke)
+        MetroSystemIconType.Backspace -> drawBackspaceGlyph(color)
+        MetroSystemIconType.Enter -> drawEnterGlyph(color)
+        MetroSystemIconType.Emoji -> drawEmojiGlyph(color)
         MetroSystemIconType.Undo -> drawUndoRedoGlyph(color, glyphStroke, redo = false)
         MetroSystemIconType.Redo -> drawUndoRedoGlyph(color, glyphStroke, redo = true)
         MetroSystemIconType.Settings -> drawSettingsGlyph(color, glyphStroke)
@@ -731,54 +731,39 @@ private fun DrawScope.drawMicrophoneGlyph(color: Color, stroke: Stroke) {
     }
 }
 
+/** Filled up-arrow — 512 viewBox path from the WP SIP shift reference SVG. */
+private const val SHIFT_GLYPH_PATH =
+    "M247.5 0L34.2 213.3v128l170.6-170.6V512h85.4V170.7l170.6 170.6v-128z"
+
+private val shiftGlyphPath: Path by lazy {
+    PathParser().parsePathString(SHIFT_GLYPH_PATH).toPath()
+}
+
 /**
- * WP SIP shift arrow — open chevron head with a stem through the center
- * (Segoe UI Symbol / WP8.1 SIP). No filled body and no base bar on the head.
+ * WP SIP shift arrow — solid filled up-arrow (thick head + stem).
  * [locked] adds the caps-lock underline under the stem.
- *
- * Filled outline (not stroked lines): a stem butt at the tip clips the miter peak
- * and leaves the notch visible on device.
  */
 private fun DrawScope.drawShiftGlyph(color: Color, locked: Boolean) {
     val s = size.minDimension
-    // Stem/arm weight ≈ WP8.1 reference (~1/5 of glyph width).
-    val t = s * 0.16f
     val cx = size.width / 2f
-    val tipY = size.height * 0.16f
-    val baseY = size.height * 0.52f
-    val stemBot = size.height * (if (locked) 0.70f else 0.84f)
-    val headHalf = s * 0.32f
-    val left = cx - headHalf
-    val right = cx + headHalf
-    val armDx = headHalf
-    val armDy = baseY - tipY
-    val theta = kotlin.math.atan2(armDy, armDx)
-    val horizInset = t / kotlin.math.sin(theta).toFloat()
-    val halfTip = kotlin.math.atan2(armDx, armDy)
-    val tipLift = t / kotlin.math.sin(halfTip).toFloat()
-
-    // Filled up-chevron with flat arm ends and a solid sharp tip.
-    val head = Path().apply {
-        moveTo(left, baseY)
-        lineTo(cx, tipY)
-        lineTo(right, baseY)
-        lineTo(right - horizInset, baseY)
-        lineTo(cx, tipY + tipLift)
-        lineTo(left + horizInset, baseY)
-        close()
+    // Fit into the SIP key footprint; leave room for the caps-lock bar when locked.
+    val fit = if (locked) 0.58f else 0.68f
+    val scale = s / 512f * fit
+    // Path tip/stem sit at x=247.5 (not viewBox mid); nudge cy up when locked for the bar.
+    val pathCx = 247.5f
+    val pathCy = 256f
+    val cy = if (locked) size.height * 0.42f else size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -pathCx, top = -pathCy)
+    }) {
+        drawPath(shiftGlyphPath, color)
     }
-    drawPath(head, color)
-
-    // Stem through the opening; starts at the inner tip so it does not amputate the peak.
-    val stemTop = tipY + tipLift
-    drawRect(
-        color = color,
-        topLeft = Offset(cx - t / 2f, stemTop),
-        size = Size(t, stemBot - stemTop),
-    )
     if (locked) {
-        val barY = size.height * 0.78f
-        val barHalf = headHalf * 0.55f
+        val t = s * 0.16f
+        val barY = size.height * 0.82f
+        val barHalf = s * 0.22f
         drawRect(
             color = color,
             topLeft = Offset(cx - barHalf, barY - t / 2f),
@@ -787,86 +772,87 @@ private fun DrawScope.drawShiftGlyph(color: Color, locked: Boolean) {
     }
 }
 
-/** WP SIP backspace — left-pointing key body with an X. */
-private fun DrawScope.drawBackspaceGlyph(color: Color, stroke: Stroke) {
-    val s = size.minDimension
-    val left = size.width * 0.18f
-    val right = size.width * 0.82f
-    val top = size.height * 0.30f
-    val bottom = size.height * 0.70f
-    val midY = (top + bottom) / 2f
-    // SIP backspace reads thin vs shift/enter chrome (~WP8.1 outline weight).
-    val thin = Stroke(
-        width = stroke.width * 0.72f,
-        cap = StrokeCap.Butt,
-        join = StrokeJoin.Miter,
-        miter = 4f,
-    )
-    val body = Path().apply {
-        moveTo(left, midY)
-        lineTo(left + s * 0.16f, top)
-        lineTo(right, top)
-        lineTo(right, bottom)
-        lineTo(left + s * 0.16f, bottom)
-        close()
+/** Outline backspace key + X — 24 viewBox path from the SIP backspace reference SVG. */
+private const val BACKSPACE_GLYPH_PATH =
+    "m11.4 16l2.6-2.6l2.6 2.6l1.4-1.4l-2.6-2.6L18 9.4L16.6 8L14 10.6L11.4 8L10 9.4l2.6 2.6l-2.6 2.6z" +
+        "M8 20l-6-8l6-8h14v16zm-3.5-8L9 18h11V6H9z"
+
+private val backspaceGlyphPath: Path by lazy {
+    PathParser().parsePathString(BACKSPACE_GLYPH_PATH).toPath().apply {
+        fillType = PathFillType.EvenOdd
     }
-    drawPath(body, color, style = thin)
-    val xArm = s * 0.09f
-    val xCx = left + (right - left) * 0.58f
-    drawLine(color, Offset(xCx - xArm, midY - xArm), Offset(xCx + xArm, midY + xArm), thin.width, StrokeCap.Butt)
-    drawLine(color, Offset(xCx + xArm, midY - xArm), Offset(xCx - xArm, midY + xArm), thin.width, StrokeCap.Butt)
 }
 
-/** WP SIP enter / return arrow. */
-private fun DrawScope.drawEnterGlyph(color: Color, stroke: Stroke) {
-    val s = size.minDimension
-    val thick = Stroke(
-        width = stroke.width * 1.1f,
-        cap = StrokeCap.Butt,
-        join = StrokeJoin.Miter,
-        miter = 4f,
-    )
-    val right = size.width * 0.72f
-    val left = size.width * 0.28f
-    val top = size.height * 0.32f
-    val midY = size.height * 0.58f
-    // Single path so Miter join fills the outer corner (two drawLine butts leave a gap).
-    val shaft = Path().apply {
-        moveTo(right, top)
-        lineTo(right, midY)
-        lineTo(left, midY)
-    }
-    drawPath(shaft, color, style = thick)
-    val head = Path().apply {
-        moveTo(left + s * 0.14f, midY - s * 0.12f)
-        lineTo(left, midY)
-        lineTo(left + s * 0.14f, midY + s * 0.12f)
-    }
-    drawPath(head, color, style = thick)
-}
-
-/** WP SIP emoji / emoticon key — thinner outline, slightly larger face. */
-private fun DrawScope.drawEmojiGlyph(color: Color, stroke: Stroke) {
+/** WP SIP backspace — left-pointing key outline with an X. */
+private fun DrawScope.drawBackspaceGlyph(color: Color) {
     val s = size.minDimension
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val thin = Stroke(
-        width = stroke.width * 0.65f,
-        cap = StrokeCap.Butt,
-        join = StrokeJoin.Miter,
-        miter = 4f,
-    )
-    val r = s * 0.42f
-    drawCircle(color, r, Offset(cx, cy), style = thin)
-    val eyeY = cy - s * 0.09f
-    val eyeR = s * 0.042f
-    drawCircle(color, eyeR, Offset(cx - s * 0.14f, eyeY))
-    drawCircle(color, eyeR, Offset(cx + s * 0.14f, eyeY))
-    val smile = Path().apply {
-        moveTo(cx - s * 0.18f, cy + s * 0.09f)
-        quadraticBezierTo(cx, cy + s * 0.28f, cx + s * 0.18f, cy + s * 0.09f)
+    // Fit into the SIP key footprint (content is inset in the 24 viewBox).
+    val scale = s / 24f * 0.72f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -12f, top = -12f)
+    }) {
+        drawPath(backspaceGlyphPath, color)
     }
-    drawPath(smile, color, style = thin)
+}
+
+/** Filled enter / return arrow — 16 viewBox path from the enter-arrow reference SVG. */
+private const val ENTER_GLYPH_PATH = "m0 9l7 4v-3h9V3l-3 2v2H7V4z"
+
+private val enterGlyphPath: Path by lazy {
+    PathParser().parsePathString(ENTER_GLYPH_PATH).toPath()
+}
+
+/** WP SIP enter / return arrow — solid filled enter-arrow. */
+private fun DrawScope.drawEnterGlyph(color: Color) {
+    val scale = size.minDimension / 16f * 0.78f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -8f, top = -8f)
+    }) {
+        drawPath(enterGlyphPath, color)
+    }
+}
+
+/** Outline smiley ring — 16 viewBox path from the smiley-o reference SVG. */
+private const val EMOJI_RING_PATH =
+    "M8 1c3.9 0 7 3.1 7 7s-3.1 7-7 7s-7-3.1-7-7s3.1-7 7-7m0-1C3.6 0 0 3.6 0 8s3.6 8 8 8s8-3.6 8-8s-3.6-8-8-8"
+
+/** Smile + eyes — 16 viewBox path from the smiley-o reference SVG. */
+private const val EMOJI_FACE_PATH =
+    "M8 13.2c-2 0-3.8-1.2-4.6-3.1l.9-.4c.6 1.5 2.1 2.4 3.7 2.4s3.1-1 3.7-2.4l.9.4c-.8 2-2.6 3.1-4.6 3.1" +
+        "M7 6a1 1 0 1 1-2 0a1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0a1 1 0 0 1 2 0"
+
+private val emojiRingPath: Path by lazy {
+    PathParser().parsePathString(EMOJI_RING_PATH).toPath().apply {
+        fillType = PathFillType.EvenOdd
+    }
+}
+
+private val emojiFacePath: Path by lazy {
+    PathParser().parsePathString(EMOJI_FACE_PATH).toPath()
+}
+
+/** WP SIP emoji / emoticon key — filled outline smiley (smiley-o). */
+private fun DrawScope.drawEmojiGlyph(color: Color) {
+    // Near-full canvas: SIP already grows the icon box; leave a hair so the ring isn't clipped.
+    val scale = size.minDimension / 16f * 0.9f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -8f, top = -8f)
+    }) {
+        drawPath(emojiRingPath, color)
+        drawPath(emojiFacePath, color)
+    }
 }
 
 /**

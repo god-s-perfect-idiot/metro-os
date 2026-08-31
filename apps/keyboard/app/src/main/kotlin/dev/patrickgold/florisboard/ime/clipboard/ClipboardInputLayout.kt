@@ -50,7 +50,6 @@ import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridS
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FilterList
@@ -58,6 +57,10 @@ import androidx.compose.material.icons.filled.FilterListOff
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material3.LocalContentColor
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconDefaultSize
+import com.metro.ui.MetroSystemIconType
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ToggleOff
@@ -248,7 +251,12 @@ fun ClipboardInputLayout(
                 keyData = TextKeyData.DELETE,
                 elementName = FlorisImeUi.ClipboardHeaderButton.elementName,
             ) {
-                SnyggIcon(imageVector = Icons.AutoMirrored.Outlined.Backspace)
+                MetroSystemIcon(
+                    type = MetroSystemIconType.Backspace,
+                    iconSize = MetroSystemIconDefaultSize,
+                    color = LocalContentColor.current,
+                    showCircle = false,
+                )
             }
         }
     }

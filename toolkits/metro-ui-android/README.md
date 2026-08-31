@@ -36,6 +36,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroPagePivotLoad` | Page enter — left-hinge 3D pivot + X slide + fade |
 | `MetroPagePivotSwing` | Same hinge `rotateY` + fade as page pivot load, **no** X slide (Start tiles) |
 | `MetroAppPivotShell` | Activity wrapper — pivot enter on launch, flip-out on Back then `finish()` |
+| `MetroAnimationSuite` | Named decorative / feedback animations catalog |
+| `MetroBiometricAnimation` | Windows Hello–style biometric success (`biometric`) |
 
 ## Usage (target)
 
@@ -153,6 +155,23 @@ Suite apps use [MetroSplash]: full-bleed accent background + `@drawable/ic_launc
 Set the launcher activity theme to `@style/Theme.Metro.Splash` and call
 `MetroSplash.install(this)` before `super.onCreate()`. On API 31+ the current
 accent is persisted for the next cold start.
+
+### Animation suite
+
+Named decorative / feedback animations (distinct from [MetroTransitions] page/chrome timing).
+
+| Id | Composable | Description |
+|----|------------|-------------|
+| `biometric` ([MetroAnimationSuite.Biometric]) | `MetroBiometricAnimation` | Windows Hello–style face success: smile morph + spin, eyes split, wink, greeting |
+
+```kotlin
+MetroBiometricAnimation(
+    name = "Bhakti",
+    color = Color.White,
+    loop = false,
+    onFinished = { /* unlock / dismiss */ },
+)
+```
 
 ### TextBox
 

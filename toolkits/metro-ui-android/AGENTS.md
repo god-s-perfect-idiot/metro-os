@@ -54,6 +54,14 @@ Constants from `scope.md` §9 — export as `Duration` and easing objects:
 - `TileFlip`: 600ms turnstile
 - `JumpListFlip`: 300ms `rotationX` with 40ms diagonal stagger
 
+## Animation suite (`MetroAnimationSuite`)
+
+Named decorative / feedback animations (not page chrome). Prefer these over app-local copies:
+
+| Id | Composable |
+|----|------------|
+| `biometric` | `MetroBiometricAnimation` — Windows Hello–style face success |
+
 ## Fonts
 
 Bundle **Noto Sans** static faces in `src/main/res/font/` (DiscoLauncher [NotoCustom](https://github.com/cherryhoax/DiscoLauncher/tree/main/www/assets/fonts/NotoCustom), OFL):

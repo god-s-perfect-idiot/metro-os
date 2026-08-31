@@ -23,12 +23,16 @@ import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconDefaultSize
+import com.metro.ui.MetroSystemIconType
 import dev.patrickgold.florisboard.ime.keyboard.Key
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +53,7 @@ fun PopupBaseBox(
     attributes: SnyggQueryAttributes,
     key: Key,
     shouldIndicateExtendedPopups: Boolean,
+    metroIcon: MetroSystemIconType? = null,
 ): Unit = with(LocalDensity.current) {
     DisposableEffect(key) {
         GlobalStateNumPopupsShowing.update { it + 1 }
@@ -62,17 +67,35 @@ fun PopupBaseBox(
         attributes = attributes,
         modifier = modifier,
     ) {
-        key.label?.let { label ->
-            SnyggBox(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(key.visibleBounds.height.toDp())
-                    .align(Alignment.TopCenter),
-            ) {
-                SnyggText(
-                    modifier = Modifier.align(Alignment.Center),
-                    text = label,
-                )
+        when {
+            metroIcon != null -> {
+                SnyggBox(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(key.visibleBounds.height.toDp())
+                        .align(Alignment.TopCenter),
+                ) {
+                    MetroSystemIcon(
+                        type = metroIcon,
+                        modifier = Modifier.align(Alignment.Center),
+                        iconSize = MetroSystemIconDefaultSize,
+                        color = LocalContentColor.current,
+                        showCircle = false,
+                    )
+                }
+            }
+            key.label != null -> {
+                SnyggBox(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(key.visibleBounds.height.toDp())
+                        .align(Alignment.TopCenter),
+                ) {
+                    SnyggText(
+                        modifier = Modifier.align(Alignment.Center),
+                        text = key.label!!,
+                    )
+                }
             }
         }
         if (shouldIndicateExtendedPopups) {
@@ -123,11 +146,22 @@ fun PopupExtBox(
                                 text = label,
                             )
                         }
-                        element.icon?.let { icon ->
-                            SnyggIcon(
-                                modifier = Modifier.align(Alignment.Center),
-                                imageVector = icon,
-                            )
+                        when {
+                            element.metroIcon != null -> {
+                                MetroSystemIcon(
+                                    type = element.metroIcon,
+                                    modifier = Modifier.align(Alignment.Center),
+                                    iconSize = MetroSystemIconDefaultSize,
+                                    color = LocalContentColor.current,
+                                    showCircle = false,
+                                )
+                            }
+                            element.icon != null -> {
+                                SnyggIcon(
+                                    modifier = Modifier.align(Alignment.Center),
+                                    imageVector = element.icon,
+                                )
+                            }
                         }
                     }
                 }

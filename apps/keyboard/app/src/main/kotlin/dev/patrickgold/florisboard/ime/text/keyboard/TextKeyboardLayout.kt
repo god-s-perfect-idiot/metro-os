@@ -393,7 +393,11 @@ private fun TextKeyButton(
                 }
                 val base = minOf(fromTheme, size.width * 0.55f, size.height * 0.42f)
                 when (metroIcon) {
-                    // Backspace: larger box, thinner stroke (see drawBackspaceGlyph).
+                    // Suite filled up-arrow (shift) + locked underline variant.
+                    MetroSystemIconType.Shift,
+                    MetroSystemIconType.ShiftLocked ->
+                        minOf(base * 1.2f, size.width * 0.60f, size.height * 0.50f)
+                    // Backspace: larger box for the outline key+X glyph.
                     MetroSystemIconType.Backspace ->
                         minOf(base * 1.35f, size.width * 0.70f, size.height * 0.56f)
                     // Enter / tick / search (and other IME-action glyphs on that key).
@@ -403,7 +407,7 @@ private fun TextKeyButton(
                     MetroSystemIconType.Send,
                     MetroSystemIconType.Forward,
                     MetroSystemIconType.Back ->
-                        minOf(base * 1.55f, size.width * 0.78f, size.height * 0.68f)
+                        minOf(base * 1.3f, size.width * 0.68f, size.height * 0.58f)
                     // Emoji face already fills its canvas — grow the key icon box instead.
                     MetroSystemIconType.Emoji ->
                         minOf(base * 1.55f, size.width * 0.78f, size.height * 0.68f)

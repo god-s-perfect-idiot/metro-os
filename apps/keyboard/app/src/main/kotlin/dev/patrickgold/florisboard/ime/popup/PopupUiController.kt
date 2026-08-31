@@ -37,6 +37,8 @@ import dev.patrickgold.florisboard.ime.keyboard.Key
 import dev.patrickgold.florisboard.ime.keyboard.KeyData
 import dev.patrickgold.florisboard.ime.keyboard.computeImageVector
 import dev.patrickgold.florisboard.ime.keyboard.computeLabel
+import dev.patrickgold.florisboard.ime.keyboard.computeMetroIcon
+import com.metro.ui.MetroSystemIconType
 import dev.patrickgold.florisboard.ime.media.emoji.EmojiSet
 import dev.patrickgold.florisboard.ime.text.key.KeyCode
 import dev.patrickgold.florisboard.ime.text.key.KeyHintConfiguration
@@ -269,6 +271,7 @@ class PopupUiController(
                 data = keyData,
                 label = evaluator.computeLabel(keyData),
                 icon = evaluator.computeImageVector(keyData),
+                metroIcon = evaluator.computeMetroIcon(keyData),
                 orderedIndex = uiIndex,
                 adjustedIndex = adjustedIndex,
             ))
@@ -453,6 +456,10 @@ class PopupUiController(
             FlorisImeUi.Attr.ShiftState to evaluator.state.inputShiftState.toString(),
         )
         baseRenderInfo?.let { renderInfo ->
+            val keyData = when (val key = renderInfo.key) {
+                is TextKey -> key.computedData
+                else -> TextKeyData.UNSPECIFIED
+            }
             PopupBaseBox(
                 modifier = Modifier
                     .requiredSize(renderInfo.bounds.size.toDpSize())
@@ -460,6 +467,7 @@ class PopupUiController(
                 attributes = attributes,
                 key = renderInfo.key,
                 shouldIndicateExtendedPopups = renderInfo.shouldIndicateExtendedPopups && extRenderInfo == null,
+                metroIcon = evaluator.computeMetroIcon(keyData),
             )
         }
         extRenderInfo?.let { renderInfo ->
@@ -505,6 +513,7 @@ class PopupUiController(
         val data: KeyData,
         val label: String?,
         val icon: ImageVector?,
+        val metroIcon: MetroSystemIconType? = null,
         val orderedIndex: Int,
         val adjustedIndex: Int,
     )

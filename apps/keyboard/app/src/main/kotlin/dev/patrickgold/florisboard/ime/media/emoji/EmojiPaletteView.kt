@@ -45,11 +45,14 @@ import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconDefaultSize
+import com.metro.ui.MetroSystemIconType
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -290,9 +293,11 @@ fun EmojiPaletteView(
                     .weight(1f)
                     .fillMaxHeight(),
             ) {
-                SnyggIcon(
-                    imageVector = Icons.AutoMirrored.Outlined.Backspace,
-                    contentDescription = null,
+                MetroSystemIcon(
+                    type = MetroSystemIconType.Backspace,
+                    iconSize = MetroSystemIconDefaultSize,
+                    color = LocalContentColor.current,
+                    showCircle = false,
                 )
             }
         }

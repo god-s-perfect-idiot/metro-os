@@ -558,6 +558,8 @@ Show progress for operations **> 500ms**. No Material shared-element transitions
 
 **Toolkit:** `MetroTransitions`, `MetroPagePivotLoad`, `MetroPagePivotSwing`, `Modifier.metroTiltOnPress()`.
 
+**Animation suite** (decorative / feedback, not page chrome): `MetroAnimationSuite` + named composables such as `MetroBiometricAnimation` (`biometric` — Windows Hello–style face success).
+
 ---
 
 ## 9. Icons and imagery
@@ -669,6 +671,7 @@ Need a container shape?
 | Theme / color | `MetroTheme`, `MetroColors` | Implemented |
 | Typography | `MetroText`, `MetroTextStyle` | Implemented |
 | Motion | `MetroTransitions` | Implemented |
+| Animation suite | `MetroAnimationSuite`, `MetroBiometricAnimation` | Implemented |
 
 **Rule:** Apps must not reimplement these primitives locally. Import from `metro-ui-android`.
 
