@@ -113,7 +113,12 @@ private const val TILE_FLIP_HOLD_JITTER_MS = 1_200L
 /** Camera distance multiplier so rotationX reads as a 3D flip, not a squash. */
 private const val TILE_FLIP_CAMERA_DISTANCE = 16f
 /** Dim / lift settle when entering or leaving edit mode (layout must not reflow). */
-private const val TILE_EDIT_VISUAL_MS = 180
+internal const val TILE_EDIT_VISUAL_MS = 180
+/** → affordance on Start; keep in sync with [StartScreen] arrow row. */
+internal val START_ARROW_ROW_HEIGHT = 64.dp
+internal val START_BOTTOM_SCROLL_PADDING = 48.dp
+/** Extra scroll tail while edit mode hides the arrow row. */
+internal val START_EDIT_EXTRA_BOTTOM_PADDING = 32.dp
 /** Brief pause before idle float so enter visuals aren't fighting N×2 Animatables. */
 private const val TILE_EDIT_FLOAT_DELAY_MS = 120L
 /**
@@ -520,8 +525,15 @@ fun TileGrid(
             if (bounceThenExitKey != null || exitingTileKey != null) liveMotionEnabled = false
         }
         val contentHeight = gridContentHeight(unit, placed)
+        // In edit mode reserve room for resize discs + the scroll strip normally held by the → row.
+        val editBottomReserve = if (editMode) {
+            START_ARROW_ROW_HEIGHT + START_BOTTOM_SCROLL_PADDING + START_EDIT_EXTRA_BOTTOM_PADDING
+        } else {
+            0.dp
+        }
+        val bottomOverhang = if (editMode) 16.dp + cornerOverhang + editBottomReserve else 0.dp
         val animatedContentHeight by animateDpAsState(
-            targetValue = contentHeight + 16.dp + cornerOverhang,
+            targetValue = contentHeight + bottomOverhang,
             animationSpec = reflowSpec,
             label = "tileGridHeight",
         )
