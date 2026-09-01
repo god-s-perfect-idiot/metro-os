@@ -2,7 +2,6 @@ package com.metro.settings.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -100,8 +98,6 @@ fun AccentPickerScreen(
                         AccentSwatch(
                             option = option,
                             size = tileSize,
-                            selected = MetroAccentPalette.normalizeHex(state.accentHex) ==
-                                MetroAccentPalette.normalizeHex(option.hex),
                             enabled = !exiting,
                             onClick = {
                                 state.applyAccentHex(option.hex)
@@ -119,22 +115,13 @@ fun AccentPickerScreen(
 private fun AccentSwatch(
     option: MetroAccentOption,
     size: Dp,
-    selected: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val color = Color(option.colorArgb)
     Box(
         modifier = Modifier
             .size(size)
-            .background(color)
-            .then(
-                if (selected) {
-                    Modifier.border(3.dp, MetroTheme.colors.primaryText)
-                } else {
-                    Modifier
-                },
-            )
+            .background(Color(option.colorArgb))
             .semantics {
                 role = Role.Button
                 contentDescription = option.name
@@ -145,14 +132,5 @@ private fun AccentSwatch(
                 indication = null,
                 onClick = onClick,
             ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (selected) {
-            MetroText(
-                text = "✓",
-                style = MetroTextStyle.SectionHeader,
-                color = Color.White,
-            )
-        }
-    }
+    )
 }

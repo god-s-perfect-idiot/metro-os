@@ -55,7 +55,10 @@ enum class MetroSystemIconType {
     Search,
     Close,
     Unpin,
+    /** Diagonal grow arrow (bottom-right corner) — Start tile 1×1 → 2×2. */
     Resize,
+    /** Diagonal shrink arrow (top-left corner) — Start tile 4×2 → 1×1. */
+    ResizeShrink,
     Add,
     More,
     SwitchView,
@@ -182,8 +185,9 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.Back -> drawBackGlyph(color)
         MetroSystemIconType.Search -> drawSearchGlyph(color)
         MetroSystemIconType.Close -> drawCloseGlyph(color)
-        MetroSystemIconType.Unpin -> drawUnpinGlyph(color, glyphStroke)
-        MetroSystemIconType.Resize -> drawResizeGlyph(color, glyphStroke)
+        MetroSystemIconType.Unpin -> drawUnpinGlyph(color)
+        MetroSystemIconType.Resize -> drawResizeGrowGlyph(color)
+        MetroSystemIconType.ResizeShrink -> drawResizeShrinkGlyph(color)
         MetroSystemIconType.Add -> drawAddGlyph(color)
         MetroSystemIconType.More -> drawMoreGlyph(color, glyphStroke)
         MetroSystemIconType.SwitchView -> drawRefreshGlyph(color)
@@ -423,55 +427,60 @@ private val checkGlyphPath: Path by lazy {
     PathParser().parsePathString(CHECK_GLYPH_PATH).toPath()
 }
 
-private fun DrawScope.drawUnpinGlyph(color: Color, stroke: Stroke) {
-    val min = size.minDimension
-    val cx = size.width / 2f
-    val cy = size.height / 2f
-    val s = min * 0.28f
-    val pivot = Offset(cx, cy)
+/** Filled unpin — 24 viewBox path from the WP8.1 Start tile-edit unpin reference SVG. */
+private const val UNPIN_GLYPH_PATH =
+    "m20.971 17.172l-1.414 1.414l-3.535-3.535l-.073.074l-.707 3.535l-1.415 1.415l-4.242-4.243l-4.95 4.95l-1.414-1.414l4.95-4.95l-4.243-4.243l1.414-1.414l3.536-.707l.073-.074l-3.536-3.536l1.414-1.415L20.97 17.172Zm-2.12-4.95l1.34-1.34l.707.707l1.415-1.414l-8.486-8.485l-1.414 1.414l.707.707l-1.34 1.34l7.07 7.072Z"
 
-    rotate(degrees = 38f, pivot = pivot) {
-        val pin = Path().apply {
-            moveTo(cx - 0.28f * s, cy - 0.95f * s)
-            lineTo(cx + 0.28f * s, cy - 0.95f * s)
-            lineTo(cx + 0.28f * s, cy - 0.45f * s)
-            lineTo(cx + 0.55f * s, cy - 0.15f * s)
-            lineTo(cx + 0.55f * s, cy + 0.05f * s)
-            lineTo(cx + 0.12f * s, cy + 0.35f * s)
-            lineTo(cx, cy + 1.05f * s)
-            lineTo(cx - 0.12f * s, cy + 0.35f * s)
-            lineTo(cx - 0.55f * s, cy + 0.05f * s)
-            lineTo(cx - 0.55f * s, cy - 0.15f * s)
-            lineTo(cx - 0.28f * s, cy - 0.45f * s)
-            close()
-        }
-        drawPath(pin, color)
-    }
-
-    val arm = s * 1.05f
-    drawLine(
-        color,
-        Offset(cx - arm, cy - arm),
-        Offset(cx + arm, cy + arm),
-        stroke.width,
-        StrokeCap.Butt,
-    )
+private val unpinGlyphPath: Path by lazy {
+    PathParser().parsePathString(UNPIN_GLYPH_PATH).toPath()
 }
 
-/** Diagonal arrow toward tile interior (WP8.1 resize affordance). */
-private fun DrawScope.drawResizeGlyph(color: Color, stroke: Stroke) {
-    val arm = size.minDimension * 0.14f
+private fun DrawScope.drawUnpinGlyph(color: Color) {
+    drawFilledViewportGlyph(unpinGlyphPath, color, viewBox = 24f, glyphScale = 0.72f)
+}
+
+/** Filled diagonal grow arrow — 512 viewBox path (bottom-right corner). */
+private const val RESIZE_GROW_GLYPH_PATH =
+    "m511.9 186.1l-93.1-93V349L69.8 0L0 69.8l349 349H93.1l93 93.1l325.9.1z"
+
+private val resizeGrowGlyphPath: Path by lazy {
+    PathParser().parsePathString(RESIZE_GROW_GLYPH_PATH).toPath()
+}
+
+private fun DrawScope.drawResizeGrowGlyph(color: Color) {
+    drawFilledViewportGlyph(resizeGrowGlyphPath, color, viewBox = 512f, glyphScale = 0.38f)
+}
+
+/** Filled diagonal shrink arrow — 512 viewBox path (top-left corner). */
+private const val RESIZE_SHRINK_GLYPH_PATH =
+    "M163 93.2h255.9L325.9.1L0 0l.1 325.9l93.1 93V163l349 349l69.8-69.8z"
+
+private val resizeShrinkGlyphPath: Path by lazy {
+    PathParser().parsePathString(RESIZE_SHRINK_GLYPH_PATH).toPath()
+}
+
+private fun DrawScope.drawResizeShrinkGlyph(color: Color) {
+    drawFilledViewportGlyph(resizeShrinkGlyphPath, color, viewBox = 512f, glyphScale = 0.38f)
+}
+
+/** Scales a filled reference path into the icon canvas (centered square viewport). */
+private fun DrawScope.drawFilledViewportGlyph(
+    path: Path,
+    color: Color,
+    viewBox: Float,
+    glyphScale: Float,
+) {
+    val scale = size.minDimension / viewBox * glyphScale
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val start = Offset(cx + arm * 0.55f, cy - arm * 0.75f)
-    val end = Offset(cx - arm * 0.75f, cy + arm * 0.55f)
-    drawLine(color, start, end, stroke.width, StrokeCap.Butt)
-    val path = Path().apply {
-        moveTo(end.x + arm * 0.38f, end.y)
-        lineTo(end.x, end.y)
-        lineTo(end.x, end.y - arm * 0.38f)
+    val half = viewBox / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -half, top = -half)
+    }) {
+        drawPath(path, color)
     }
-    drawPath(path, color, style = stroke)
 }
 
 /** Filled plus — 512 viewBox path from the WP8.1 add reference SVG. */

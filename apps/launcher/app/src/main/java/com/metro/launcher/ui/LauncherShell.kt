@@ -69,7 +69,6 @@ fun LauncherShell(
     var startDrawn by remember { mutableStateOf(false) }
     // Cold-start only: do not re-cover Start on resume / live refresh.
     var coldSplashActive by remember { mutableStateOf(true) }
-    var splashDotsStarted by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.hasCompletedInitialLoad) {
         if (!state.hasCompletedInitialLoad) {
@@ -82,12 +81,13 @@ fun LauncherShell(
         startDrawn = true
     }
 
-    // Hold system splash until Compose dots are actually running, then keep the Compose
-    // loader up until Start has painted *and* dots have had a visible beat (fast loads
-    // were lifting before the delayed off-screen dots entered the track).
-    LaunchedEffect(splashDotsStarted) {
-        if (!coldSplashActive || !splashDotsStarted) return@LaunchedEffect
+    // Lift the platform splash on the first cold-start frame so dancing dots can tick
+    // (View/ObjectAnimator and Compose animations stall under the SplashScreen overlay).
+    // Keep the Compose loader until Start has painted and dots had a visible beat.
+    LaunchedEffect(coldSplashActive) {
+        if (!coldSplashActive) return@LaunchedEffect
         onComposeSplashReady()
+        withFrameNanos { }
         val visibleSince = SystemClock.elapsedRealtime()
         snapshotFlow { state.hasCompletedInitialLoad && startDrawn }
             .first { ready -> ready }
@@ -244,7 +244,6 @@ fun LauncherShell(
             MetroSplashLoadingScreen(
                 icon = painterResource(id = R.drawable.ic_launcher_foreground),
                 backgroundColor = state.accent,
-                onDotsStarted = { splashDotsStarted = true },
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("metro_start_splash_loader"),

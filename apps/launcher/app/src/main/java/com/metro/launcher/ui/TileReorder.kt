@@ -7,8 +7,8 @@ import kotlin.math.roundToInt
 /** Identity for a pinned Start tile (package + tile id). */
 data class TileKey(val packageName: String, val tileId: String)
 
-/** Shorter than [android.view.ViewConfiguration.getLongPressTimeout] (~400ms) for tile edit. */
-const val TILE_DRAG_HOLD_MS = 250L
+/** Disco Launcher edit hold — 500ms pointerdown before edit mode arms. */
+const val TILE_DRAG_HOLD_MS = TILE_EDIT_HOLD_MS
 
 fun DisplayTile.tileKey(): TileKey = TileKey(entry.packageName, entry.tileId)
 

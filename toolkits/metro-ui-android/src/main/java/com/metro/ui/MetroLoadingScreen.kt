@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -279,13 +281,17 @@ fun MetroSplashLoadingScreen(
                 contentDescription = null,
                 modifier = Modifier.size(SplashIconSize),
             )
-            // View/ObjectAnimator dots — Compose InfiniteTransition freezes when Start
-            // (or other UI work) saturates the main thread during contact/photo loads.
-            MetroLoadingDotsAndroid(
-                color = dotsColor,
-                onStarted = onDotsStarted,
-            )
+            // Compose dots — the system SplashScreen overlay suppresses View/ObjectAnimator
+            // progress until it lifts; InfiniteTransition runs once the Compose loader is visible.
+            MetroLoadingDots(color = dotsColor)
         }
+    }
+
+    // Signal after the first presented frame so callers can lift the system splash before
+    // waiting on dot visibility timing (animations do not tick under the platform overlay).
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        onDotsStarted()
     }
 }
 

@@ -78,18 +78,18 @@ import com.metro.launcher.data.rowCompactionMap
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
-import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.sin
 import kotlin.random.Random
 import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroPagePivotSwing
+import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTransitions
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val MESSAGING_PACKAGE = "com.metro.messaging"
 
@@ -112,15 +112,11 @@ private const val TILE_FLIP_STAGGER_MAX_MS = 4_000L
 private const val TILE_FLIP_HOLD_JITTER_MS = 1_200L
 /** Camera distance multiplier so rotationX reads as a 3D flip, not a squash. */
 private const val TILE_FLIP_CAMERA_DISTANCE = 16f
-/** Dim / lift settle when entering or leaving edit mode (layout must not reflow). */
-internal const val TILE_EDIT_VISUAL_MS = 180
 /** → affordance on Start; keep in sync with [StartScreen] arrow row. */
 internal val START_ARROW_ROW_HEIGHT = 64.dp
 internal val START_BOTTOM_SCROLL_PADDING = 48.dp
 /** Extra scroll tail while edit mode hides the arrow row. */
 internal val START_EDIT_EXTRA_BOTTOM_PADDING = 32.dp
-/** Brief pause before idle float so enter visuals aren't fighting N×2 Animatables. */
-private const val TILE_EDIT_FLOAT_DELAY_MS = 120L
 /**
  * Delay between successive diagonals on Start enter. Slightly longer than the
  * jump-list step ([MetroTransitions.JumpListFlipStaggerMs]) so the BR→TL wave
@@ -456,6 +452,8 @@ fun TileGrid(
             dragSlotCol = 0
             dragSlotRow = 0
             dragBaselinePositions = null
+        } else {
+            TileEditPerlin.reseed()
         }
     }
 
@@ -465,21 +463,16 @@ fun TileGrid(
         exitingTileKey = null
     }
 
-    // One shared clock for every idle float — avoids 2 Animatable loops per tile on enter.
-    // Return State so only dimmed cells subscribe; the grid itself must not read every frame.
+    // One shared clock for Perlin jiggle — avoids per-tile animation loops on enter.
     val floatTimeSec = rememberEditModeFloatClock(editMode)
-    val editVisualProgress by animateFloatAsState(
-        targetValue = if (editMode) 1f else 0f,
-        animationSpec = tween(TILE_EDIT_VISUAL_MS, easing = FastOutSlowInEasing),
-        label = "editVisual",
-    )
-    val scrimAlpha = 0.55f * editVisualProgress
+    val editProgress = rememberTileEditProgress(editMode)
+    val scrimAlpha = TILE_EDIT_SCRIM_ALPHA * editProgress
 
     val chrome = remember(columns) { TileChrome.forColumns(columns) }
     CompositionLocalProvider(LocalTileChrome provides chrome) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         // Side gutters from [TileChrome.horizontalPadding]. Corner discs hang into that gutter
-        // so edit mode never widens the grid or reflows `unit`.
+        // so edit mode never widens the grid or reflows `unit` — recess is graphics-only.
         // Top keeps half-button room so the unpin disc above row 0 is not clipped by scroll.
         val cornerOverhang = TileCornerButtonSize / 2
         val horizontalPad = chrome.horizontalPadding
@@ -525,18 +518,18 @@ fun TileGrid(
             if (bounceThenExitKey != null || exitingTileKey != null) liveMotionEnabled = false
         }
         val contentHeight = gridContentHeight(unit, placed)
-        // In edit mode reserve room for resize discs + the scroll strip normally held by the → row.
-        val editBottomReserve = if (editMode) {
+        val editBottomReserveDp =
             START_ARROW_ROW_HEIGHT + START_BOTTOM_SCROLL_PADDING + START_EDIT_EXTRA_BOTTOM_PADDING
-        } else {
-            0.dp
-        }
-        val bottomOverhang = if (editMode) 16.dp + cornerOverhang + editBottomReserve else 0.dp
+        val editOverhang = (16.dp + cornerOverhang + editBottomReserveDp) * editProgress
         val animatedContentHeight by animateDpAsState(
-            targetValue = contentHeight + bottomOverhang,
+            targetValue = contentHeight,
             animationSpec = reflowSpec,
-            label = "tileGridHeight",
+            label = "tileGridContentHeight",
         )
+        val totalHeight = animatedContentHeight + editOverhang
+
+        val pageScale = tileEditPageScale(editProgress)
+        val editPerspectivePx = with(density) { TILE_EDIT_PERSPECTIVE_DP.dp.toPx() }
 
         fun beginDragAtVisual(
             tile: DisplayTile,
@@ -615,7 +608,7 @@ fun TileGrid(
                     end = horizontalPad,
                     top = topPad,
                 )
-                .size(width = maxWidth, height = animatedContentHeight)
+                .size(width = maxWidth, height = totalHeight)
                 .then(
                     if (scrimAlpha > 0.001f) {
                         Modifier.background(Color.Black.copy(alpha = scrimAlpha))
@@ -631,6 +624,17 @@ fun TileGrid(
                     },
                 ),
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        cameraDistance = editPerspectivePx
+                        scaleX = pageScale
+                        scaleY = pageScale
+                        transformOrigin = TransformOrigin(0.5f, 0f)
+                        clip = false
+                    },
+            ) {
             placed.forEach { placement ->
                 val tile = placement.tile
                 val tileKey = tile.tileKey()
@@ -813,7 +817,7 @@ fun TileGrid(
                                 editMode = editMode,
                                 isActive = isActive,
                                 isDragging = tileIsDragging,
-                                editVisualProgress = editVisualProgress,
+                                editProgress = editProgress,
                                 floatTimeSec = floatTimeSec,
                                 liveMotionEnabled = liveMotionEnabled,
                                 playTapBounce = bounceThenExitKey == tileKey,
@@ -845,6 +849,7 @@ fun TileGrid(
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -907,7 +912,7 @@ private fun LauncherTileCell(
     editMode: Boolean,
     isActive: Boolean,
     isDragging: Boolean,
-    editVisualProgress: Float,
+    editProgress: Float,
     floatTimeSec: State<Float>,
     liveMotionEnabled: Boolean,
     playTapBounce: Boolean,
@@ -919,28 +924,99 @@ private fun LauncherTileCell(
     dragModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
 ) {
-    val dimmed = editMode && !isActive && !isDragging
+    val activeBlendTarget = if (isActive && editMode) 1f else 0f
+    val steadyPhase = tileEditSteadyPhase(editProgress)
+    val activeBlend by animateFloatAsState(
+        targetValue = activeBlendTarget,
+        animationSpec = when {
+            !editMode || isDragging || steadyPhase < 1f -> snap()
+            // Snap in on focus change; overshoot bounce handles the pop.
+            activeBlendTarget == 1f && editProgress >= 1f -> snap()
+            else -> tween(TILE_EDIT_INTRO_MS, easing = FastOutSlowInEasing)
+        },
+        label = "tileActiveBlend",
+    )
+    val activeFocusBounce = remember { Animatable(1f) }
+    LaunchedEffect(isActive, editMode) {
+        if (!editMode || !isActive) {
+            activeFocusBounce.snapTo(1f)
+            return@LaunchedEffect
+        }
+        // Initial edit enter pop is driven by [editProgress]; bounce only on steady focus swaps.
+        if (editProgress < 1f) return@LaunchedEffect
+        activeFocusBounce.snapTo(TILE_EDIT_ACTIVE_FOCUS_BOUNCE_PEAK)
+        activeFocusBounce.animateTo(
+            targetValue = 1f,
+            animationSpec = tileEditActiveFocusBounceSpec(),
+        )
+    }
+    val dimmed = editMode && steadyPhase > 0f && activeBlend < 0.5f && !isDragging
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val floatSeed = remember(tile.entry.packageName, tile.entry.tileId) {
         tile.entry.packageName.hashCode() * 31 + tile.entry.tileId.hashCode()
     }
-    val idleFloat =
-        if (dimmed) tileIdleFloatAt(floatSeed, floatTimeSec.value) else TileIdleFloatState.Still
-    val floatTx = with(density) { idleFloat.offsetXDp.dp.toPx() }
-    val floatTy = with(density) { idleFloat.offsetYDp.dp.toPx() }
-    // Dim/scale follow edit progress only while editMode is true. On exit, editMode clears
-    // (and with it isActive) in the same frame — lerping then would flash the focused tile dim.
+    val shakeOffset =
+        if (dimmed) tileEditShakeAt(floatSeed, floatTimeSec.value) else TileEditShakeOffset.Still
+    val floatTx = with(density) { shakeOffset.offsetXDp.dp.toPx() }
+    val floatTy = with(density) { shakeOffset.offsetYDp.dp.toPx() }
+    // Dim/scale follow the two-phase edit timeline. Active-focus swaps animate via
+    // [activeBlend] once steady phase completes; on exit editMode clears in the same
+    // frame so we snap (no flash on the formerly focused tile).
     val tileAlpha = when {
-        isActive || isDragging -> 1f
-        editMode -> 1f - (1f - 0.45f) * editVisualProgress
-        else -> 1f
+        isDragging -> 1f
+        !editMode -> 1f
+        else -> tileEditFocusAlpha(editProgress, activeBlend)
     }
     val tileScale = when {
-        isDragging -> 1.06f
-        isActive -> 1.02f
-        editMode -> 1f - 0.03f * editVisualProgress
-        else -> 1f
+        isDragging -> TILE_EDIT_ACTIVE_SCALE
+        !editMode -> 1f
+        else -> {
+            val focus = tileEditFocusScale(editProgress, activeBlend)
+            val zScale = tileEditPerspectiveScale(
+                tileEditActiveTranslationZDp(editProgress, activeBlend),
+            )
+            focus * zScale
+        }
+    }
+    var lastTileSize by remember(tile.entry.packageName, tile.entry.tileId) {
+        mutableStateOf(tile.entry.size)
+    }
+    val resizeOvershoot = remember { Animatable(1f) }
+    val resizeTranslateX = remember { Animatable(0f) }
+    val resizeTranslateY = remember { Animatable(0f) }
+    LaunchedEffect(tile.entry.size, isActive) {
+        if (!isActive || lastTileSize == tile.entry.size) {
+            lastTileSize = tile.entry.size
+            return@LaunchedEffect
+        }
+        val overshoot = tileResizeOvershoot(lastTileSize, tile.entry.size)
+        lastTileSize = tile.entry.size
+        resizeOvershoot.snapTo(overshoot.scaleMultiplier)
+        resizeTranslateX.snapTo(overshoot.translationFractionX)
+        resizeTranslateY.snapTo(overshoot.translationFractionY)
+        val resizeSpec = tween<Float>(TILE_EDIT_RESIZE_MS, easing = FastOutSlowInEasing)
+        kotlinx.coroutines.coroutineScope {
+            launch { resizeOvershoot.animateTo(1f, resizeSpec) }
+            launch { resizeTranslateX.animateTo(0f, resizeSpec) }
+            launch { resizeTranslateY.animateTo(0f, resizeSpec) }
+        }
+    }
+    var isUnpinning by remember { mutableStateOf(false) }
+    val unpinAlpha = remember { Animatable(1f) }
+    val unpinScale = remember { Animatable(1f) }
+    val onUnpinState = rememberUpdatedState(onUnpin)
+    LaunchedEffect(isUnpinning) {
+        if (!isUnpinning) return@LaunchedEffect
+        val unpinSpec = tween<Float>(TILE_EDIT_UNPIN_MS, easing = FastOutSlowInEasing)
+        kotlinx.coroutines.coroutineScope {
+            launch { unpinAlpha.animateTo(0f, unpinSpec) }
+            launch { unpinScale.animateTo(0.5f, unpinSpec) }
+        }
+        onUnpinState.value()
+        isUnpinning = false
+        unpinAlpha.snapTo(1f)
+        unpinScale.snapTo(1f)
     }
     val bounceScale = remember { Animatable(1f) }
     val onTapBounceCompleteState = rememberUpdatedState(onTapBounceComplete)
@@ -1006,6 +1082,7 @@ private fun LauncherTileCell(
         !showMusicNowPlaying &&
         !isSmall &&
         !editMode
+    val forceStaticEditFace = editMode && steadyPhase > 0f
     val badgeCount = tile.counter?.takeIf {
         it > 0 && !showAgenda && !showMessagingUnreadFace && !showMusicNowPlaying
     }
@@ -1023,18 +1100,16 @@ private fun LauncherTileCell(
         }
     }
 
-    // Outer box must not clip — edit corner buttons are centered on the tile vertices and
-    // intentionally draw half outside the tile (WP8.1). Clip only the tile face below.
-    // Idle float is applied on an inner layer so hit-testing stays on the grid slot (floating
-    // neighbors must not steal presses from tiles underneath).
+    // Outer box must not clip — edit corner buttons hang on tile vertices (WP8.1), and idle
+    // float overlaps neighbors. Scale/dim apply only to the tile face; corner discs stay at
+    // layout size so they are not clipped while focus scale animates.
     Box(
         modifier = modifier
             .size(width, height)
             .graphicsLayer {
-                alpha = tileAlpha
-                val scale = tileScale * bounceScale.value
-                scaleX = scale
-                scaleY = scale
+                translationX = if (isDragging) 0f else floatTx
+                translationY = if (isDragging) 0f else floatTy
+                clip = false
             }
             .combinedClickable(
                 onClick = onClick,
@@ -1051,8 +1126,14 @@ private fun LauncherTileCell(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    translationX = if (isDragging) 0f else floatTx
-                    translationY = if (isDragging) 0f else floatTy
+                    alpha = tileAlpha * unpinAlpha.value
+                    val scale = tileScale * activeFocusBounce.value * bounceScale.value *
+                        unpinScale.value * resizeOvershoot.value
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = resizeTranslateX.value * size.width
+                    translationY = resizeTranslateY.value * size.height
+                    clip = false
                 },
         ) {
             // Flip tiles keep a black void in the slot (even transparent window tiles); the
@@ -1082,6 +1163,28 @@ private fun LauncherTileCell(
             ) {
                 val frontFace: @Composable () -> Unit = {
                     when {
+                        forceStaticEditFace && !isSmall -> {
+                            StaticIconTileContent(
+                                packageName = tile.entry.packageName,
+                                title = tile.title,
+                                iconSize = iconSize,
+                                contentColor = contentColor,
+                                iconOffsetX = -iconBadgeShift,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        forceStaticEditFace && isSmall -> {
+                            MetroAppIcon(
+                                packageName = tile.entry.packageName,
+                                size = iconSize,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(chrome.smallIconInset),
+                                contentDescription = tile.title,
+                                fallbackLabel = tile.title,
+                                fallbackColor = contentColor,
+                            )
+                        }
                         showMusicNowPlaying -> {
                             MusicNowPlayingTileContent(
                                 info = musicNowPlaying!!,
@@ -1318,16 +1421,18 @@ private fun LauncherTileCell(
                 }
             }
         }
-        if (isActive) {
+        if (editMode && isActive) {
             // Vertical hang is half the disc; horizontal hang matches the grid gutter so edge
             // tiles never paint past the screen (scroll clips overflow).
             val cornerOffsetY = TileCornerButtonSize / 2
             val cornerSideHang = tileCornerSideHang(chrome.horizontalPadding)
             val controlsVisible = !isDragging
             TileEditCornerButton(
-                onClick = onUnpin,
+                onClick = {
+                    if (!isUnpinning) isUnpinning = true
+                },
                 contentDescription = "unpin",
-                unpin = true,
+                icon = MetroSystemIconType.Unpin,
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -1339,7 +1444,8 @@ private fun LauncherTileCell(
             TileEditCornerButton(
                 onClick = onResize,
                 contentDescription = "resize",
-                resizeGlyph = resizeGlyphForTileSize(tile.entry.size),
+                icon = resizeIconForTileSize(tile.entry.size),
+                glyphScale = resizeGlyphScaleForTileSize(tile.entry.size),
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -1979,41 +2085,7 @@ private fun LiveTileFlipFace(
     }
 }
 
-/**
- * Per-tile idle float used in edit mode for every non-active tile.
- * Amplitudes / periods are derived from [seed] so neighboring tiles drift independently.
- * Motion is driven by a single shared clock in [rememberEditModeFloatClock] — not per-tile
- * Animatable loops — so entering edit mode stays smooth.
- */
-internal data class TileIdleFloatParams(
-    val ampXDp: Float,
-    val ampYDp: Float,
-    val durationXMs: Int,
-    val durationYMs: Int,
-) {
-    companion object {
-        fun fromSeed(seed: Int): TileIdleFloatParams {
-            val s = abs(seed)
-            return TileIdleFloatParams(
-                ampXDp = 3.5f + (s % 50) / 50f * 5f,
-                ampYDp = 3f + ((s / 7) % 50) / 50f * 5f,
-                durationXMs = 2200 + (s % 11) * 140,
-                durationYMs = 2400 + ((s / 3) % 13) * 130,
-            )
-        }
-    }
-}
-
-internal data class TileIdleFloatState(
-    val offsetXDp: Float,
-    val offsetYDp: Float,
-) {
-    companion object {
-        val Still = TileIdleFloatState(0f, 0f)
-    }
-}
-
-/** Seconds since float started; 0 while edit mode is off or still settling. */
+/** Seconds since Perlin shake started; 0 while edit mode is off or still settling. */
 @Composable
 private fun rememberEditModeFloatClock(editMode: Boolean): State<Float> {
     val timeSec = remember { mutableFloatStateOf(0f) }
@@ -2031,17 +2103,4 @@ private fun rememberEditModeFloatClock(editMode: Boolean): State<Float> {
         }
     }
     return timeSec
-}
-
-internal fun tileIdleFloatAt(seed: Int, timeSec: Float): TileIdleFloatState {
-    if (timeSec <= 0f) return TileIdleFloatState.Still
-    val params = TileIdleFloatParams.fromSeed(seed)
-    val phaseX = (abs(seed) % 100) / 100f * (2f * PI.toFloat())
-    val phaseY = ((abs(seed) / 11) % 100) / 100f * (2f * PI.toFloat())
-    val omegaX = (2f * PI.toFloat()) / (params.durationXMs / 1000f)
-    val omegaY = (2f * PI.toFloat()) / (params.durationYMs / 1000f)
-    return TileIdleFloatState(
-        offsetXDp = params.ampXDp * sin(omegaX * timeSec + phaseX),
-        offsetYDp = params.ampYDp * sin(omegaY * timeSec + phaseY),
-    )
 }

@@ -15,6 +15,7 @@ import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT_EXPANDED
 import com.metro.launcher.ui.compactEmptyRowPlacements
 import com.metro.system.MetroTileContract
 import com.metro.ui.MetroColors
+import com.metro.ui.MetroSystemIconType
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -143,35 +144,103 @@ class TileGridTest {
     }
 
     @Test
-    fun resizeGlyph_matchesSizeCycle() {
-        assertEquals(TileResizeGlyph.DiagonalDownRight, resizeGlyphForTileSize(PinnedTileSize.OneByOne))
-        assertEquals(TileResizeGlyph.Right, resizeGlyphForTileSize(PinnedTileSize.TwoByTwo))
-        assertEquals(TileResizeGlyph.DiagonalUpLeft, resizeGlyphForTileSize(PinnedTileSize.FourByTwo))
+    fun resizeIcon_matchesSizeCycle() {
+        assertEquals(MetroSystemIconType.Resize, resizeIconForTileSize(PinnedTileSize.OneByOne))
+        assertEquals(MetroSystemIconType.Forward, resizeIconForTileSize(PinnedTileSize.TwoByTwo))
+        assertEquals(MetroSystemIconType.ResizeShrink, resizeIconForTileSize(PinnedTileSize.FourByTwo))
     }
 
     @Test
-    fun idleFloatParams_differBySeed() {
-        val a = TileIdleFloatParams.fromSeed(1)
-        val b = TileIdleFloatParams.fromSeed(99)
+    fun resizeGlyphScale_forwardLargerThanDiagonals() {
+        assertEquals(ResizeGlyphCanvasFraction, resizeGlyphScaleForTileSize(PinnedTileSize.OneByOne))
+        assertEquals(ResizeForwardGlyphCanvasFraction, resizeGlyphScaleForTileSize(PinnedTileSize.TwoByTwo))
+        assertEquals(ResizeGlyphCanvasFraction, resizeGlyphScaleForTileSize(PinnedTileSize.FourByTwo))
+        assertTrue(ResizeForwardGlyphCanvasFraction > ResizeGlyphCanvasFraction)
+    }
+
+    @Test
+    fun tileEditShake_movesWithTime() {
+        val a = tileEditShakeAt(seed = 42, timeSec = 0.25f)
+        val b = tileEditShakeAt(seed = 42, timeSec = 1.25f)
+        assertTrue(a.offsetXDp != 0f || a.offsetYDp != 0f)
         assertNotEquals(a, b)
-        assertTrue(a.ampXDp in 3.5f..8.5f)
-        assertTrue(a.ampYDp in 3f..8f)
-        assertTrue(a.durationXMs in 2200..4000)
     }
 
     @Test
-    fun idleFloatAt_stillWhenTimeZero() {
-        val still = tileIdleFloatAt(seed = 42, timeSec = 0f)
+    fun tileEditShake_stillWhenTimeZero() {
+        val still = tileEditShakeAt(seed = 42, timeSec = 0f)
         assertEquals(0f, still.offsetXDp)
         assertEquals(0f, still.offsetYDp)
     }
 
     @Test
-    fun idleFloatAt_movesWithTime() {
-        val a = tileIdleFloatAt(seed = 42, timeSec = 0.25f)
-        val b = tileIdleFloatAt(seed = 42, timeSec = 1.25f)
-        assertTrue(a.offsetXDp != 0f || a.offsetYDp != 0f)
-        assertNotEquals(a, b)
+    fun tileEditActiveFocusBouncePeak_matchesIntroPopRatio() {
+        assertEquals(
+            TILE_EDIT_INTRO_ACTIVE_SCALE / TILE_EDIT_ACTIVE_SCALE,
+            TILE_EDIT_ACTIVE_FOCUS_BOUNCE_PEAK,
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun tileEditFocusScale_matchesEnterAndActiveEndpoints() {
+        assertEquals(1f, tileEditFocusScale(editProgress = 0f, activeBlend = 0f))
+        assertEquals(
+            TILE_EDIT_ACTIVE_SCALE,
+            tileEditFocusScale(editProgress = 1f, activeBlend = 1f),
+            0.0001f,
+        )
+        assertEquals(
+            TILE_EDIT_INACTIVE_SCALE,
+            tileEditFocusScale(editProgress = 1f, activeBlend = 0f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun tileEditFocusScale_interpolatesActiveBlend() {
+        val inactiveAtFull = TILE_EDIT_INACTIVE_SCALE
+        val activeAtFull = TILE_EDIT_ACTIVE_SCALE
+        val mid = tileEditFocusScale(editProgress = 1f, activeBlend = 0.5f)
+        assertEquals((inactiveAtFull + activeAtFull) / 2f, mid, 0.0001f)
+    }
+
+    @Test
+    fun tileEditFocusAlpha_matchesEnterAndActiveEndpoints() {
+        assertEquals(1f, tileEditFocusAlpha(editProgress = 0f, activeBlend = 0f))
+        assertEquals(1f, tileEditFocusAlpha(editProgress = 1f, activeBlend = 1f))
+        assertEquals(
+            TILE_EDIT_INACTIVE_ALPHA,
+            tileEditFocusAlpha(editProgress = 1f, activeBlend = 0f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun tileEditPageScale_matchesPerspectiveRecess() {
+        assertEquals(1f, tileEditPageScale(0f), 0.0001f)
+        assertEquals(
+            TILE_EDIT_PERSPECTIVE_DP / (TILE_EDIT_PERSPECTIVE_DP - TILE_EDIT_PAGE_Z_STEADY_DP),
+            tileEditPageScale(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun tileResizeOvershoot_matchesSizeCycle() {
+        assertEquals(
+            0.10f,
+            tileResizeOvershoot(PinnedTileSize.OneByOne, PinnedTileSize.TwoByTwo).translationFractionX,
+        )
+        assertEquals(
+            0.10f,
+            tileResizeOvershoot(PinnedTileSize.TwoByTwo, PinnedTileSize.FourByTwo).translationFractionY,
+        )
+        assertEquals(
+            0.63f,
+            tileResizeOvershoot(PinnedTileSize.TwoByTwo, PinnedTileSize.OneByOne).scaleMultiplier,
+            0.0001f,
+        )
     }
 
     @Test

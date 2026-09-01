@@ -9,6 +9,7 @@ import android.content.Context
 import android.graphics.Color
 import android.util.AttributeSet
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import androidx.annotation.ColorInt
@@ -62,6 +63,7 @@ class MetroLoadingDotsView @JvmOverloads constructor(
     }
 
     private val running = ArrayList<Animator>(DOT_COUNT * 2 + 1)
+    private var startedNotified = false
 
     /** Fired once per attach after animators have been started (post-layout). */
     var onStarted: (() -> Unit)? = null
@@ -86,18 +88,36 @@ class MetroLoadingDotsView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        // post: window token + first layout are ready; starting sync from attach can
-        // drop the first delayed keyframes on some API levels.
-        post {
-            if (!isAttachedToWindow) return@post
-            start()
-            onStarted?.invoke()
-        }
+        scheduleStartAfterLayout()
     }
 
     override fun onDetachedFromWindow() {
         stop()
         super.onDetachedFromWindow()
+    }
+
+    /** Idempotent entry for [AndroidView] update — restarts if a prior attach was torn down. */
+    fun ensureStarted() {
+        if (!isAttachedToWindow) return
+        if (running.any { it.isStarted }) return
+        scheduleStartAfterLayout()
+    }
+
+    private fun scheduleStartAfterLayout() {
+        if (width > 0 && height > 0) {
+            start()
+            return
+        }
+        // Compose AndroidView can attach before the first measure; View.post alone is not
+        // always flushed on every host, which left cold-start splash stuck on the static icon.
+        viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                if (width <= 0 || height <= 0) return
+                viewTreeObserver.removeOnGlobalLayoutListener(this)
+                if (!isAttachedToWindow) return
+                start()
+            }
+        })
     }
 
     fun start() {
@@ -167,6 +187,13 @@ class MetroLoadingDotsView @JvmOverloads constructor(
                 },
             )
         }
+        notifyStartedOnce()
+    }
+
+    private fun notifyStartedOnce() {
+        if (startedNotified) return
+        startedNotified = true
+        onStarted?.invoke()
     }
 
     fun stop() {
@@ -175,6 +202,7 @@ class MetroLoadingDotsView @JvmOverloads constructor(
         translationX = 0f
         applyRestingPositions()
         dots.forEach { it.alpha = 1f }
+        startedNotified = false
     }
 
     private fun applyRestingPositions() {
@@ -217,6 +245,7 @@ fun MetroLoadingDotsAndroid(
         update = { view ->
             view.dotColor = argb
             view.onStarted = { startedCallback.value() }
+            view.ensureStarted()
         },
     )
 }
