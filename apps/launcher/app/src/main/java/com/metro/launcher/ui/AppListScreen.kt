@@ -94,6 +94,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private val AppListIconSize = 48.dp
+private val LetterHeaderBorderWidth = 1.5.dp
+private val LetterHeaderFontSize = 26.sp
+private val LetterHeaderLineHeight = 30.sp
 private val SearchColumnGap = 20.dp
 private val IconInnerPadding = 5.dp
 private val IconTextGap = 12.dp
@@ -678,7 +681,7 @@ private fun LetterHeader(
     Box(
         modifier = Modifier
             .size(AppListIconSize)
-            .border(1.dp, MetroTheme.colors.accent)
+            .border(LetterHeaderBorderWidth, MetroTheme.colors.accent)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -687,11 +690,14 @@ private fun LetterHeader(
             ),
         contentAlignment = Alignment.BottomStart,
     ) {
-        MetroText(
+        BasicText(
             text = letter.toString(),
-            style = MetroTextStyle.ListItemTitle,
-            color = MetroTheme.colors.accent,
-            modifier = Modifier.padding(start = 5.dp, bottom = 3.dp),
+            style = MetroTextStyle.ListItemTitle.toTextStyle().copy(
+                color = MetroTheme.colors.accent,
+                fontSize = LetterHeaderFontSize,
+                lineHeight = LetterHeaderLineHeight,
+            ),
+            modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
         )
     }
 }
