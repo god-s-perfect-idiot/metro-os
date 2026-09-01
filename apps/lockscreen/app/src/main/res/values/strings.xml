@@ -11,6 +11,8 @@
     <string name="fullscreen_intent_granted">Full-screen unlock is already allowed.</string>
     <string name="show_lockscreen">Show lock screen</string>
     <string name="show_lockscreen_hint">Enable accessibility first. Allow notifications and full-screen unlock so swipe-up can open the system unlock keypad.</string>
+    <string name="glance_lockscreen">Glance lockscreen</string>
+    <string name="glance_lockscreen_hint">Shows Metro time and date over the system always-on display on a pure black background with quick-status notification icons. Requires system AOD to be enabled.</string>
     <string name="setup_ready">Ready. Turn the screen off and on, then swipe up for the system unlock screen.</string>
     <string name="notifications_section">notifications</string>
     <string name="quick_status_label">Choose apps to show quick status</string>

@@ -1,25 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WP8.1 lock padlock (Segoe / Settings language): arched shackle + hollow body.
-     Scaled into the adaptive-icon safe zone (~70% of the 108dp canvas). -->
+<!-- WP8.1 lock padlock: solid body + arched shackle with hollow opening (even-odd cutout).
+     Source path 512×512; scaled down to match other suite glyphs (~50% of the 108dp canvas —
+     the path nearly fills its viewBox, so 0.70 reads oversized vs Phone / Settings). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="512"
+    android:viewportHeight="512">
     <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.70"
-        android:scaleY="0.70">
-        <!-- Shackle: thick U (outer minus inner). -->
+        android:pivotX="256"
+        android:pivotY="256"
+        android:scaleX="0.50"
+        android:scaleY="0.50">
         <path
             android:fillColor="#FFFFFF"
             android:fillType="evenOdd"
-            android:pathData="M34,52L34,36C34,24.4 43.4,16 54,16C64.6,16 74,24.4 74,36L74,52L65.5,52L65.5,36C65.5,29.1 60.4,23.5 54,23.5C47.6,23.5 42.5,29.1 42.5,36L42.5,52Z" />
-        <!-- Body: outer rect minus inset hollow. -->
-        <path
-            android:fillColor="#FFFFFF"
-            android:fillType="evenOdd"
-            android:pathData="M28,48h52v44h-52zM35,55h38v30h-38z" />
+            android:pathData="M418.9,232.7h-23.3V69.8c0,-38.6 -31.3,-69.8 -69.8,-69.8H186.2c-38.6,0 -69.8,31.3 -69.8,69.8v162.9H93.1c-12.8,0 -23.3,10.4 -23.3,23.3v232.7c0,12.9 10.4,23.3 23.3,23.3h325.8c12.8,0 23.3,-10.4 23.3,-23.3V256c0,-12.9 -10.4,-23.3 -23.3,-23.3z m-69.8,0H162.9V69.8c0,-12.9 10.4,-23.3 23.3,-23.3h139.6c12.8,0 23.3,10.4 23.3,23.3v162.9z" />
     </group>
 </vector>

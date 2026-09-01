@@ -70,6 +70,13 @@ object LockscreenLogic {
     }
 
     /**
+     * Whether the default display is in Always-On Display / doze (not fully off, not awake).
+     */
+    fun isDisplayAod(displayState: Int): Boolean =
+        displayState == android.view.Display.STATE_DOZE ||
+            displayState == android.view.Display.STATE_DOZE_SUSPEND
+
+    /**
      * Whether the Metro lock fill should be attached.
      * [handedOff] stays true after a committed swipe until the next screen-off / re-lock.
      * [displayAwake] must be true — never over AOD or screen-off.
@@ -85,6 +92,27 @@ object LockscreenLogic {
             keyguardLocked &&
             displayAwake &&
             !handedOff &&
+            !criticalOverlaySuppressed
+
+    /**
+     * Whether the Metro glance surface should be attached over system AOD.
+     * Mutually exclusive with [shouldPresentLock]. Presents as soon as the display is
+     * no longer fully awake (including the screen-off instant before doze) so system AOD
+     * does not flash through. Never presents while battery saver is on.
+     */
+    fun shouldPresentGlance(
+        enabled: Boolean,
+        glanceEnabled: Boolean,
+        keyguardLocked: Boolean,
+        displayAwake: Boolean,
+        batterySaverOn: Boolean = false,
+        criticalOverlaySuppressed: Boolean = false,
+    ): Boolean =
+        enabled &&
+            glanceEnabled &&
+            keyguardLocked &&
+            !displayAwake &&
+            !batterySaverOn &&
             !criticalOverlaySuppressed
 
     /** Hide the Metro fill while the radio reports an active or ringing call. */

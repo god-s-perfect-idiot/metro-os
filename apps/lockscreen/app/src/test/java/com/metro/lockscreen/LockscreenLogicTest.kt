@@ -124,6 +124,76 @@ class LockscreenLogicTest {
     }
 
     @Test
+    fun isDisplayAod_dozeStatesOnly() {
+        assertTrue(LockscreenLogic.isDisplayAod(android.view.Display.STATE_DOZE))
+        assertTrue(LockscreenLogic.isDisplayAod(android.view.Display.STATE_DOZE_SUSPEND))
+        assertFalse(LockscreenLogic.isDisplayAod(android.view.Display.STATE_ON))
+        assertFalse(LockscreenLogic.isDisplayAod(android.view.Display.STATE_OFF))
+    }
+
+    @Test
+    fun shouldPresentGlance_onlyWhenEnabledLockedAndNotAwake() {
+        assertTrue(
+            LockscreenLogic.shouldPresentGlance(
+                enabled = true,
+                glanceEnabled = true,
+                keyguardLocked = true,
+                displayAwake = false,
+            ),
+        )
+        assertFalse(
+            LockscreenLogic.shouldPresentGlance(
+                enabled = true,
+                glanceEnabled = false,
+                keyguardLocked = true,
+                displayAwake = false,
+            ),
+        )
+        assertFalse(
+            LockscreenLogic.shouldPresentGlance(
+                enabled = false,
+                glanceEnabled = true,
+                keyguardLocked = true,
+                displayAwake = false,
+            ),
+        )
+        assertFalse(
+            LockscreenLogic.shouldPresentGlance(
+                enabled = true,
+                glanceEnabled = true,
+                keyguardLocked = false,
+                displayAwake = false,
+            ),
+        )
+        assertFalse(
+            LockscreenLogic.shouldPresentGlance(
+                enabled = true,
+                glanceEnabled = true,
+                keyguardLocked = true,
+                displayAwake = true,
+            ),
+        )
+        assertFalse(
+            LockscreenLogic.shouldPresentGlance(
+                enabled = true,
+                glanceEnabled = true,
+                keyguardLocked = true,
+                displayAwake = false,
+                batterySaverOn = true,
+            ),
+        )
+        assertFalse(
+            LockscreenLogic.shouldPresentGlance(
+                enabled = true,
+                glanceEnabled = true,
+                keyguardLocked = true,
+                displayAwake = false,
+                criticalOverlaySuppressed = true,
+            ),
+        )
+    }
+
+    @Test
     fun phaseAllowsDrag_idleDraggingOrSettlingBack() {
         assertTrue(LockscreenLogic.phaseAllowsDrag(LockscreenLogic.SwipePhase.Idle))
         assertTrue(LockscreenLogic.phaseAllowsDrag(LockscreenLogic.SwipePhase.Dragging))

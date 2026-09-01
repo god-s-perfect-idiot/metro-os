@@ -48,6 +48,7 @@ background-activity restrictions most of the time. The lock **fill** uses
 ### 2. Setup
 
 - Master **Show lock screen** toggle
+- **Glance lockscreen** toggle — AMOLED black glance surface over system AOD (time / day / date chrome only)
 - **Background** ListPicker (Accent colour / Custom background / Bing wallpaper)
 - **Quick status** — five bordered app slots (+ when empty); tap opens **choose an app** page
 - Custom background: Start-background-style thumb + choose photo / remove + crop
@@ -79,6 +80,7 @@ cd apps/lockscreen
 | Drag up → password | No public bouncer-only API | Remove overlay + dismiss helper |
 | Biometrics under custom UI | Fingerprint hint may be covered | Sensor still works; tear down on unlock |
 | Photo wallpaper + glyphs | Bottom notification glyphs deferred | Quick-status row (5 apps + 99+ counts) when notification access granted |
+| Glance (always-on) | `TYPE_ACCESSIBILITY_OVERLAY` can cover AOD | Optional **Glance lockscreen** toggle — black fill over system AOD; chrome only, no wallpaper or quick status |
 | Live cellular bars | Needs `READ_PHONE_STATE` | Setup grants phone state; Wi-Fi + battery always |
 
 ## Agent postmortem

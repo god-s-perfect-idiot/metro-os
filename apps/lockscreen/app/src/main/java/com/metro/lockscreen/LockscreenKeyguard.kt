@@ -34,6 +34,24 @@ object LockscreenKeyguard {
         }
     }
 
+    /** True when the default display is in AOD / doze (not off, not fully awake). */
+    fun isDisplayAod(context: Context): Boolean {
+        return try {
+            LockscreenLogic.isDisplayAod(defaultDisplayState(context))
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /** True when Android battery saver (low power mode) is active. */
+    fun isBatterySaverOn(context: Context): Boolean {
+        return try {
+            context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     fun defaultDisplayState(context: Context): Int {
         val display = defaultDisplay(context) ?: return Display.STATE_OFF
         return display.state

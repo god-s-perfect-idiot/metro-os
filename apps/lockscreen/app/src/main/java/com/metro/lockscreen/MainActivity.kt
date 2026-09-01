@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
             val scope = rememberCoroutineScope()
             var permissionTick by remember { mutableIntStateOf(0) }
             var enabled by remember { mutableStateOf(prefs.enabled) }
+            var glanceEnabled by remember { mutableStateOf(prefs.glanceEnabled) }
             var backgroundMode by remember { mutableStateOf(prefs.backgroundMode) }
             var customEnabled by remember { mutableStateOf(prefs.customBackgroundEnabled) }
             var customEpoch by remember { mutableIntStateOf(0) }
@@ -109,6 +110,7 @@ class MainActivity : ComponentActivity() {
                     if (event == Lifecycle.Event.ON_RESUME) {
                         permissionTick++
                         enabled = prefs.enabled
+                        glanceEnabled = prefs.glanceEnabled
                         backgroundMode = prefs.backgroundMode
                         customEnabled = prefs.customBackgroundEnabled
                         if (prefs.enabled &&
@@ -245,6 +247,32 @@ class MainActivity : ComponentActivity() {
                                 if (!canToggle && !enabled) {
                                     MetroText(
                                         text = stringResource(R.string.show_lockscreen_hint),
+                                        style = MetroTextStyle.Body,
+                                        color = MetroTheme.colors.secondaryText,
+                                        modifier = Modifier
+                                            .padding(horizontal = 12.dp)
+                                            .padding(top = 8.dp),
+                                    )
+                                }
+
+                                if (enabled) {
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    MetroToggleSwitch(
+                                        checked = glanceEnabled,
+                                        onCheckedChange = { value ->
+                                            prefs.glanceEnabled = value
+                                            glanceEnabled = prefs.glanceEnabled
+                                            LockscreenHostService.requestRehost()
+                                        },
+                                        label = stringResource(R.string.glance_lockscreen),
+                                        labelStyle = MetroTextStyle.Body,
+                                        statusStyle = MetroTextStyle.ListItemTitle,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp),
+                                    )
+                                    MetroText(
+                                        text = stringResource(R.string.glance_lockscreen_hint),
                                         style = MetroTextStyle.Body,
                                         color = MetroTheme.colors.secondaryText,
                                         modifier = Modifier

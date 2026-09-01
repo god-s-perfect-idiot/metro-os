@@ -15,6 +15,14 @@ class LockscreenPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_ENABLED, value).apply()
 
+    /**
+     * When enabled, a black AMOLED glance surface (time / day / date chrome only) is drawn over
+     * the system Always-On Display while the keyguard is locked.
+     */
+    var glanceEnabled: Boolean
+        get() = prefs.getBoolean(KEY_GLANCE_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_GLANCE_ENABLED, value).apply()
+
     /** Accent / custom photo / Bing wallpaper. */
     var backgroundMode: LockscreenBackgroundMode
         get() = LockscreenBackgroundMode.fromStorage(prefs.getString(KEY_BACKGROUND_MODE, null))
@@ -58,6 +66,7 @@ class LockscreenPreferences(context: Context) {
     companion object {
         private const val PREFS_NAME = "metro_lockscreen"
         private const val KEY_ENABLED = "lockscreen_enabled"
+        private const val KEY_GLANCE_ENABLED = "lockscreen_glance_enabled"
         private const val KEY_BACKGROUND_MODE = "lockscreen_background_mode"
         private const val KEY_CUSTOM_BACKGROUND_ENABLED = "lockscreen_custom_background_enabled"
         private const val KEY_BING_START_DATE = "lockscreen_bing_start_date"

@@ -11,17 +11,22 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.telephony.TelephonyManager
 import android.util.Log
+import android.view.Display
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -67,10 +72,15 @@ class LockscreenHostService :
     private val handler = Handler(Looper.getMainLooper())
     private val attachLock = Any()
 
+    private var overlayRoot: FrameLayout? = null
+    private var overlayBlackCover: View? = null
     private var overlayView: ComposeView? = null
     private var overlayManager: WindowManager? = null
+    private var overlayMode: LockscreenPresentationMode? = null
     private var receiverRegistered = false
     private var phoneReceiverRegistered = false
+    private var displayListenerRegistered = false
+    private var powerSaveReceiverRegistered = false
 
     /**
      * After a committed swipe-up, do not re-attach the Metro fill until the next screen-off
@@ -86,6 +96,20 @@ class LockscreenHostService :
     private var criticalOverlaySuppressedByPhone = false
 
     private val presentRetries = longArrayOf(0L, 50L, 150L, 400L, 1000L)
+    private val glancePresentRetries = longArrayOf(0L, 8L, 16L, 32L, 64L, 128L, 250L, 500L, 1000L)
+
+    private val glanceSleepWatcher = object : Runnable {
+        override fun run() {
+            val prefs = LockscreenPreferences(this@LockscreenHostService)
+            if (prefs.enabled && prefs.glanceEnabled) {
+                tryPresentGlanceEarly()
+            }
+            val delay =
+                if (prefs.enabled && prefs.glanceEnabled) GLANCE_SLEEP_WATCH_MS
+                else GLANCE_SLEEP_WATCH_IDLE_MS
+            handler.postDelayed(this, delay)
+        }
+    }
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -104,8 +128,10 @@ class LockscreenHostService :
                     // Next wake may show Metro again — clear hand-off from this lock session.
                     handedOffUntilScreenOff = false
                     handler.removeCallbacksAndMessages(PRESENT_TOKEN)
-                    removeOverlay()
                     LockscreenBouncerActivity.finishIfShowing()
+                    // Synchronous — must beat system AOD paint on the first doze frame.
+                    tryPresentGlanceEarly()
+                    schedulePresentAttempts()
                 }
                 Intent.ACTION_USER_PRESENT -> {
                     removeOverlay()
@@ -127,6 +153,24 @@ class LockscreenHostService :
         }
     }
 
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId != Display.DEFAULT_DISPLAY) return
+            syncOverlayToKeyguard()
+        }
+
+        override fun onDisplayAdded(displayId: Int) = Unit
+
+        override fun onDisplayRemoved(displayId: Int) = Unit
+    }
+
+    private val powerSaveReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != PowerManager.ACTION_POWER_SAVE_MODE_CHANGED) return
+            handler.post { syncOverlayToKeyguard() }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -136,7 +180,10 @@ class LockscreenHostService :
         startForeground(NOTIFICATION_ID, buildNotification())
         registerScreenReceiver()
         registerPhoneReceiver()
+        registerDisplayListener()
+        registerPowerSaveReceiver()
         handler.post(tickRunnable)
+        handler.post(glanceSleepWatcher)
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
         schedulePresentAttempts()
     }
@@ -163,6 +210,8 @@ class LockscreenHostService :
         handler.removeCallbacksAndMessages(null)
         unregisterScreenReceiver()
         unregisterPhoneReceiver()
+        unregisterDisplayListener()
+        unregisterPowerSaveReceiver()
         removeOverlay()
         LockscreenBouncerActivity.finishIfShowing()
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
@@ -175,7 +224,12 @@ class LockscreenHostService :
 
     private fun schedulePresentAttempts() {
         handler.removeCallbacksAndMessages(PRESENT_TOKEN)
-        for (delay in presentRetries) {
+        val delays = if (LockscreenPreferences(this).glanceEnabled) {
+            glancePresentRetries
+        } else {
+            presentRetries
+        }
+        for (delay in delays) {
             handler.postAtTime(
                 { syncOverlayToKeyguard() },
                 PRESENT_TOKEN,
@@ -185,7 +239,8 @@ class LockscreenHostService :
     }
 
     private fun syncOverlayToKeyguard() {
-        if (!LockscreenPreferences(this).enabled) {
+        val prefs = LockscreenPreferences(this)
+        if (!prefs.enabled) {
             removeOverlay()
             return
         }
@@ -196,24 +251,57 @@ class LockscreenHostService :
 
         val locked = LockscreenKeyguard.isLocked(this)
         val displayAwake = LockscreenKeyguard.isDisplayAwake(this)
-        if (LockscreenLogic.shouldPresentLock(
+        val critical = isCriticalOverlaySuppressed()
+        val mode = when {
+            LockscreenLogic.shouldPresentLock(
                 enabled = true,
                 keyguardLocked = locked,
                 displayAwake = displayAwake,
                 handedOff = handedOffUntilScreenOff,
-                criticalOverlaySuppressed = isCriticalOverlaySuppressed(),
-            )
-        ) {
-            ensureOverlayShowing()
+                criticalOverlaySuppressed = critical,
+            ) -> LockscreenPresentationMode.Lock
+            LockscreenLogic.shouldPresentGlance(
+                enabled = true,
+                glanceEnabled = prefs.glanceEnabled,
+                keyguardLocked = locked,
+                displayAwake = displayAwake,
+                batterySaverOn = LockscreenKeyguard.isBatterySaverOn(this),
+                criticalOverlaySuppressed = critical,
+            ) -> LockscreenPresentationMode.Glance
+            else -> null
+        }
+        if (mode != null) {
+            ensureOverlayShowing(mode)
         } else {
             removeOverlay()
         }
     }
 
-    private fun ensureOverlayShowing() {
+    /**
+     * Fast path for glance: present black chrome the moment the device stops being interactive.
+     * Called synchronously from [Intent.ACTION_SCREEN_OFF] and from the 16ms sleep watcher.
+     */
+    private fun tryPresentGlanceEarly(): Boolean {
+        val prefs = LockscreenPreferences(this)
+        if (!prefs.enabled || !prefs.glanceEnabled) return false
+        if (LockscreenBouncerActivity.isShowing()) return false
+        if (!LockscreenKeyguard.isLocked(this)) return false
+        if (LockscreenKeyguard.isDisplayAwake(this)) return false
+        if (LockscreenKeyguard.isBatterySaverOn(this)) return false
+        if (isCriticalOverlaySuppressed()) return false
+        ensureOverlayShowing(LockscreenPresentationMode.Glance)
+        return true
+    }
+
+    private fun ensureOverlayShowing(mode: LockscreenPresentationMode) {
         synchronized(attachLock) {
-            if (overlayView != null) return
-            attachOverlayLocked()
+            if (overlayView != null && overlayMode == mode) return
+            val existing = overlayView
+            if (existing != null) {
+                updateOverlayMode(existing, mode)
+                return
+            }
+            attachOverlayLocked(mode)
         }
     }
 
@@ -223,57 +311,121 @@ class LockscreenHostService :
         }
     }
 
-    private fun attachOverlayLocked() {
+    private fun attachOverlayLocked(mode: LockscreenPresentationMode) {
         val accessibilityHost = LockscreenAccessibilityService.getInstance()
         if (accessibilityHost == null) {
             Log.w(TAG, "Accessibility service not connected — cannot draw over keyguard")
             return
         }
 
+        val isGlance = mode == LockscreenPresentationMode.Glance
         val host: Context = accessibilityHost
         val windowType = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         val topInsetPx = statusBarInsetPx()
+        val blackCover = View(host).apply {
+            setBackgroundColor(android.graphics.Color.BLACK)
+            visibility = if (isGlance) View.VISIBLE else View.GONE
+        }
         val composeView = ComposeView(host).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             suppressSystemBarInsets()
+            bindOverlayContent(mode, topInsetPx)
+        }
+        val root = FrameLayout(host).apply {
             setViewTreeLifecycleOwner(this@LockscreenHostService)
             setViewTreeSavedStateRegistryOwner(this@LockscreenHostService)
             setViewTreeViewModelStoreOwner(this@LockscreenHostService)
-            setContent {
-                MetroSystemTheme {
-                    LockscreenSurface(
-                        onUnlockCommitted = {
-                            handler.post { commitSwipeUnlock() }
-                        },
-                        topInsetPx = topInsetPx,
-                    )
-                }
-            }
+            addView(
+                blackCover,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            addView(
+                composeView,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            suppressSystemBarInsets()
         }
 
         val manager = host.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         try {
-            manager.addView(composeView, createLayoutParams(windowType))
+            manager.addView(root, createLayoutParams(windowType, notTouchable = isGlance))
+            overlayRoot = root
+            overlayBlackCover = blackCover
             overlayView = composeView
             overlayManager = manager
+            overlayMode = mode
             // Lock draws its own transparent tray; hide the opaque system Metro tray.
             MetroStatusBar.requestFullscreen(this, fullscreen = true)
-            Log.i(TAG, "Lock overlay attached")
+            Log.i(TAG, "Lock overlay attached ($mode)")
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to attach lock overlay", t)
-            runCatching { manager.removeView(composeView) }
+            runCatching { manager.removeView(root) }
+            overlayRoot = null
+            overlayBlackCover = null
             overlayView = null
             overlayManager = null
+            overlayMode = null
         }
     }
 
+    private fun updateOverlayMode(view: ComposeView, mode: LockscreenPresentationMode) {
+        overlayBlackCover?.visibility =
+            if (mode == LockscreenPresentationMode.Glance) View.VISIBLE else View.GONE
+        applyOverlayTouchPolicy(mode)
+        view.bindOverlayContent(mode, statusBarInsetPx())
+        overlayMode = mode
+        Log.i(TAG, "Lock overlay morphed ($mode)")
+    }
+
+    private fun ComposeView.bindOverlayContent(
+        mode: LockscreenPresentationMode,
+        topInsetPx: Int,
+    ) {
+        setContent {
+            MetroSystemTheme {
+                LockscreenSurface(
+                    mode = mode,
+                    onUnlockCommitted = {
+                        handler.post { commitSwipeUnlock() }
+                    },
+                    topInsetPx = topInsetPx,
+                )
+            }
+        }
+    }
+
+    private fun applyOverlayTouchPolicy(mode: LockscreenPresentationMode) {
+        val manager = overlayManager ?: return
+        val root = overlayRoot ?: return
+        val params = root.layoutParams as? WindowManager.LayoutParams ?: return
+        val notTouchable = mode == LockscreenPresentationMode.Glance
+        var flags = params.flags
+        flags = if (notTouchable) {
+            flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        } else {
+            flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        }
+        if (flags == params.flags) return
+        params.flags = flags
+        manager.updateViewLayout(root, params)
+    }
+
     private fun removeOverlayLocked() {
-        val view = overlayView
+        val root = overlayRoot
         val manager = overlayManager
+        overlayRoot = null
+        overlayBlackCover = null
         overlayView = null
         overlayManager = null
-        if (view != null && manager != null) {
-            runCatching { manager.removeView(view) }
+        overlayMode = null
+        if (root != null && manager != null) {
+            runCatching { manager.removeView(root) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
             MetroStatusBar.requestFullscreen(this, fullscreen = false)
         }
@@ -477,6 +629,38 @@ class LockscreenHostService :
         phoneReceiverRegistered = false
     }
 
+    private fun registerDisplayListener() {
+        if (displayListenerRegistered) return
+        val manager = getSystemService(DisplayManager::class.java) ?: return
+        manager.registerDisplayListener(displayListener, handler)
+        displayListenerRegistered = true
+    }
+
+    private fun unregisterDisplayListener() {
+        if (!displayListenerRegistered) return
+        val manager = getSystemService(DisplayManager::class.java) ?: return
+        runCatching { manager.unregisterDisplayListener(displayListener) }
+        displayListenerRegistered = false
+    }
+
+    private fun registerPowerSaveReceiver() {
+        if (powerSaveReceiverRegistered) return
+        val filter = IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+        ContextCompat.registerReceiver(
+            this,
+            powerSaveReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        powerSaveReceiverRegistered = true
+    }
+
+    private fun unregisterPowerSaveReceiver() {
+        if (!powerSaveReceiverRegistered) return
+        runCatching { unregisterReceiver(powerSaveReceiver) }
+        powerSaveReceiverRegistered = false
+    }
+
     private fun registerScreenReceiver() {
         if (receiverRegistered) return
         val filter = IntentFilter().apply {
@@ -526,6 +710,8 @@ class LockscreenHostService :
         private const val REQUEST_BOUNCER = 46
         private const val REQUEST_BOUNCER_FSI = 47
         private const val TICK_MS = 500L
+        private const val GLANCE_SLEEP_WATCH_MS = 16L
+        private const val GLANCE_SLEEP_WATCH_IDLE_MS = 500L
         private val PRESENT_TOKEN = Any()
 
         @Volatile

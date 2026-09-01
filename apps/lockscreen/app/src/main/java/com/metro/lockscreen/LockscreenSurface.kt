@@ -42,6 +42,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
 
+/** How the lock overlay is presented — full lock fill or AMOLED glance over system AOD. */
+enum class LockscreenPresentationMode {
+    /** Accent / photo / Bing fill with swipe-up unlock and quick-status row. */
+    Lock,
+
+    /** Pure black fill over system AOD — chrome + quick-status icons, no wallpaper or status tray. */
+    Glance,
+}
+
 /**
  * Full-bleed lock fill with WP8.1 chrome (time / day / date / next event) and an explicit
  * swipe session:
@@ -59,10 +68,12 @@ import java.time.ZonedDateTime
 fun LockscreenSurface(
     onUnlockCommitted: () -> Unit,
     modifier: Modifier = Modifier,
+    mode: LockscreenPresentationMode = LockscreenPresentationMode.Lock,
     fillColor: Color = MetroTheme.colors.accent,
     /** System status-bar / cutout band height in px — tray icons are centered in this region. */
     topInsetPx: Int = 0,
 ) {
+    val isGlance = mode == LockscreenPresentationMode.Glance
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val offsetY = remember { Animatable(0f) }
@@ -110,8 +121,16 @@ fun LockscreenSurface(
         )
     }
 
-    LaunchedEffect(fillColor) {
-        fill = LockscreenBackgroundResolver.resolve(context, fillColor)
+    LaunchedEffect(fillColor, isGlance) {
+        fill = if (isGlance) {
+            LockscreenFill(
+                mode = LockscreenBackgroundMode.Accent,
+                accentColor = Color.Black,
+                bitmap = null,
+            )
+        } else {
+            LockscreenBackgroundResolver.resolve(context, fillColor)
+        }
     }
 
     LaunchedEffect(calendar) {
@@ -129,8 +148,8 @@ fun LockscreenSurface(
         )
     }
 
-    val contentColor = fill.contentColor
-    val solidFill = fill.accentColor
+    val contentColor = if (isGlance) Color.White else fill.contentColor
+    val solidFill = if (isGlance) Color.Black else fill.accentColor
 
     fun snapBack() {
         phase.value = LockscreenLogic.SwipePhase.SettlingBack
@@ -174,61 +193,75 @@ fun LockscreenSurface(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { size = it }
-            .pointerInput(thresholdPx) {
-                detectVerticalDragGestures(
-                    onDragStart = {
-                        if (!LockscreenLogic.phaseAllowsDrag(phase.value)) return@detectVerticalDragGestures
-                        beginDrag()
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        if (phase.value != LockscreenLogic.SwipePhase.Dragging) {
-                            return@detectVerticalDragGestures
-                        }
-                        change.consume()
-                        val next = LockscreenLogic.clampDragOffsetY(dragAccum + dragAmount)
-                        dragAccum = next
-                        scope.launch { offsetY.snapTo(next) }
-                    },
-                    onDragCancel = {
-                        if (phase.value == LockscreenLogic.SwipePhase.Dragging) {
-                            snapBack()
-                        }
-                    },
-                    onDragEnd = {
-                        if (phase.value != LockscreenLogic.SwipePhase.Dragging) {
-                            return@detectVerticalDragGestures
-                        }
-                        when (LockscreenLogic.decideRelease(offsetY.value, thresholdPx)) {
-                            LockscreenLogic.ReleaseAction.Commit -> commitUnlock()
-                            LockscreenLogic.ReleaseAction.SnapBack -> snapBack()
-                        }
-                    },
-                )
-            },
+            .then(
+                if (isGlance) {
+                    Modifier
+                } else {
+                    Modifier.pointerInput(thresholdPx) {
+                        detectVerticalDragGestures(
+                            onDragStart = {
+                                if (!LockscreenLogic.phaseAllowsDrag(phase.value)) {
+                                    return@detectVerticalDragGestures
+                                }
+                                beginDrag()
+                            },
+                            onVerticalDrag = { change, dragAmount ->
+                                if (phase.value != LockscreenLogic.SwipePhase.Dragging) {
+                                    return@detectVerticalDragGestures
+                                }
+                                change.consume()
+                                val next = LockscreenLogic.clampDragOffsetY(dragAccum + dragAmount)
+                                dragAccum = next
+                                scope.launch { offsetY.snapTo(next) }
+                            },
+                            onDragCancel = {
+                                if (phase.value == LockscreenLogic.SwipePhase.Dragging) {
+                                    snapBack()
+                                }
+                            },
+                            onDragEnd = {
+                                if (phase.value != LockscreenLogic.SwipePhase.Dragging) {
+                                    return@detectVerticalDragGestures
+                                }
+                                when (LockscreenLogic.decideRelease(offsetY.value, thresholdPx)) {
+                                    LockscreenLogic.ReleaseAction.Commit -> commitUnlock()
+                                    LockscreenLogic.ReleaseAction.SnapBack -> snapBack()
+                                }
+                            },
+                        )
+                    }
+                },
+            ),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    // Translate only; mirror spring overshoot upward (gap at bottom).
-                    translationY = LockscreenLogic.bounceTranslationY(offsetY.value)
+                    if (!isGlance) {
+                        // Translate only; mirror spring overshoot upward (gap at bottom).
+                        translationY = LockscreenLogic.bounceTranslationY(offsetY.value)
+                    }
                 }
                 .background(solidFill),
         ) {
-            fill.bitmap?.let { bmp ->
-                Image(
-                    bitmap = bmp.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+            if (!isGlance) {
+                fill.bitmap?.let { bmp ->
+                    Image(
+                        bitmap = bmp.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            // Transparent Metro tray icons over the fill (no bar chrome) — lock only, not glance.
+            if (!isGlance) {
+                LockscreenStatusBar(
+                    color = contentColor,
+                    topInsetPx = topInsetPx,
+                    modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
-            // Transparent Metro tray icons over the fill (no bar chrome) — WP lock language.
-            LockscreenStatusBar(
-                color = contentColor,
-                topInsetPx = topInsetPx,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
             LockscreenChrome(
                 labels = labels,
                 contentColor = contentColor,

@@ -43,6 +43,7 @@ unlock (PIN / pattern / password) UI.
 5. Screen off → remove overlay
 6. Optional: grant calendar → next appointment appears under the date
 7. Setup **Background** ListPicker → Accent / Custom (choose photo + crop) / Bing (fetch + cache)
+8. Optional: **Glance lockscreen** → black AMOLED surface over system AOD when keyguard locked
 
 ## Verify
 
@@ -59,7 +60,7 @@ unlock (PIN / pattern / password) UI.
 | Drag up → password | No public “show bouncer only” API | Transparent trampoline + `requestDismissKeyguard`; a11y `startActivity` first (API 35+ must not put BAL mode on `PendingIntent.getActivity`) |
 | Biometrics under custom lock | Overlay may cover fingerprint hint UI | HAL still unlocks; tear down on unlock |
 | Photo wallpaper + notification glyphs | Bottom glyphs deferred | Accent / custom / Bing fill + tray + chrome; see known-gaps |
-| Accessibility overlay on AOD | `TYPE_ACCESSIBILITY_OVERLAY` can cover Always-On Display | Present only when default display is `STATE_ON` + interactive; tear down on screen-off / doze |
+| Accessibility overlay on AOD | `TYPE_ACCESSIBILITY_OVERLAY` can cover Always-On Display | Lock fill only when `STATE_ON` + interactive; optional **Glance lockscreen** presents black chrome over `STATE_DOZE` / `STATE_DOZE_SUSPEND` |
 | Live cellular on lock tray | Needs `READ_PHONE_STATE` | Setup **allow signal strength**; Wi-Fi + battery always |
 
 ## Agent postmortem
