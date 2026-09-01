@@ -8,16 +8,19 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.metro.ui.MetroDimens
 import com.metro.ui.MetroFontFamily
 
 /** Tight metrics so lock chrome stacks like WP8.1 (no extra font padding gap). */
@@ -39,6 +42,12 @@ private val LockChromePlatformStyle = PlatformTextStyle(includeFontPadding = fal
 
 /** Pull day/date up into the clock's unused descender space. */
 private val LockClockToDayOverlap = (-22).dp
+
+/**
+ * Lock chrome shares the Metro tray's physical start inset so the clock lines up with the
+ * cellular / Wi-Fi glyphs in [LockscreenStatusBar] (10dp, not the 12dp list margin).
+ */
+private val LockChromeStartInset = 10.dp
 
 /** WP8.1 lock clock — thin Segoe-like face, oversized vs page titles. */
 private val LockTimeStyle = TextStyle(
@@ -75,6 +84,37 @@ private val LockEventStyle = TextStyle(
  *
  * Event lines stay on one line and clip at the trailing edge (WP overflow-off-screen),
  * so they use the full row width instead of wrapping early.
+ *
+ * ExtraLight clock digits + negative letter-spacing paint slightly left of the day/date ink.
+ * [rememberLockTimeStartNudge] aligns the clock with the weekday line below.
+ */
+@Composable
+private fun rememberLockTimeStartNudge(
+    timeStyle: TextStyle,
+    dayStyle: TextStyle,
+): Dp {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    return remember(measurer, density, timeStyle, dayStyle) {
+        val probe = "08"
+        val timeLeft = measurer.measure(
+            text = probe,
+            style = timeStyle,
+            softWrap = false,
+            maxLines = 1,
+        ).getBoundingBox(0).left
+        val dayLeft = measurer.measure(
+            text = probe,
+            style = dayStyle,
+            softWrap = false,
+            maxLines = 1,
+        ).getBoundingBox(0).left
+        with(density) { (dayLeft - timeLeft).coerceIn(-12f, 12f).toDp() }
+    }
+}
+
+/**
+ * Left-aligned lock chrome: large time, weekday, date, optional next calendar event.
  */
 @Composable
 fun LockscreenChrome(
@@ -82,22 +122,27 @@ fun LockscreenChrome(
     contentColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    val timeStyle = LockTimeStyle.copy(color = contentColor)
+    val dayStyle = LockDayDateStyle.copy(color = contentColor)
+    val timeStartNudge = rememberLockTimeStartNudge(timeStyle, dayStyle)
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             // Start inset only — trailing edge is the screen edge (WP overflow).
-            .padding(start = MetroDimens.ScreenHorizontalMargin + 12.dp),
+            .padding(start = LockChromeStartInset),
     ) {
         BasicText(
             text = labels.time,
-            style = LockTimeStyle.copy(color = contentColor),
+            style = timeStyle,
+            modifier = Modifier.offset(x = timeStartNudge),
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Visible,
         )
         BasicText(
             text = labels.day,
-            style = LockDayDateStyle.copy(color = contentColor),
+            style = dayStyle,
             modifier = Modifier.offset(y = LockClockToDayOverlap),
             maxLines = 1,
             softWrap = false,
@@ -105,7 +150,7 @@ fun LockscreenChrome(
         )
         BasicText(
             text = labels.date,
-            style = LockDayDateStyle.copy(color = contentColor),
+            style = dayStyle,
             modifier = Modifier.offset(y = LockClockToDayOverlap),
             maxLines = 1,
             softWrap = false,

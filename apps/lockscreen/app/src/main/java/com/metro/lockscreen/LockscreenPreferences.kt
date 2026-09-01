@@ -35,6 +35,26 @@ class LockscreenPreferences(context: Context) {
         get() = prefs.getLong(KEY_BING_FETCHED_AT, 0L)
         set(value) = prefs.edit().putLong(KEY_BING_FETCHED_AT, value).apply()
 
+    /** Up to five packages for lock quick-status glyphs (null / blank slot = unset). */
+    fun quickStatusSlot(index: Int): String? {
+        require(index in 0 until LockscreenQuickStatusLogic.SLOT_COUNT)
+        return prefs.getString(quickStatusKey(index), null)?.takeIf { it.isNotBlank() }
+    }
+
+    fun setQuickStatusSlot(index: Int, packageName: String?) {
+        require(index in 0 until LockscreenQuickStatusLogic.SLOT_COUNT)
+        prefs.edit().apply {
+            if (packageName.isNullOrBlank()) {
+                remove(quickStatusKey(index))
+            } else {
+                putString(quickStatusKey(index), packageName)
+            }
+        }.apply()
+    }
+
+    fun quickStatusSlots(): List<String?> =
+        List(LockscreenQuickStatusLogic.SLOT_COUNT) { quickStatusSlot(it) }
+
     companion object {
         private const val PREFS_NAME = "metro_lockscreen"
         private const val KEY_ENABLED = "lockscreen_enabled"
@@ -42,5 +62,7 @@ class LockscreenPreferences(context: Context) {
         private const val KEY_CUSTOM_BACKGROUND_ENABLED = "lockscreen_custom_background_enabled"
         private const val KEY_BING_START_DATE = "lockscreen_bing_start_date"
         private const val KEY_BING_FETCHED_AT = "lockscreen_bing_fetched_at"
+
+        private fun quickStatusKey(index: Int) = "quick_status_$index"
     }
 }

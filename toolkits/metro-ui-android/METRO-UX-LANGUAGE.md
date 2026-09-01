@@ -525,6 +525,22 @@ WP8.1 settings ListPicker — inline expand, **not** a Material menu, dialog rad
 
 ---
 
+### 6.20 App picker / quick-status slot (`MetroAppPickerScreen`, `MetroAppSlotButton`)
+
+WP8.1 lock-screen settings — pick an app from a full-page list; empty quick-status slots show a plus in a bordered square.
+
+| Control | Spec |
+|---------|------|
+| **Choose app page** | Secondary surface (`#1F1F1F` dark); small caps header (`MetroAppTitle`); vertical list; first row **none** (accent when selected); app names use `ListItemTitle` (24sp), single line, clip at screen edge |
+| **Navigation** | Drill-in from settings (not inline expand); Back returns without saving unless a row was tapped |
+| **Quick-status slot** | **48dp** square, **2dp** border, **0dp** corners, transparent fill; assigned app = white monochrome glyph (~55% of slot); empty = `MetroSystemIconType.Add` at ~52% (no circle) |
+| **Slot row** | Five equal columns; slot *n* lives in column *n*; empty columns stay blank (lock) or show `+` (setup) — never `SpaceBetween` |
+| **Lock counts** | Naked numeral beside glyph; cap at `99+` |
+
+**Agent rule:** Any “choose an app” sheet with more than ~6 options must use `MetroAppPickerScreen`, not `MetroListPicker` inline expand or Material menus.
+
+---
+
 ## 7. System chrome (shell apps)
 
 ### 7.1 Status bar

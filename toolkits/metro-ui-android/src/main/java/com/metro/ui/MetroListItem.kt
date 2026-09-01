@@ -37,13 +37,14 @@ fun MetroListItem(
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     titleStyle: MetroTextStyle = MetroTextStyle.ListItemTitle,
+    titleColor: Color? = null,
     verticalPadding: Dp = 12.dp,
     oneLineMinHeight: Dp = 76.dp,
     twoLineMinHeight: Dp = 90.dp,
     singleLine: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
-    val titleColor = if (enabled) {
+    val resolvedTitleColor = titleColor ?: if (enabled) {
         MetroTheme.colors.primaryText
     } else {
         MetroTheme.colors.secondaryText
@@ -88,7 +89,7 @@ fun MetroListItem(
             MetroText(
                 text = title,
                 style = titleStyle,
-                color = titleColor,
+                color = resolvedTitleColor,
                 maxLines = if (singleLine) 1 else 2,
                 softWrap = !singleLine,
                 overflow = if (singleLine) TextOverflow.Clip else TextOverflow.Ellipsis,

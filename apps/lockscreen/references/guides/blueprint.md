@@ -18,6 +18,7 @@ Render a Metro lock **surface above the Android system keyguard** without replac
   - Weekday on the next line
   - Month + day (no year) on the next line
   - Optional next calendar appointment below (title, optional location, time range / `All day`)
+  - **Quick status:** up to five user-chosen apps along the bottom edge; each shows a white monochrome glyph and a naked count (capped at `99+`) when notification access is granted and the app has unread notifications
 - **Presentation:** `TYPE_ACCESSIBILITY_OVERLAY` hosted by `LockscreenAccessibilityService` (attached from `LockscreenHostService`) so it draws **over** the system lock screen when the keyguard is locked and the **default display is fully awake** (`Display.STATE_ON` + interactive). Never present over screen-off or AOD/doze. Retries on screen-on / keyguard-locked because keyguard state can lag briefly.
 - **Navigation:** Not a navigable app page. Requires accessibility enabled + master toggle.
 - **Interactions:**
@@ -28,14 +29,14 @@ Render a Metro lock **surface above the Android system keyguard** without replac
   - **Accent colour** — solid system accent (`MetroPreferences` accent). Chrome uses `MetroColors.tileContentColor(accent)`.
   - **Custom background** — cropped user photo (same choose-photo / pan-pinch crop / remove UI as Settings Start background). Falls back to accent until a photo is saved.
   - **Bing wallpaper** — Bing picture of the day (HPImageArchive), cached locally and refreshed ~daily. Falls back to accent when no cache and offline.
-  Photo modes use white chrome. Notification glyphs remain out of scope — see `known-gaps.md`.
+  Photo modes use white chrome.
 - **Calendar:** Next remaining appointment from device `CalendarContract` when `READ_CALENDAR` is granted; omit the event block when permission is missing or no upcoming event exists. Clock ticks on the minute boundary.
 
 ### Page 2 — Setup
 
-- **Layout:** Fixed `LOCK SCREEN` app overline + hub title `customisation` (do not scroll). Scrollable body: master toggle + **Background** ListPicker + accent **permissions** section with body copy and accessibility / notifications / calendar / phone-state / full-screen unlock grants.
+- **Layout:** Fixed `LOCK SCREEN` app overline + hub title `customisation` (do not scroll). Scrollable body: master toggle + **Background** ListPicker + **notifications** quick-status slot row (five bordered squares; empty slots show `+`; tap opens **choose an app** page) + accent **permissions** section with body copy and accessibility / notifications / notification access / calendar / phone-state / full-screen unlock grants.
 - **Navigation:** Launcher → Lock screen app.
-- **Interactions:** Enable accessibility, then master **Show lock screen** toggle starts/stops the host FGS. Boot respects the same flag. Calendar permission is optional (enables the appointment line). **Background** ListPicker selects Accent colour / Custom background / Bing wallpaper. Choosing **Custom background** reveals the Start-background-style thumb + **choose photo** (+ **remove** when set) → system photo picker → crop page.
+- **Interactions:** Enable accessibility, then master **Show lock screen** toggle starts/stops the host FGS. Boot respects the same flag. Calendar permission is optional (enables the appointment line). **Background** ListPicker selects Accent colour / Custom background / Bing wallpaper. Choosing **Custom background** reveals the Start-background-style thumb + **choose photo** (+ **remove** when set) → system photo picker → crop page. **Quick status:** tap each of five slot buttons → `MetroAppPickerScreen` (`none` + all launchable apps) → persist package per slot; overlay reads counts via `LockscreenNotificationListenerService` when notification access is on.
 - **Background:** Theme background via `MetroTheme`.
 
 ## Images
@@ -46,7 +47,7 @@ Render a Metro lock **surface above the Android system keyguard** without replac
 
 ## Out of scope (v1)
 
-- Detailed + quiet notification glyphs
+- Detailed status app picker (calendar event line uses `READ_CALENDAR` directly)
 - Alarm glyph beside the clock
 - Camera / flashlight quick actions
 - Glance screen (always-on) — separate Lumia feature

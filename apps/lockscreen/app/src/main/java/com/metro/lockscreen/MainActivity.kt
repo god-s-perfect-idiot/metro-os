@@ -38,7 +38,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.metro.system.MetroAppDiscovery
 import com.metro.ui.MetroActivities
+import com.metro.ui.MetroAppPickerEntry
+import com.metro.ui.MetroAppPickerScreen
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
@@ -58,6 +61,7 @@ import kotlinx.coroutines.launch
 private sealed interface SetupRoute {
     data object Main : SetupRoute
     data class Crop(val uri: Uri) : SetupRoute
+    data class PickQuickStatusApp(val slotIndex: Int) : SetupRoute
 }
 
 class MainActivity : ComponentActivity() {
@@ -96,6 +100,7 @@ class MainActivity : ComponentActivity() {
             var backgroundMode by remember { mutableStateOf(prefs.backgroundMode) }
             var customEnabled by remember { mutableStateOf(prefs.customBackgroundEnabled) }
             var customEpoch by remember { mutableIntStateOf(0) }
+            var quickStatusEpoch by remember { mutableIntStateOf(0) }
             var route by remember { mutableStateOf<SetupRoute>(SetupRoute.Main) }
 
             DisposableEffect(this@MainActivity) {
@@ -142,6 +147,15 @@ class MainActivity : ComponentActivity() {
             val fullscreenGranted = remember(permissionTick) {
                 canUseFullScreenIntent(context)
             }
+            val notificationAccessGranted = remember(permissionTick) {
+                LockscreenNotificationAccess.isEnabled(context)
+            }
+            val quickStatusSlots = remember(quickStatusEpoch) { prefs.quickStatusSlots() }
+            val launchableApps = remember(permissionTick) {
+                MetroAppDiscovery.discoverInstalledApps(context).map {
+                    MetroAppPickerEntry(it.packageName, it.label)
+                }
+            }
             val canToggle = accessibilityEnabled
 
             MetroSystemTheme {
@@ -159,6 +173,31 @@ class MainActivity : ComponentActivity() {
                             onCancel = { route = SetupRoute.Main },
                             modifier = Modifier.fillMaxSize(),
                         )
+                    }
+                    is SetupRoute.PickQuickStatusApp -> {
+                        BackHandler { route = SetupRoute.Main }
+                        MetroAppPivotShell(
+                            modifier = Modifier.fillMaxSize(),
+                            onExit = { route = SetupRoute.Main },
+                            skipEnter = false,
+                        ) {
+                            MetroAppPickerScreen(
+                                apps = launchableApps,
+                                selectedPackageName = quickStatusSlots[current.slotIndex],
+                                headerTitle = stringResource(R.string.choose_app_header),
+                                onSelected = { packageName ->
+                                    prefs.setQuickStatusSlot(current.slotIndex, packageName)
+                                    quickStatusEpoch++
+                                    LockscreenHostService.requestRehost()
+                                    route = SetupRoute.Main
+                                },
+                                onBack = { route = SetupRoute.Main },
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                                    .metroNavBarPadding(),
+                            )
+                        }
                     }
                     SetupRoute.Main -> {
                         MetroAppPivotShell(
@@ -265,6 +304,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
+                                Spacer(modifier = Modifier.height(28.dp))
+                                LockscreenQuickStatusSetup(
+                                    slots = quickStatusSlots,
+                                    onSlotClick = { index ->
+                                        route = SetupRoute.PickQuickStatusApp(index)
+                                    },
+                                )
+
                                 if (enabled && accessibilityEnabled) {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     MetroText(
@@ -335,6 +382,17 @@ class MainActivity : ComponentActivity() {
                                         fontSize = 18.sp,
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                MetroBorderButton(
+                                    text = stringResource(R.string.grant_notification_access),
+                                    enabled = !notificationAccessGranted,
+                                    onClick = {
+                                        LockscreenNotificationAccess.openSettings(context)
+                                    },
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    fontSize = 18.sp,
+                                )
 
                                 Spacer(modifier = Modifier.height(12.dp))
                                 MetroBorderButton(

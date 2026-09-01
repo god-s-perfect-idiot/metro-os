@@ -6,8 +6,8 @@
 ## Status
 
 **Implemented** — lock fill (accent / custom photo / Bing wallpaper) over the system keyguard with
-WP8.1 lock chrome (transparent status tray icons, time, day, date, next calendar event). Swipe up
-reveals the system unlock screen; fingerprint / face unlock continue to work.
+WP8.1 lock chrome (transparent status tray icons, time, day, date, next calendar event, quick-status
+glyphs with counts). Swipe up reveals the system unlock screen; fingerprint / face unlock continue to work.
 
 ## App role
 
@@ -25,6 +25,7 @@ biometric or credential authentication — those stay with the system.
 4. **Full-screen intent** (`USE_FULL_SCREEN_INTENT`, Android 14+) — same FSI fallback path
 5. **Calendar** (`READ_CALENDAR`) — optional; shows the next appointment on the lock chrome
 6. **Boot completed** — restart host when the master toggle is on
+7. **Notification listener** (`LockscreenNotificationListenerService`) — optional; drives quick-status counts
 
 A plain `showWhenLocked` activity started from the host FGS is blocked by Android
 background-activity restrictions most of the time. The lock **fill** uses
@@ -41,16 +42,16 @@ background-activity restrictions most of the time. The lock **fill** uses
 
 - Full-bleed fill: system accent, cropped custom photo, or Bing picture of the day
 - Transparent Metro status tray at the top (safe inset; no background bar)
-- Large time + weekday + date; optional next calendar event
-- References: `references/images/lock_bing_homepage_dark.jpg`; see `references/known-gaps.md`
-  for notification glyphs
+- Large time + weekday + date; optional next calendar event; quick-status row (up to 5 apps + counts)
+- References: `references/images/lock_bing_homepage_dark.jpg`
 
 ### 2. Setup
 
 - Master **Show lock screen** toggle
 - **Background** ListPicker (Accent colour / Custom background / Bing wallpaper)
+- **Quick status** — five bordered app slots (+ when empty); tap opens **choose an app** page
 - Custom background: Start-background-style thumb + choose photo / remove + crop
-- Accessibility / notifications / calendar / full-screen unlock grants
+- Accessibility / notifications / notification access / calendar / full-screen unlock grants
 
 ## Commands
 
@@ -77,7 +78,7 @@ cd apps/lockscreen
 | Activity over lock from FGS | Background activity starts blocked | `TYPE_ACCESSIBILITY_OVERLAY` for the fill |
 | Drag up → password | No public bouncer-only API | Remove overlay + dismiss helper |
 | Biometrics under custom UI | Fingerprint hint may be covered | Sensor still works; tear down on unlock |
-| Photo wallpaper + glyphs | Bottom notification glyphs deferred | Accent / custom / Bing fill + tray icons + time/date/event chrome |
+| Photo wallpaper + glyphs | Bottom notification glyphs deferred | Quick-status row (5 apps + 99+ counts) when notification access granted |
 | Live cellular bars | Needs `READ_PHONE_STATE` | Setup grants phone state; Wi-Fi + battery always |
 
 ## Agent postmortem

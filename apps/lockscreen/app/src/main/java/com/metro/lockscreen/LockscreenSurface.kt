@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,9 +72,33 @@ fun LockscreenSurface(
     var dragAccum by remember { mutableFloatStateOf(0f) }
 
     val context = LocalContext.current
+    val prefs = remember(context) { LockscreenPreferences(context) }
     val calendar = remember(context) { LockscreenCalendarRepository(context) }
     var labels by remember {
         mutableStateOf(calendar.loadChromeLabels())
+    }
+    var quickStatusTick by remember { mutableIntStateOf(0) }
+    val quickStatusIconPx = with(density) { 22.dp.roundToPx().coerceAtLeast(1) }
+    val quickStatusItems = remember(quickStatusTick, quickStatusIconPx) {
+        prefs.quickStatusSlots().mapIndexedNotNull { slotIndex, packageName ->
+            val pkg = packageName ?: return@mapIndexedNotNull null
+            val icon = resolveQuickStatusIcon(context, pkg, quickStatusIconPx)
+            if (!icon.hasIcon) return@mapIndexedNotNull null
+            val count = LockscreenNotificationStore.countFor(pkg)
+            if (!LockscreenQuickStatusLogic.shouldShowQuickStatus(count)) return@mapIndexedNotNull null
+            LockscreenQuickStatusItem(
+                slotIndex = slotIndex,
+                packageName = pkg,
+                icon = icon,
+                count = count,
+            )
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val listener: () -> Unit = { quickStatusTick++ }
+        LockscreenNotificationStore.addListener(listener)
+        onDispose { LockscreenNotificationStore.removeListener(listener) }
     }
     var fill by remember {
         mutableStateOf(
@@ -212,7 +238,16 @@ fun LockscreenSurface(
                     .statusBarsPadding()
                     .navigationBarsPadding()
                     .metroNavBarPadding()
-                    .padding(bottom = 56.dp),
+                    .padding(bottom = if (quickStatusItems.isNotEmpty()) 96.dp else 56.dp),
+            )
+            LockscreenQuickStatusBar(
+                items = quickStatusItems,
+                contentColor = contentColor,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .metroNavBarPadding()
+                    .padding(bottom = 20.dp),
             )
         }
     }

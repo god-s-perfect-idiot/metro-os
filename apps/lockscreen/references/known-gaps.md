@@ -2,7 +2,6 @@
 
 | Missing / low-fidelity | Should show | Workaround |
 |------------------------|-------------|------------|
-| Detailed + quiet notification glyphs | Message / email / etc. icons with counts along the bottom | Out of scope for this pass |
 | Alarm glyph beside the clock | Small alarm icon when an alarm is set | Clock time only |
 | Separate capture of the password / PIN entry after swipe-up | Stock WP credential UI after drag-up | Documented in Lumia user guide; Android uses `requestDismissKeyguard` for the system unlock screen |
 | Glance (always-on) screen | Minimal always-on time / notifications | Out of scope — Lumia hardware feature, not the lock overlay |

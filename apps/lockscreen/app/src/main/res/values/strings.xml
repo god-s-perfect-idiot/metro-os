@@ -12,6 +12,11 @@
     <string name="show_lockscreen">Show lock screen</string>
     <string name="show_lockscreen_hint">Enable accessibility first. Allow notifications and full-screen unlock so swipe-up can open the system unlock keypad.</string>
     <string name="setup_ready">Ready. Turn the screen off and on, then swipe up for the system unlock screen.</string>
+    <string name="notifications_section">notifications</string>
+    <string name="quick_status_label">Choose apps to show quick status</string>
+    <string name="choose_app_header">choose an app</string>
+    <string name="grant_notification_access">allow notification access</string>
+    <string name="notification_listener_label">Lock screen quick status</string>
     <string name="permissions_section">permissions</string>
     <string name="background_mode_label">Background</string>
     <string name="background_mode_accent">Accent colour</string>
