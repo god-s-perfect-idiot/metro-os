@@ -11,6 +11,7 @@ import android.telecom.VideoProfile
 import androidx.compose.runtime.mutableStateOf
 import com.metro.dialer.data.ActiveCall
 import com.metro.dialer.data.CallDirection
+import com.metro.system.MetroLockscreen
 
 /**
  * Shared call state between [MetroInCallService] and [com.metro.dialer.InCallActivity].
@@ -235,6 +236,7 @@ object MetroCallSession {
         resetAudioUiState()
         _activeCall.value = null
         appContext?.let {
+            MetroLockscreen.requestSuppress(it, false)
             IncomingCallNotifier.stop(it)
             ActiveCallNotifier.stop(it)
         }

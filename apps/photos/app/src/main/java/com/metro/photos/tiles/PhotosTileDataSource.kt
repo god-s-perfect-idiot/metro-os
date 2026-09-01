@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Build
-import android.util.Size
 import androidx.core.content.ContextCompat
 import com.metro.photos.data.MediaStoreRepository
+import com.metro.photos.data.PhotoBitmapDecoder
 import com.metro.photos.data.PhotoLogic
 import com.metro.system.MetroAppRegistry
 import com.metro.system.MetroPreferences
@@ -50,6 +50,12 @@ class PhotosTileDataSource(private val context: Context) {
 
 object PhotosTileLogic {
     const val MAX_CELLS = MetroTileContract.MAX_PHOTO_GRID_CELLS
+    /** Match launcher [com.metro.launcher.data.TilePhotoLoader] decode budget for provider fallback. */
+    private const val TILE_CACHE_MAX_EDGE_PX = 2048
+    private const val TILE_CACHE_JPEG_QUALITY = 90
+
+    fun tilePhotoCacheFile(context: Context, photoId: Long): File =
+        File(context.cacheDir, "tile_photo_hq_$photoId.jpg")
 
     fun photoUri(authority: String, photoId: Long): String =
         "content://$authority/photo/$photoId"
@@ -82,22 +88,16 @@ object PhotosTileLogic {
     }
 
     private fun cacheThumbnail(context: Context, photoId: Long, uri: android.net.Uri) {
-        val cache = File(context.cacheDir, "tile_photo_$photoId.jpg")
+        val cache = tilePhotoCacheFile(context, photoId)
         if (cache.exists() && cache.length() > 0L) return
         runCatching {
-            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                context.contentResolver.loadThumbnail(uri, Size(512, 512), null)
-            } else {
-                @Suppress("DEPRECATION")
-                android.provider.MediaStore.Images.Thumbnails.getThumbnail(
-                    context.contentResolver,
-                    photoId,
-                    android.provider.MediaStore.Images.Thumbnails.MINI_KIND,
-                    null,
-                )
-            }
+            val bitmap = PhotoBitmapDecoder.decodeFull(
+                context.contentResolver,
+                uri,
+                TILE_CACHE_MAX_EDGE_PX,
+            ) ?: return@runCatching
             FileOutputStream(cache).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, TILE_CACHE_JPEG_QUALITY, out)
             }
         }
     }

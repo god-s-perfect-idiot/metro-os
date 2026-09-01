@@ -7,6 +7,7 @@ import android.telecom.InCallService
 import com.metro.dialer.InCallActivity
 import com.metro.dialer.data.CallLogRepository
 import com.metro.dialer.data.DialerCallLogic
+import com.metro.system.MetroLockscreen
 
 class MetroInCallService : InCallService() {
     private val callCallback = object : Call.Callback() {
@@ -38,6 +39,7 @@ class MetroInCallService : InCallService() {
             else -> call.state == Call.STATE_RINGING
         }
         if (isIncoming && call.state != Call.STATE_ACTIVE) {
+            MetroLockscreen.requestSuppress(this, true)
             val intent = Intent(this, InCallActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }

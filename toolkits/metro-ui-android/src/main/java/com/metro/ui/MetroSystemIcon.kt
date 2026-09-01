@@ -177,15 +177,9 @@ fun DrawScope.drawMetroSystemIconGlyph(
         join = StrokeJoin.Miter,
         miter = 4f,
     )
-    val forwardGlyphStroke = Stroke(
-        width = strokeWidth * 1.1f,
-        cap = StrokeCap.Butt,
-        join = StrokeJoin.Miter,
-        miter = 4f,
-    )
     when (type) {
-        MetroSystemIconType.Forward -> drawForwardGlyph(color, forwardGlyphStroke)
-        MetroSystemIconType.Back -> drawBackGlyph(color, glyphStroke)
+        MetroSystemIconType.Forward -> drawForwardGlyph(color)
+        MetroSystemIconType.Back -> drawBackGlyph(color)
         MetroSystemIconType.Search -> drawSearchGlyph(color)
         MetroSystemIconType.Close -> drawCloseGlyph(color)
         MetroSystemIconType.Unpin -> drawUnpinGlyph(color, glyphStroke)
@@ -323,30 +317,33 @@ fun MetroCircleIconButton(
     }
 }
 
-private fun DrawScope.drawForwardGlyph(color: Color, stroke: Stroke) {
-    val cx = size.width / 2f
-    val cy = size.height / 2f
-    val arm = size.minDimension * 0.16f
-    drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), stroke.width, StrokeCap.Butt)
-    val path = Path().apply {
-        moveTo(cx + arm * 0.2f, cy - arm * 0.85f)
-        lineTo(cx + arm, cy)
-        lineTo(cx + arm * 0.2f, cy + arm * 0.85f)
-    }
-    drawPath(path, color, style = stroke)
+/** Filled back arrow — 512 viewBox path from the WP8.1 back reference SVG. */
+private const val BACK_GLYPH_PATH =
+    "M513 216.6H158.5L316.1 59.1H197.9L1 256l196.9 196.9h118.2L158.5 295.4H513z"
+
+private val backGlyphPath: Path by lazy {
+    PathParser().parsePathString(BACK_GLYPH_PATH).toPath()
 }
 
-private fun DrawScope.drawBackGlyph(color: Color, stroke: Stroke) {
+private fun DrawScope.drawForwardGlyph(color: Color) {
+    drawBackArrowGlyph(color, flipHorizontal = true)
+}
+
+private fun DrawScope.drawBackGlyph(color: Color) {
+    drawBackArrowGlyph(color, flipHorizontal = false)
+}
+
+private fun DrawScope.drawBackArrowGlyph(color: Color, flipHorizontal: Boolean) {
+    val scale = size.minDimension / 512f * 0.38f
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val arm = size.minDimension * 0.16f
-    drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), stroke.width, StrokeCap.Butt)
-    val path = Path().apply {
-        moveTo(cx - arm * 0.2f, cy - arm * 0.85f)
-        lineTo(cx - arm, cy)
-        lineTo(cx - arm * 0.2f, cy + arm * 0.85f)
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = if (flipHorizontal) -scale else scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(backGlyphPath, color)
     }
-    drawPath(path, color, style = stroke)
 }
 
 /** Filled search — 512 viewBox path from the WP8.1 search reference SVG. */

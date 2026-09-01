@@ -400,12 +400,17 @@ private fun TextKeyButton(
                     // Backspace: larger box for the outline key+X glyph.
                     MetroSystemIconType.Backspace ->
                         minOf(base * 1.35f, size.width * 0.70f, size.height * 0.56f)
-                    // Enter / tick / search (and other IME-action glyphs on that key).
-                    MetroSystemIconType.Enter,
+                    // Filled suite glyphs (check, search, forward) paint at ~38% of iconSize.
+                    // Size from the key face — base×multiplier hits minOf() caps (0.68×height)
+                    // long before a larger multiplier changes anything (e.g. 1.85× and 2.5×
+                    // both resolve to the same ~29dp box on a 42dp-tall key).
                     MetroSystemIconType.Check,
                     MetroSystemIconType.Search,
+                    MetroSystemIconType.Forward ->
+                        minOf(size.height * 1.2f, size.width * 1.2f)
+                    // Enter (and other IME-action glyphs on that key).
+                    MetroSystemIconType.Enter,
                     MetroSystemIconType.Send,
-                    MetroSystemIconType.Forward,
                     MetroSystemIconType.Back ->
                         minOf(base * 1.3f, size.width * 0.68f, size.height * 0.58f)
                     // Emoji face already fills its canvas — grow the key icon box instead.

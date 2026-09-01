@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import com.metro.dialer.data.DialerCallLogic
+import com.metro.system.MetroLockscreen
 import com.metro.dialer.telecom.IncomingCallNotifier
 import com.metro.dialer.telecom.MetroCallSession
 import com.metro.dialer.telecom.ProximityScreenController
@@ -29,11 +30,13 @@ class InCallActivity : ComponentActivity() {
     private var proximityWanted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        MetroLockscreen.requestSuppress(this, true)
         super.onCreate(savedInstanceState)
         enableShowWhenLocked()
         enableEdgeToEdge()
 
         if (!MetroCallSession.hasActiveCall()) {
+            MetroLockscreen.requestSuppress(this, false)
             finish()
             return
         }
@@ -97,6 +100,7 @@ class InCallActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        MetroLockscreen.requestSuppress(this, true)
         // Metro incoming / in-call UI is visible — dismiss Android notification chrome.
         IncomingCallNotifier.stop(this)
         MetroCallSession.hideMinimizedNotification(this)
@@ -118,10 +122,12 @@ class InCallActivity : ComponentActivity() {
         val call = MetroCallSession.activeCall.value
         if (call != null && !isFinishing) {
             if (DialerCallLogic.isIncomingRinging(call)) {
+                MetroLockscreen.requestSuppress(this, true)
                 if (IncomingCallNotifier.needsFullScreenIntent(this)) {
                     IncomingCallNotifier.show(this, call)
                 }
             } else {
+                MetroLockscreen.requestSuppress(this, false)
                 MetroCallSession.showMinimizedNotification(this)
             }
         }
@@ -129,6 +135,10 @@ class InCallActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        val call = MetroCallSession.activeCall.value
+        if (call == null || !DialerCallLogic.isIncomingRinging(call)) {
+            MetroLockscreen.requestSuppress(this, false)
+        }
         proximityWanted = false
         proximityScreen.setEnabled(false)
         MetroCallSession.setOnCallEndedListener(null)

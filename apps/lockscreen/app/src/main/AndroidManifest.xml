@@ -71,6 +71,14 @@
         </receiver>
 
         <receiver
+            android:name=".LockscreenRequestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.metro.lockscreen.action.SET_SUPPRESSED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".BootReceiver"
             android:exported="true">
             <intent-filter>

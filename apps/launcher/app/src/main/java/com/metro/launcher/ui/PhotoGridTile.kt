@@ -1,11 +1,7 @@
 package com.metro.launcher.ui
 
 import android.content.Context
-import android.graphics.BitmapFactory
-import android.net.Uri
-import android.os.Build
 import android.util.LruCache
-import android.util.Size
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -44,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.metro.launcher.data.TilePhotoLoader
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroTileGridCell
 import com.metro.ui.MetroTransitions
@@ -57,7 +54,8 @@ private const val CYCLE_PAN_MS = 3_000
 /** Vertical wipe that carries the current photo out and the next in from below. */
 private const val CYCLE_SLIDE_MS = 600
 /** Extra scale so the cropped photo can drift upward without empty edges. */
-private const val CYCLE_PAN_OVERFLOW = 0.18f
+private val CYCLE_PAN_OVERFLOW = TilePhotoLoader.KEN_BURNS_OVERFLOW
+private const val TILE_PHOTO_CACHE_MAX_BYTES = 48 * 1024 * 1024
 
 /** Pick a different cell at random so the Photos live tile never walks library order. */
 internal fun nextRandomCycleIndex(
@@ -83,30 +81,24 @@ private val MosaicFlipHalfAnimation = MetroTransitions.tileFlipHalfTween<Float>(
 private val MosaicFlipSettleAnimation = MetroTransitions.tileFlipSettleSpring<Float>()
 
 /** Survives enter-wave recomposition so People/Photos faces do not flash empty. */
-private val tilePhotoBitmapCache = object : LruCache<String, ImageBitmap>(64) {}
+private val tilePhotoBitmapCache = object : LruCache<String, ImageBitmap>(TILE_PHOTO_CACHE_MAX_BYTES) {
+    override fun sizeOf(key: String, value: ImageBitmap): Int =
+        value.width * value.height * 4
+}
+
+/** Pixel size for full-bleed gallery/cycle tiles — scales with density, capped for memory. */
+internal fun tilePhotoDecodeTargetPx(context: Context): Int =
+    TilePhotoLoader.decodeTargetPx(context)
 
 private fun decodeTilePhoto(context: Context, uriString: String): ImageBitmap? {
-    tilePhotoBitmapCache.get(uriString)?.let { return it }
-    val uri = Uri.parse(uriString)
+    val uri = android.net.Uri.parse(uriString)
+    val cacheKey = TilePhotoLoader.resolveLoadUri(context, uri).toString()
+    tilePhotoBitmapCache.get(cacheKey)?.let { return it }
+    val targetPx = tilePhotoDecodeTargetPx(context)
     val decoded = runCatching {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            runCatching {
-                context.contentResolver.loadThumbnail(
-                    uri,
-                    Size(512, 512),
-                    null,
-                )?.asImageBitmap()
-            }.getOrNull()
-                ?: context.contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                }
-        } else {
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream)?.asImageBitmap()
-            }
-        }
+        TilePhotoLoader.decode(context, uri, targetPx)?.asImageBitmap()
     }.getOrNull()
-    if (decoded != null) tilePhotoBitmapCache.put(uriString, decoded)
+    if (decoded != null) tilePhotoBitmapCache.put(cacheKey, decoded)
     return decoded
 }
 
@@ -114,7 +106,13 @@ private fun decodeTilePhoto(context: Context, uriString: String): ImageBitmap? {
 private fun rememberTilePhotoBitmap(imageUri: String?): ImageBitmap? {
     val context = LocalContext.current
     var bitmap by remember(imageUri) {
-        mutableStateOf(imageUri?.let { tilePhotoBitmapCache.get(it) })
+        mutableStateOf(
+            imageUri?.let { uri ->
+                val cacheKey = TilePhotoLoader.resolveLoadUri(context, android.net.Uri.parse(uri))
+                    .toString()
+                tilePhotoBitmapCache.get(cacheKey)
+            },
+        )
     }
     LaunchedEffect(imageUri) {
         val uri = imageUri
@@ -122,7 +120,8 @@ private fun rememberTilePhotoBitmap(imageUri: String?): ImageBitmap? {
             bitmap = null
             return@LaunchedEffect
         }
-        val cached = tilePhotoBitmapCache.get(uri)
+        val cacheKey = TilePhotoLoader.resolveLoadUri(context, android.net.Uri.parse(uri)).toString()
+        val cached = tilePhotoBitmapCache.get(cacheKey)
         if (cached != null) {
             bitmap = cached
             return@LaunchedEffect

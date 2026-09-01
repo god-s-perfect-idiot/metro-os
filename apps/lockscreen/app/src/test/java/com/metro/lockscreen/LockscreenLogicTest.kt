@@ -63,6 +63,33 @@ class LockscreenLogicTest {
     }
 
     @Test
+    fun shouldPresentLock_suppressedForCriticalOverlay() {
+        assertFalse(
+            LockscreenLogic.shouldPresentLock(
+                enabled = true,
+                keyguardLocked = true,
+                displayAwake = true,
+                criticalOverlaySuppressed = true,
+            ),
+        )
+        assertTrue(
+            LockscreenLogic.shouldPresentLock(
+                enabled = true,
+                keyguardLocked = true,
+                displayAwake = true,
+                criticalOverlaySuppressed = false,
+            ),
+        )
+    }
+
+    @Test
+    fun shouldSuppressForPhoneState_ringingAndOffHook() {
+        assertTrue(LockscreenLogic.shouldSuppressForPhoneState(LockscreenLogic.PHONE_STATE_RINGING))
+        assertTrue(LockscreenLogic.shouldSuppressForPhoneState(LockscreenLogic.PHONE_STATE_OFFHOOK))
+        assertFalse(LockscreenLogic.shouldSuppressForPhoneState("IDLE"))
+    }
+
+    @Test
     fun isDisplayAwake_requiresStateOnAndInteractive() {
         assertTrue(
             LockscreenLogic.isDisplayAwake(

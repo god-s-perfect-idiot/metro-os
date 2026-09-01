@@ -18,7 +18,7 @@ class PhotosTileProvider : MetroTileProvider() {
         val photoId = uri.lastPathSegment?.toLongOrNull() ?: return null
         if (!uri.path.orEmpty().startsWith("/photo/")) return null
         val ctx = context ?: return null
-        val cache = File(ctx.cacheDir, "tile_photo_$photoId.jpg")
+        val cache = PhotosTileLogic.tilePhotoCacheFile(ctx, photoId)
         if (!cache.exists() || cache.length() == 0L) return null
         return AssetFileDescriptor(
             ParcelFileDescriptor.open(cache, ParcelFileDescriptor.MODE_READ_ONLY),

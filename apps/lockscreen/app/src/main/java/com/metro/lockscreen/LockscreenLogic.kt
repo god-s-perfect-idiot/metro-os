@@ -79,7 +79,21 @@ object LockscreenLogic {
         keyguardLocked: Boolean,
         displayAwake: Boolean,
         handedOff: Boolean = false,
-    ): Boolean = enabled && keyguardLocked && displayAwake && !handedOff
+        criticalOverlaySuppressed: Boolean = false,
+    ): Boolean =
+        enabled &&
+            keyguardLocked &&
+            displayAwake &&
+            !handedOff &&
+            !criticalOverlaySuppressed
+
+    /** Hide the Metro fill while the radio reports an active or ringing call. */
+    fun shouldSuppressForPhoneState(state: String?): Boolean =
+        state == PHONE_STATE_RINGING || state == PHONE_STATE_OFFHOOK
+
+    /** [android.telephony.TelephonyManager.EXTRA_STATE] values used by [shouldSuppressForPhoneState]. */
+    internal const val PHONE_STATE_RINGING = "RINGING"
+    internal const val PHONE_STATE_OFFHOOK = "OFFHOOK"
 
     /**
      * Drag is allowed at rest, while already dragging, or while the snap-back spring

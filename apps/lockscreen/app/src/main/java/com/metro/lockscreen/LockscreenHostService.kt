@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.telephony.TelephonyManager
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -35,6 +36,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.metro.system.MetroLockscreen
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroSystemTheme
 /**
@@ -68,6 +70,7 @@ class LockscreenHostService :
     private var overlayView: ComposeView? = null
     private var overlayManager: WindowManager? = null
     private var receiverRegistered = false
+    private var phoneReceiverRegistered = false
 
     /**
      * After a committed swipe-up, do not re-attach the Metro fill until the next screen-off
@@ -75,6 +78,12 @@ class LockscreenHostService :
      */
     @Volatile
     private var handedOffUntilScreenOff = false
+
+    /** Suppress requests from [MetroLockscreen] (incoming call UI, alarms, …). */
+    private var criticalOverlaySuppressedByContract = false
+
+    /** Suppress while telephony reports RINGING / OFFHOOK (fallback when dialer broadcast lags). */
+    private var criticalOverlaySuppressedByPhone = false
 
     private val presentRetries = longArrayOf(0L, 50L, 150L, 400L, 1000L)
 
@@ -106,13 +115,27 @@ class LockscreenHostService :
         }
     }
 
+    private val phoneReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
+            val state = intent.getStringExtra(TelephonyManager.EXTRA_STATE)
+            val suppress = LockscreenLogic.shouldSuppressForPhoneState(state)
+            handler.post {
+                criticalOverlaySuppressedByPhone = suppress
+                syncOverlayToKeyguard()
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
+        criticalOverlaySuppressedByContract = criticalOverlaySuppressedPersisted
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         startForeground(NOTIFICATION_ID, buildNotification())
         registerScreenReceiver()
+        registerPhoneReceiver()
         handler.post(tickRunnable)
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
         schedulePresentAttempts()
@@ -123,6 +146,15 @@ class LockscreenHostService :
             stopSelf()
             return START_NOT_STICKY
         }
+        when (intent?.action) {
+            MetroLockscreen.ACTION_SET_SUPPRESSED -> {
+                val suppressed = intent.getBooleanExtra(
+                    MetroLockscreen.EXTRA_SUPPRESSED,
+                    criticalOverlaySuppressedPersisted,
+                )
+                handler.post { applyCriticalSuppressFromContract(suppressed) }
+            }
+        }
         schedulePresentAttempts()
         return START_STICKY
     }
@@ -130,6 +162,7 @@ class LockscreenHostService :
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         unregisterScreenReceiver()
+        unregisterPhoneReceiver()
         removeOverlay()
         LockscreenBouncerActivity.finishIfShowing()
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
@@ -168,6 +201,7 @@ class LockscreenHostService :
                 keyguardLocked = locked,
                 displayAwake = displayAwake,
                 handedOff = handedOffUntilScreenOff,
+                criticalOverlaySuppressed = isCriticalOverlaySuppressed(),
             )
         ) {
             ensureOverlayShowing()
@@ -416,6 +450,33 @@ class LockscreenHostService :
         return maxOf(topPx, minTrayPx)
     }
 
+    private fun isCriticalOverlaySuppressed(): Boolean =
+        criticalOverlaySuppressedByContract || criticalOverlaySuppressedByPhone
+
+    private fun applyCriticalSuppressFromContract(suppressed: Boolean) {
+        criticalOverlaySuppressedPersisted = suppressed
+        criticalOverlaySuppressedByContract = suppressed
+        syncOverlayToKeyguard()
+    }
+
+    private fun registerPhoneReceiver() {
+        if (phoneReceiverRegistered || !LockscreenSignalSource.canReadCellular(this)) return
+        val filter = IntentFilter(TelephonyManager.ACTION_PHONE_STATE_CHANGED)
+        ContextCompat.registerReceiver(
+            this,
+            phoneReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        phoneReceiverRegistered = true
+    }
+
+    private fun unregisterPhoneReceiver() {
+        if (!phoneReceiverRegistered) return
+        runCatching { unregisterReceiver(phoneReceiver) }
+        phoneReceiverRegistered = false
+    }
+
     private fun registerScreenReceiver() {
         if (receiverRegistered) return
         val filter = IntentFilter().apply {
@@ -469,6 +530,9 @@ class LockscreenHostService :
 
         @Volatile
         private var instance: LockscreenHostService? = null
+
+        @Volatile
+        private var criticalOverlaySuppressedPersisted = false
 
         fun isRunning(): Boolean = instance != null
 
@@ -527,6 +591,36 @@ class LockscreenHostService :
                 svc.handler.post {
                     svc.removeOverlay()
                     svc.syncOverlayToKeyguard()
+                }
+            }
+        }
+
+        /**
+         * Forwards a [MetroLockscreen] contract request to the running host (or starts it).
+         * Mirrors [com.metro.statusbar.StatusBarOverlayService.deliver].
+         */
+        fun deliver(context: Context, action: String, source: Intent) {
+            when (action) {
+                MetroLockscreen.ACTION_SET_SUPPRESSED -> {
+                    val suppressed = source.getBooleanExtra(
+                        MetroLockscreen.EXTRA_SUPPRESSED,
+                        criticalOverlaySuppressedPersisted,
+                    )
+                    criticalOverlaySuppressedPersisted = suppressed
+                    val svc = instance
+                    if (svc != null) {
+                        svc.handler.post { svc.applyCriticalSuppressFromContract(suppressed) }
+                    } else if (LockscreenPreferences(context).enabled) {
+                        val intent = Intent(context, LockscreenHostService::class.java).apply {
+                            this.action = action
+                            putExtras(source)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(intent)
+                        } else {
+                            context.startService(intent)
+                        }
+                    }
                 }
             }
         }
