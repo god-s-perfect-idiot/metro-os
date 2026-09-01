@@ -40,8 +40,11 @@ import com.metro.system.MetroPreferences
 import com.metro.system.MetroStartBackground
 import com.metro.system.MetroThemeMode
 import com.metro.system.MetroTileContract
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Start-owned open animation request — splash pivots in, then the activity starts underneath. */
@@ -59,6 +62,7 @@ class LauncherState(context: Context) {
     private val appContext = context.applicationContext
     private val hostContext: Context = context
     private val repository = LauncherRepository(appContext)
+    private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val metroPrefs = MetroPreferences(appContext)
     private val launcherPrefs =
         appContext.getSharedPreferences(PREFS_LAUNCHER, Context.MODE_PRIVATE)
@@ -428,31 +432,18 @@ class LauncherState(context: Context) {
                 }
             },
         )
-        displayTiles = displayTiles.map { tile ->
-            val entry = pinnedEntries.firstOrNull {
-                it.packageName == tile.entry.packageName && it.tileId == tile.entry.tileId
-            }
-            if (entry != null) {
-                tile.copy(
-                    entry = tile.entry.copy(
-                        gridCol = entry.gridCol,
-                        gridRow = entry.gridRow,
-                    ),
-                )
-            } else {
-                tile
-            }
-        }
+        displayTiles = applyPinnedLayoutToDisplayTiles()
         editingTile = editingTile?.let { editing ->
             displayTiles.firstOrNull {
                 it.entry.packageName == editing.entry.packageName &&
                     it.entry.tileId == editing.entry.tileId
             }
         }
-        repository.savePinnedTiles(pinnedEntries)
+        persistPinnedEntriesAsync()
     }
 
     fun updateTileSize(entry: PinnedTileEntry, size: PinnedTileSize) {
+        layoutEpoch++
         pinnedEntries = applyTileResize(
             entries = pinnedEntries,
             packageName = entry.packageName,
@@ -460,7 +451,8 @@ class LauncherState(context: Context) {
             newSize = size,
             columns = gridColumns,
         )
-        persistAndRefresh()
+        displayTiles = applyPinnedLayoutToDisplayTiles()
+        persistPinnedEntriesAsync()
     }
 
     fun unpinTile(entry: PinnedTileEntry) {
@@ -550,6 +542,26 @@ class LauncherState(context: Context) {
 
     fun dismissSearch() {
         onSearchActiveChange(false)
+    }
+
+    /**
+     * Keeps tile chrome (photos, contacts, music, …) while applying grid layout changes.
+     * Avoids re-querying every live ContentProvider on resize/reorder.
+     */
+    private fun applyPinnedLayoutToDisplayTiles(): List<DisplayTile> {
+        val existingByKey = displayTiles.associateBy {
+            it.entry.packageName to it.entry.tileId
+        }
+        return pinnedEntries.mapNotNull { entry ->
+            existingByKey[entry.packageName to entry.tileId]?.copy(entry = entry)
+        }
+    }
+
+    private fun persistPinnedEntriesAsync() {
+        val snapshot = pinnedEntries.toList()
+        persistScope.launch {
+            repository.savePinnedTiles(snapshot)
+        }
     }
 
     private fun persistAndRefresh() {
