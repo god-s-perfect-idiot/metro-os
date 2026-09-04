@@ -1,13 +1,15 @@
 package com.metro.dialer.data
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.ContactsContract
 
 class ContactsLookup(
     private val context: Context,
 ) {
-    fun loadPhoneContacts(limit: Int = 500): List<ContactSuggestion> {
+    fun loadPhoneContacts(limit: Int = 2000): List<ContactSuggestion> {
         val resolver = context.contentResolver
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
@@ -103,5 +105,35 @@ class ContactsLookup(
             }
         }
         return null
+    }
+
+    /** Contact photo URI for [phoneNumber], or null when unresolved / no photo. */
+    fun resolvePhotoUri(phoneNumber: String): Uri? {
+        val normalized = DialerCallLogic.normalizeNumber(phoneNumber)
+        if (normalized.isEmpty()) return null
+        val lookupUri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(normalized),
+        )
+        val photoUriString = context.contentResolver.query(
+            lookupUri,
+            arrayOf(ContactsContract.PhoneLookup.PHOTO_URI),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } ?: return null
+        return runCatching { Uri.parse(photoUriString) }.getOrNull()
+    }
+
+    /** Decode the contact photo for [phoneNumber], or null when missing. */
+    fun loadContactPhoto(phoneNumber: String): Bitmap? {
+        val photoUri = resolvePhotoUri(phoneNumber) ?: return null
+        return runCatching {
+            context.contentResolver.openInputStream(photoUri)?.use { stream ->
+                BitmapFactory.decodeStream(stream)
+            }
+        }.getOrNull()
     }
 }

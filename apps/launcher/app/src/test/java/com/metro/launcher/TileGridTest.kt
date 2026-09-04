@@ -12,7 +12,6 @@ import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.tileGridColumnCount
 import com.metro.launcher.data.tileOverlapsRegion
 import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT_EXPANDED
-import com.metro.launcher.ui.compactEmptyRowPlacements
 import com.metro.system.MetroTileContract
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroSystemIconType
@@ -127,7 +126,9 @@ class TileGridTest {
         val placed = layoutTilesOnGrid(tiles)
         assertEquals(3, placed.size)
         assertEquals(1, placed.first { it.tile.entry.packageName == "c" }.row)
+        // Horizontal gap at (1,0) is intentional and preserved.
         assertTrue(placed.none { it.col == 1 && it.row == 0 })
+        assertEquals(2, placed.first { it.tile.entry.packageName == "b" }.col)
     }
 
     @Test
@@ -141,6 +142,16 @@ class TileGridTest {
         assertEquals(0, compacted[0].gridCol)
         assertEquals(1, compacted[1].gridRow)
         assertEquals(2, compacted[1].gridCol)
+    }
+
+    @Test
+    fun gap_rightMediumAlonePreserved() {
+        val entries = listOf(
+            PinnedTileEntry("m", size = PinnedTileSize.TwoByTwo, gridCol = 2, gridRow = 0),
+        )
+        val kept = ensureGridPositions(entries)
+        assertEquals(2, kept[0].gridCol)
+        assertEquals(0, kept[0].gridRow)
     }
 
     @Test
@@ -373,6 +384,9 @@ class TileGridTest {
             setOf("a", "b", "c"),
             adapted.map { it.packageName }.toSet(),
         )
+        // a and b keep; c was at col 4 and relocates.
+        assertEquals(0, adapted.first { it.packageName == "a" }.gridCol)
+        assertEquals(2, adapted.first { it.packageName == "b" }.gridCol)
     }
 
     @Test
@@ -397,7 +411,6 @@ class TileGridTest {
         val a = resized.first { it.packageName == "a" }
         assertEquals(PinnedTileSize.FourByTwo, a.size)
         assertEquals(0, a.gridCol)
-        assertEquals(0, a.gridRow)
         assertTrue(a.gridCol!! + a.size.colSpan <= TILE_GRID_COLUMNS)
         val b = resized.first { it.packageName == "b" }
         assertFalse(
@@ -415,7 +428,7 @@ class TileGridTest {
     }
 
     @Test
-    fun applyTileResize_shiftsLeftWhenMediumWouldOverflow() {
+    fun applyTileResize_alignsWhenGrowingSmallAtEdge() {
         val entries = listOf(
             PinnedTileEntry("a", size = PinnedTileSize.OneByOne, gridCol = 3, gridRow = 0),
         )
@@ -427,7 +440,7 @@ class TileGridTest {
     }
 
     @Test
-    fun applyTileResize_pushesOverlappingNeighbors() {
+    fun applyTileResize_displacesOverlappingNeighbors() {
         val entries = listOf(
             PinnedTileEntry("a", size = PinnedTileSize.OneByOne, gridCol = 0, gridRow = 0),
             PinnedTileEntry("b", size = PinnedTileSize.OneByOne, gridCol = 1, gridRow = 0),
@@ -456,66 +469,114 @@ class TileGridTest {
     }
 
     @Test
-    fun dragLayout_flowsNeighborsAroundHole() {
+    fun applyTileResize_preservesUnrelatedGaps() {
+        val entries = listOf(
+            PinnedTileEntry("gap_anchor", size = PinnedTileSize.TwoByTwo, gridCol = 2, gridRow = 2),
+            PinnedTileEntry("a", size = PinnedTileSize.OneByOne, gridCol = 0, gridRow = 0),
+            PinnedTileEntry("b", size = PinnedTileSize.OneByOne, gridCol = 1, gridRow = 0),
+        )
+        val resized = applyTileResize(entries, "a", "primary", PinnedTileSize.TwoByTwo)
+        val anchor = resized.first { it.packageName == "gap_anchor" }
+        assertEquals(2, anchor.gridCol)
+        assertEquals(2, anchor.gridRow)
+    }
+
+    @Test
+    fun dragLayout_dropSmallOntoRightMediumDisplaces() {
+        val left = displayTile("left", PinnedTileSize.TwoByTwo, col = 0, row = 0)
+        val right = displayTile("right", PinnedTileSize.TwoByTwo, col = 2, row = 0)
+        val below = displayTile("below", PinnedTileSize.TwoByTwo, col = 0, row = 2)
+        val small = displayTile("small", PinnedTileSize.OneByOne, col = 2, row = 2)
+        val tiles = listOf(left, right, below, small)
+        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
+        // Drop small onto the right medium at (2,0).
+        val placed = layoutTilesForDrag(tiles, small, slotCol = 2, slotRow = 0, baseline)
+        val s = placed.first { it.tile.entry.packageName == "small" }
+        assertEquals(2, s.col)
+        assertEquals(0, s.row)
+        val r = placed.first { it.tile.entry.packageName == "right" }
+        // Left occupied → keep right column and push to the next band (not fling away).
+        assertEquals(2, r.col)
+        assertEquals(2, r.row)
+        // below was already at row 2 on the left — shares the band with pushed right.
+        assertEquals(0, placed.first { it.tile.entry.packageName == "below" }.col)
+        assertEquals(2, placed.first { it.tile.entry.packageName == "below" }.row)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "left" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "left" }.row)
+    }
+
+    @Test
+    fun dragLayout_rightEdgeInsertsRowWhenBelowBlocked() {
+        val left = displayTile("left", PinnedTileSize.TwoByTwo, col = 0, row = 0)
+        val right = displayTile("right", PinnedTileSize.TwoByTwo, col = 2, row = 0)
+        // Occupy the natural landing band under the right medium.
+        val block = displayTile("block", PinnedTileSize.TwoByTwo, col = 2, row = 2)
+        val lower = displayTile("lower", PinnedTileSize.TwoByTwo, col = 0, row = 4)
+        val small = displayTile("small", PinnedTileSize.OneByOne, col = 0, row = 2)
+        val tiles = listOf(left, right, block, lower, small)
+        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
+        val placed = layoutTilesForDrag(tiles, small, slotCol = 2, slotRow = 0, baseline)
+        val r = placed.first { it.tile.entry.packageName == "right" }
+        assertEquals(2, r.col)
+        assertEquals(2, r.row)
+        // block was at (2,2) → shifted down by inserted band.
+        assertEquals(2, placed.first { it.tile.entry.packageName == "block" }.col)
+        assertEquals(4, placed.first { it.tile.entry.packageName == "block" }.row)
+        assertEquals(6, placed.first { it.tile.entry.packageName == "lower" }.row)
+    }
+
+    @Test
+    fun dragLayout_rightEdgePrefersSameRowGapWhenFree() {
+        val right = displayTile("right", PinnedTileSize.TwoByTwo, col = 2, row = 0)
+        val small = displayTile("small", PinnedTileSize.OneByOne, col = 0, row = 2)
+        val tiles = listOf(right, small)
+        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
+        val placed = layoutTilesForDrag(tiles, small, slotCol = 2, slotRow = 0, baseline)
+        // Left of the band is empty → medium slides horizontally, no row insert.
+        assertEquals(0, placed.first { it.tile.entry.packageName == "right" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "right" }.row)
+        assertEquals(2, placed.first { it.tile.entry.packageName == "small" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "small" }.row)
+    }
+
+    @Test
+    fun dragLayout_moveIntoEmptyRightLeavesSourceGap() {
+        val a = displayTile("a", PinnedTileSize.TwoByTwo, col = 0, row = 0)
+        val b = displayTile("b", PinnedTileSize.TwoByTwo, col = 0, row = 2)
+        val tiles = listOf(a, b)
+        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
+        val placed = layoutTilesForDrag(tiles, a, slotCol = 2, slotRow = 0, baseline)
+        assertEquals(2, placed.first { it.tile.entry.packageName == "a" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "a" }.row)
+        // b stays; left of row 0 is now empty (intentional gap).
+        assertEquals(0, placed.first { it.tile.entry.packageName == "b" }.col)
+        assertEquals(2, placed.first { it.tile.entry.packageName == "b" }.row)
+        assertTrue(placed.none { it.col == 0 && it.row == 0 })
+    }
+
+    @Test
+    fun dragLayout_wideOntoTwoMediumsDisplacesBoth() {
         val a = displayTile("a", PinnedTileSize.TwoByTwo, col = 0, row = 0)
         val b = displayTile("b", PinnedTileSize.TwoByTwo, col = 2, row = 0)
-        val c = displayTile("c", PinnedTileSize.OneByOne, col = 0, row = 2)
-        val d = displayTile("d", PinnedTileSize.OneByOne, col = 1, row = 2)
-        val e = displayTile("e", PinnedTileSize.OneByOne, col = 2, row = 2)
-        val f = displayTile("f", PinnedTileSize.OneByOne, col = 3, row = 2)
-        val tiles = listOf(a, b, c, d, e, f)
+        val wide = displayTile("w", PinnedTileSize.FourByTwo, col = 0, row = 2)
+        val tiles = listOf(a, b, wide)
         val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
-        // Hole at (1,2) for f — d slides past the hole on the same row.
-        val placed = layoutTilesForDrag(tiles, f, slotCol = 1, slotRow = 2, baseline)
-        assertEquals(1, placed.first { it.tile.entry.packageName == "f" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "f" }.row)
-        assertEquals(0, placed.first { it.tile.entry.packageName == "c" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "c" }.row)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "d" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "d" }.row)
-        assertEquals(3, placed.first { it.tile.entry.packageName == "e" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "e" }.row)
-        assertEquals(0, placed.first { it.tile.entry.packageName == "a" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "b" }.col)
+        val placed = layoutTilesForDrag(tiles, wide, slotCol = 0, slotRow = 0, baseline)
+        val w = placed.first { it.tile.entry.packageName == "w" }
+        assertEquals(0, w.col)
+        assertEquals(0, w.row)
+        for (other in placed.filter { it.tile.entry.packageName != "w" }) {
+            assertFalse(
+                tileOverlapsRegion(
+                    other.col, other.row, other.tile.entry.size.colSpan, other.tile.entry.size.rowSpan,
+                    w.col, w.row, 4, 2,
+                ),
+            )
+        }
     }
 
     @Test
-    fun dragLayout_wrapsWhenTileCannotStayOnRow() {
-        val a = displayTile("a", PinnedTileSize.FourByTwo, col = 0, row = 0)
-        val b = displayTile("b", PinnedTileSize.OneByOne, col = 0, row = 2)
-        val c = displayTile("c", PinnedTileSize.OneByOne, col = 1, row = 2)
-        val d = displayTile("d", PinnedTileSize.OneByOne, col = 2, row = 2)
-        val e = displayTile("e", PinnedTileSize.OneByOne, col = 3, row = 2)
-        val dragged = displayTile("x", PinnedTileSize.OneByOne, col = 3, row = 3)
-        val tiles = listOf(a, b, c, d, e, dragged)
-        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
-        // Hole at (2,2) — d stays on the row past the hole; e wraps to the next row.
-        val placed = layoutTilesForDrag(tiles, dragged, slotCol = 2, slotRow = 2, baseline)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "x" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "x" }.row)
-        assertEquals(3, placed.first { it.tile.entry.packageName == "d" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "d" }.row)
-        assertEquals(0, placed.first { it.tile.entry.packageName == "e" }.col)
-        assertEquals(3, placed.first { it.tile.entry.packageName == "e" }.row)
-    }
-
-    @Test
-    fun dragLayout_fillsEarlierGapsWhileKeepingHole() {
-        val a = displayTile("a", PinnedTileSize.TwoByTwo, col = 0, row = 0)
-        val b = displayTile("b", PinnedTileSize.OneByOne, col = 3, row = 4)
-        val dragged = displayTile("c", PinnedTileSize.OneByOne, col = 0, row = 2)
-        val tiles = listOf(a, b, dragged)
-        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
-        val placed = layoutTilesForDrag(tiles, dragged, slotCol = 1, slotRow = 2, baseline)
-        assertEquals(1, placed.first { it.tile.entry.packageName == "c" }.col)
-        assertEquals(2, placed.first { it.tile.entry.packageName == "c" }.row)
-        // b fills the first open cell after a (gap collapses via flow pack).
-        assertEquals(2, placed.first { it.tile.entry.packageName == "b" }.col)
-        assertEquals(0, placed.first { it.tile.entry.packageName == "b" }.row)
-    }
-
-    @Test
-    fun packTilesInReadingOrder_wrapsOversizedRemainder() {
+    fun packTilesInReadingOrder_wrapsWidePastOccupiedBand() {
         val tiles = listOf(
             displayTile("a", PinnedTileSize.TwoByTwo),
             displayTile("b", PinnedTileSize.TwoByTwo),
@@ -529,9 +590,141 @@ class TileGridTest {
         assertEquals(0, placed[1].row)
         assertEquals(0, placed[2].col)
         assertEquals(2, placed[2].row)
-        // Wide tile cannot share row 2 with c → falls to row 3.
+        // Wide cannot share row 2 with c → falls below.
         assertEquals(0, placed[3].col)
         assertEquals(3, placed[3].row)
+    }
+
+    @Test
+    fun dragLayout_mediumBreaksSmallGroupWhenRightBlocked() {
+        val left = displayTile("left", PinnedTileSize.TwoByTwo, col = 0, row = 0)
+        val s1 = displayTile("s1", PinnedTileSize.OneByOne, col = 2, row = 0)
+        val s2 = displayTile("s2", PinnedTileSize.OneByOne, col = 3, row = 0)
+        val s3 = displayTile("s3", PinnedTileSize.OneByOne, col = 2, row = 1)
+        val s4 = displayTile("s4", PinnedTileSize.OneByOne, col = 3, row = 1)
+        val medium = displayTile("med", PinnedTileSize.TwoByTwo, col = 0, row = 2)
+        val tiles = listOf(left, s1, s2, s3, s4, medium)
+        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
+        val placed = layoutTilesForDrag(tiles, medium, slotCol = 2, slotRow = 0, baseline)
+        val m = placed.first { it.tile.entry.packageName == "med" }
+        assertEquals(2, m.col)
+        assertEquals(0, m.row)
+        // Left stays; all four smalls move below as one packed group (not flung away).
+        assertEquals(0, placed.first { it.tile.entry.packageName == "left" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "left" }.row)
+        val smalls = placed.filter { it.tile.entry.packageName.startsWith("s") }
+        assertEquals(4, smalls.size)
+        assertTrue(smalls.all { it.row >= 2 })
+        for (s in smalls) {
+            assertFalse(
+                tileOverlapsRegion(
+                    s.col, s.row, 1, 1,
+                    m.col, m.row, 2, 2,
+                ),
+            )
+        }
+        // Packed contiguously under the medium, keeping the group's right-side columns.
+        val smallCells = smalls.map { it.col to it.row }.toSet()
+        assertEquals(
+            setOf(2 to 2, 3 to 2, 2 to 3, 3 to 3),
+            smallCells,
+        )
+    }
+
+    @Test
+    fun dragLayout_mediumBreaksLeftSmallGroupSlidingRight() {
+        val s1 = displayTile("s1", PinnedTileSize.OneByOne, col = 0, row = 0)
+        val s2 = displayTile("s2", PinnedTileSize.OneByOne, col = 1, row = 0)
+        val s3 = displayTile("s3", PinnedTileSize.OneByOne, col = 0, row = 1)
+        val s4 = displayTile("s4", PinnedTileSize.OneByOne, col = 1, row = 1)
+        val medium = displayTile("med", PinnedTileSize.TwoByTwo, col = 0, row = 2)
+        val tiles = listOf(s1, s2, s3, s4, medium)
+        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
+        val placed = layoutTilesForDrag(tiles, medium, slotCol = 0, slotRow = 0, baseline)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "med" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "med" }.row)
+        // Right half of the band was empty → smalls slide horizontally onto cols 2–3.
+        val smalls = placed.filter { it.tile.entry.packageName.startsWith("s") }
+        assertTrue(smalls.all { it.col >= 2 && it.row <= 1 })
+    }
+
+    @Test
+    fun snapDragSlotWithHysteresis_mediumUsesHalfStepOfTwo() {
+        // Mediums may sit on odd columns; hysteresis still uses 1-cell steps.
+        val (held, _) = snapDragSlotWithHysteresis(
+            pointerCol = 1.6f, // ideal top-left = 0.6 → raw 1, still short of 0.78 boundary
+            pointerRow = 1f,
+            colSpan = 2,
+            rowSpan = 2,
+            currentCol = 0,
+            currentRow = 0,
+            hysteresis = 0.28f,
+        )
+        assertEquals(0, held)
+        val (committed, _) = snapDragSlotWithHysteresis(
+            pointerCol = 1.9f, // ideal = 0.9 → past 0.78 → column 1
+            pointerRow = 1f,
+            colSpan = 2,
+            rowSpan = 2,
+            currentCol = 0,
+            currentRow = 0,
+            hysteresis = 0.28f,
+        )
+        assertEquals(1, committed)
+    }
+
+    @Test
+    fun snapDragSlot_allowsMediumOnOddColumn() {
+        // Center over cols 1–2 → medium top-left at column 1 (middle of 4-col Start).
+        val (col, row) = snapDragSlot(
+            pointerCol = 2.0f,
+            pointerRow = 1f,
+            colSpan = 2,
+            rowSpan = 2,
+            columns = 4,
+        )
+        assertEquals(1, col)
+        assertEquals(0, row)
+    }
+
+    @Test
+    fun layout_allowsMediumBetweenStackedSmallColumns() {
+        // Valid WP8.1 config: 1×1 | 2×2 | 1×1 (smalls stacked on each side).
+        val tiles = listOf(
+            displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0),
+            displayTile("bl", PinnedTileSize.OneByOne, col = 0, row = 1),
+            displayTile("mid", PinnedTileSize.TwoByTwo, col = 1, row = 0),
+            displayTile("tr", PinnedTileSize.OneByOne, col = 3, row = 0),
+            displayTile("br", PinnedTileSize.OneByOne, col = 3, row = 1),
+        )
+        val placed = layoutTilesOnGrid(tiles)
+        assertEquals(1, placed.first { it.tile.entry.packageName == "mid" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "tl" }.col)
+        assertEquals(3, placed.first { it.tile.entry.packageName == "tr" }.col)
+        // Resize/ensure must not shove the medium back to an even column.
+        val entries = tiles.map { it.entry }
+        val kept = ensureGridPositions(entries)
+        assertEquals(1, kept.first { it.packageName == "mid" }.gridCol)
+    }
+
+    @Test
+    fun dragLayout_canSeatMediumInMiddleBetweenSmalls() {
+        val tl = displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0)
+        val bl = displayTile("bl", PinnedTileSize.OneByOne, col = 0, row = 1)
+        val tr = displayTile("tr", PinnedTileSize.OneByOne, col = 3, row = 0)
+        val br = displayTile("br", PinnedTileSize.OneByOne, col = 3, row = 1)
+        val medium = displayTile("mid", PinnedTileSize.TwoByTwo, col = 0, row = 2)
+        val tiles = listOf(tl, bl, tr, br, medium)
+        val baseline = tiles.associate { it.tileKey() to (it.entry.gridCol!! to it.entry.gridRow!!) }
+        val placed = layoutTilesForDrag(tiles, medium, slotCol = 1, slotRow = 0, baseline)
+        val mid = placed.first { it.tile.entry.packageName == "mid" }
+        assertEquals(1, mid.col)
+        assertEquals(0, mid.row)
+        // Side smalls stay put — medium fits the hole between them.
+        assertEquals(0, placed.first { it.tile.entry.packageName == "tl" }.col)
+        assertEquals(3, placed.first { it.tile.entry.packageName == "tr" }.col)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "tl" }.row)
+        assertEquals(0, placed.first { it.tile.entry.packageName == "tr" }.row)
     }
 
     @Test

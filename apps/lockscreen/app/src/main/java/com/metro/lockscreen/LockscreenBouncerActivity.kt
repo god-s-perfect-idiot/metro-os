@@ -41,6 +41,14 @@ class LockscreenBouncerActivity : ComponentActivity() {
         window.decorView.post { requestSystemBouncer() }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Host may re-launch after a failed BAL start — allow another dismiss request.
+        requested = false
+        window.decorView.post { requestSystemBouncer() }
+    }
+
     override fun onDestroy() {
         if (instance === this) instance = null
         super.onDestroy()

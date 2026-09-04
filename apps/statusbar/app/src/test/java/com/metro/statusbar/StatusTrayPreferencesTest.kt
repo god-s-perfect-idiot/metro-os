@@ -96,4 +96,17 @@ class StatusTrayPreferencesTest {
         assertEquals(NotchPosition.Left, NotchPosition.fromStorage(NotchPosition.STORAGE_LEFT))
         assertEquals(NotchPosition.Right, NotchPosition.fromStorage(NotchPosition.STORAGE_RIGHT))
     }
+
+    @Test
+    fun matchAppBackground_defaultsToFalse() {
+        assertFalse(prefs.matchAppBackground)
+    }
+
+    @Test
+    fun matchAppBackground_persistsAcrossInstances() {
+        prefs.matchAppBackground = true
+        assertTrue(StatusTrayPreferences(RuntimeEnvironment.getApplication()).matchAppBackground)
+        prefs.matchAppBackground = false
+        assertFalse(StatusTrayPreferences(RuntimeEnvironment.getApplication()).matchAppBackground)
+    }
 }

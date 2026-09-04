@@ -30,6 +30,42 @@ class LockscreenLogicTest {
     }
 
     @Test
+    fun decideRelease_commitsOnUpwardFlingWithPartialTravel() {
+        val threshold = 100f
+        val fling = 800f
+        // Past 20% of threshold + fast upward velocity → commit.
+        assertEquals(
+            LockscreenLogic.ReleaseAction.Commit,
+            LockscreenLogic.decideRelease(
+                offsetY = -25f,
+                thresholdPx = threshold,
+                velocityY = -900f,
+                flingVelocityPx = fling,
+            ),
+        )
+        // Fast fling but almost no travel → snap back (avoid tap unlock).
+        assertEquals(
+            LockscreenLogic.ReleaseAction.SnapBack,
+            LockscreenLogic.decideRelease(
+                offsetY = -5f,
+                thresholdPx = threshold,
+                velocityY = -2000f,
+                flingVelocityPx = fling,
+            ),
+        )
+        // Enough travel but slow → snap back.
+        assertEquals(
+            LockscreenLogic.ReleaseAction.SnapBack,
+            LockscreenLogic.decideRelease(
+                offsetY = -40f,
+                thresholdPx = threshold,
+                velocityY = -100f,
+                flingVelocityPx = fling,
+            ),
+        )
+    }
+
+    @Test
     fun clampDrag_onlyAllowsUpward() {
         assertEquals(0f, LockscreenLogic.clampDragOffsetY(40f), 0.01f)
         assertEquals(-50f, LockscreenLogic.clampDragOffsetY(-50f), 0.01f)
@@ -46,11 +82,18 @@ class LockscreenLogicTest {
     @Test
     fun unlockThreshold_usesLargerOfDpAndFraction() {
         val density = 2f
+        // max(120dp * 2, 2000 * 0.22) = max(240, 440) = 440
         val tall = LockscreenLogic.unlockThresholdPx(screenHeightPx = 2000f, density = density)
-        assertEquals(560f, tall, 0.01f)
+        assertEquals(440f, tall, 0.01f)
 
+        // max(120dp * 2, 800 * 0.22) = max(240, 176) = 240
         val short = LockscreenLogic.unlockThresholdPx(screenHeightPx = 800f, density = density)
-        assertEquals(360f, short, 0.01f)
+        assertEquals(240f, short, 0.01f)
+    }
+
+    @Test
+    fun flingVelocity_scalesWithDensity() {
+        assertEquals(1800f, LockscreenLogic.flingVelocityPx(2f), 0.01f)
     }
 
     @Test

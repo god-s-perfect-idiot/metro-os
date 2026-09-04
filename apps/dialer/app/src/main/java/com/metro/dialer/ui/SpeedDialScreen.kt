@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,13 +29,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.dialer.R
+import com.metro.dialer.data.ContactsLookup
 import com.metro.dialer.data.SpeedDialEntry
 import com.metro.ui.MetroContextMenuActiveShift
 import com.metro.ui.MetroContextMenuClearOnDismiss
@@ -44,6 +51,8 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroTransitions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Mutable holder so layout callbacks can update without triggering recomposition. */
 private class SpeedDialRectRef {
@@ -186,7 +195,10 @@ private fun SpeedDialRow(
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SpeedDialAvatar(name = entry.displayName)
+        SpeedDialAvatar(
+            name = entry.displayName,
+            phoneNumber = entry.phoneNumber,
+        )
         Column(modifier = Modifier.padding(start = 16.dp)) {
             MetroText(
                 text = entry.displayName,
@@ -202,7 +214,21 @@ private fun SpeedDialRow(
 }
 
 @Composable
-private fun SpeedDialAvatar(name: String, modifier: Modifier = Modifier) {
+private fun SpeedDialAvatar(
+    name: String,
+    phoneNumber: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val contactsLookup = remember(context) { ContactsLookup(context) }
+    var photo by remember(phoneNumber) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(phoneNumber) {
+        photo = withContext(Dispatchers.IO) {
+            contactsLookup.loadContactPhoto(phoneNumber)?.asImageBitmap()
+        }
+    }
+
     val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "#"
     Box(
         modifier = modifier
@@ -210,10 +236,20 @@ private fun SpeedDialAvatar(name: String, modifier: Modifier = Modifier) {
             .background(MetroTheme.colors.accent),
         contentAlignment = Alignment.Center,
     ) {
-        MetroText(
-            text = initial,
-            style = MetroTextStyle.ListItemTitle,
-            color = Color.White,
-        )
+        val currentPhoto = photo
+        if (currentPhoto != null) {
+            Image(
+                bitmap = currentPhoto,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            MetroText(
+                text = initial,
+                style = MetroTextStyle.ListItemTitle,
+                color = Color.White,
+            )
+        }
     }
 }

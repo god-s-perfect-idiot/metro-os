@@ -74,23 +74,15 @@ class DialerState(context: Context) {
     val t9Suggestions: List<ContactSuggestion>
         get() {
             val dialQuery = dialString.filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
-            if (dialQuery.isEmpty()) return emptyList()
-
-            val fromProvider = if (hasContactsPermission && dialQuery.any { it.isDigit() }) {
-                contactsLookup.findMatchingContacts(dialQuery)
-            } else {
-                emptyList()
-            }
-            val fromCache = DialerCallLogic.contactSuggestions(dialQuery, contactSuggestions)
-            return DialerCallLogic.mergeContactSuggestions(fromProvider, fromCache)
+            if (dialQuery.isEmpty() || !hasContactsPermission) return emptyList()
+            // Smart dial: T9 name prefixes (per word) + number prefixes against the contact cache.
+            return DialerCallLogic.contactSuggestions(dialQuery, contactSuggestions)
         }
 
     init {
         refreshPermissions(appContext)
         reloadSpeedDial()
-        if (hasContactsPermission) {
-            contactSuggestions = contactsLookup.loadPhoneContacts()
-        }
+        reloadContacts()
         if (hasCallLogPermission) {
             reloadCallLog()
         }
@@ -117,11 +109,21 @@ class DialerState(context: Context) {
         hasContactsPermission = contactsGranted
         hasCallPhonePermission = callPhoneGranted
         if (contactsGranted) {
-            contactSuggestions = contactsLookup.loadPhoneContacts()
+            reloadContacts()
+        } else {
+            contactSuggestions = emptyList()
         }
         if (callLogGranted) {
             reloadCallLog()
         }
+    }
+
+    fun reloadContacts() {
+        if (!hasContactsPermission) {
+            contactSuggestions = emptyList()
+            return
+        }
+        contactSuggestions = contactsLookup.loadPhoneContacts()
     }
 
     fun handleDialIntent(uri: Uri?) {
@@ -147,16 +149,21 @@ class DialerState(context: Context) {
     }
 
     fun setPivot(index: Int) {
-        pivot = when (index) {
+        val next = when (index) {
             1 -> PhonePivot.DialPad
             2 -> PhonePivot.SpeedDial
             else -> PhonePivot.History
         }
+        if (next == PhonePivot.DialPad && pivot != PhonePivot.DialPad) {
+            reloadContacts()
+        }
+        pivot = next
     }
 
     fun openDialPad() {
         pivot = PhonePivot.DialPad
         route = DialerRoute.Main
+        reloadContacts()
     }
 
     fun closeOverlay() {
@@ -176,6 +183,17 @@ class DialerState(context: Context) {
 
     fun replaceDialString(value: String) {
         dialString = value
+    }
+
+    /** First tap fills the dial field; second tap on the same suggestion places the call. */
+    fun selectSuggestion(suggestion: ContactSuggestion) {
+        val alreadySelected = DialerCallLogic.normalizeNumber(dialString) ==
+            DialerCallLogic.normalizeNumber(suggestion.phoneNumber)
+        if (alreadySelected) {
+            placeCall(suggestion.phoneNumber, suggestion.displayName)
+        } else {
+            dialString = suggestion.phoneNumber
+        }
     }
 
     fun toggleSearch() {

@@ -72,8 +72,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlin.math.roundToInt
 import com.metro.launcher.data.DisplayTile
-import com.metro.launcher.data.findFirstOpenSlot
-import com.metro.launcher.data.markTileCells
+import com.metro.launcher.data.GridPlacement
+import com.metro.launcher.data.TilePlacementKey
+import com.metro.launcher.data.compactPlacementRows
+import com.metro.launcher.data.placeTileAt
 import com.metro.launcher.data.rowCompactionMap
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.system.MetroTileAgenda
@@ -195,9 +197,6 @@ data class PlacedTile(
     val row: Int,
 )
 
-/** Reserved grid cells for a tile being dragged — other tiles flow around this hole. */
-data class GridSlot(val col: Int, val row: Int, val colSpan: Int, val rowSpan: Int)
-
 fun layoutTilesOnGrid(
     tiles: List<DisplayTile>,
     columns: Int = TILE_GRID_COLUMNS,
@@ -219,12 +218,9 @@ fun compactEmptyRowPlacements(placed: List<PlacedTile>): List<PlacedTile> {
     }
 }
 
-private fun readingOrderComparator(): Comparator<PlacedTile> =
-    compareBy({ it.row }, { it.col }, { it.tile.entry.packageName }, { it.tile.entry.tileId })
-
 /**
- * First-fit pack in reading order. A tile stays on the current row when it fits;
- * otherwise it wraps (falls) to the next row — WP8.1 Start magnet flow.
+ * First-fit pack in reading order for unpositioned pins only (tests / fallback).
+ * Prefer stored coordinates for idle Start — gaps are intentional.
  */
 fun packTilesInReadingOrder(
     tilesInOrder: List<DisplayTile>,
@@ -232,46 +228,19 @@ fun packTilesInReadingOrder(
 ): List<PlacedTile> {
     val occupied = mutableSetOf<Pair<Int, Int>>()
     return tilesInOrder.map { tile ->
-        val (col, row) = findFirstOpenSlot(
-            occupied,
-            tile.entry.size.colSpan,
-            tile.entry.size.rowSpan,
-            columns,
-            startRow = 0,
-        )
-        markTileCells(occupied, col, row, tile.entry.size.colSpan, tile.entry.size.rowSpan)
+        val spanC = tile.entry.size.colSpan
+        val spanR = tile.entry.size.rowSpan
+        val (col, row) = com.metro.launcher.data.findFirstOpenAlignedSlot(
+            occupied, spanC, spanR, columns, startRow = 0,
+        ) ?: com.metro.launcher.data.findFirstOpenSlot(occupied, spanC, spanR, columns)
+        com.metro.launcher.data.markTileCells(occupied, col, row, spanC, spanR)
         PlacedTile(tile, col, row)
     }
 }
 
 /**
- * Pack [tilesInReadingOrder] around a reserved hole. Tiles fill earlier gaps when they fit,
- * otherwise wrap past the hole onto the next row.
- */
-fun flowPackAroundReservedSlot(
-    tilesInReadingOrder: List<DisplayTile>,
-    reserved: GridSlot,
-    columns: Int = TILE_GRID_COLUMNS,
-): List<PlacedTile> {
-    val occupied = mutableSetOf<Pair<Int, Int>>()
-    markTileCells(occupied, reserved.col, reserved.row, reserved.colSpan, reserved.rowSpan)
-    return tilesInReadingOrder.map { tile ->
-        val (col, row) = findFirstOpenSlot(
-            occupied,
-            tile.entry.size.colSpan,
-            tile.entry.size.rowSpan,
-            columns,
-            startRow = 0,
-        )
-        markTileCells(occupied, col, row, tile.entry.size.colSpan, tile.entry.size.rowSpan)
-        PlacedTile(tile, col, row)
-    }
-}
-
-/**
- * Magnet reflow while dragging: keep [baseline] reading order, reserve the snapped slot as a
- * hole under the finger, and first-fit pack every other tile around it so neighbors flex and
- * wrap naturally instead of jumping.
+ * Magnet reflow while dragging: seat [dragged] at the snapped slot, displace overlaps
+ * from [baseline] coordinates, preserve non-overlapping gaps.
  */
 fun layoutTilesForDrag(
     tiles: List<DisplayTile>,
@@ -281,23 +250,35 @@ fun layoutTilesForDrag(
     baseline: Map<TileKey, Pair<Int, Int>>,
     columns: Int = TILE_GRID_COLUMNS,
 ): List<PlacedTile> {
-    val slot = GridSlot(
-        col = slotCol.coerceIn(0, columns - dragged.entry.size.colSpan),
-        row = slotRow.coerceAtLeast(0),
+    val byKey = tiles.associateBy { it.tileKey() }
+    val baselinePlacements = baseline.mapNotNull { (key, pos) ->
+        val tile = byKey[key] ?: return@mapNotNull null
+        val placementKey = TilePlacementKey(key.packageName, key.tileId)
+        placementKey to GridPlacement(
+            key = placementKey,
+            col = pos.first,
+            row = pos.second,
+            colSpan = tile.entry.size.colSpan,
+            rowSpan = tile.entry.size.rowSpan,
+        )
+    }.toMap()
+
+    val draggedKey = TilePlacementKey(dragged.entry.packageName, dragged.entry.tileId)
+    val placed = placeTileAt(
+        baseline = baselinePlacements,
+        draggedKey = draggedKey,
+        slotCol = slotCol,
+        slotRow = slotRow,
         colSpan = dragged.entry.size.colSpan,
         rowSpan = dragged.entry.size.rowSpan,
+        columns = columns,
     )
-    val othersInOrder = tiles
-        .filterNot { sameTile(it, dragged) }
-        .map { tile ->
-            val (col, row) = baseline[tile.tileKey()]
-                ?: (tile.entry.gridCol!! to tile.entry.gridRow!!)
-            PlacedTile(tile, col, row)
-        }
-        .sortedWith(readingOrderComparator())
-        .map { it.tile }
-    val packed = flowPackAroundReservedSlot(othersInOrder, slot, columns)
-    return packed + PlacedTile(dragged, slot.col, slot.row)
+    val compacted = compactPlacementRows(placed)
+
+    return compacted.mapNotNull { (key, p) ->
+        val tile = byKey[TileKey(key.packageName, key.tileId)] ?: return@mapNotNull null
+        PlacedTile(tile, p.col, p.row)
+    }
 }
 
 fun tilePixelSize(unit: Dp, colSpan: Int, rowSpan: Int, gap: Dp = TILE_GRID_GAP): Pair<Dp, Dp> {

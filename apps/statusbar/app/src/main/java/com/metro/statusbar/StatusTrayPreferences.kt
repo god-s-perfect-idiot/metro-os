@@ -37,11 +37,21 @@ class StatusTrayPreferences(context: Context) {
         get() = NotchPosition.fromStorage(prefs.getString(KEY_NOTCH_POSITION, null))
         set(value) = prefs.edit().putString(KEY_NOTCH_POSITION, value.toStorage()).apply()
 
+    /**
+     * When true, non-Metro apps use their published status-bar / primary theme color for the tray
+     * (glyphs invert for contrast). Metro suite apps always keep the Metro page fill. When false,
+     * the tray uses the system theme for everyone.
+     */
+    var matchAppBackground: Boolean
+        get() = prefs.getBoolean(KEY_MATCH_APP_BACKGROUND, false)
+        set(value) = prefs.edit().putBoolean(KEY_MATCH_APP_BACKGROUND, value).apply()
+
     companion object {
         private const val PREFS_NAME = "metro_statusbar"
         private const val KEY_ENABLED = "status_tray_enabled"
         private const val KEY_ICON_HIDE_TIMEOUT_MS = "icon_hide_timeout_ms"
         private const val KEY_NOTCH_POSITION = "notch_position"
+        private const val KEY_MATCH_APP_BACKGROUND = "match_app_background"
 
         const val TIMEOUT_3S_MS = 3_000L
         const val TIMEOUT_5S_MS = MetroStatusBar.AUTO_COLLAPSE_MS

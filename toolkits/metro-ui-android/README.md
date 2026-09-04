@@ -73,7 +73,7 @@ catalog in this toolkit when the glyph will be reused.
 
 | API | Purpose |
 |-----|---------|
-| `MetroSystemIcon` / `MetroSystemIconType` | Chrome + app-bar + SIP/smartbar glyphs (Shift, Backspace, Enter, Emoji, Undo/Redo, Settings, Clipboard suite, Chevrons, Wifi, …) |
+| `MetroSystemIcon` / `MetroSystemIconType` | Chrome + app-bar + SIP/smartbar glyphs (Shift, Backspace, Enter, Emoji, Save, Undo/Redo, Settings, Clipboard suite, Chevrons, Wifi, …) |
 | `drawMetroWifiGlyph` | WP8.1 Wi-Fi hub + quarter-arcs (status tray live bands; outer arc clips) |
 | `metroSystemIconPainter` | Tintable painter for IME / Snygg surfaces |
 | `MetroMediaGlyph` / `MetroMediaGlyphIcon` | Music transport / shuffle / queue |

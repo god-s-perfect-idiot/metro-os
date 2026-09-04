@@ -13,7 +13,10 @@ modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`) with proporti
 `SignalStrength` (`0..4` → four filled bars); the data label uses telephony display info; Wi-Fi arcs
 use `WifiManager` RSSI (`0..3` bands, icon hidden when disconnected).
 
-The setup screen’s **Show status bar** master toggle starts and stops the overlay. **Hide icons
+The setup screen’s **Show status bar** master toggle starts and stops the overlay. **Match app
+background** uses the foreground app’s published `statusBarColor` / primary theme color for
+non-Metro apps (glyphs flip for contrast). Metro suite apps (`com.metro.*`) always keep the Metro
+page fill (black/white from system theme) and ignore match. **Hide icons
 after** (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds (WP default
 5s). **Notch position** (`MetroListPicker`) chooses Center / Left / Right — Center keeps the default
 tray insets; Left/Right add side clearance so icons clear a corner punch-hole. Boot auto-starts only

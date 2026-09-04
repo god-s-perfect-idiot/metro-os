@@ -25,7 +25,13 @@ fun ensureGridPositions(
         if (entry.hasGridPosition()) {
             entry
         } else {
-            val (col, row) = findFirstOpenSlot(occupied, entry.size.colSpan, entry.size.rowSpan, columns)
+            val (col, row) = findFirstOpenAlignedSlot(
+                occupied,
+                entry.size.colSpan,
+                entry.size.rowSpan,
+                columns,
+                startRow = 0,
+            ) ?: findFirstOpenSlot(occupied, entry.size.colSpan, entry.size.rowSpan, columns)
             markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
             entry.copy(gridCol = col, gridRow = row)
         }
@@ -33,8 +39,9 @@ fun ensureGridPositions(
 }
 
 /**
- * Keeps tiles whose footprints still fit [columns]; first-fit packs the rest (and any
- * unpositioned tiles) so shrinking from 6→4 columns never leaves overflow cells.
+ * Keeps tiles whose footprints still fit [columns]; first-fit packs only the rest
+ * (and any unpositioned tiles) so shrinking from 6→4 never leaves overflow cells.
+ * Still-valid coordinates are preserved (horizontal gaps survive).
  */
 fun adaptTilesToColumnCount(
     entries: List<PinnedTileEntry>,
@@ -57,23 +64,24 @@ fun adaptTilesToColumnCount(
             displaced += entry
             continue
         }
-        val col = entry.gridCol!!
+        val col = alignTileColumn(entry.gridCol!!, entry.size.colSpan, columns)
         val row = entry.gridRow!!
         if (canPlaceAt(occupied, col, row, entry.size.colSpan, entry.size.rowSpan, columns)) {
             markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
-            kept += entry
+            kept += if (col == entry.gridCol) entry else entry.copy(gridCol = col)
         } else {
             displaced += entry
         }
     }
 
     val relocated = displaced.map { entry ->
-        val (col, row) = findFirstOpenSlot(
+        val (col, row) = findFirstOpenAlignedSlot(
             occupied,
             entry.size.colSpan,
             entry.size.rowSpan,
             columns,
-        )
+            startRow = 0,
+        ) ?: findFirstOpenSlot(occupied, entry.size.colSpan, entry.size.rowSpan, columns)
         markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
         entry.copy(gridCol = col, gridRow = row)
     }
@@ -175,8 +183,8 @@ fun compactEmptyRows(entries: List<PinnedTileEntry>): List<PinnedTileEntry> {
 }
 
 /**
- * Applies a size change for one tile: clamps its column so the footprint stays inside the
- * grid, then pushes only tiles that overlap the new footprint (WP8.1 resize reflow).
+ * Applies a size change for one tile: clamps/aligns its column so the footprint stays
+ * inside the grid, then displaces only tiles that overlap the new footprint.
  */
 fun applyTileResize(
     entries: List<PinnedTileEntry>,
@@ -188,54 +196,39 @@ fun applyTileResize(
     val positioned = ensureGridPositions(entries, columns)
     val target = positioned.firstOrNull { it.packageName == packageName && it.tileId == tileId }
         ?: return entries
-    val newCol = target.gridCol!!.coerceIn(0, columns - newSize.colSpan)
+    val newCol = alignTileColumn(target.gridCol!!, newSize.colSpan, columns)
     val newRow = target.gridRow!!
-    val resized = target.copy(size = newSize, gridCol = newCol, gridRow = newRow)
+    val resizedKey = TilePlacementKey(packageName, tileId)
 
-    val occupied = mutableSetOf<Pair<Int, Int>>()
-    markTileCells(occupied, newCol, newRow, newSize.colSpan, newSize.rowSpan)
-
-    val stable = mutableListOf<PinnedTileEntry>()
-    val displaced = mutableListOf<PinnedTileEntry>()
-    for (entry in positioned) {
-        if (entry.packageName == packageName && entry.tileId == tileId) continue
-        if (tileOverlapsRegion(
-                entry.gridCol!!,
-                entry.gridRow!!,
-                entry.size.colSpan,
-                entry.size.rowSpan,
-                newCol,
-                newRow,
-                newSize.colSpan,
-                newSize.rowSpan,
-            )
-        ) {
-            displaced += entry
-        } else {
-            stable += entry
-            markTileCells(
-                occupied,
-                entry.gridCol!!,
-                entry.gridRow!!,
-                entry.size.colSpan,
-                entry.size.rowSpan,
-            )
-        }
+    val baseline = positioned.associate { entry ->
+        val key = TilePlacementKey(entry.packageName, entry.tileId)
+        key to GridPlacement(
+            key = key,
+            col = entry.gridCol!!,
+            row = entry.gridRow!!,
+            colSpan = if (key == resizedKey) newSize.colSpan else entry.size.colSpan,
+            rowSpan = if (key == resizedKey) newSize.rowSpan else entry.size.rowSpan,
+        )
     }
+    // Seat resized tile at aligned col/row, displace overlaps (same engine as drag).
+    val placed = placeTileAt(
+        baseline = baseline,
+        draggedKey = resizedKey,
+        slotCol = newCol,
+        slotRow = newRow,
+        colSpan = newSize.colSpan,
+        rowSpan = newSize.rowSpan,
+        columns = columns,
+    )
+    val compacted = compactPlacementRows(placed)
 
-    val repositioned = displaced
-        .sortedWith(compareBy({ it.gridRow!! }, { it.gridCol!! }))
-        .map { entry ->
-            val (col, row) = findFirstOpenSlot(
-                occupied,
-                entry.size.colSpan,
-                entry.size.rowSpan,
-                columns,
-                startRow = newRow,
-            )
-            markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
-            entry.copy(gridCol = col, gridRow = row)
-        }
-
-    return compactEmptyRows(stable + repositioned + resized)
+    return positioned.map { entry ->
+        val key = TilePlacementKey(entry.packageName, entry.tileId)
+        val p = compacted[key] ?: return@map entry
+        entry.copy(
+            size = if (key == resizedKey) newSize else entry.size,
+            gridCol = p.col,
+            gridRow = p.row,
+        )
+    }.let { compactEmptyRows(it) }
 }

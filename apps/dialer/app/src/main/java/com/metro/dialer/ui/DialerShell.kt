@@ -120,7 +120,7 @@ fun DialerShell(
                             suggestions = state.t9Suggestions,
                             onAppend = state::appendDialChar,
                             onLongPressZero = { state.appendDialChar('+') },
-                            onSuggestionClick = state::replaceDialString,
+                            onSuggestionClick = state::selectSuggestion,
                             onCall = {
                                 state.placeCall(state.dialString)
                             },

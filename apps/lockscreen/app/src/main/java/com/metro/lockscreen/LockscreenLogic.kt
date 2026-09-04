@@ -12,10 +12,20 @@ package com.metro.lockscreen
  */
 object LockscreenLogic {
     /** Minimum upward travel (dp) to commit unlock after release. */
-    const val SWIPE_UP_THRESHOLD_DP = 180f
+    const val SWIPE_UP_THRESHOLD_DP = 120f
 
     /** Fraction of screen height that also counts as commit (whichever is larger vs dp). */
-    const val SWIPE_UP_THRESHOLD_FRACTION = 0.28f
+    const val SWIPE_UP_THRESHOLD_FRACTION = 0.22f
+
+    /**
+     * Upward fling speed (dp/s, Compose Y-down so negative) that commits even when travel
+     * is short — WP-style flick-to-unlock. Requires [SWIPE_UP_FLING_MIN_TRAVEL_FRACTION]
+     * of the distance threshold so taps never unlock.
+     */
+    const val SWIPE_UP_FLING_VELOCITY_DP = 900f
+
+    /** Minimum fraction of [unlockThresholdPx] already traveled for a fling to count. */
+    const val SWIPE_UP_FLING_MIN_TRAVEL_FRACTION = 0.2f
 
     enum class SwipePhase {
         Idle,
@@ -53,11 +63,28 @@ object LockscreenLogic {
         return maxOf(fromDp, fromFraction)
     }
 
+    fun flingVelocityPx(density: Float): Float = SWIPE_UP_FLING_VELOCITY_DP * density
+
     fun isSwipeUp(totalDragY: Float, thresholdPx: Float): Boolean =
         totalDragY <= -thresholdPx
 
-    fun decideRelease(offsetY: Float, thresholdPx: Float): ReleaseAction =
-        if (isSwipeUp(offsetY, thresholdPx)) ReleaseAction.Commit else ReleaseAction.SnapBack
+    /**
+     * Decide commit vs snap-back from the **finger-tracked** offset (not a lagging animatable)
+     * and optional release velocity (px/s, Compose coordinates: up is negative).
+     */
+    fun decideRelease(
+        offsetY: Float,
+        thresholdPx: Float,
+        velocityY: Float = 0f,
+        flingVelocityPx: Float = Float.MAX_VALUE,
+    ): ReleaseAction {
+        if (isSwipeUp(offsetY, thresholdPx)) return ReleaseAction.Commit
+        val minFlingTravel = -thresholdPx * SWIPE_UP_FLING_MIN_TRAVEL_FRACTION
+        if (offsetY <= minFlingTravel && velocityY <= -flingVelocityPx) {
+            return ReleaseAction.Commit
+        }
+        return ReleaseAction.SnapBack
+    }
 
     /**
      * Whether the default display is fully awake (not off / AOD / doze).

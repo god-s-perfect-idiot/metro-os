@@ -90,24 +90,25 @@ object DialerCallLogic {
         else -> ""
     }
 
+    /**
+     * WP-style smart dial: consecutive T9 letters from the start of the display name
+     * or from the start of any word (so `76` matches "John Smith").
+     */
     fun matchesT9(name: String, digits: String): Boolean {
-        if (digits.isEmpty()) return true
-        val letters = name.lowercase(Locale.US).filter { it.isLetter() }
-        if (letters.isEmpty()) return false
-        var letterIndex = 0
-        digits.forEach { digit ->
+        val t9Digits = digits.filter { it in '2'..'9' }
+        if (t9Digits.isEmpty()) return false
+        val words = name.lowercase(Locale.US)
+            .split(Regex("[^a-z]+"))
+            .filter { it.isNotEmpty() }
+        if (words.isEmpty()) return false
+        return words.any { wordMatchesT9Prefix(it, t9Digits) }
+    }
+
+    private fun wordMatchesT9Prefix(letters: String, digits: String): Boolean {
+        if (digits.length > letters.length) return false
+        digits.forEachIndexed { index, digit ->
             val keyLetters = t9Key(digit)
-            if (keyLetters.isEmpty()) return@forEach
-            var matched = false
-            while (letterIndex < letters.length) {
-                if (keyLetters.contains(letters[letterIndex])) {
-                    matched = true
-                    letterIndex++
-                    break
-                }
-                letterIndex++
-            }
-            if (!matched) return false
+            if (keyLetters.isEmpty() || !keyLetters.contains(letters[index])) return false
         }
         return true
     }
@@ -118,7 +119,7 @@ object DialerCallLogic {
         limit: Int = 3,
     ): List<ContactSuggestion> {
         if (queryDigits.isEmpty()) return emptyList()
-        val t9Digits = queryDigits.filter { it.isDigit() }
+        val t9Digits = queryDigits.filter { it in '2'..'9' }
         return contacts.mapNotNull { contact ->
             val numberMatch = matchesNumberPrefix(contact.normalizedNumber, queryDigits) ||
                 matchesNumberPrefix(contact.phoneNumber, queryDigits)
@@ -152,6 +153,18 @@ object DialerCallLogic {
             if (merged.size >= limit) break
         }
         return merged
+    }
+
+    /** Keep PhoneLookup hits that are real dial-prefix matches (not fuzzy name noise). */
+    fun numberPrefixMatches(
+        queryDigits: String,
+        contacts: List<ContactSuggestion>,
+    ): List<ContactSuggestion> {
+        if (queryDigits.isEmpty()) return emptyList()
+        return contacts.filter { contact ->
+            matchesNumberPrefix(contact.normalizedNumber, queryDigits) ||
+                matchesNumberPrefix(contact.phoneNumber, queryDigits)
+        }
     }
 
     private fun digitsOnly(raw: String): String = normalizeNumber(raw).filter { it.isDigit() }

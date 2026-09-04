@@ -448,6 +448,24 @@ class StatusBarOverlayService :
             }
         }
 
+        /** Updates tray chrome when the foreground app changes (match-app-background mode). */
+        fun onForegroundPackageChanged(packageName: String?) {
+            instance?.let { svc ->
+                svc.handler.post {
+                    svc.trayState.applyForegroundPackage(packageName)
+                }
+            }
+        }
+
+        /** Re-reads match-app-background preference on the running overlay (setup toggle). */
+        fun requestMatchAppBackgroundRefresh() {
+            instance?.let { svc ->
+                svc.handler.post {
+                    svc.trayState.applyMatchAppBackgroundPreference()
+                }
+            }
+        }
+
         /**
          * Rebuilds the overlay in place (same window type) so inset / notch preference changes
          * take effect without restarting the service.

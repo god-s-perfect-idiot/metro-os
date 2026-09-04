@@ -100,12 +100,41 @@ class DialerCallLogicTest {
     @Test
     fun contactSuggestions_prioritizesNumberMatchOverT9NameMatch() {
         val contacts = listOf(
+            // "Kell" T9 is 5355 — must not steal the slot from Alice's number prefix.
             ContactSuggestion("Kell", "444-1111", "4441111"),
             ContactSuggestion("Alice", "555-9999", "5559999"),
         )
         val matches = DialerCallLogic.contactSuggestions("555", contacts)
-        assertEquals(2, matches.size)
+        assertEquals(1, matches.size)
         assertEquals("Alice", matches.first().displayName)
+    }
+
+    @Test
+    fun contactSuggestions_matchesT9NamePrefix() {
+        val contacts = listOf(
+            ContactSuggestion("Andrew Hill", "5550001", "5550001"),
+            ContactSuggestion("Arturo Lopez", "5550005", "5550005"),
+            ContactSuggestion("Chris Sells", "5550003", "5550003"),
+            ContactSuggestion("Dana", "4449999", "4449999"),
+        )
+        val matches = DialerCallLogic.contactSuggestions("2", contacts)
+        assertEquals(3, matches.size)
+        assertEquals(
+            listOf("Andrew Hill", "Arturo Lopez", "Chris Sells"),
+            matches.map { it.displayName },
+        )
+    }
+
+    @Test
+    fun contactSuggestions_matchesT9LastNameWord() {
+        val contacts = listOf(
+            ContactSuggestion("John Smith", "5551111", "5551111"),
+            ContactSuggestion("Bob", "4449999", "4449999"),
+        )
+        // 76 = SM… (Smith)
+        val matches = DialerCallLogic.contactSuggestions("76", contacts)
+        assertEquals(1, matches.size)
+        assertEquals("John Smith", matches.first().displayName)
     }
 
     @Test
@@ -123,6 +152,17 @@ class DialerCallLogicTest {
     }
 
     @Test
+    fun numberPrefixMatches_filtersNonPrefixHits() {
+        val contacts = listOf(
+            ContactSuggestion("Alice", "555-9999", "5559999"),
+            ContactSuggestion("Bob", "444-9999", "4449999"),
+        )
+        val matches = DialerCallLogic.numberPrefixMatches("555", contacts)
+        assertEquals(1, matches.size)
+        assertEquals("Alice", matches.first().displayName)
+    }
+
+    @Test
     fun matchesNumberPrefix_handlesLeadingZeroTrunkPrefix() {
         assertTrue(DialerCallLogic.matchesNumberPrefix("09876543210", "9876543210"))
     }
@@ -134,7 +174,16 @@ class DialerCallLogicTest {
 
     @Test
     fun matchesT9_findsNameByDigits() {
-        assertTrue(DialerCallLogic.matchesT9("Alice", "2543"))
+        assertTrue(DialerCallLogic.matchesT9("Alice", "25423"))
+        assertTrue(DialerCallLogic.matchesT9("Alice", "25"))
+        assertTrue(!DialerCallLogic.matchesT9("Alice", "23"))
+    }
+
+    @Test
+    fun matchesT9_matchesEachWordPrefix() {
+        assertTrue(DialerCallLogic.matchesT9("Chris Sells", "2"))
+        assertTrue(DialerCallLogic.matchesT9("Chris Sells", "73557"))
+        assertTrue(!DialerCallLogic.matchesT9("Chris Sells", "3"))
     }
 
     @Test

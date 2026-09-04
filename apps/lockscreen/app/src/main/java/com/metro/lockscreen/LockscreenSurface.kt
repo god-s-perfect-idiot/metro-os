@@ -17,8 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroNavBarPadding
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -54,9 +56,10 @@ enum class LockscreenPresentationMode {
 /**
  * Full-bleed lock fill with WP8.1 chrome (time / day / date / next event) and an explicit
  * swipe session:
- * - Drag tracks the finger upward only.
- * - Release below threshold → spring bounce back to rest (no unlock).
- * - Release at/above threshold → animate fully off-screen, then [onUnlockCommitted] once.
+ * - Drag tracks the finger upward only (offset updated synchronously — no async snap race).
+ * - Release below threshold (and without a qualifying fling) → spring bounce back.
+ * - Release at/above threshold, or a decisive upward fling → animate fully off-screen,
+ *   then [onUnlockCommitted] once (also if the slide-off animation is cancelled).
  *
  * Snap-back bounce is pure vertical translation. Spring overshoot past rest is mirrored
  * upward ([LockscreenLogic.bounceTranslationY]) so the fill jumps off the top and the
@@ -76,11 +79,19 @@ fun LockscreenSurface(
     val isGlance = mode == LockscreenPresentationMode.Glance
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val offsetY = remember { Animatable(0f) }
+    // Raw Y used for graphicsLayer. Updated synchronously during drag so release
+    // decisions never race a lagging Animatable; Animatable only drives settle/commit.
+    var rawOffsetY by remember { mutableFloatStateOf(0f) }
+    val offsetAnim = remember { Animatable(0f) }
     var size by remember { mutableStateOf(IntSize.Zero) }
-    // Holders (not keys) so pointerInput is not restarted when phase changes mid-gesture.
+    // Holders (not keys) so pointerInput is not restarted when phase / threshold change.
     val phase = remember { mutableStateOf(LockscreenLogic.SwipePhase.Idle) }
+    val thresholdHolder = remember { mutableFloatStateOf(1f) }
+    val flingVelocityHolder = remember { mutableFloatStateOf(Float.MAX_VALUE) }
     var dragAccum by remember { mutableFloatStateOf(0f) }
+    var offsetJob by remember { mutableStateOf<Job?>(null) }
+    val velocityTracker = remember { VelocityTracker() }
+    var unlockCommitted by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val prefs = remember(context) { LockscreenPreferences(context) }
@@ -147,46 +158,73 @@ fun LockscreenSurface(
             density = density.density,
         )
     }
+    thresholdHolder.floatValue = thresholdPx
+    flingVelocityHolder.floatValue = LockscreenLogic.flingVelocityPx(density.density)
 
     val contentColor = if (isGlance) Color.White else fill.contentColor
     val solidFill = if (isGlance) Color.Black else fill.accentColor
 
+    fun cancelOffsetJob() {
+        offsetJob?.cancel()
+        offsetJob = null
+    }
+
     fun snapBack() {
         phase.value = LockscreenLogic.SwipePhase.SettlingBack
-        scope.launch {
-            offsetY.animateTo(
+        cancelOffsetJob()
+        offsetJob = scope.launch {
+            offsetAnim.snapTo(rawOffsetY)
+            offsetAnim.animateTo(
                 targetValue = 0f,
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessMediumLow,
                 ),
-            )
+            ) {
+                rawOffsetY = value
+            }
             // Interrupted by a new drag → phase is no longer SettlingBack; leave it alone.
             if (phase.value == LockscreenLogic.SwipePhase.SettlingBack) {
                 dragAccum = 0f
+                rawOffsetY = 0f
                 phase.value = LockscreenLogic.SwipePhase.Idle
             }
         }
     }
 
     fun commitUnlock() {
+        if (unlockCommitted) return
         phase.value = LockscreenLogic.SwipePhase.Committing
-        scope.launch {
+        cancelOffsetJob()
+        offsetJob = scope.launch {
             val offscreen = -(size.height.toFloat().coerceAtLeast(1f))
-            offsetY.animateTo(
-                targetValue = offscreen,
-                animationSpec = tween(durationMillis = 280),
-            )
-            phase.value = LockscreenLogic.SwipePhase.HandedOff
-            onUnlockCommitted()
+            offsetAnim.snapTo(rawOffsetY)
+            try {
+                offsetAnim.animateTo(
+                    targetValue = offscreen,
+                    animationSpec = tween(durationMillis = 220),
+                ) {
+                    rawOffsetY = value
+                }
+            } finally {
+                // Always hand off — cancelled animations must not leave a half-slid fill.
+                if (!unlockCommitted) {
+                    unlockCommitted = true
+                    rawOffsetY = offscreen
+                    phase.value = LockscreenLogic.SwipePhase.HandedOff
+                    onUnlockCommitted()
+                }
+            }
         }
     }
 
     fun beginDrag() {
         phase.value = LockscreenLogic.SwipePhase.Dragging
-        // Cancel any in-flight snap-back spring and take over from the live offset.
-        scope.launch { offsetY.stop() }
-        dragAccum = LockscreenLogic.clampDragOffsetY(offsetY.value)
+        cancelOffsetJob()
+        // Take over from the live visual offset (may be mid-bounce).
+        dragAccum = LockscreenLogic.clampDragOffsetY(rawOffsetY)
+        rawOffsetY = dragAccum
+        velocityTracker.resetTracking()
     }
 
     Box(
@@ -197,7 +235,8 @@ fun LockscreenSurface(
                 if (isGlance) {
                     Modifier
                 } else {
-                    Modifier.pointerInput(thresholdPx) {
+                    // Unit key — never restart the detector mid-gesture (threshold lives in holders).
+                    Modifier.pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onDragStart = {
                                 if (!LockscreenLogic.phaseAllowsDrag(phase.value)) {
@@ -210,12 +249,15 @@ fun LockscreenSurface(
                                     return@detectVerticalDragGestures
                                 }
                                 change.consume()
+                                velocityTracker.addPosition(change.uptimeMillis, change.position)
                                 val next = LockscreenLogic.clampDragOffsetY(dragAccum + dragAmount)
                                 dragAccum = next
-                                scope.launch { offsetY.snapTo(next) }
+                                // Synchronous — release must see the same value the finger moved.
+                                rawOffsetY = next
                             },
                             onDragCancel = {
                                 if (phase.value == LockscreenLogic.SwipePhase.Dragging) {
+                                    velocityTracker.resetTracking()
                                     snapBack()
                                 }
                             },
@@ -223,7 +265,16 @@ fun LockscreenSurface(
                                 if (phase.value != LockscreenLogic.SwipePhase.Dragging) {
                                     return@detectVerticalDragGestures
                                 }
-                                when (LockscreenLogic.decideRelease(offsetY.value, thresholdPx)) {
+                                val velocityY = velocityTracker.calculateVelocity().y
+                                velocityTracker.resetTracking()
+                                when (
+                                    LockscreenLogic.decideRelease(
+                                        offsetY = dragAccum,
+                                        thresholdPx = thresholdHolder.floatValue,
+                                        velocityY = velocityY,
+                                        flingVelocityPx = flingVelocityHolder.floatValue,
+                                    )
+                                ) {
                                     LockscreenLogic.ReleaseAction.Commit -> commitUnlock()
                                     LockscreenLogic.ReleaseAction.SnapBack -> snapBack()
                                 }
@@ -239,7 +290,7 @@ fun LockscreenSurface(
                 .graphicsLayer {
                     if (!isGlance) {
                         // Translate only; mirror spring overshoot upward (gap at bottom).
-                        translationY = LockscreenLogic.bounceTranslationY(offsetY.value)
+                        translationY = LockscreenLogic.bounceTranslationY(rawOffsetY)
                     }
                 }
                 .background(solidFill),

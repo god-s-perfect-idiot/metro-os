@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -64,6 +65,7 @@ class MainActivity : ComponentActivity() {
             var trayEnabled by remember { mutableStateOf(trayPrefs.enabled) }
             var iconHideTimeoutMs by remember { mutableLongStateOf(trayPrefs.iconHideTimeoutMs) }
             var notchPosition by remember { mutableStateOf(trayPrefs.notchPosition) }
+            var matchAppBackground by remember { mutableStateOf(trayPrefs.matchAppBackground) }
 
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -72,6 +74,7 @@ class MainActivity : ComponentActivity() {
                         trayEnabled = trayPrefs.enabled
                         iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
                         notchPosition = trayPrefs.notchPosition
+                        matchAppBackground = trayPrefs.matchAppBackground
                         // Keep overlay aligned with the master toggle after returning from Settings.
                         if (trayPrefs.enabled &&
                             Settings.canDrawOverlays(context) &&
@@ -122,6 +125,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
+                        .navigationBarsPadding()
                         .metroNavBarPadding()
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.Top,
@@ -203,6 +207,31 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     Spacer(modifier = Modifier.height(24.dp))
+                    MetroToggleSwitch(
+                        checked = matchAppBackground,
+                        onCheckedChange = { enabled ->
+                            trayPrefs.matchAppBackground = enabled
+                            matchAppBackground = trayPrefs.matchAppBackground
+                            state.applyMatchAppBackgroundPreference()
+                            StatusBarOverlayService.requestMatchAppBackgroundRefresh()
+                        },
+                        enabled = true,
+                        label = stringResource(R.string.match_app_background),
+                        labelStyle = MetroTextStyle.DialogBody,
+                        statusStyle = MetroTextStyle.Body,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                    )
+                    MetroText(
+                        text = stringResource(R.string.match_app_background_hint),
+                        style = MetroTextStyle.DialogBody,
+                        color = MetroTheme.colors.secondaryText,
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 8.dp),
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
                     MetroListPicker(
                         selected = iconHideTimeoutMs,
                         options = listOf(
@@ -275,6 +304,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
                     )
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
                 }
             }

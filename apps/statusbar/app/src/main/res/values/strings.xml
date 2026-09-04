@@ -19,6 +19,8 @@
     <string name="notch_position_center">Center</string>
     <string name="notch_position_left">Left</string>
     <string name="notch_position_right">Right</string>
+    <string name="match_app_background">Match app background</string>
+    <string name="match_app_background_hint">For non-Metro apps, use the app\u2019s status bar / primary theme color. Metro suite apps keep the Metro page background. Icons switch to black or white for contrast.</string>
     <string name="grant_overlay">Grant overlay permission</string>
     <string name="grant_phone_state">Allow mobile network label</string>
     <string name="grant_accessibility">Enable status tray service</string>

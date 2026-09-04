@@ -597,7 +597,7 @@ All Metro apps use the same icon catalog from `metro-ui-android`. Do not ship du
 
 | Need | Use |
 |------|-----|
-| App bar / chrome action (add, search, phone, heart, attach, mic, …) | `MetroSystemIconType` via `MetroAppBarIcon` / `MetroSystemIcon` |
+| App bar / chrome action (add, search, phone, heart, save, attach, mic, …) | `MetroSystemIconType` via `MetroAppBarIcon` / `MetroSystemIcon` |
 | SIP / keyboard chrome (shift, backspace, enter, emoji) | `MetroSystemIconType.Shift` / `ShiftLocked` / `Backspace` / `Enter` / `Emoji` (`showCircle = false` on keys) |
 | Smartbar / extra actions (undo, redo, settings, clipboard, …) | `MetroSystemIconType.Undo` / `Redo` / `Settings` / `Clipboard` / `Copy` / `Cut` / `Paste` / `SelectAll` / `Language` / `KeyboardHide` / `Send` / `Autocorrect` / `Chevron*` (`showCircle = false`) |
 | Status tray Wi-Fi (hub + 3 quarter-arcs, outer clips box) | `MetroSystemIconType.Wifi` / `drawMetroWifiGlyph` (live bands via `filledBands`) |

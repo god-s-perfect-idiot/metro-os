@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import com.metro.system.MetroPreferences
 import com.metro.ui.MetroColors
 import java.time.ZonedDateTime
@@ -12,25 +13,53 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 object TrayThemeResolver {
+    /** Luminance above this → dark (black) tray glyphs for contrast on light fills. */
+    const val LIGHT_BACKGROUND_LUMINANCE = 0.5f
+
     fun resolve(
         preferences: MetroPreferences,
         visibilityMode: TrayVisibilityMode = TrayVisibilityMode.Opaque,
+        matchAppBackground: Boolean = false,
+        appBackgroundColor: Color? = null,
+        /**
+         * Metro suite apps ignore match-mode third-party theme colors and always use the Metro
+         * page fill ([MetroColors.background]) — black in dark theme, white in light.
+         */
+        metroSuiteForeground: Boolean = false,
     ): TrayThemeSnapshot {
         val darkTheme = preferences.isDark
-        val baseBackground = MetroColors.background(darkTheme)
+        val themeBackground = MetroColors.background(darkTheme)
+        val baseBackground = when {
+            metroSuiteForeground -> themeBackground
+            matchAppBackground && appBackgroundColor != null -> appBackgroundColor
+            else -> themeBackground
+        }
         val backgroundColor = when (visibilityMode) {
             TrayVisibilityMode.Opaque -> baseBackground
             TrayVisibilityMode.Translucent -> baseBackground.copy(alpha = 0.5f)
             TrayVisibilityMode.Hidden -> Color.Transparent
         }
+        val foregroundColor = when {
+            metroSuiteForeground -> MetroColors.primaryText(darkTheme)
+            matchAppBackground && appBackgroundColor != null -> foregroundForBackground(baseBackground)
+            else -> MetroColors.primaryText(darkTheme)
+        }
         return TrayThemeSnapshot(
             backgroundColor = backgroundColor,
-            foregroundColor = MetroColors.primaryText(darkTheme),
+            foregroundColor = foregroundColor,
             accentColor = preferences.accentColor,
             darkTheme = darkTheme,
             visibilityMode = visibilityMode,
         )
     }
+
+    /** Black glyphs on light fills, white on dark — same threshold as nav-bar / tile content. */
+    fun foregroundForBackground(background: Color): Color =
+        if (background.luminance() > LIGHT_BACKGROUND_LUMINANCE) {
+            Color.Black
+        } else {
+            Color.White
+        }
 }
 
 object TrayClockFormatter {

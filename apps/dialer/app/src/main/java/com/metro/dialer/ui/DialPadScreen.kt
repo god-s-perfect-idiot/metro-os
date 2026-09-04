@@ -6,8 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,18 +25,16 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -53,20 +50,24 @@ import com.metro.dialer.R
 import com.metro.dialer.data.CallDirection
 import com.metro.dialer.data.CallGroup
 import com.metro.dialer.data.DialerCallLogic
+import com.metro.dialer.telecom.DialPadTonePlayer
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroSystemIcon
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroNavBarPadding
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** WP8.1 dial-pad tile accent flash — hold at least 150ms so quick taps stay visible. */
-private const val DialKeyPressFlashMs = 150L
+internal const val DialKeyPressFlashMs = 150L
 
 private val DialKeyDigitStyle = TextStyle(
     fontFamily = MetroFontFamily,
@@ -80,8 +81,8 @@ private val DialKeyGap = 6.dp
 private val DialKeyHintStyle = TextStyle(
     fontFamily = MetroFontFamily,
     fontWeight = FontWeight.Normal,
-    fontSize = 11.sp,
-    lineHeight = 14.sp,
+    fontSize = 13.sp,
+    lineHeight = 16.sp,
 )
 
 private val DialNumberStyle = TextStyle(
@@ -213,11 +214,28 @@ fun DialPadPane(
     suggestions: List<com.metro.dialer.data.ContactSuggestion>,
     onAppend: (Char) -> Unit,
     onLongPressZero: () -> Unit,
-    onSuggestionClick: (String) -> Unit,
+    onSuggestionClick: (com.metro.dialer.data.ContactSuggestion) -> Unit,
     onCall: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    DisposableEffect(Unit) {
+        onDispose { DialPadTonePlayer.release() }
+    }
+    val appendWithTone: (Char) -> Unit = remember(onAppend) {
+        { digit ->
+            DialPadTonePlayer.play(context, digit)
+            onAppend(digit)
+        }
+    }
+    val longPressZeroWithTone: () -> Unit = remember(onLongPressZero) {
+        {
+            DialPadTonePlayer.play(context, '+')
+            onLongPressZero()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -234,7 +252,7 @@ fun DialPadPane(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSuggestionClick(suggestion.phoneNumber) }
+                            .clickable { onSuggestionClick(suggestion) }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         MetroText(text = suggestion.displayName, style = MetroTextStyle.ListItemTitle)
@@ -258,13 +276,13 @@ fun DialPadPane(
                 .padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(DialKeyGap),
         ) {
-            KeypadRow(listOf("1" to "", "2" to "ABC", "3" to "DEF"), onAppend)
-            KeypadRow(listOf("4" to "GHI", "5" to "JKL", "6" to "MNO"), onAppend)
-            KeypadRow(listOf("7" to "PQRS", "8" to "TUV", "9" to "WXYZ"), onAppend)
+            KeypadRow(listOf("1" to "", "2" to "ABC", "3" to "DEF"), appendWithTone)
+            KeypadRow(listOf("4" to "GHI", "5" to "JKL", "6" to "MNO"), appendWithTone)
+            KeypadRow(listOf("7" to "PQRS", "8" to "TUV", "9" to "WXYZ"), appendWithTone)
             KeypadRow(
                 keys = listOf("*" to "", "0" to "+", "#" to ""),
-                onAppend = onAppend,
-                onLongPress = mapOf("0" to onLongPressZero),
+                onAppend = appendWithTone,
+                onLongPress = mapOf("0" to longPressZeroWithTone),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -387,29 +405,12 @@ private fun BackspaceIcon(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.size(width = 32.dp, height = 22.dp)) {
-            val strokeWidth = size.minDimension * 0.08f
-            val stroke = Stroke(width = strokeWidth)
-            val tipX = size.width * 0.08f
-            val bodyLeft = size.width * 0.32f
-            val outline = Path().apply {
-                moveTo(bodyLeft, 0f)
-                lineTo(size.width, 0f)
-                lineTo(size.width, size.height)
-                lineTo(bodyLeft, size.height)
-                lineTo(tipX, size.height * 0.5f)
-                close()
-            }
-            drawPath(outline, color, style = stroke)
-
-            val inset = size.width * 0.12f
-            val xLeft = bodyLeft + inset
-            val xRight = size.width - inset
-            val xTop = size.height * 0.28f
-            val xBottom = size.height * 0.72f
-            drawLine(color, Offset(xLeft, xTop), Offset(xRight, xBottom), strokeWidth)
-            drawLine(color, Offset(xRight, xTop), Offset(xLeft, xBottom), strokeWidth)
-        }
+        MetroSystemIcon(
+            type = MetroSystemIconType.Backspace,
+            iconSize = 40.dp,
+            color = color,
+            showCircle = false,
+        )
     }
 }
 
@@ -435,27 +436,43 @@ private fun KeypadRow(
     }
 }
 
+/**
+ * Accent press flash for dial-pad tiles.
+ *
+ * Collects [PressInteraction] from the source (not pressed-as-state) so same-frame
+ * tap down/up still shows the WP8.1 minimum accent flash.
+ */
 @Composable
-private fun rememberDialKeyPressed(
+internal fun rememberDialKeyPressed(
     interactionSource: MutableInteractionSource,
     minimumDurationMs: Long = DialKeyPressFlashMs,
 ): Boolean {
-    val isPhysicallyPressed by interactionSource.collectIsPressedAsState()
-    var holdPressed by remember { mutableStateOf(false) }
-    var pressStartedAt by remember { mutableLongStateOf(0L) }
+    var showPressed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isPhysicallyPressed) {
-        if (isPhysicallyPressed) {
-            pressStartedAt = System.currentTimeMillis()
-            holdPressed = true
-        } else if (holdPressed) {
-            val remaining = minimumDurationMs - (System.currentTimeMillis() - pressStartedAt)
-            if (remaining > 0) delay(remaining)
-            holdPressed = false
+    LaunchedEffect(interactionSource, minimumDurationMs) {
+        var pressStartedAt = 0L
+        var releaseJob: Job? = null
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    releaseJob?.cancel()
+                    pressStartedAt = System.currentTimeMillis()
+                    showPressed = true
+                }
+                is PressInteraction.Release, is PressInteraction.Cancel -> {
+                    releaseJob?.cancel()
+                    releaseJob = launch {
+                        val remaining =
+                            minimumDurationMs - (System.currentTimeMillis() - pressStartedAt)
+                        if (remaining > 0) delay(remaining)
+                        showPressed = false
+                    }
+                }
+            }
         }
     }
 
-    return isPhysicallyPressed || holdPressed
+    return showPressed
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -515,7 +532,12 @@ private fun DialKey(
                     Spacer(modifier = Modifier.width(6.dp))
                     BasicText(
                         text = hint,
-                        style = DialKeyHintStyle.copy(color = hintColor),
+                        // "+" sits beside "0" — match digit size; letter hints stay secondary.
+                        style = if (hint == "+") {
+                            DialKeyDigitStyle.copy(color = hintColor)
+                        } else {
+                            DialKeyHintStyle.copy(color = hintColor)
+                        },
                     )
                 }
             }
@@ -584,7 +606,12 @@ private fun SaveActionKey(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            SaveFloppyIcon(color = contentColor)
+            MetroSystemIcon(
+                type = MetroSystemIconType.Save,
+                iconSize = 36.dp,
+                color = contentColor,
+                showCircle = false,
+            )
             MetroText(
                 text = label,
                 style = MetroTextStyle.ListItemSubtitle,
@@ -592,30 +619,5 @@ private fun SaveActionKey(
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun SaveFloppyIcon(
-    modifier: Modifier = Modifier,
-    color: Color = Color.White,
-) {
-    Canvas(modifier = modifier.size(width = 22.dp, height = 22.dp)) {
-        val strokeWidth = size.minDimension * 0.08f
-        val stroke = Stroke(width = strokeWidth)
-        val bodyLeft = size.width * 0.12f
-        val bodyRight = size.width * 0.88f
-        val bodyTop = size.height * 0.28f
-        val bodyBottom = size.height * 0.9f
-        drawRect(color, topLeft = Offset(bodyLeft, bodyTop), size = androidx.compose.ui.geometry.Size(bodyRight - bodyLeft, bodyBottom - bodyTop), style = stroke)
-
-        val slotLeft = size.width * 0.22f
-        val slotRight = size.width * 0.78f
-        val slotTop = size.height * 0.12f
-        val slotBottom = size.height * 0.34f
-        drawRect(color, topLeft = Offset(slotLeft, slotTop), size = androidx.compose.ui.geometry.Size(slotRight - slotLeft, slotBottom - slotTop), style = stroke)
-
-        val lineY = size.height * 0.58f
-        drawLine(color, Offset(bodyLeft + strokeWidth, lineY), Offset(bodyRight - strokeWidth, lineY), strokeWidth)
     }
 }

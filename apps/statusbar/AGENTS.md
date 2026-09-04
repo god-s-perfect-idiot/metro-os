@@ -33,7 +33,7 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 
 ## Primary flows
 
-1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds). **Notch position** ListPicker (Center / Left / Right) adds side clearance for corner punch-holes.
+1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **Match app background** uses the app’s published status-bar/primary theme color for non-Metro apps; Metro suite apps keep the Metro page fill. **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds). **Notch position** ListPicker (Center / Left / Right) adds side clearance for corner punch-holes.
 2. Overlay draws **above the system status bar** via `TYPE_ACCESSIBILITY_OVERLAY`
    (`StatusBarAccessibilityService`); falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the
    system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —

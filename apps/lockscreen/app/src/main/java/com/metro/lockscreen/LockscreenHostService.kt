@@ -434,18 +434,34 @@ class LockscreenHostService :
     /**
      * Panel has finished sliding off-screen. Hand off to SystemUI and keep Metro suppressed
      * until the next screen-off — biometric fail/cancel must not bring the fill back.
+     *
+     * Always remove the fill first so touches reach SystemUI, then start the trampoline
+     * and retry aggressively — a single BAL-blocked start must not leave a dead lock.
      */
     private fun commitSwipeUnlock() {
         handedOffUntilScreenOff = true
         removeOverlay()
         launchBouncerActivity()
+        // Immediate a11y swipe in parallel — covers devices where activity start is delayed.
+        handler.post {
+            if (!LockscreenBouncerActivity.isShowing()) {
+                LockscreenAccessibilityService.getInstance()?.injectSwipeUpToBouncer()
+            }
+        }
         handler.postDelayed({
             if (!LockscreenBouncerActivity.isShowing()) {
-                Log.w(TAG, "Bouncer activity not up — gesture fallback into SystemUI")
+                Log.w(TAG, "Bouncer activity not up — retry + gesture fallback")
                 LockscreenAccessibilityService.getInstance()?.injectSwipeUpToBouncer()
-                handler.postDelayed({ launchBouncerActivity() }, 350L)
+                launchBouncerActivity()
             }
-        }, 120L)
+        }, 180L)
+        handler.postDelayed({
+            if (!LockscreenBouncerActivity.isShowing() && LockscreenKeyguard.isLocked(this)) {
+                Log.w(TAG, "Bouncer still missing — final retry")
+                launchBouncerActivity()
+                LockscreenAccessibilityService.getInstance()?.injectSwipeUpToBouncer()
+            }
+        }, 500L)
     }
 
     private fun launchBouncerActivity() {

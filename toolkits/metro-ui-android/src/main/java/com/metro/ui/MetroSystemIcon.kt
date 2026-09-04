@@ -72,6 +72,8 @@ enum class MetroSystemIconType {
     People,
     Delete,
     Check,
+    /** Download / save-to tray (filled arrow into bar). */
+    Save,
     Attach,
     Microphone,
 
@@ -199,6 +201,7 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.People -> drawPeopleGlyph(color, glyphStroke)
         MetroSystemIconType.Delete -> drawDeleteGlyph(color, glyphStroke)
         MetroSystemIconType.Check -> drawCheckGlyph(color)
+        MetroSystemIconType.Save -> drawSaveGlyph(color)
         MetroSystemIconType.Attach -> drawAttachGlyph(color, glyphStroke)
         MetroSystemIconType.Microphone -> drawMicrophoneGlyph(color, glyphStroke)
         MetroSystemIconType.Shift -> drawShiftGlyph(color, locked = false)
@@ -599,6 +602,30 @@ internal fun DrawScope.drawHeartGlyph(color: Color) {
         translate(left = -256f, top = -256f)
     }) {
         drawPath(heartGlyphPath, color)
+    }
+}
+
+/** Filled download / save — 512 viewBox path (arrow into tray). */
+private const val SAVE_GLYPH_PATH =
+    "M442.2 186.2H302.5V0h-93.1v186.2H69.8L256 418.9l186.2-232.7zm23.3 186.2v93.1h-419v-93.1H0V512h512V372.4h-46.5z"
+
+private val saveGlyphPath: Path by lazy {
+    PathParser().parsePathString(SAVE_GLYPH_PATH).toPath()
+}
+
+/** WP download / save-to tray — filled arrow pointing into a bottom bar. */
+private fun DrawScope.drawSaveGlyph(color: Color) {
+    // Slightly larger than ring-inset chrome (0.38) so the glyph reads on dial-pad /
+    // border tiles where showCircle = false.
+    val scale = size.minDimension / 512f * 0.55f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(saveGlyphPath, color)
     }
 }
 

@@ -1,9 +1,5 @@
 package com.metro.dialer.ui
 
-import android.content.Context
-import android.graphics.BitmapFactory
-import android.net.Uri
-import android.provider.ContactsContract
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
@@ -48,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.dialer.R
 import com.metro.dialer.data.ActiveCall
+import com.metro.dialer.data.ContactsLookup
 import com.metro.dialer.data.DialerCallLogic
 import com.metro.dialer.telecom.MetroCallSession
 import com.metro.ui.MetroText
@@ -73,6 +70,7 @@ fun InCallScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val contactsLookup = remember(context) { ContactsLookup(context) }
     var elapsedSeconds by remember(call.startedAtMillis) { mutableLongStateOf(0L) }
     var connected by remember(call.phoneNumber) { mutableStateOf(call.connected) }
     var photo by remember(call.phoneNumber) { mutableStateOf<ImageBitmap?>(null) }
@@ -93,7 +91,9 @@ fun InCallScreen(
     }
 
     LaunchedEffect(call.phoneNumber) {
-        photo = loadContactPhoto(context, call.phoneNumber)
+        photo = withContext(Dispatchers.IO) {
+            contactsLookup.loadContactPhoto(call.phoneNumber)?.asImageBitmap()
+        }
     }
 
     LaunchedEffect(call.phoneNumber) {
@@ -505,8 +505,9 @@ private fun InCallDtmfKey(
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val isPressed = rememberDialKeyPressed(interactionSource)
     val background = if (isPressed) MetroTheme.colors.accent else InCallTileBackground
+    val contentColor = if (isPressed) Color.White else MetroTheme.colors.primaryText
     Box(
         modifier = modifier
             .height(InCallKeyHeight)
@@ -521,7 +522,7 @@ private fun InCallDtmfKey(
         MetroText(
             text = digit.toString(),
             style = MetroTextStyle.PivotTab,
-            color = Color.White,
+            color = contentColor,
         )
     }
 }
@@ -649,29 +650,5 @@ private fun InCallControlIcon(
                 }
             }
         }
-    }
-}
-
-private suspend fun loadContactPhoto(context: Context, number: String): ImageBitmap? {
-    if (number.isBlank()) return null
-    return withContext(Dispatchers.IO) {
-        runCatching {
-            val lookupUri = Uri.withAppendedPath(
-                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                Uri.encode(number),
-            )
-            val photoUriString = context.contentResolver.query(
-                lookupUri,
-                arrayOf(ContactsContract.PhoneLookup.PHOTO_URI),
-                null,
-                null,
-                null,
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0) else null
-            } ?: return@runCatching null
-            context.contentResolver.openInputStream(Uri.parse(photoUriString))?.use { stream ->
-                BitmapFactory.decodeStream(stream)?.asImageBitmap()
-            }
-        }.getOrNull()
     }
 }

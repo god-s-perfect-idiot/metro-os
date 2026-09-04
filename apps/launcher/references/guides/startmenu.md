@@ -33,7 +33,10 @@ Three immediate visual cues:
 
 ## Reordering
 
-While in edit mode, drag a tile to reorder. Surrounding tiles part smoothly (magnet grid). Tiles snap to grid coordinates top-to-bottom.
+While in edit mode, drag a tile to reorder. Tiles keep explicit grid coordinates: you can
+leave gaps, park a single tile on a row, or fill every cell. Dropping onto an occupied
+spot moves the overlapping tile out of the way (nearby empty preferred; otherwise the
+phone creates a gap below). Only fully empty rows compact upward.
 
 *Live folders (WP 8.1 Update 1): drag one tile onto another and hold — out of scope for v1.*
 
@@ -53,7 +56,7 @@ Tiles snap flat; live updates resume; layout persists.
 | Floating idle tiles | Non-active tiles drift via shared float clock (`tileIdleFloatAt`) |
 | Lifted tile | Active tile `scale 1.02` in place (stationary) |
 | Drag under thumb | Dragged tile follows pointer (`dragPositionPx`), `scale 1.06` |
-| Magnet reflow | Hole under finger + `flowPackAroundReservedSlot`; neighbors animate via `rememberAnimatedTileBounds` |
+| Magnet reflow | Size-aligned slot snap + `placeTileAt` displacement; neighbors animate via `rememberAnimatedTileBounds` |
 | Unpin top-right | `TileCornerButton` aligned top-end of tile |
 | Resize bottom-right | `TileCornerButton` aligned bottom-end of tile |
 | Tap blank to dismiss | Scrim `clickable` → `onDismiss` |

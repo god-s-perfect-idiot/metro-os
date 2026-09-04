@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import java.util.concurrent.atomic.AtomicReference
@@ -18,7 +19,8 @@ import java.util.concurrent.atomic.AtomicReference
  * Android status bar. Mirrors the navbar's accessibility-driven overlay.
  *
  * Also watches interactive windows so the tray can hide while the Android notification shade is
- * open or while system status bars are immersive-hidden (fullscreen).
+ * open or while system status bars are immersive-hidden (fullscreen), and reports the foreground
+ * package for match-app-background theme resolution.
  */
 class StatusBarAccessibilityService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -90,6 +92,9 @@ class StatusBarAccessibilityService : AccessibilityService() {
         StatusBarOverlayService.onNotificationShadeOpenChanged(shadeOpen)
         StatusBarOverlayService.onSystemStatusBarsHiddenChanged(
             SystemStatusBarsDetector.areHidden(wm),
+        )
+        StatusBarOverlayService.onForegroundPackageChanged(
+            ForegroundAppDetector.foregroundPackage(windows),
         )
     }
 
