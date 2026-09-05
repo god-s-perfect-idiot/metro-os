@@ -15,6 +15,9 @@ import androidx.media3.datasource.TransferListener
  * go. This wrapper keeps every upstream request inside those limits and stitches the chunks back
  * into one continuous stream. Sources whose total length cannot be determined pass straight
  * through untouched.
+ *
+ * When a mid-file Range is rejected (GVS PO-preview window), we soft-EOS instead of throwing —
+ * an uncaught open failure was crashing MediaCodec after ~60s of playback.
  */
 @UnstableApi
 class ChunkedDataSource(
@@ -23,6 +26,7 @@ class ChunkedDataSource(
 ) : DataSource {
 
     private var passThrough = false
+    private var softEos = false
     private var spec: DataSpec? = null
     private var position = 0L
     private var bytesRemaining = 0L
@@ -34,6 +38,7 @@ class ChunkedDataSource(
     }
 
     override fun open(dataSpec: DataSpec): Long {
+        softEos = false
         spec = dataSpec
         val total = totalLength(dataSpec)
         if (total == C.LENGTH_UNSET.toLong()) {
@@ -43,21 +48,37 @@ class ChunkedDataSource(
         passThrough = false
         position = dataSpec.position
         bytesRemaining = total
-        openChunk()
+        if (!openChunk()) {
+            softEos = true
+            return 0L
+        }
         return bytesRemaining
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         if (passThrough) return upstream.read(buffer, offset, length)
-        if (bytesRemaining == 0L) return C.RESULT_END_OF_INPUT
+        if (softEos || bytesRemaining == 0L) return C.RESULT_END_OF_INPUT
         if (chunkRemaining == 0L) {
-            upstream.close()
-            chunkOpen = false
-            openChunk()
+            closeChunkQuietly()
+            if (!openChunk()) {
+                softEos = true
+                return C.RESULT_END_OF_INPUT
+            }
         }
-        val toRead = minOf(length.toLong(), chunkRemaining).toInt()
-        val read = upstream.read(buffer, offset, toRead)
-        if (read == C.RESULT_END_OF_INPUT) return C.RESULT_END_OF_INPUT
+        val toRead = minOf(length.toLong(), chunkRemaining, bytesRemaining).toInt()
+        if (toRead <= 0) return C.RESULT_END_OF_INPUT
+        val read = try {
+            upstream.read(buffer, offset, toRead)
+        } catch (_: Exception) {
+            softEos = true
+            closeChunkQuietly()
+            return C.RESULT_END_OF_INPUT
+        }
+        if (read == C.RESULT_END_OF_INPUT) {
+            // Preview windows end cleanly after ~1 MiB while clen still claims the full track.
+            softEos = true
+            return C.RESULT_END_OF_INPUT
+        }
         position += read
         chunkRemaining -= read
         bytesRemaining -= read
@@ -69,24 +90,41 @@ class ChunkedDataSource(
     override fun getResponseHeaders(): Map<String, List<String>> = upstream.responseHeaders
 
     override fun close() {
-        if (passThrough || chunkOpen) upstream.close()
+        closeChunkQuietly()
+        if (passThrough) runCatching { upstream.close() }
         passThrough = false
-        chunkOpen = false
+        softEos = false
         chunkRemaining = 0L
         bytesRemaining = 0L
     }
 
-    private fun openChunk() {
-        val base = spec ?: return
+    private fun closeChunkQuietly() {
+        if (chunkOpen) {
+            runCatching { upstream.close() }
+            chunkOpen = false
+        }
+    }
+
+    /** Opens the next bounded Range. Returns false when the CDN rejects further bytes. */
+    private fun openChunk(): Boolean {
+        val base = spec ?: return false
+        if (bytesRemaining <= 0L) return false
         val length = minOf(chunkSize, bytesRemaining)
-        upstream.open(
-            base.buildUpon()
-                .setPosition(position)
-                .setLength(length)
-                .build(),
-        )
-        chunkRemaining = length
-        chunkOpen = true
+        return try {
+            upstream.open(
+                base.buildUpon()
+                    .setPosition(position)
+                    .setLength(length)
+                    .build(),
+            )
+            chunkRemaining = length
+            chunkOpen = true
+            true
+        } catch (_: Exception) {
+            chunkOpen = false
+            chunkRemaining = 0L
+            false
+        }
     }
 
     /** googlevideo advertises the full size as `clen`; anything else stays pass-through. */

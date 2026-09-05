@@ -25,6 +25,10 @@ class MusicPlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val httpFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent(
+                "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                    "Chrome/130.0.0.0 Mobile Safari/537.36",
+            )
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(20_000)
             .setReadTimeoutMs(30_000)
@@ -42,6 +46,7 @@ class MusicPlaybackService : MediaSessionService() {
                 true,
             )
             .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player = exo
         val sessionActivity = PendingIntent.getActivity(

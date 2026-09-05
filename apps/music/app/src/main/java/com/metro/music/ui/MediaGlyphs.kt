@@ -10,6 +10,7 @@ import com.metro.ui.MetroMediaGlyphButton
 import com.metro.ui.MetroMediaGlyphIcon
 import com.metro.ui.MetroMediaTransportButton
 import com.metro.ui.MetroMediaTransportButtonSize
+import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
 
 /** App alias for the shared suite media glyph set. */
@@ -59,6 +60,26 @@ fun MediaTransportButton(
 ) {
     MetroMediaTransportButton(
         glyph = glyph,
+        onClick = onClick,
+        contentDescription = contentDescription,
+        modifier = modifier,
+        buttonSize = buttonSize,
+        color = color,
+    )
+}
+
+/** Transport ring using toolkit chrome play / pause / previous / next. */
+@Composable
+fun MediaTransportButton(
+    type: MetroSystemIconType,
+    onClick: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    buttonSize: Dp = MediaTransportButtonSize,
+    color: Color = MetroTheme.colors.primaryText,
+) {
+    MetroMediaTransportButton(
+        type = type,
         onClick = onClick,
         contentDescription = contentDescription,
         modifier = modifier,

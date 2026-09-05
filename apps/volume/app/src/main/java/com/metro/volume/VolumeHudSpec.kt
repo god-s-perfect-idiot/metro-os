@@ -20,6 +20,11 @@ object VolumeHudSpec {
      */
     const val SHOW_HIDE_MS = 200
     const val COLLAPSED_HEIGHT_DP = 48
+    /**
+     * Default (non-expanded) panel while music transport is active:
+     * volume header + prev/pause/next + title/artist (WP8.1 UVC).
+     */
+    const val MUSIC_TRANSPORT_HEIGHT_DP = 168
     /** Dual-slider expanded panel (header/ringer + media stream + actions + chevron). */
     const val EXPANDED_HEIGHT_DP = 248
     /** Single call-slider expanded panel (header + slider). */
@@ -34,15 +39,29 @@ object VolumeHudSpec {
     /** Silent mode / sound settings labels — denser than stream DialogBody (16sp). */
     const val ACTION_LABEL_FONT_SP = 14
     const val HORIZONTAL_PADDING_DP = 12
+    /** Circular transport control diameter in the music default HUD. */
+    const val MUSIC_TRANSPORT_BUTTON_DP = 44
+    /** Vertical space for the prev / play-pause / next row. */
+    const val MUSIC_TRANSPORT_ROW_HEIGHT_DP = 64
+    /**
+     * Title + artist under the transport row.
+     * Fits ListItemTitle (28sp lh) + DialogBody (22sp lh) + 2dp gap without clipping.
+     */
+    const val MUSIC_METADATA_HEIGHT_DP = 56
 
     val PanelBackground = Color(0xFF252525)
     val SecondaryText = Color(0xFF9E9E9E)
     val PrimaryText = Color.White
 
-    fun panelHeightDp(expanded: Boolean, inCall: Boolean): Int = when {
-        !expanded -> COLLAPSED_HEIGHT_DP
-        inCall -> EXPANDED_IN_CALL_HEIGHT_DP
-        else -> EXPANDED_HEIGHT_DP
+    fun panelHeightDp(
+        expanded: Boolean,
+        inCall: Boolean,
+        musicTransport: Boolean = false,
+    ): Int = when {
+        expanded && inCall -> EXPANDED_IN_CALL_HEIGHT_DP
+        expanded -> EXPANDED_HEIGHT_DP
+        musicTransport && !inCall -> MUSIC_TRANSPORT_HEIGHT_DP
+        else -> COLLAPSED_HEIGHT_DP
     }
 }
 
@@ -76,6 +95,7 @@ data class VolumeHudSnapshot(
     val silentModeOn: Boolean,
     val inCall: Boolean,
     val accentColor: androidx.compose.ui.graphics.Color,
+    val mediaTransport: VolumeMediaTransport? = null,
 ) {
     val collapsedLevel: Int
         get() = when (activeStream) {
@@ -86,6 +106,10 @@ data class VolumeHudSnapshot(
 
     val collapsedMax: Int get() = activeStream.wpMax
     val collapsedLabel: String get() = activeStream.label
+
+    /** Collapsed music UVC (transport + metadata) instead of the thin volume strip. */
+    val showMusicTransport: Boolean
+        get() = !inCall && !expanded && mediaTransport != null
 
     companion object {
         val Hidden = VolumeHudSnapshot(
@@ -98,6 +122,7 @@ data class VolumeHudSnapshot(
             silentModeOn = false,
             inCall = false,
             accentColor = Color(0xFF1BA1E2),
+            mediaTransport = null,
         )
     }
 }

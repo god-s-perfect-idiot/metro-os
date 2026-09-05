@@ -3,7 +3,10 @@ package com.metro.music.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -14,6 +17,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -22,6 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.metro.music.data.LibraryLogic
+import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -39,6 +44,9 @@ private val SeekThumbStroke = 3.dp
  * Geometry measured off `references/images/hub_nowplaying_dark_green.jpg` (768x1280 capture,
  * 1.6x): 2dp track at 20% foreground, white played segment, 14dp ring with a 3dp stroke and an
  * empty centre. The caller sizes the row to the album art width so it sits directly under the art.
+ *
+ * While [loading], the gray track stays and [MetroLoadingDots] run over it — no thumb or played
+ * segment until duration is ready.
  */
 @Composable
 fun MediaCircleSeekBar(
@@ -46,8 +54,9 @@ fun MediaCircleSeekBar(
     durationMs: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
 ) {
-    val seekable = durationMs > 0L
+    val seekable = !loading && durationMs > 0L
     val currentOnSeek by rememberUpdatedState(onSeek)
     var scrubFraction by remember { mutableStateOf<Float?>(null) }
     val playedFraction = if (seekable) {
@@ -57,7 +66,10 @@ fun MediaCircleSeekBar(
     }
     val fraction = scrubFraction ?: playedFraction
     // While scrubbing the labels follow the thumb, not the player's last reported position.
-    val labelPositionMs = scrubFraction?.let { (it * durationMs).toLong() } ?: positionMs
+    val labelPositionMs = when {
+        loading -> 0L
+        else -> scrubFraction?.let { (it * durationMs).toLong() } ?: positionMs
+    }
 
     val foreground = MetroTheme.colors.primaryText
     val trackColor = foreground.copy(alpha = 0.2f)
@@ -75,14 +87,14 @@ fun MediaCircleSeekBar(
         MetroText(
             text = LibraryLogic.formatDuration(labelPositionMs),
             style = MetroTextStyle.Body,
+            color = if (loading) MetroTheme.colors.secondaryText else foreground,
         )
-        Canvas(
+        Box(
             modifier = Modifier
                 .weight(1f)
-                .height(SeekRowHeight)
+                .fillMaxHeight()
                 .padding(horizontal = SeekLabelGap)
-                // Every change is consumed from the first press, otherwise the hub panorama
-                // pager treats a scrub as a page swipe and steals the gesture.
+                .clipToBounds()
                 .pointerInput(seekable, durationMs) {
                     if (!seekable) return@pointerInput
                     awaitEachGesture {
@@ -105,41 +117,54 @@ fun MediaCircleSeekBar(
                         }
                     }
                 },
+            contentAlignment = Alignment.Center,
         ) {
-            val centerY = size.height / 2f
-            val travel = (size.width - thumbRadiusPx * 2f).coerceAtLeast(0f)
-            val thumbX = thumbRadiusPx + fraction * travel
-            val strokePx = SeekThumbStroke.toPx()
-            val holeRadiusPx = thumbRadiusPx - strokePx
-
-            drawLine(
-                color = trackColor,
-                start = Offset(0f, centerY),
-                end = Offset(size.width, centerY),
-                strokeWidth = SeekTrackThickness.toPx(),
-                cap = StrokeCap.Butt,
-            )
-            // Played segment stops at the ring's opening so the thumb centre stays empty.
-            val playedEnd = thumbX - holeRadiusPx
-            if (playedEnd > 0f) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(SeekRowHeight)) {
+                val centerY = size.height / 2f
                 drawLine(
-                    color = foreground,
+                    color = trackColor,
                     start = Offset(0f, centerY),
-                    end = Offset(playedEnd, centerY),
+                    end = Offset(size.width, centerY),
                     strokeWidth = SeekTrackThickness.toPx(),
                     cap = StrokeCap.Butt,
                 )
+                if (!loading) {
+                    val travel = (size.width - thumbRadiusPx * 2f).coerceAtLeast(0f)
+                    val thumbX = thumbRadiusPx + fraction * travel
+                    val strokePx = SeekThumbStroke.toPx()
+                    val holeRadiusPx = thumbRadiusPx - strokePx
+
+                    // Played segment stops at the ring's opening so the thumb centre stays empty.
+                    val playedEnd = thumbX - holeRadiusPx
+                    if (playedEnd > 0f) {
+                        drawLine(
+                            color = foreground,
+                            start = Offset(0f, centerY),
+                            end = Offset(playedEnd, centerY),
+                            strokeWidth = SeekTrackThickness.toPx(),
+                            cap = StrokeCap.Butt,
+                        )
+                    }
+                    drawCircle(
+                        color = foreground,
+                        radius = thumbRadiusPx - strokePx / 2f,
+                        center = Offset(thumbX, centerY),
+                        style = Stroke(width = strokePx),
+                    )
+                }
             }
-            drawCircle(
-                color = foreground,
-                radius = thumbRadiusPx - strokePx / 2f,
-                center = Offset(thumbX, centerY),
-                style = Stroke(width = strokePx),
-            )
+            if (loading) {
+                MetroLoadingDots()
+            }
         }
         MetroText(
-            text = LibraryLogic.formatRemaining(labelPositionMs, durationMs),
+            text = if (loading) {
+                LibraryLogic.formatRemaining(0L, 0L)
+            } else {
+                LibraryLogic.formatRemaining(labelPositionMs, durationMs)
+            },
             style = MetroTextStyle.Body,
+            color = if (loading) MetroTheme.colors.secondaryText else foreground,
         )
     }
 }

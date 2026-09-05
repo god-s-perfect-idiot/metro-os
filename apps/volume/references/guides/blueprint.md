@@ -16,6 +16,17 @@
 - Show / hide motion: top-anchored height wipe creeping in from 0 and out to 0, **200ms** ease-out (`VolumeHudSpec.SHOW_HIDE_MS` / `MetroTransitions.PageEasing`); overlay window is removed only after the hide wipe finishes
 - Expand / collapse motion: top-anchored height wipe, **200ms** ease-out (`VolumeHudSpec.EXPAND_COLLAPSE_MS` / `MetroTransitions.PageEasing`); overlay window height snaps at boundaries (not per-frame)
 
+### Page 1b — Volume HUD music transport (default while playing)
+
+- When an active music session is present (not in-call, not expanded), the **default** rocker view is the WP8.1 Universal Volume Control instead of the thin strip
+- Layout (top → bottom):
+  1. Same volume header as collapsed: `NN/30 Media + Apps` + down chevron (tap expands to dual sliders)
+  2. Left-aligned circular **Previous / Play-Pause / Next** (`MetroMediaTransportButton`, white ring)
+  3. Track **title** (white SemiBold 18sp) + **artist** (same size/color, Light weight), left-aligned
+- Transport actions reset the auto-dismiss timer; play shows when paused
+- Session sources: suite Music via Media3 `SessionToken` (no extra grant); other music apps via optional notification-listener → `MediaSessionManager`
+- Height: `VolumeHudSpec.MUSIC_TRANSPORT_HEIGHT_DP` (168); expand still opens Page 2 dual sliders
+
 ### Page 2 — Volume HUD expanded
 
 - Dual rows (non-call), **fixed order** (never swap when the other stream becomes active):
@@ -47,9 +58,9 @@
 |-------|------|-------|
 | `volume_collapsed_ringer_dark_cyan.jpg` | Collapsed | `07/10 Ringer + Notifications` |
 | `volume_collapsed_media_dark_cyan.jpg` | Collapsed | `15/30 Media + Apps` |
+| `volume_music_transport_dark.png` | Music transport | `15/30 Media + Apps` + prev/pause/next + title/artist |
 
 ## Out of scope (v1)
 
 - Headphone / Bluetooth accessory-specific volume rows
-- SMTC / media transport chrome under the volume HUD
 - Metro Settings → ringtones+sounds deep-link (SOUND SETTINGS opens Android sound settings for now)

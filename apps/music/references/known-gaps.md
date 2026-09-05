@@ -25,16 +25,21 @@ Measured against Innertube on 2026-08-05. Anonymous player clients, art track
 | `ANDROID_MUSIC` | `LOGIN_REQUIRED` | `LOGIN_REQUIRED` |
 | `WEB_REMIX` | `UNPLAYABLE` (`OK` but cipher-only when signed in) | ciphered formats only |
 | `TVHTML5` / `WEB` signed in | `OK` but SABR-only, no stream URLs | — |
-| `IOS` | `OK`, but only the first ~1 MiB is served | plays fully |
+| `IOS` | `OK`, progressive **403 past ~1.5 MiB** (no HLS on art tracks) | HLS / progressive past 1.5 MiB |
 | `ANDROID_VR` **without** `visitorData` | `LOGIN_REQUIRED` | plays fully |
-| `ANDROID_VR` **with** `visitorData` | `OK`, uncapped | plays fully |
+| `ANDROID_VR` **with** `visitorData` | `OK`, adaptive GVS **403 past ~1 MiB** without PO token | 403 past ~1 MiB without PO |
 
-Two findings drive the implementation:
+Two findings drive the implementation (updated 2026-09-06):
 
-1. **`visitorData` is what unlocks art tracks.** Sending the Innertube visitor identity as the
-   `X-Goog-Visitor-Id` header (and in `context.client.visitorData`) turns `ANDROID_VR` from
-   `LOGIN_REQUIRED` into `OK` with plain, uncapped URLs. No BotGuard PoToken is required.
-   `YtMusicAuthStore` caches the value for 12 hours; a `LOGIN_REQUIRED` response refetches it once.
-2. **Reads must be bounded ranges.** A single unbounded GET is rate limited to roughly 33 KB/s,
-   and the `IOS` fallback answers 403 to a range-less or open-ended request. Chunked 512 KiB
-   ranges (`playback/ChunkedDataSource.kt`) avoid both: a 10 MB track pulls in 4.3 s.
+1. **`visitorData` unlocks art tracks on mobile player clients.** Send it as `X-Goog-Visitor-Id`
+   and in `context.client.visitorData`. `YtMusicAuthStore` caches it for 12 hours.
+2. **Catalog art tracks need a GVS PO token past ~1 MiB on every Innertube client we tried.**
+   Without it, Range requests at byte ≥ ~1.5 MiB return 403 — ExoPlayer stops near **0:48–1:04**
+   depending on bitrate. The fix is NewPipe-style **BotGuard PO minting** (`YtPoTokenSession`):
+   mint a streaming pot bound to `visitorData`, append `pot=`/`potc=1` on googlevideo URLs, and
+   optionally send a video-bound pot in `serviceIntegrityDimensions.poToken`. Innertube order is
+   IOS → ANDROID_VR → WEB_REMIX with a mid-file Range probe; progressive fallback still starts
+   audio if minting fails.
+3. **Reads must be bounded ranges.** `YtStreamLogic` stamps `clen` from `contentLength` when the
+   signed URL omits it; `ChunkedDataSource` reads 512 KiB Ranges. Premature upstream EOS with
+   bytes still remaining is raised as an error instead of ending the song.

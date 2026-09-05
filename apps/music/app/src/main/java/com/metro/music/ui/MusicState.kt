@@ -32,6 +32,7 @@ import com.metro.music.playback.MusicPlaybackService
 import com.metro.music.playback.PlaybackLogic
 import com.metro.music.ytmusic.YtMusicAuthStore
 import com.metro.music.ytmusic.YtMusicClient
+import com.metro.music.ytmusic.potoken.YtPoTokenSession
 import com.metro.ui.MetroJumpListLogic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 enum class MusicRoute {
     Hub,
@@ -57,7 +60,16 @@ class MusicState(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val localRepo = LocalLibraryRepository(appContext)
     private val authStore = YtMusicAuthStore(appContext)
-    private val ytClient = YtMusicClient(authStore)
+    private val ytHttp = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+    private val poTokenSession = YtPoTokenSession(appContext, ytHttp)
+    private val ytClient = YtMusicClient(
+        authStore = authStore,
+        http = ytHttp,
+        poTokenSession = poTokenSession,
+    )
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -295,8 +307,8 @@ class MusicState(context: Context) {
     }
 
     /**
-     * Starts the tapped song as soon as its stream resolves, then fills the rest of the queue in
-     * the background — resolving every YouTube track up front would stall playback for a minute.
+     * Opens now playing immediately with the tapped song, resolves the stream in the background,
+     * then starts playback. The seek bar stays as loading dots until duration is known.
      */
     fun playSongs(songs: List<Song>, startIndex: Int) {
         if (songs.isEmpty()) return
@@ -307,9 +319,15 @@ class MusicState(context: Context) {
         }
         val index = startIndex.coerceIn(0, songs.lastIndex)
         val start = songs[index]
-        loadingPlayback = true
         statusMessage = null
         playbackError = null
+        positionMs = 0L
+        durationMs = 0L
+        isPlaying = false
+        updateCurrentSong(start)
+        hubPage = HUB_NOW_PLAYING
+        route = MusicRoute.Hub
+        loadingPlayback = true
         queueJob?.cancel()
         queueJob = scope.launch {
             try {
@@ -322,8 +340,6 @@ class MusicState(context: Context) {
                 ctrl.prepare()
                 ctrl.play()
                 updateCurrentSong(startItem.first)
-                hubPage = HUB_NOW_PLAYING
-                route = MusicRoute.Hub
             } finally {
                 loadingPlayback = false
             }
@@ -471,7 +487,14 @@ class MusicState(context: Context) {
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            isPlaying = false
+            loadingPlayback = false
             statusMessage = "Playback failed: ${error.errorCodeName}"
+            // Stop cleanly — an abrupt Source error previously aborted MediaCodec (SIGABRT).
+            runCatching {
+                controller?.pause()
+                controller?.stop()
+            }
         }
     }
 

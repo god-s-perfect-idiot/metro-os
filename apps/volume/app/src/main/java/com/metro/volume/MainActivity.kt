@@ -77,6 +77,9 @@ class MainActivity : ComponentActivity() {
             val accessibilityEnabled = remember(permissionTick) {
                 VolumeAccessibilityService.isEnabled()
             }
+            val notificationAccessEnabled = remember(permissionTick) {
+                VolumeMediaSessionAccess.isEnabled(context)
+            }
             val canToggleHud = overlayGranted && accessibilityEnabled
 
             MetroSystemTheme {
@@ -140,6 +143,14 @@ class MainActivity : ComponentActivity() {
                         onClick = {
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        fontSize = 18.sp,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    MetroBorderButton(
+                        text = stringResource(R.string.enable_notification_access),
+                        enabled = !notificationAccessEnabled,
+                        onClick = { VolumeMediaSessionAccess.openSettings(context) },
                         modifier = Modifier.padding(horizontal = 12.dp),
                         fontSize = 18.sp,
                     )

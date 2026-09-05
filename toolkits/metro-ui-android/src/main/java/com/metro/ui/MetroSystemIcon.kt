@@ -227,8 +227,8 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.ChevronRight -> drawChevronGlyph(color, glyphStroke, direction = 3)
         MetroSystemIconType.Play -> drawPlayGlyph(color)
         MetroSystemIconType.Pause -> drawPauseGlyph(color)
-        MetroSystemIconType.Next -> drawSkipGlyph(color, forward = true)
-        MetroSystemIconType.Previous -> drawSkipGlyph(color, forward = false)
+        MetroSystemIconType.Next -> drawNextGlyph(color)
+        MetroSystemIconType.Previous -> drawPreviousGlyph(color)
         MetroSystemIconType.Wifi -> drawMetroWifiGlyph(color = color)
     }
 }
@@ -1142,66 +1142,113 @@ private fun DrawScope.drawChevronGlyph(color: Color, stroke: Stroke, direction: 
     }
 }
 
+/** Filled play triangle — 512 viewBox path from the WP8.1 play reference SVG. */
+private const val PLAY_GLYPH_PATH = "M0 0v512l512-256z"
+
+private val playGlyphPath: Path by lazy {
+    PathParser().parsePathString(PLAY_GLYPH_PATH).toPath()
+}
+
 internal fun DrawScope.drawPlayGlyph(color: Color) {
-    val d = size.minDimension
-    val height = d * 0.34f
-    val width = d * 0.28f
-    val left = size.width / 2f - width / 2f + d * 0.03f
-    val cy = size.height / 2f
-    val path = Path().apply {
-        moveTo(left, cy - height / 2f)
-        lineTo(left + width, cy)
-        lineTo(left, cy + height / 2f)
-        close()
+    // Filled play triangles read left-heavy in a circle; nudge right a touch so the
+    // mark looks centered in transport rings (live tile / now playing / volume HUD).
+    // Same bias the pre-SVG triangle used (+d × 0.03).
+    val opticalX = size.minDimension * 0.03f
+    withTransform({ translate(left = opticalX, top = 0f) }) {
+        drawFilledViewportGlyph(playGlyphPath, color, viewBox = 512f, glyphScale = 0.34f)
     }
-    drawPath(path, color)
+}
+
+/** Filled pause bars — 512 viewBox path from the WP8.1 pause reference SVG. */
+private const val PAUSE_GLYPH_PATH =
+    "M0 512h162.9V0H0v512zM349.1 0v512H512V0H349.1z"
+
+private val pauseGlyphPath: Path by lazy {
+    PathParser().parsePathString(PAUSE_GLYPH_PATH).toPath()
 }
 
 internal fun DrawScope.drawPauseGlyph(color: Color) {
-    val d = size.minDimension
-    val height = d * 0.34f
-    val barWidth = d * MetroSystemIconStrokeFraction
-    val gap = d * MetroSystemIconStrokeFraction
-    val cy = size.height / 2f
-    val left = size.width / 2f - (barWidth * 2f + gap) / 2f
-    drawRect(color, Offset(left, cy - height / 2f), Size(barWidth, height))
-    drawRect(color, Offset(left + barWidth + gap, cy - height / 2f), Size(barWidth, height))
+    // Match Play / Skip visual height (~0.34 of canvas) while keeping the filled SVG proportions.
+    drawFilledViewportGlyph(pauseGlyphPath, color, viewBox = 512f, glyphScale = 0.34f)
 }
 
-internal fun DrawScope.drawSkipGlyph(color: Color, forward: Boolean) {
-    val d = size.minDimension
-    val cx = size.width / 2f
-    val cy = size.height / 2f
-    val height = d * 0.34f
-    val barWidth = d * 0.07f
-    val triangleWidth = d * 0.19f
-    val gap = d * 0.02f
-    val totalWidth = barWidth + triangleWidth * 2f + gap * 2f
-    var x = cx - totalWidth / 2f
+/**
+ * Filled previous skip (bar + two left chevrons) — 512 viewBox path from the WP8.1
+ * previous reference SVG. Ink spans y≈143.6–381.4; scaled under Play/Pause height.
+ */
+private const val PREVIOUS_GLYPH_PATH =
+    "M274.3 262.5L512 381.4V143.6L274.3 262.5zm-237.7 0l237.7 118.9V143.6L36.6 262.5zM0 143.6v237.7h36.6V143.6H0z"
 
-    fun triangle(left: Float) {
-        val apexX = if (forward) left + triangleWidth else left
-        val baseX = if (forward) left else left + triangleWidth
-        val path = Path().apply {
-            moveTo(apexX, cy)
-            lineTo(baseX, cy - height / 2f)
-            lineTo(baseX, cy + height / 2f)
-            close()
-        }
-        drawPath(path, color)
-    }
+private val previousGlyphPath: Path by lazy {
+    PathParser().parsePathString(PREVIOUS_GLYPH_PATH).toPath()
+}
 
-    if (forward) {
-        triangle(x)
-        x += triangleWidth + gap
-        triangle(x)
-        x += triangleWidth + gap
-        drawRect(color, Offset(x, cy - height / 2f), Size(barWidth, height))
-    } else {
-        drawRect(color, Offset(x, cy - height / 2f), Size(barWidth, height))
-        x += barWidth + gap
-        triangle(x)
-        x += triangleWidth + gap
-        triangle(x)
-    }
+internal fun DrawScope.drawPreviousGlyph(color: Color) {
+    // SVG ink height is ~237.8/512 of the viewBox. 0.56 ≈ 0.26 visual height — clearly
+    // under Play/Pause (0.34) so the denser bar+chevrons stay subordinate in the ring.
+    drawFilledViewportGlyph(previousGlyphPath, color, viewBox = 512f, glyphScale = 0.56f)
+}
+
+/**
+ * Filled next skip (two right chevrons + bar) — 512 viewBox path from the WP8.1
+ * next reference SVG. Ink spans y≈143.6–381.4; scaled under Play/Pause height.
+ */
+private const val NEXT_GLYPH_PATH =
+    "m0 381.4l237.7-118.9L0 143.6v237.8zm237.7-118.9v118.9l237.7-118.9l-237.7-118.9v118.9zm237.7-118.9v237.8H512V143.6h-36.6z"
+
+private val nextGlyphPath: Path by lazy {
+    PathParser().parsePathString(NEXT_GLYPH_PATH).toPath()
+}
+
+internal fun DrawScope.drawNextGlyph(color: Color) {
+    // SVG ink height is ~237.8/512 of the viewBox. 0.56 ≈ 0.26 visual height — clearly
+    // under Play/Pause (0.34) so the denser bar+chevrons stay subordinate in the ring.
+    drawFilledViewportGlyph(nextGlyphPath, color, viewBox = 512f, glyphScale = 0.56f)
+}
+
+/**
+ * Filled shuffle (crossing arrows) — 512 viewBox path from the WP8.1 shuffle reference SVG.
+ * Ink spans the full viewBox; scale leaves optical padding on the media-rail canvas.
+ */
+private const val SHUFFLE_GLYPH_PATH =
+    "M341.3 0v85.3h-64c-70.7 0-128 57.3-128 128v85.3c0 35.4-28.6 64-64 64H0v64h85.3c70.7 0 128-57.3 128-128v-85.3c0-35.4 28.6-64 64-64h64v85.3L512 128v-21.3L341.3 0zM114 156.4l37.6-52.1c-19.4-11.8-42-19-66.3-19H0v64h85.3c10.4 0 20 2.7 28.7 7.1zm227.3 206.3h-64c-10.4 0-20-2.7-28.7-7.1L211 407.7c19.4 11.8 42 19 66.3 19h64V512L512 405.3V384L341.3 277.3v85.4z"
+
+private val shuffleGlyphPath: Path by lazy {
+    PathParser().parsePathString(SHUFFLE_GLYPH_PATH).toPath()
+}
+
+internal fun DrawScope.drawShuffleGlyph(color: Color) {
+    drawFilledViewportGlyph(shuffleGlyphPath, color, viewBox = 512f, glyphScale = 0.72f)
+}
+
+/**
+ * Filled repeat (clockwise circular arrow) — 512 viewBox path from the WP8.1 repeat
+ * reference SVG. Ink spans the full viewBox; scale matches Shuffle on the media rail.
+ */
+private const val REPEAT_GLYPH_PATH =
+    "M512 192V21.3l-64.9 64.9C400.3 33.4 332.2 0 256 0C114.6 0 0 114.6 0 256s114.6 256 256 256c70.7 0 134.7-28.6 181-75l-45.3-45.2C357 426.5 309 448 256 448c-106 0-192-85.9-192-192S150 64 256 64c58.5 0 110.4 26.5 145.5 67.8L341.3 192H512z"
+
+private val repeatGlyphPath: Path by lazy {
+    PathParser().parsePathString(REPEAT_GLYPH_PATH).toPath()
+}
+
+internal fun DrawScope.drawRepeatGlyph(color: Color) {
+    drawFilledViewportGlyph(repeatGlyphPath, color, viewBox = 512f, glyphScale = 0.72f)
+}
+
+/**
+ * Filled list / queue (square bullets + bars) — 512 viewBox path from the WP8.1 list
+ * reference SVG. Ink spans y≈74–458; scale keeps optical weight with Shuffle / Repeat.
+ */
+private const val QUEUE_GLYPH_PATH =
+    "M0 351.3h85.3v-64H0v64zM0 138h85.3V74H0v64zm0 320h85.3v-64H0v64zm0-213.3h85.3v-64H0v64zM170.7 458H512v-64H170.7v64zm0-384v64H512V74H170.7zm0 170.7H512v-64H170.7v64zm0 106.6H512v-64H170.7v64z"
+
+private val queueGlyphPath: Path by lazy {
+    PathParser().parsePathString(QUEUE_GLYPH_PATH).toPath()
+}
+
+internal fun DrawScope.drawQueueGlyph(color: Color) {
+    // SVG ink height is ~384/512 of the viewBox. 0.80 ≈ 0.60 visual height — matches
+    // Shuffle / Repeat optical weight on the now-playing media rail.
+    drawFilledViewportGlyph(queueGlyphPath, color, viewBox = 512f, glyphScale = 0.80f)
 }

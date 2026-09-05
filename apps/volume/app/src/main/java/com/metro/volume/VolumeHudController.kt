@@ -51,6 +51,8 @@ class VolumeHudController(context: Context) {
         private set
     var accentColor by mutableStateOf(preferences.accentColor)
         private set
+    var mediaTransport by mutableStateOf<VolumeMediaTransport?>(null)
+        private set
 
     private var lastInteractionMs by mutableLongStateOf(0L)
     private var ringerRestore = 5
@@ -64,6 +66,10 @@ class VolumeHudController(context: Context) {
 
     /** Last Android index we successfully targeted per stream — used to ignore echo syncs. */
     private val lastWrittenAndroid = IntArray(3) { -1 }
+
+    private val mediaTransportListener: (VolumeMediaTransport?) -> Unit = { next ->
+        mediaTransport = next
+    }
 
     private val volumeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -91,6 +97,7 @@ class VolumeHudController(context: Context) {
             silentModeOn = silentModeOn,
             inCall = inCall,
             accentColor = accentColor,
+            mediaTransport = mediaTransport,
         )
 
     fun register() {
@@ -105,12 +112,17 @@ class VolumeHudController(context: Context) {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             appContext.registerReceiver(themeReceiver, themeFilter)
         }
+        VolumeMediaSessionStore.addListener(mediaTransportListener)
+        VolumeMediaSessionStore.bindSuiteMusic(appContext)
+        mediaTransport = VolumeMediaSessionStore.snapshot()
         syncFromAudioManager()
         refreshTheme()
     }
 
     fun unregister() {
         handler.removeCallbacks(dismissRunnable)
+        VolumeMediaSessionStore.removeListener(mediaTransportListener)
+        VolumeMediaSessionStore.unbindSuiteMusic()
         runCatching { appContext.unregisterReceiver(volumeReceiver) }
         runCatching { appContext.unregisterReceiver(themeReceiver) }
     }
@@ -123,9 +135,10 @@ class VolumeHudController(context: Context) {
     fun onVolumeKey(delta: Int): Boolean {
         return try {
             inCall = isInCallMode()
+            mediaTransport = VolumeMediaSessionStore.snapshot()
             activeStream = VolumeHudLogic.selectDefaultStream(
                 inCall = inCall,
-                musicActive = audioManager.isMusicActive,
+                musicActive = audioManager.isMusicActive || mediaTransport != null,
             )
             // Sync only when the HUD was hidden so we pick up external changes once.
             // Re-syncing on every rocker press remaps WP ticks through a coarse Android
@@ -266,6 +279,21 @@ class VolumeHudController(context: Context) {
         }
         runCatching { appContext.startActivity(intent) }
         dismiss()
+    }
+
+    fun togglePlayPause() {
+        VolumeMediaSessionStore.togglePlayPause()
+        touch()
+    }
+
+    fun skipToNext() {
+        VolumeMediaSessionStore.skipToNext()
+        touch()
+    }
+
+    fun skipToPrevious() {
+        VolumeMediaSessionStore.skipToPrevious()
+        touch()
     }
 
     fun dismiss() {

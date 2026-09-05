@@ -62,6 +62,7 @@ import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroSystemIconType
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -482,6 +483,7 @@ fun NowPlayingPane(state: MusicState) {
                     positionMs = state.positionMs,
                     durationMs = state.durationMs,
                     onSeek = { state.seekTo(it) },
+                    loading = state.loadingPlayback || state.durationMs <= 0L,
                     modifier = Modifier.width(artSize),
                 )
             }
@@ -503,17 +505,17 @@ fun NowPlayingPane(state: MusicState) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MediaTransportButton(
-                glyph = MediaGlyph.Previous,
+                type = MetroSystemIconType.Previous,
                 onClick = { state.skipPrevious() },
                 contentDescription = "previous",
             )
             MediaTransportButton(
-                glyph = if (state.isPlaying) MediaGlyph.Pause else MediaGlyph.Play,
+                type = if (state.isPlaying) MetroSystemIconType.Pause else MetroSystemIconType.Play,
                 onClick = { state.togglePlayPause() },
                 contentDescription = if (state.isPlaying) "pause" else "play",
             )
             MediaTransportButton(
-                glyph = MediaGlyph.Next,
+                type = MetroSystemIconType.Next,
                 onClick = { state.skipNext() },
                 contentDescription = "next",
             )

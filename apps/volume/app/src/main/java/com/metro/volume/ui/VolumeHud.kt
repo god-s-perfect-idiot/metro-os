@@ -4,9 +4,11 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,16 +29,21 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroBarStepSlider
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroMediaTransportButton
 import com.metro.ui.MetroSystemIcon
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
@@ -45,6 +52,7 @@ import com.metro.ui.MetroTheme
 import com.metro.volume.VolumeHudLogic
 import com.metro.volume.VolumeHudSnapshot
 import com.metro.volume.VolumeHudSpec
+import com.metro.volume.VolumeMediaTransport
 import com.metro.volume.VolumeStreamKind
 import kotlin.math.atan2
 import kotlin.math.sin
@@ -70,15 +78,20 @@ fun VolumeHud(
     onToggleMediaMute: () -> Unit,
     onToggleSilentMode: () -> Unit,
     onOpenSoundSettings: () -> Unit,
+    onPlayPause: () -> Unit = {},
+    onSkipNext: () -> Unit = {},
+    onSkipPrevious: () -> Unit = {},
     onWindowHeightDp: (Int) -> Unit = {},
     onExitFinished: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     MetroTheme(darkTheme = true, accent = snapshot.accentColor) {
+        val musicDefault = snapshot.mediaTransport != null && !snapshot.inCall
         val targetHeightDp = if (snapshot.visible) {
             VolumeHudSpec.panelHeightDp(
                 expanded = snapshot.expanded,
                 inCall = snapshot.inCall,
+                musicTransport = musicDefault,
             )
         } else {
             0
@@ -87,19 +100,22 @@ fun VolumeHud(
             expanded = true,
             inCall = snapshot.inCall,
         )
-        val bodyRestingDp = expandedRestingDp - VolumeHudSpec.COLLAPSED_HEIGHT_DP
+        val musicBodyRestingDp =
+            VolumeHudSpec.MUSIC_TRANSPORT_HEIGHT_DP - VolumeHudSpec.COLLAPSED_HEIGHT_DP
+        val expandedBodyRestingDp = expandedRestingDp - VolumeHudSpec.COLLAPSED_HEIGHT_DP
         val heightAnim = remember { Animatable(0f) }
 
-        LaunchedEffect(snapshot.visible, targetHeightDp, snapshot.expanded) {
+        LaunchedEffect(snapshot.visible, targetHeightDp, snapshot.expanded, musicDefault) {
             if (snapshot.visible) {
                 val panelDp = VolumeHudSpec.panelHeightDp(
                     expanded = snapshot.expanded,
                     inCall = snapshot.inCall,
+                    musicTransport = musicDefault,
                 )
                 val entering = heightAnim.value < 0.5f
                 // Grow the overlay before expand / enter wipes. Keep the tall window
                 // during collapse so the wipe is not clipped by WindowManager.
-                if (snapshot.expanded || entering) {
+                if (snapshot.expanded || musicDefault || entering) {
                     onWindowHeightDp(panelDp)
                 }
                 heightAnim.animateTo(
@@ -113,8 +129,10 @@ fun VolumeHud(
                         easing = EaseOutCubic,
                     ),
                 )
-                if (!snapshot.expanded) {
+                if (!snapshot.expanded && !musicDefault) {
                     onWindowHeightDp(VolumeHudSpec.COLLAPSED_HEIGHT_DP)
+                } else if (!snapshot.expanded && musicDefault) {
+                    onWindowHeightDp(VolumeHudSpec.MUSIC_TRANSPORT_HEIGHT_DP)
                 }
             } else if (heightAnim.value > 0.5f) {
                 heightAnim.animateTo(
@@ -160,20 +178,35 @@ fun VolumeHud(
                             .height(bodyRevealDp.dp)
                             .clipToBounds(),
                     ) {
-                        VolumeBody(
-                            snapshot = snapshot,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .requiredHeight(bodyRestingDp.dp),
-                            onCollapse = onCollapse,
-                            onRingerLevel = onRingerLevel,
-                            onMediaLevel = onMediaLevel,
-                            onCallLevel = onCallLevel,
-                            onToggleRingerMute = onToggleRingerMute,
-                            onToggleMediaMute = onToggleMediaMute,
-                            onToggleSilentMode = onToggleSilentMode,
-                            onOpenSoundSettings = onOpenSoundSettings,
-                        )
+                        if (snapshot.expanded) {
+                            VolumeBody(
+                                snapshot = snapshot,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .requiredHeight(expandedBodyRestingDp.dp),
+                                onCollapse = onCollapse,
+                                onRingerLevel = onRingerLevel,
+                                onMediaLevel = onMediaLevel,
+                                onCallLevel = onCallLevel,
+                                onToggleRingerMute = onToggleRingerMute,
+                                onToggleMediaMute = onToggleMediaMute,
+                                onToggleSilentMode = onToggleSilentMode,
+                                onOpenSoundSettings = onOpenSoundSettings,
+                            )
+                        } else {
+                            val transport = snapshot.mediaTransport
+                            if (transport != null && !snapshot.inCall) {
+                                MusicTransportBody(
+                                    transport = transport,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .requiredHeight(musicBodyRestingDp.dp),
+                                    onPlayPause = onPlayPause,
+                                    onSkipNext = onSkipNext,
+                                    onSkipPrevious = onSkipPrevious,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -185,6 +218,7 @@ fun VolumeHud(
  * Collapsed top-bar chrome: level label + down chevron.
  * When expanded (non-call), the label is always Ringer (fixed dual-row order) and
  * the up chevron lives below the actions row instead.
+ * Music-transport default keeps Media as the header stream (matches WP8.1 UVC).
  */
 @Composable
 private fun VolumeHeader(
@@ -197,6 +231,7 @@ private fun VolumeHeader(
     // activeStream, or adjusting Media would make the label disagree with the slider.
     val headerKind = when {
         snapshot.expanded && !snapshot.inCall -> VolumeStreamKind.Ringer
+        snapshot.showMusicTransport -> VolumeStreamKind.Media
         else -> snapshot.activeStream
     }
     val headerLevel = levelOf(headerKind, snapshot)
@@ -224,6 +259,87 @@ private fun VolumeHeader(
                 pointingDown = !snapshot.expanded,
                 color = VolumeHudSpec.PrimaryText,
                 sizeDp = VolumeHudSpec.CHEVRON_HEADER_SIZE_DP,
+            )
+        }
+    }
+}
+
+/**
+ * WP8.1 Universal Volume Control body: prev / play-pause / next + track identity.
+ */
+@Composable
+private fun MusicTransportBody(
+    transport: VolumeMediaTransport,
+    onPlayPause: () -> Unit,
+    onSkipNext: () -> Unit,
+    onSkipPrevious: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(VolumeHudSpec.MUSIC_TRANSPORT_ROW_HEIGHT_DP.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MetroMediaTransportButton(
+                type = MetroSystemIconType.Previous,
+                onClick = onSkipPrevious,
+                contentDescription = "Previous",
+                buttonSize = VolumeHudSpec.MUSIC_TRANSPORT_BUTTON_DP.dp,
+                color = VolumeHudSpec.PrimaryText,
+                enabled = transport.canSkipPrevious,
+                modifier = Modifier.padding(end = 20.dp),
+            )
+            MetroMediaTransportButton(
+                type = if (transport.isPlaying) MetroSystemIconType.Pause else MetroSystemIconType.Play,
+                onClick = onPlayPause,
+                contentDescription = if (transport.isPlaying) "Pause" else "Play",
+                buttonSize = VolumeHudSpec.MUSIC_TRANSPORT_BUTTON_DP.dp,
+                color = VolumeHudSpec.PrimaryText,
+                enabled = transport.canPlayPause,
+                modifier = Modifier.padding(end = 20.dp),
+            )
+            MetroMediaTransportButton(
+                type = MetroSystemIconType.Next,
+                onClick = onSkipNext,
+                contentDescription = "Next",
+                buttonSize = VolumeHudSpec.MUSIC_TRANSPORT_BUTTON_DP.dp,
+                color = VolumeHudSpec.PrimaryText,
+                enabled = transport.canSkipNext,
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(VolumeHudSpec.MUSIC_METADATA_HEIGHT_DP.dp),
+            verticalArrangement = Arrangement.Top,
+        ) {
+            BasicText(
+                text = transport.title.orEmpty().ifBlank { " " },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = TextStyle(
+                    fontFamily = MetroFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    lineHeight = 22.sp,
+                    color = VolumeHudSpec.PrimaryText,
+                ),
+            )
+            BasicText(
+                text = transport.artist.orEmpty(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp),
+                style = TextStyle(
+                    fontFamily = MetroFontFamily,
+                    fontWeight = FontWeight.Light,
+                    fontSize = 18.sp,
+                    lineHeight = 22.sp,
+                    color = VolumeHudSpec.PrimaryText,
+                ),
             )
         }
     }
@@ -452,11 +568,13 @@ private fun SoundSettingsAction(onClick: () -> Unit) {
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MetroSystemIcon(
-            type = MetroSystemIconType.Settings,
-            iconSize = VolumeHudSpec.ACTION_ICON_SIZE_DP.dp,
-            color = VolumeHudSpec.PrimaryText,
-            showCircle = false,
+        // Suite Settings cog is adaptive-icon padded (~0.70); enlarge so teeth match
+        // the silent-mode glyph's visual weight at ACTION_ICON_SIZE_DP.
+        Image(
+            painter = painterResource(MetroAppGlyphs.Settings),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(VolumeHudSpec.PrimaryText),
+            modifier = Modifier.size((VolumeHudSpec.ACTION_ICON_SIZE_DP / 0.70f).dp),
         )
         ActionLabelText(
             text = "SOUND SETTINGS",

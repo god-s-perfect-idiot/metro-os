@@ -2,9 +2,10 @@
 <resources>
     <string name="app_name">Volume</string>
     <string name="setup_title">controls</string>
-    <string name="setup_body">Grant overlay and enable the Volume accessibility service so hardware volume keys show the WP8.1 volume HUD instead of Android\'s stock panel.</string>
+    <string name="setup_body">Grant overlay and enable the Volume accessibility service so hardware volume keys show the WP8.1 volume HUD instead of Android\'s stock panel. Notification access unlocks music transport for third-party players; Metro Music works without it.</string>
     <string name="grant_overlay">grant overlay permission</string>
     <string name="enable_accessibility">enable accessibility</string>
+    <string name="enable_notification_access">enable notification access</string>
     <string name="show_volume_hud">Show volume controls</string>
     <string name="show_volume_hud_hint">Grant overlay permission and enable the accessibility service first.</string>
     <string name="setup_ready">Ready. Press Volume Up or Down to show the Metro volume controls.</string>

@@ -224,6 +224,9 @@ class VolumeOverlayService :
                     onToggleMediaMute = { controller.toggleMediaMute() },
                     onToggleSilentMode = { controller.toggleSilentMode() },
                     onOpenSoundSettings = { controller.openSoundSettings() },
+                    onPlayPause = { controller.togglePlayPause() },
+                    onSkipNext = { controller.skipToNext() },
+                    onSkipPrevious = { controller.skipToPrevious() },
                     onWindowHeightDp = { heightDp ->
                         // Compose is on the main thread — update synchronously so the
                         // overlay grows before the wipe starts (handler.post races).

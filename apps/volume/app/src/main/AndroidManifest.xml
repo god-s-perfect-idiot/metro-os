@@ -7,6 +7,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <queries>
+        <package android:name="com.metro.music" />
+        <intent>
+            <action android:name="androidx.media3.session.MediaSessionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -44,6 +51,15 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/volume_accessibility_service" />
+        </service>
+
+        <service
+            android:name=".VolumeMediaNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
 
         <receiver

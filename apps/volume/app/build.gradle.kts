@@ -55,6 +55,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-service:2.8.7")
     implementation("androidx.savedstate:savedstate:1.2.1")
+    // Suite Music Media3 session (UVC without notification-listener grant).
+    implementation("androidx.media3:media3-session:1.4.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

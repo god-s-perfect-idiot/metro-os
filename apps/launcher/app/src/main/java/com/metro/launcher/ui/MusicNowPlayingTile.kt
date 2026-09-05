@@ -34,8 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.MusicNowPlayingInfo
 import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileSize
-import com.metro.ui.MetroMediaGlyph
 import com.metro.ui.MetroMediaTransportButton
+import com.metro.ui.MetroSystemIconType
 import java.io.File
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -95,7 +95,7 @@ private fun MusicSmallNowPlayingFace(
         AlbumArtBackground(albumArtUri = info.albumArtUri, contentDescription = info.title)
         ScrimOverlay(alpha = 0.35f)
         MetroMediaTransportButton(
-            glyph = if (info.isPlaying) MetroMediaGlyph.Pause else MetroMediaGlyph.Play,
+            type = if (info.isPlaying) MetroSystemIconType.Pause else MetroSystemIconType.Play,
             onClick = { MusicNowPlayingStore.togglePlayPause(info.packageName) },
             contentDescription = if (info.isPlaying) "Pause" else "Play",
             buttonSize = TileTransportSmall,
@@ -244,7 +244,7 @@ private fun MusicTransportRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MetroMediaTransportButton(
-            glyph = MetroMediaGlyph.Previous,
+            type = MetroSystemIconType.Previous,
             onClick = { MusicNowPlayingStore.skipToPrevious(info.packageName) },
             contentDescription = "Previous",
             buttonSize = buttonSize,
@@ -252,7 +252,7 @@ private fun MusicTransportRow(
             enabled = info.canSkipPrevious,
         )
         MetroMediaTransportButton(
-            glyph = if (info.isPlaying) MetroMediaGlyph.Pause else MetroMediaGlyph.Play,
+            type = if (info.isPlaying) MetroSystemIconType.Pause else MetroSystemIconType.Play,
             onClick = { MusicNowPlayingStore.togglePlayPause(info.packageName) },
             contentDescription = if (info.isPlaying) "Pause" else "Play",
             buttonSize = buttonSize,
@@ -260,7 +260,7 @@ private fun MusicTransportRow(
             enabled = info.canPlayPause,
         )
         MetroMediaTransportButton(
-            glyph = MetroMediaGlyph.Next,
+            type = MetroSystemIconType.Next,
             onClick = { MusicNowPlayingStore.skipToNext(info.packageName) },
             contentDescription = "Next",
             buttonSize = buttonSize,

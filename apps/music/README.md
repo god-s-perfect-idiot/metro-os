@@ -114,7 +114,7 @@ cd apps/music
 | SD Card as distinct Showing filter | Scoped storage | Fold into “on this device” |
 | System media volume HUD | Owned by `com.metro.volume` | Do not draw a second volume chrome |
 | Perfect Live Tile flips | Launcher owns tiles | Optional now-playing metadata broadcast later |
-| Direct stream URLs for a streamed track | Innertube refuses YouTube Music art tracks to a player client with no visitor identity, and `googlevideo` rate limits unbounded reads and 403s range-less requests | Player walks ANDROID_VR → IOS → WEB_REMIX carrying a cached `visitorData`, and `ChunkedDataSource` reads in bounded 512 KiB ranges. See `references/known-gaps.md` for the measured client matrix |
+| Direct stream URLs for a streamed track | GVS PO token: catalog art-track URLs 403 past ~1 MiB without `pot=` | BotGuard streaming pot (`YtPoTokenSession`) appended as `pot=`; Innertube IOS/VR/WEB with Range probe; progressive fallback. See `references/known-gaps.md` |
 
 ## Agent postmortem
 

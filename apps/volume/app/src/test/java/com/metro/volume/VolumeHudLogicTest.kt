@@ -98,6 +98,76 @@ class VolumeHudLogicTest {
     }
 
     @Test
+    fun shouldShowMusicTransport_whenSessionActiveAndCollapsed() {
+        val transport = VolumeMediaTransport(
+            packageName = "com.metro.music",
+            title = "Bad Guy",
+            artist = "Eminem",
+            isPlaying = true,
+            canPlayPause = true,
+            canSkipNext = true,
+            canSkipPrevious = true,
+        )
+        assertTrue(
+            VolumeHudLogic.shouldShowMusicTransport(
+                inCall = false,
+                expanded = false,
+                mediaTransport = transport,
+            ),
+        )
+        assertFalse(
+            VolumeHudLogic.shouldShowMusicTransport(
+                inCall = true,
+                expanded = false,
+                mediaTransport = transport,
+            ),
+        )
+        assertFalse(
+            VolumeHudLogic.shouldShowMusicTransport(
+                inCall = false,
+                expanded = true,
+                mediaTransport = transport,
+            ),
+        )
+        assertFalse(
+            VolumeHudLogic.shouldShowMusicTransport(
+                inCall = false,
+                expanded = false,
+                mediaTransport = null,
+            ),
+        )
+    }
+
+    @Test
+    fun musicTransportPanelHeight_isDefaultWhenSessionActive() {
+        assertEquals(168, VolumeHudSpec.MUSIC_TRANSPORT_HEIGHT_DP)
+        assertEquals(
+            VolumeHudSpec.MUSIC_TRANSPORT_HEIGHT_DP,
+            VolumeHudSpec.panelHeightDp(
+                expanded = false,
+                inCall = false,
+                musicTransport = true,
+            ),
+        )
+        assertEquals(
+            VolumeHudSpec.COLLAPSED_HEIGHT_DP,
+            VolumeHudSpec.panelHeightDp(
+                expanded = false,
+                inCall = false,
+                musicTransport = false,
+            ),
+        )
+        assertEquals(
+            VolumeHudSpec.EXPANDED_HEIGHT_DP,
+            VolumeHudSpec.panelHeightDp(
+                expanded = true,
+                inCall = false,
+                musicTransport = true,
+            ),
+        )
+    }
+
+    @Test
     fun formatLevel_zeroPads() {
         assertEquals("00", VolumeHudLogic.formatLevelDigits(0))
         assertEquals("07", VolumeHudLogic.formatLevelDigits(7))

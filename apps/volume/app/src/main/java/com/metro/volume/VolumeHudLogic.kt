@@ -62,6 +62,16 @@ object VolumeHudLogic {
         else -> VolumeStreamKind.Ringer
     }
 
+    /**
+     * Whether the collapsed HUD should use the music-transport chrome (UVC) instead of
+     * the thin volume strip. Requires an active session snapshot and no in-call mode.
+     */
+    fun shouldShowMusicTransport(
+        inCall: Boolean,
+        expanded: Boolean,
+        mediaTransport: VolumeMediaTransport?,
+    ): Boolean = !inCall && !expanded && mediaTransport != null
+
     fun formatLevelDigits(level: Int): String = "%02d".format(level.coerceAtLeast(0))
 
     fun formatMaxSuffix(wpMax: Int): String = "/$wpMax"
