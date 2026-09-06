@@ -34,6 +34,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.metro.statusbar.ui.StatusTray
+import com.metro.system.MetroPreferences
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroTheme
 import java.time.ZonedDateTime
@@ -109,6 +110,12 @@ class StatusBarOverlayService :
                 trayState.applyVisibilityMode(
                     TrayVisibilityMode.fromContract(intent.getStringExtra(MetroStatusBar.EXTRA_VISIBILITY_MODE)),
                 )
+            MetroStatusBar.ACTION_SET_SHELL_FILL -> {
+                val owner = intent.getStringExtra(MetroStatusBar.EXTRA_SHELL_FILL_OWNER)
+                val hex = intent.getStringExtra(MetroStatusBar.EXTRA_SHELL_FILL_COLOR)
+                val color = hex?.let { MetroPreferences.parseAccentHex(it) }
+                trayState.applyShellFill(owner, color)
+            }
         }
         return START_STICKY
     }

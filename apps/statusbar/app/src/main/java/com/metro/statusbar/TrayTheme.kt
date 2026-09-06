@@ -26,22 +26,29 @@ object TrayThemeResolver {
          * page fill ([MetroColors.background]) — black in dark theme, white in light.
          */
         metroSuiteForeground: Boolean = false,
+        /**
+         * Temporary fill from a top shell overlay (toast accent / volume charcoal). Wins over
+         * theme and match-app background so the tray and overlay read as one band.
+         */
+        shellFillColor: Color? = null,
     ): TrayThemeSnapshot {
         val darkTheme = preferences.isDark
         val themeBackground = MetroColors.background(darkTheme)
-        val baseBackground = when {
+        val matchedBackground = when {
             metroSuiteForeground -> themeBackground
             matchAppBackground && appBackgroundColor != null -> appBackgroundColor
             else -> themeBackground
         }
+        val baseBackground = shellFillColor ?: matchedBackground
         val backgroundColor = when (visibilityMode) {
             TrayVisibilityMode.Opaque -> baseBackground
             TrayVisibilityMode.Translucent -> baseBackground.copy(alpha = 0.5f)
             TrayVisibilityMode.Hidden -> Color.Transparent
         }
         val foregroundColor = when {
+            shellFillColor != null -> foregroundForBackground(baseBackground)
             metroSuiteForeground -> MetroColors.primaryText(darkTheme)
-            matchAppBackground && appBackgroundColor != null -> foregroundForBackground(baseBackground)
+            matchAppBackground && appBackgroundColor != null -> foregroundForBackground(matchedBackground)
             else -> MetroColors.primaryText(darkTheme)
         }
         return TrayThemeSnapshot(

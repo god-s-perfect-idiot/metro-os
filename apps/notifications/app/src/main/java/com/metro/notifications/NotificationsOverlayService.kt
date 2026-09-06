@@ -4,13 +4,16 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
@@ -35,8 +38,11 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.metro.notifications.ui.ToastBanner
+import com.metro.system.MetroBroadcasts
+import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStatusBar
+import com.metro.system.MetroThemeMode
 import com.metro.ui.MetroTheme
 import kotlin.math.roundToInt
 
@@ -71,6 +77,11 @@ class NotificationsOverlayService :
 
     private val handler = Handler(Looper.getMainLooper())
     private val toastedKeys = mutableSetOf<String>()
+    private val toastedContent = mutableMapOf<String, String>()
+    /** groupKey → elapsedRealtime of last toast for that Android notification group. */
+    private val recentGroupToastAt = mutableMapOf<String, Long>()
+    /** groupKey → content signature of the last toast for that group (burst dedupe). */
+    private val recentGroupContent = mutableMapOf<String, String>()
     private val rehostLock = Any()
 
     var toast by mutableStateOf<ToastSnapshot?>(null)
@@ -85,16 +96,47 @@ class NotificationsOverlayService :
         dismissToast()
     }
 
+    private var themeReceiverRegistered = false
+    private val themeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != MetroBroadcasts.ACTION_THEME_CHANGED) return
+            applyThemeBroadcast(intent)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         startForeground(NOTIFICATION_ID, buildNotification())
+        registerThemeReceiver()
         refreshTheme()
         HeadsUpController.disableStockHeadsUp(this)
+        // Listener may already be connected with shade leftovers — mark them seen so starting
+        // the overlay does not replay past toasts.
+        val (keys, groups) = ActionNotificationListenerService.activeSeenSnapshot()
+        seedSeenLocked(keys, groups)
+        drainPendingSeenLocked()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+    }
+
+    private fun seedSeenLocked(keys: Collection<String>, groupKeys: Collection<String>) {
+        toastedKeys += keys
+        val now = SystemClock.elapsedRealtime()
+        for (group in groupKeys) {
+            recentGroupToastAt[group] = now
+        }
+    }
+
+    private fun drainPendingSeenLocked() {
+        synchronized(pendingSeenLock) {
+            if (pendingSeenKeys.isEmpty() && pendingSeenGroups.isEmpty()) return
+            seedSeenLocked(pendingSeenKeys.toList(), pendingSeenGroups.toList())
+            pendingSeenKeys.clear()
+            pendingSeenGroups.clear()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -110,6 +152,8 @@ class NotificationsOverlayService :
         handler.removeCallbacks(toastTimeout)
         handler.removeCallbacksAndMessages(null)
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        unregisterThemeReceiver()
+        clearTrayShellFill()
         removeOverlay()
         HeadsUpController.restoreStockHeadsUp(this)
         viewModelStore.clear()
@@ -117,6 +161,54 @@ class NotificationsOverlayService :
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun registerThemeReceiver() {
+        if (themeReceiverRegistered) return
+        val filter = IntentFilter(MetroBroadcasts.ACTION_THEME_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(themeReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(themeReceiver, filter)
+        }
+        themeReceiverRegistered = true
+    }
+
+    private fun unregisterThemeReceiver() {
+        if (!themeReceiverRegistered) return
+        runCatching { unregisterReceiver(themeReceiver) }
+        themeReceiverRegistered = false
+    }
+
+    /**
+     * Prefer broadcast extras (same as [com.metro.ui.MetroSystemTheme]) so accent updates
+     * without racing a still-waking Settings ContentProvider.
+     */
+    private fun applyThemeBroadcast(intent: Intent) {
+        val prefs = MetroPreferences(this)
+        val modeExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_THEME_MODE)
+        val accentExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR)
+        val fontExtra = if (intent.hasExtra(MetroBroadcasts.EXTRA_FONT_SCALE)) {
+            intent.getFloatExtra(MetroBroadcasts.EXTRA_FONT_SCALE, MetroFontScale.DEFAULT)
+        } else {
+            null
+        }
+        prefs.cacheThemeSnapshot(
+            themeMode = modeExtra?.let { MetroThemeMode.fromStorage(it) },
+            accentColorHex = accentExtra,
+            fontScale = fontExtra,
+        )
+        modeExtra?.let { darkTheme = MetroThemeMode.fromStorage(it) == MetroThemeMode.Dark }
+        accentExtra?.let { accent = MetroPreferences.parseAccentHex(it) }
+        if (modeExtra == null || accentExtra == null) {
+            prefs.pullThemeFromProvider()
+            if (modeExtra == null) darkTheme = prefs.isDark
+            if (accentExtra == null) accent = prefs.accentColor
+        }
+        if (toast != null) {
+            requestTrayShellFill()
+        }
+    }
 
     private fun refreshTheme() {
         val prefs = MetroPreferences(this)
@@ -126,10 +218,13 @@ class NotificationsOverlayService :
     }
 
     private fun showToast(snapshot: ToastSnapshot) {
+        // Pick up any accent missed while the toast window was torn down.
+        refreshTheme()
         toastExiting = false
         toast = snapshot
         handler.removeCallbacks(toastTimeout)
         handler.postDelayed(toastTimeout, NotificationsPreferences(this).toastDurationMs)
+        requestTrayShellFill()
         ensureOverlayShowing()
     }
 
@@ -163,7 +258,21 @@ class NotificationsOverlayService :
         if (!toastExiting) return
         toastExiting = false
         toast = null
+        clearTrayShellFill()
         removeOverlay()
+    }
+
+    /** Match the Metro tray fill to the toast accent so the strip and banner read as one band. */
+    private fun requestTrayShellFill() {
+        MetroStatusBar.requestShellFill(
+            this,
+            MetroStatusBar.OWNER_NOTIFICATIONS,
+            MetroPreferences(this).accentColorHex,
+        )
+    }
+
+    private fun clearTrayShellFill() {
+        MetroStatusBar.requestShellFill(this, MetroStatusBar.OWNER_NOTIFICATIONS, null)
     }
 
     private fun ensureOverlayShowing() {
@@ -343,6 +452,15 @@ class NotificationsOverlayService :
         private const val NOTIFICATION_ID = 1008
         private const val ACTION_REFRESH = "com.metro.notifications.action.REFRESH"
         private const val ACTION_SHOW_TEST = "com.metro.notifications.action.SHOW_TEST"
+        /**
+         * Child + summary often post in the same burst. Identical copy inside this window is
+         * suppressed; newer copy replaces the visible toast so group peeks stay realtime.
+         */
+        private const val GROUP_DEBOUNCE_MS = 750L
+
+        private val pendingSeenLock = Any()
+        private val pendingSeenKeys = mutableSetOf<String>()
+        private val pendingSeenGroups = mutableSetOf<String>()
 
         @Volatile
         private var instance: NotificationsOverlayService? = null
@@ -389,7 +507,7 @@ class NotificationsOverlayService :
         }
 
         fun requestRefresh(context: Context) {
-            if (!NotificationsPreferences(context).enabled) return
+            if (!NotificationsPreferences(context).enabled || instance == null) return
             val intent = Intent(context, NotificationsOverlayService::class.java).apply {
                 action = ACTION_REFRESH
             }
@@ -412,34 +530,82 @@ class NotificationsOverlayService :
             }
         }
 
+        /**
+         * Mark shade notifications as already-seen without raising a toast.
+         * Used when the listener connects (Android re-delivers every active notification).
+         */
+        fun seedSeenNotifications(keys: Collection<String>, groupKeys: Collection<String>) {
+            val svc = instance
+            if (svc == null) {
+                synchronized(pendingSeenLock) {
+                    pendingSeenKeys += keys
+                    pendingSeenGroups += groupKeys
+                }
+                return
+            }
+            svc.handler.post {
+                svc.seedSeenLocked(keys, groupKeys)
+            }
+        }
+
         fun considerToast(
             packageName: String,
             key: String,
+            groupKey: String?,
             flags: Int,
             importance: Int,
             matchesInterruptionFilter: Boolean,
             screenInteractive: Boolean,
-            isGroupSummary: Boolean,
             isActiveCall: Boolean,
             onlyAlertOnce: Boolean,
             title: String,
             body: String?,
+            contentSignature: String,
         ) {
             val svc = instance ?: return
             svc.handler.post {
+                svc.drainPendingSeenLocked()
+                val previousSignature = svc.toastedContent[key]
                 val already = key in svc.toastedKeys
+                // Seeded keys have no signature yet — treat reconnect dumps as unchanged.
+                val contentChanged =
+                    previousSignature != null && previousSignature != contentSignature
+                val alreadySeenWithoutAlert = already && !contentChanged
+                val onlyAlertOnceAlreadyShown = already && onlyAlertOnce && !contentChanged
+                val groupDup = groupKey?.let { gk ->
+                    val at = svc.recentGroupToastAt[gk] ?: return@let false
+                    val recent = SystemClock.elapsedRealtime() - at < GROUP_DEBOUNCE_MS
+                    recent && svc.recentGroupContent[gk] == contentSignature
+                } == true
+                // Identical copy in the same group burst (child + summary twin) — skip.
+                if (groupDup) return@post
+
                 val show = ToastDecision.shouldShow(
                     packageName = packageName,
                     flags = flags,
                     importance = importance,
                     matchesInterruptionFilter = matchesInterruptionFilter,
                     screenInteractive = screenInteractive,
-                    isGroupSummary = isGroupSummary,
                     isActiveCall = isActiveCall,
-                    onlyAlertOnceAlreadyShown = already && onlyAlertOnce,
+                    onlyAlertOnceAlreadyShown = onlyAlertOnceAlreadyShown,
+                    alreadySeenWithoutAlert = alreadySeenWithoutAlert,
                 )
-                if (!show) return@post
+                if (!show) {
+                    // Remember shade refreshes so reconnect / ranking churn stays quiet.
+                    if (already || importance >= NotificationManager.IMPORTANCE_DEFAULT) {
+                        svc.toastedKeys += key
+                        if (contentChanged || key !in svc.toastedContent) {
+                            svc.toastedContent[key] = contentSignature
+                        }
+                    }
+                    return@post
+                }
                 svc.toastedKeys += key
+                svc.toastedContent[key] = contentSignature
+                if (groupKey != null) {
+                    svc.recentGroupToastAt[groupKey] = SystemClock.elapsedRealtime()
+                    svc.recentGroupContent[groupKey] = contentSignature
+                }
                 val resolvedTitle = title.ifEmpty { body.orEmpty() }.ifEmpty { packageName }
                 svc.showToast(
                     ToastSnapshot(
@@ -452,9 +618,14 @@ class NotificationsOverlayService :
             }
         }
 
-        fun onNotificationRemoved(key: String) {
+        fun onNotificationRemoved(key: String, groupKey: String?) {
             instance?.handler?.post {
                 instance?.toastedKeys?.remove(key)
+                instance?.toastedContent?.remove(key)
+                groupKey?.let { gk ->
+                    instance?.recentGroupToastAt?.remove(gk)
+                    instance?.recentGroupContent?.remove(gk)
+                }
                 if (instance?.toast?.key == key) {
                     instance?.dismissToast()
                 }

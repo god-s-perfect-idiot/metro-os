@@ -79,6 +79,38 @@ class TrayThemeResolverTest {
     }
 
     @Test
+    fun resolve_shellFill_overridesThemeAndMatchApp() {
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            matchAppBackground = true,
+            appBackgroundColor = Color(0xFFF2F2F2),
+            shellFillColor = Color(0xFF1BA1E2),
+        )
+        assertEquals(Color(0xFF1BA1E2), snapshot.backgroundColor)
+        assertEquals(Color.White, snapshot.foregroundColor)
+    }
+
+    @Test
+    fun resolve_shellFill_lightAccent_usesDarkGlyphs() {
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            shellFillColor = Color(0xFFF2F2F2),
+        )
+        assertEquals(Color(0xFFF2F2F2), snapshot.backgroundColor)
+        assertEquals(Color.Black, snapshot.foregroundColor)
+    }
+
+    @Test
+    fun resolve_shellFill_hidden_staysTransparent() {
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            visibilityMode = TrayVisibilityMode.Hidden,
+            shellFillColor = Color(0xFF252525),
+        )
+        assertEquals(Color.Transparent, snapshot.backgroundColor)
+    }
+
+    @Test
     fun foregroundForBackground_threshold() {
         assertEquals(Color.Black, TrayThemeResolver.foregroundForBackground(Color.White))
         assertEquals(Color.White, TrayThemeResolver.foregroundForBackground(Color.Black))

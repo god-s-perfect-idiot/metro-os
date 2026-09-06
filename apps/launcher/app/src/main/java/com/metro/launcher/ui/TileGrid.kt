@@ -73,6 +73,7 @@ import androidx.compose.ui.zIndex
 import kotlin.math.roundToInt
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.GridPlacement
+import com.metro.launcher.data.TilePeekLines
 import com.metro.launcher.data.TilePlacementKey
 import com.metro.launcher.data.compactPlacementRows
 import com.metro.launcher.data.placeTileAt
@@ -1319,12 +1320,31 @@ private fun LauncherTileCell(
                 }
                 val isWide = tile.entry.size == PinnedTileSize.FourByTwo
                 if (canFlip) {
+                    val peekFaces = remember(tile.backFaces, tile.backFaceTitle, tile.backFaceSubtitle, tile.backFaceBody) {
+                        when {
+                            tile.backFaces.isNotEmpty() -> tile.backFaces
+                            else -> listOfNotNull(
+                                TilePeekLines(
+                                    title = tile.backFaceTitle,
+                                    subtitle = tile.backFaceSubtitle,
+                                    body = tile.backFaceBody,
+                                ).normalizedForFlip().takeIf { it.hasContent },
+                            )
+                        }
+                    }
+                    var peekIndex by remember(peekFaces) { mutableIntStateOf(0) }
                     LiveTileFlipFace(
                         flipSeed = floatSeed,
                         faceColor = tile.backgroundColor,
                         startBackground = startBackground.takeIf { useWindowFill },
                         edgeToEdge = tile.flipToIcon,
                         enabled = liveMotionEnabled,
+                        backFaceCount = if (tile.flipToIcon) 1 else peekFaces.size.coerceAtLeast(1),
+                        onAdvanceBackFace = { next ->
+                            if (!tile.flipToIcon && peekFaces.isNotEmpty()) {
+                                peekIndex = next % peekFaces.size
+                            }
+                        },
                         front = wrappedFront,
                         back = {
                             if (tile.flipToIcon) {
@@ -1337,10 +1357,11 @@ private fun LauncherTileCell(
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
+                                val peek = peekFaces.getOrNull(peekIndex.coerceIn(0, (peekFaces.size - 1).coerceAtLeast(0)))
                                 NotificationPeekTileContent(
-                                    title = tile.backFaceTitle,
-                                    subtitle = tile.backFaceSubtitle,
-                                    body = tile.backFaceBody,
+                                    title = peek?.title ?: tile.backFaceTitle,
+                                    subtitle = peek?.subtitle ?: tile.backFaceSubtitle,
+                                    body = peek?.body ?: tile.backFaceBody,
                                     footer = tile.title,
                                     wide = isWide,
                                     contentColor = contentColor,
@@ -1984,6 +2005,10 @@ private fun NotificationPeekTileContent(
  * rotating face so the black tile slot behind it is revealed mid-flip. [flipSeed] drives a
  * per-tile random stagger so flips don't synchronize across the Start screen.
  *
+ * When multiple notification peeks are queued ([backFaceCount] > 1), each front→back flip
+ * shows the next peek in order (WP8.1 multi-notification cycle). [onAdvanceBackFace] is
+ * invoked after returning to the front so the next flip uses the following peek.
+ *
  * When [edgeToEdge] is true (contact photo ↔ icon), the front fills the tile; inset is applied
  * only on the back face so the icon/title layout matches a normal Start tile.
  */
@@ -1996,6 +2021,8 @@ private fun LiveTileFlipFace(
     badge: (@Composable BoxScope.(showingBack: Boolean) -> Unit)? = null,
     edgeToEdge: Boolean = false,
     enabled: Boolean = true,
+    backFaceCount: Int = 1,
+    onAdvanceBackFace: (nextIndex: Int) -> Unit = {},
     startBackground: StartBackgroundViewport? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -2003,11 +2030,14 @@ private fun LiveTileFlipFace(
     val density = LocalDensity.current.density
     val rotation = remember { Animatable(0f) }
     var showingBack by remember { mutableStateOf(false) }
+    var backIndex by remember(flipSeed, backFaceCount) { mutableIntStateOf(0) }
+    val onAdvanceState = rememberUpdatedState(onAdvanceBackFace)
 
-    LaunchedEffect(flipSeed, enabled) {
+    LaunchedEffect(flipSeed, enabled, backFaceCount) {
         if (!enabled) {
             rotation.snapTo(0f)
             showingBack = false
+            backIndex = 0
             return@LaunchedEffect
         }
         val rng = Random(flipSeed)
@@ -2022,6 +2052,11 @@ private fun LiveTileFlipFace(
                 showingBack = false
                 rotation.snapTo(90f)
                 rotation.animateTo(0f, animationSpec = TileFlipSettleAnimation)
+                // After each peek, advance so the next flip shows the following notification.
+                if (backFaceCount > 1) {
+                    backIndex = (backIndex + 1) % backFaceCount
+                    onAdvanceState.value(backIndex)
+                }
             } else {
                 rotation.animateTo(90f, animationSpec = TileFlipHalfAnimation)
                 showingBack = true

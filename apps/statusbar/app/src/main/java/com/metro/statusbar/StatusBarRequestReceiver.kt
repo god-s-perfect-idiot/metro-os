@@ -19,6 +19,7 @@ class StatusBarRequestReceiver : BroadcastReceiver() {
             MetroStatusBar.ACTION_EXPAND,
             MetroStatusBar.ACTION_SET_PROGRESS,
             MetroStatusBar.ACTION_SET_VISIBILITY,
+            MetroStatusBar.ACTION_SET_SHELL_FILL,
             -> StatusBarOverlayService.deliver(context, action, intent)
         }
     }

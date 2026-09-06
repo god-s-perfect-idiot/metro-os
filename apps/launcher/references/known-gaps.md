@@ -13,7 +13,7 @@ Blueprint: [`guides/blueprint.md`](guides/blueprint.md)
 | App list over-engineered | Simple alphabetical list per blueprint |
 | Navigation | Bottom-right → arrow opens app menu |
 | Live tile flip (600ms) | Notification / peek back faces flip with 600ms turnstile |
-| Notification → live tile | `TileNotificationListenerService` → badges + flip peeks |
+| Notification → live tile | `TileNotificationListenerService` → badges + flip peeks; multi-notif packages cycle peeks 1-by-1 |
 | Music now-playing live tile | `MusicNowPlayingStore` via MediaSession → album art + transport by size |
 | Notification progress → tile | `TileNotificationStore` maps progress extras + remaining-time copy onto a front-face bar |
 | Tile drag reorder | Long-press then drag: floating tile under thumb, magnet reflow, persist on drop |

@@ -8,8 +8,9 @@ import android.content.Intent
  *
  * The status bar is drawn in a separate overlay window pinned to the top edge, on top of the
  * foreground app, so apps do not receive it as a system window inset. Any app that wants to change
- * the tray (request progress, opacity, or hide it) must talk to the overlay through this contract —
- * never via a direct classpath dependency on the status bar app (scope.md § Inter-app communication).
+ * the tray (request progress, opacity, hide it, or temporary shell fill) must talk to the overlay
+ * through this contract — never via a direct classpath dependency on the status bar app
+ * (scope.md § Inter-app communication).
  *
  * Requests are delivered as broadcasts targeted at [PACKAGE] and handled by an exported receiver in
  * the status bar app, mirroring the navbar's [MetroBroadcasts.ACTION_NAVBAR_QUERY] pattern.
@@ -46,11 +47,35 @@ object MetroStatusBar {
      */
     const val ACTION_EXPAND = "com.metro.statusbar.action.EXPAND"
 
+    /**
+     * Temporarily tint the tray fill to match a top shell overlay (toast / volume) so the strip
+     * and banner read as one continuous band. Cleared when the overlay dismisses.
+     */
+    const val ACTION_SET_SHELL_FILL = "com.metro.statusbar.action.SET_SHELL_FILL"
+
     /** Boolean extra for [ACTION_SET_PROGRESS]. */
     const val EXTRA_PROGRESS = "progress"
 
     /** String extra (one of the MODE_* values) for [ACTION_SET_VISIBILITY]. */
     const val EXTRA_VISIBILITY_MODE = "visibility_mode"
+
+    /**
+     * Hex color (`#RRGGBB` or `#AARRGGBB`) for [ACTION_SET_SHELL_FILL]. Omit or pass null via
+     * [requestShellFill] to clear that owner's temporary fill.
+     */
+    const val EXTRA_SHELL_FILL_COLOR = "shell_fill_color"
+
+    /**
+     * Owner id for [ACTION_SET_SHELL_FILL] — each overlay clears only its own request.
+     * See [OWNER_NOTIFICATIONS] / [OWNER_VOLUME].
+     */
+    const val EXTRA_SHELL_FILL_OWNER = "shell_fill_owner"
+
+    /** [EXTRA_SHELL_FILL_OWNER] value used by `com.metro.notifications` toasts. */
+    const val OWNER_NOTIFICATIONS = "notifications"
+
+    /** [EXTRA_SHELL_FILL_OWNER] value used by `com.metro.volume` HUD. Outranks notifications. */
+    const val OWNER_VOLUME = "volume"
 
     /** Opaque theme-colored tray (WP8.1 default). */
     const val MODE_OPAQUE = "Opaque"
@@ -91,6 +116,19 @@ object MetroStatusBar {
     /** Ask the tray to reveal indicators (tap-equivalent; used when returning home). */
     fun requestExpand(context: Context) {
         context.sendBroadcast(request(ACTION_EXPAND))
+    }
+
+    /**
+     * Tint the tray fill to match a top shell overlay (toast accent, volume charcoal) so the
+     * strip reads as one continuous band. Pass [colorHex] null to clear that [owner]'s request.
+     * Volume outranks notifications when both are active.
+     */
+    fun requestShellFill(context: Context, owner: String, colorHex: String?) {
+        val intent = request(ACTION_SET_SHELL_FILL).putExtra(EXTRA_SHELL_FILL_OWNER, owner)
+        if (colorHex != null) {
+            intent.putExtra(EXTRA_SHELL_FILL_COLOR, colorHex)
+        }
+        context.sendBroadcast(intent)
     }
 
     private fun request(action: String): Intent =

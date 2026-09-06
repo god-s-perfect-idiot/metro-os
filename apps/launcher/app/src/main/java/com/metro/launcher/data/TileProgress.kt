@@ -159,11 +159,46 @@ internal fun elapsedCaptionFromTexts(texts: List<String>): String? {
     return "$elapsed completed"
 }
 
-internal data class TilePeekLines(
+/**
+ * One live-tile notification peek face (flip back). Apps with several active notifications
+ * supply a list of these; the Start tile cycles through them one flip at a time.
+ */
+data class TilePeekLines(
     val title: String?,
     val subtitle: String?,
     val body: String?,
-)
+) {
+    val hasContent: Boolean
+        get() = !title.isNullOrBlank() || !subtitle.isNullOrBlank() || !body.isNullOrBlank()
+
+    /**
+     * Promote subtitle/body into the title slot when the leading line is blank so the flip
+     * face always has a primary line (matches prior single-peek merge behavior).
+     */
+    fun normalizedForFlip(): TilePeekLines {
+        val t = title?.trim()?.takeIf { it.isNotEmpty() }
+        val s = subtitle?.trim()?.takeIf { it.isNotEmpty() }
+        val b = body?.trim()?.takeIf { it.isNotEmpty() }
+        return when {
+            t != null -> TilePeekLines(title = t, subtitle = s, body = b)
+            s != null -> TilePeekLines(title = s, subtitle = null, body = b)
+            b != null -> TilePeekLines(title = b, subtitle = null, body = null)
+            else -> TilePeekLines(title = null, subtitle = null, body = null)
+        }
+    }
+}
+
+/**
+ * Newest-first queue of distinct peek faces for one package's active notifications.
+ */
+internal fun buildNotificationPeekQueue(
+    items: List<Pair<Long, TilePeekLines>>,
+): List<TilePeekLines> =
+    items
+        .sortedByDescending { it.first }
+        .map { it.second.normalizedForFlip() }
+        .filter { it.hasContent }
+        .distinct()
 
 /**
  * Map custom RemoteViews text rows onto a peek face.

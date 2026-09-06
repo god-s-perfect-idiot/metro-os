@@ -71,7 +71,8 @@ fun ToastBanner(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val iconAsset = remember(toast.packageName) {
+    // Accent is a remember key so Metro suite icon fills re-resolve when theme changes.
+    val iconAsset = remember(toast.packageName, accent) {
         MetroAppBranding.loadAppIconAsset(context, toast.packageName)
     }
     var dragPx by remember(toast.key) { mutableFloatStateOf(0f) }

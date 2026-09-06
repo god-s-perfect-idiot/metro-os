@@ -17,9 +17,9 @@ class ToastDecisionTest {
                 importance = NotificationManager.IMPORTANCE_HIGH,
                 matchesInterruptionFilter = true,
                 screenInteractive = true,
-                isGroupSummary = false,
                 isActiveCall = false,
                 onlyAlertOnceAlreadyShown = false,
+                alreadySeenWithoutAlert = false,
             ),
         )
     }
@@ -33,9 +33,9 @@ class ToastDecisionTest {
                 importance = NotificationManager.IMPORTANCE_DEFAULT,
                 matchesInterruptionFilter = true,
                 screenInteractive = true,
-                isGroupSummary = false,
                 isActiveCall = false,
                 onlyAlertOnceAlreadyShown = false,
+                alreadySeenWithoutAlert = false,
             ),
         )
     }
@@ -49,9 +49,9 @@ class ToastDecisionTest {
                 importance = NotificationManager.IMPORTANCE_HIGH,
                 matchesInterruptionFilter = true,
                 screenInteractive = false,
-                isGroupSummary = false,
                 isActiveCall = false,
                 onlyAlertOnceAlreadyShown = false,
+                alreadySeenWithoutAlert = false,
             ),
         )
     }
@@ -65,9 +65,9 @@ class ToastDecisionTest {
                 importance = NotificationManager.IMPORTANCE_HIGH,
                 matchesInterruptionFilter = true,
                 screenInteractive = true,
-                isGroupSummary = false,
                 isActiveCall = false,
                 onlyAlertOnceAlreadyShown = false,
+                alreadySeenWithoutAlert = false,
             ),
         )
         assertFalse(
@@ -77,9 +77,42 @@ class ToastDecisionTest {
                 importance = NotificationManager.IMPORTANCE_HIGH,
                 matchesInterruptionFilter = true,
                 screenInteractive = true,
-                isGroupSummary = false,
                 isActiveCall = false,
                 onlyAlertOnceAlreadyShown = false,
+                alreadySeenWithoutAlert = false,
+            ),
+        )
+    }
+
+    @Test
+    fun alreadySeenWithoutAlert_suppressesReplay() {
+        assertFalse(
+            ToastDecision.shouldShow(
+                packageName = "com.example.mail",
+                flags = 0,
+                importance = NotificationManager.IMPORTANCE_HIGH,
+                matchesInterruptionFilter = true,
+                screenInteractive = true,
+                isActiveCall = false,
+                onlyAlertOnceAlreadyShown = false,
+                alreadySeenWithoutAlert = true,
+            ),
+        )
+    }
+
+    @Test
+    fun groupSummary_canToast_whenHighImportance() {
+        // Summaries often carry the only HIGH alert for a group — do not blanket-reject.
+        assertTrue(
+            ToastDecision.shouldShow(
+                packageName = "com.example.mail",
+                flags = Notification.FLAG_GROUP_SUMMARY,
+                importance = NotificationManager.IMPORTANCE_HIGH,
+                matchesInterruptionFilter = true,
+                screenInteractive = true,
+                isActiveCall = false,
+                onlyAlertOnceAlreadyShown = false,
+                alreadySeenWithoutAlert = false,
             ),
         )
     }

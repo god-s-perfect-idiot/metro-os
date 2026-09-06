@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
                     )
                     MetroText(
                         text = stringResource(R.string.setup_body),
-                        style = MetroTextStyle.DialogBody,
+                        style = MetroTextStyle.Body,
                         modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
                     )
                     MetroBorderButton(
@@ -127,7 +127,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
+                        fontSize = 18.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
+                        fontSize = 18.sp,
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     MetroBorderButton(
@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
+                        fontSize = 18.sp,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     MetroToggleSwitch(
@@ -158,7 +158,7 @@ class MainActivity : ComponentActivity() {
                         },
                         enabled = canToggle || enabled,
                         label = stringResource(R.string.show_notifications),
-                        labelStyle = MetroTextStyle.DialogBody,
+                        labelStyle = MetroTextStyle.Body,
                         statusStyle = MetroTextStyle.Body,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -167,7 +167,7 @@ class MainActivity : ComponentActivity() {
                     if (!canToggle && !enabled) {
                         MetroText(
                             text = stringResource(R.string.show_notifications_hint),
-                            style = MetroTextStyle.DialogBody,
+                            style = MetroTextStyle.Body,
                             color = MetroTheme.colors.secondaryText,
                             modifier = Modifier
                                 .padding(horizontal = 12.dp)
@@ -196,8 +196,8 @@ class MainActivity : ComponentActivity() {
                             toastDurationMs = notifPrefs.toastDurationMs
                         },
                         label = stringResource(R.string.toast_timeout),
-                        labelStyle = MetroTextStyle.DialogBody,
-                        optionStyle = MetroTextStyle.DialogBody,
+                        labelStyle = MetroTextStyle.Body,
+                        optionStyle = MetroTextStyle.Body,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
@@ -208,7 +208,7 @@ class MainActivity : ComponentActivity() {
                         enabled = enabled && canToggle,
                         onClick = { NotificationsOverlayService.showTestToast(context) },
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
+                        fontSize = 18.sp,
                     )
                 }
                 }

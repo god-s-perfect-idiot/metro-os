@@ -36,6 +36,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.metro.system.MetroStatusBar
 import com.metro.volume.ui.VolumeHud
 
 /**
@@ -124,6 +125,7 @@ class VolumeOverlayService :
         handler.removeCallbacksAndMessages(null)
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         unregisterScreenOffReceiver()
+        clearTrayShellFill()
         removeOverlay()
         runCatching { controller.unregister() }
         viewModelStore.clear()
@@ -254,6 +256,7 @@ class VolumeOverlayService :
             overlayManager = manager
             currentWindowType = windowType
             hostContext = host
+            requestTrayShellFill()
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to attach volume overlay", t)
             runCatching { manager.removeView(composeView) }
@@ -263,6 +266,7 @@ class VolumeOverlayService :
             hostContext = null
             overlayHeightPx = 0
             topInsetPx = 0
+            clearTrayShellFill()
         }
     }
 
@@ -281,10 +285,24 @@ class VolumeOverlayService :
         hostContext = null
         overlayHeightPx = 0
         topInsetPx = 0
+        clearTrayShellFill()
         if (view != null && manager != null) {
             runCatching { manager.removeView(view) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
         }
+    }
+
+    /** Match the Metro tray fill to the charcoal HUD so the strip and panel read as one band. */
+    private fun requestTrayShellFill() {
+        MetroStatusBar.requestShellFill(
+            this,
+            MetroStatusBar.OWNER_VOLUME,
+            VolumeHudSpec.PANEL_BACKGROUND_HEX,
+        )
+    }
+
+    private fun clearTrayShellFill() {
+        MetroStatusBar.requestShellFill(this, MetroStatusBar.OWNER_VOLUME, null)
     }
 
     /**

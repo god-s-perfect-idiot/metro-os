@@ -70,41 +70,24 @@ object TileNotificationStore {
         val counter = when {
             providerCounter != null && providerCounter > 0 -> providerCounter
             // Ongoing progress (charging / download) is not an unread count.
-            progress != null && (info.count <= 0) -> null
+            progress != null && (info?.count ?: 0) <= 0 -> null
             info != null && info.count > 0 -> info.count
             else -> null
         }
-        val backFaceTitle = when {
-            !providerBackFaceTitle.isNullOrBlank() -> providerBackFaceTitle
-            hasRichFrontFace -> null
-            info?.hasPeek == true -> info.peekTitle?.takeIf { it.isNotBlank() }
-                ?: info.peekSubtitle
-                ?: info.peekBody
-            else -> null
+        val backFaces = when {
+            !providerBackFaceTitle.isNullOrBlank() ->
+                listOf(TilePeekLines(providerBackFaceTitle, null, null))
+            hasRichFrontFace -> emptyList()
+            else -> info?.peekQueue.orEmpty()
         }
-        val backFaceSubtitle = when {
-            !providerBackFaceTitle.isNullOrBlank() -> null
-            hasRichFrontFace -> null
-            info?.hasPeek == true && !info.peekTitle.isNullOrBlank() ->
-                info.peekSubtitle?.takeIf { it.isNotBlank() }
-            else -> null
-        }
-        val backFaceBody = when {
-            !providerBackFaceTitle.isNullOrBlank() -> null
-            hasRichFrontFace -> null
-            info?.hasPeek != true -> null
-            !info.peekTitle.isNullOrBlank() -> info.peekBody
-            !info.peekSubtitle.isNullOrBlank() -> info.peekBody
-            else -> null
-        }
+        val lead = backFaces.firstOrNull()
         return MergedNotificationFace(
             counter = counter,
-            backFaceTitle = backFaceTitle,
-            backFaceSubtitle = backFaceSubtitle,
-            backFaceBody = backFaceBody,
-            hasFlipFace = !backFaceTitle.isNullOrBlank() ||
-                !backFaceSubtitle.isNullOrBlank() ||
-                !backFaceBody.isNullOrBlank(),
+            backFaceTitle = lead?.title,
+            backFaceSubtitle = lead?.subtitle,
+            backFaceBody = lead?.body,
+            backFaces = backFaces,
+            hasFlipFace = backFaces.isNotEmpty(),
             progress = progress,
         )
     }
@@ -128,8 +111,13 @@ object TileNotificationStore {
                 .maxByOrNull { it.first }
                 ?.second
             // Progress notifications still peek — charging remaining belongs on the flip face.
-            val newest = annotated.maxByOrNull { it.first.postTime }!!
-            val peek = extractPeek(packageName, newest.first.notification, newest.second)
+            // Collect every eligible notification so the live tile can cycle peeks 1-by-1.
+            val peeks = buildNotificationPeekQueue(
+                annotated.map { (item, custom, _) ->
+                    item.postTime to extractPeek(packageName, item.notification, custom)
+                },
+            )
+            val lead = peeks.firstOrNull()
             val badge = annotated.sumOf { (item, _, progressInfo) ->
                 if (progressInfo != null) 0
                 else {
@@ -140,9 +128,10 @@ object TileNotificationStore {
             TileNotificationInfo(
                 packageName = packageName,
                 count = badge,
-                peekTitle = peek.title,
-                peekSubtitle = peek.subtitle,
-                peekBody = peek.body,
+                peekTitle = lead?.title,
+                peekSubtitle = lead?.subtitle,
+                peekBody = lead?.body,
+                peeks = peeks,
                 updatedAtMs = items.maxOf { it.postTime },
                 progress = progress,
             )
@@ -274,5 +263,7 @@ data class MergedNotificationFace(
     val backFaceBody: String?,
     val hasFlipFace: Boolean,
     val backFaceSubtitle: String? = null,
+    /** Newest-first queue of flip faces; Start cycles through these one at a time. */
+    val backFaces: List<TilePeekLines> = emptyList(),
     val progress: TileProgressInfo? = null,
 )

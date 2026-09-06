@@ -4,6 +4,8 @@ import com.metro.launcher.data.MailTilePackages
 import com.metro.launcher.data.MailTilePeek
 import com.metro.launcher.data.TileNotificationInfo
 import com.metro.launcher.data.TileNotificationStore
+import com.metro.launcher.data.TilePeekLines
+import com.metro.launcher.data.buildNotificationPeekQueue
 import com.metro.launcher.data.mailPeekFaceLines
 import com.metro.launcher.data.resolveMailTilePeek
 import org.junit.Assert.assertEquals
@@ -87,6 +89,61 @@ class TileNotificationMergeTest {
         assertNull(merged.backFaceSubtitle)
         assertEquals("Shall we meet at 3?", merged.backFaceBody)
         assertTrue(merged.hasFlipFace)
+    }
+
+    @Test
+    fun merge_cyclesMultipleNotificationPeeks() {
+        val peeks = listOf(
+            TilePeekLines("Alice", null, "Hey"),
+            TilePeekLines("Bob", null, "Ping"),
+            TilePeekLines("Carol", null, "Later"),
+        )
+        val merged = TileNotificationStore.mergeIntoDisplay(
+            packageName = "com.whatsapp",
+            providerCounter = null,
+            providerBackFaceTitle = null,
+            hasRichFrontFace = false,
+            info = TileNotificationInfo(
+                packageName = "com.whatsapp",
+                count = 3,
+                peekTitle = peeks.first().title,
+                peekBody = peeks.first().body,
+                updatedAtMs = 0L,
+                peeks = peeks,
+            ),
+        )
+        assertEquals(3, merged.counter)
+        assertEquals(peeks, merged.backFaces)
+        assertEquals("Alice", merged.backFaceTitle)
+        assertEquals("Hey", merged.backFaceBody)
+        assertTrue(merged.hasFlipFace)
+    }
+
+    @Test
+    fun buildNotificationPeekQueue_newestFirstDistinct() {
+        val queue = buildNotificationPeekQueue(
+            listOf(
+                10L to TilePeekLines("Old", null, "A"),
+                30L to TilePeekLines("New", null, "C"),
+                20L to TilePeekLines("Mid", null, "B"),
+                5L to TilePeekLines("New", null, "C"), // duplicate of newest content
+            ),
+        )
+        assertEquals(
+            listOf(
+                TilePeekLines("New", null, "C"),
+                TilePeekLines("Mid", null, "B"),
+                TilePeekLines("Old", null, "A"),
+            ),
+            queue,
+        )
+    }
+
+    @Test
+    fun peekLines_normalizedForFlip_promotesBodyWhenTitleBlank() {
+        val normalized = TilePeekLines(null, null, "Only body").normalizedForFlip()
+        assertEquals("Only body", normalized.title)
+        assertNull(normalized.body)
     }
 
     @Test

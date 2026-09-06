@@ -21,6 +21,9 @@ class ActionNotificationListenerService : NotificationListenerService() {
         super.onListenerConnected()
         instance = this
         syncHeadsUpSuppression()
+        // Android re-delivers every active notification on connect. Mark them seen so the
+        // overlay does not replay past toasts — only posts after this point can peek.
+        seedActiveAsSeen()
     }
 
     override fun onListenerDisconnected() {
@@ -39,12 +42,20 @@ class ActionNotificationListenerService : NotificationListenerService() {
         }
     }
 
+    private fun seedActiveAsSeen() {
+        val active = runCatching { activeNotifications }.getOrNull() ?: return
+        NotificationsOverlayService.seedSeenNotifications(
+            keys = active.map { it.key },
+            groupKeys = active.mapNotNull { it.groupKeyOrNull() },
+        )
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {
         considerToast(sbn, rankingMap)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        sbn?.key?.let { NotificationsOverlayService.onNotificationRemoved(it) }
+        sbn?.let { NotificationsOverlayService.onNotificationRemoved(it.key, it.groupKeyOrNull()) }
     }
 
     private fun considerToast(sbn: StatusBarNotification, rankingMap: RankingMap) {
@@ -53,20 +64,20 @@ class ActionNotificationListenerService : NotificationListenerService() {
         val importance = if (ranked) ranking.importance else NotificationManager.IMPORTANCE_DEFAULT
         val matches = if (ranked) ranking.matchesInterruptionFilter() else true
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive != false
-        val groupSummary = sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
         val onlyAlertOnce = sbn.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0
         NotificationsOverlayService.considerToast(
             packageName = sbn.packageName,
             key = sbn.key,
+            groupKey = sbn.groupKeyOrNull(),
             flags = sbn.notification.flags,
             importance = importance,
             matchesInterruptionFilter = matches,
             screenInteractive = interactive,
-            isGroupSummary = groupSummary,
             isActiveCall = isActiveCall(sbn),
             onlyAlertOnce = onlyAlertOnce,
             title = extraTitle(sbn),
             body = extraBody(sbn),
+            contentSignature = contentSignature(sbn),
         )
     }
 
@@ -152,36 +163,63 @@ class ActionNotificationListenerService : NotificationListenerService() {
             }
         }
 
-        private fun isActiveCall(sbn: StatusBarNotification): Boolean =
-            sbn.packageName == DIALER_PACKAGE && sbn.tag == ACTIVE_CALL_TAG
-
-        private fun extraTitle(sbn: StatusBarNotification): String {
-            val extras = sbn.notification.extras
-            lastMessagingMessage(extras)?.first?.let { return it }
-            return extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-                .ifEmpty { extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim().orEmpty() }
-        }
-
-        private fun extraBody(sbn: StatusBarNotification): String? {
-            val extras = sbn.notification.extras
-            lastMessagingMessage(extras)?.second?.let { return it }
-            return extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
-                ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
-                ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim()
-        }
-
-        /**
-         * MessagingStyle (SMS, WhatsApp, etc.): last message sender + text.
-         * Bundle keys match [Notification.MessagingStyle.Message] ("sender" / "text").
-         */
-        private fun lastMessagingMessage(extras: Bundle): Pair<String?, String?>? {
-            @Suppress("DEPRECATION")
-            val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return null
-            val last = messages.lastOrNull() as? Bundle ?: return null
-            val sender = last.getCharSequence("sender")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-            val text = last.getCharSequence("text")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-            if (sender == null && text == null) return null
-            return sender to text
+        /** Active notification keys for the overlay to treat as already-seen (no replay toast). */
+        fun activeSeenSnapshot(): Pair<List<String>, List<String>> {
+            val service = instance ?: return emptyList<String>() to emptyList()
+            val active = runCatching { service.activeNotifications }.getOrNull()
+                ?: return emptyList<String>() to emptyList()
+            return active.map { it.key } to active.mapNotNull { it.groupKeyOrNull() }
         }
     }
+}
+
+private fun isActiveCall(sbn: StatusBarNotification): Boolean =
+    sbn.packageName == "com.metro.dialer" && sbn.tag == "active_call"
+
+/** Stable group id for debounce; null when the post is not part of an Android group. */
+private fun StatusBarNotification.groupKeyOrNull(): String? {
+    val key = groupKey ?: return null
+    // Lone posts still get a synthetic groupKey from the system — only debounce real groups.
+    val hasGroup = !notification.group.isNullOrEmpty() ||
+        notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
+    return key.takeIf { hasGroup }
+}
+
+private fun extraTitle(sbn: StatusBarNotification): String {
+    val extras = sbn.notification.extras
+    lastMessagingMessage(extras)?.first?.let { return it }
+    return extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        .ifEmpty { extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim().orEmpty() }
+}
+
+private fun extraBody(sbn: StatusBarNotification): String? {
+    val extras = sbn.notification.extras
+    lastMessagingMessage(extras)?.second?.let { return it }
+    return extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+        ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
+        ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim()
+}
+
+/** Detect MessagingStyle / text updates so the same key can re-toast on new content. */
+private fun contentSignature(sbn: StatusBarNotification): String {
+    val title = extraTitle(sbn)
+    val body = extraBody(sbn).orEmpty()
+    val extras = sbn.notification.extras
+    @Suppress("DEPRECATION")
+    val messageCount = extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.size ?: 0
+    return "$title\u0000$body\u0000$messageCount"
+}
+
+/**
+ * MessagingStyle (SMS, WhatsApp, etc.): last message sender + text.
+ * Bundle keys match [Notification.MessagingStyle.Message] ("sender" / "text").
+ */
+private fun lastMessagingMessage(extras: Bundle): Pair<String?, String?>? {
+    @Suppress("DEPRECATION")
+    val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return null
+    val last = messages.lastOrNull() as? Bundle ?: return null
+    val sender = last.getCharSequence("sender")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+    val text = last.getCharSequence("text")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+    if (sender == null && text == null) return null
+    return sender to text
 }

@@ -7,7 +7,10 @@ import android.app.NotificationManager
  * Whether an Android notification should raise a WP8.1 toast banner.
  *
  * Mirrors SystemUI peek rules as closely as a listener can: HIGH+ importance, interruption
- * filter match, interactive screen, not ongoing / group summary / shell FGS / active call.
+ * filter match, interactive screen, not ongoing / shell FGS / active call.
+ *
+ * Group summaries are allowed: many apps only alert on the summary, so skipping them left
+ * only the first child peeking. Callers debounce duplicate peeks for the same group key.
  */
 object ToastDecision {
     fun shouldShow(
@@ -16,17 +19,17 @@ object ToastDecision {
         importance: Int,
         matchesInterruptionFilter: Boolean,
         screenInteractive: Boolean,
-        isGroupSummary: Boolean,
         isActiveCall: Boolean,
         onlyAlertOnceAlreadyShown: Boolean,
+        alreadySeenWithoutAlert: Boolean,
         ignoredPackages: Set<String> = ToastSpec.IgnoredPackages,
     ): Boolean {
         if (!screenInteractive) return false
         if (!matchesInterruptionFilter) return false
         if (packageName in ignoredPackages) return false
-        if (isGroupSummary) return false
         if (isActiveCall) return false
         if (flags and Notification.FLAG_ONGOING_EVENT != 0) return false
+        if (alreadySeenWithoutAlert) return false
         if (onlyAlertOnceAlreadyShown) return false
         if (importance < NotificationManager.IMPORTANCE_HIGH) return false
         return true

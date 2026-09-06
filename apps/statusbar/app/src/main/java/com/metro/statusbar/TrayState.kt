@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import com.metro.system.MetroAppRegistry
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroPreferences
+import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroColors
 import java.time.ZonedDateTime
 
@@ -42,6 +43,14 @@ class TrayState(context: Context) {
 
     /** Theme background for the foreground non-Metro app; null when matching is off. */
     var appBackgroundColor by mutableStateOf<Color?>(null)
+        private set
+
+    /** Temporary toast accent fill while a Metro toast banner is visible. */
+    var notificationsShellFill by mutableStateOf<Color?>(null)
+        private set
+
+    /** Temporary charcoal fill while the Metro volume HUD is visible (outranks toast). */
+    var volumeShellFill by mutableStateOf<Color?>(null)
         private set
 
     var theme by mutableStateOf(resolveTheme())
@@ -261,6 +270,28 @@ class TrayState(context: Context) {
         theme = resolveTheme()
     }
 
+    /**
+     * Applies or clears a temporary shell-overlay fill. [owner] must be
+     * [MetroStatusBar.OWNER_NOTIFICATIONS] or [MetroStatusBar.OWNER_VOLUME]; unknown owners are
+     * ignored. Volume outranks notifications when both are set.
+     */
+    fun applyShellFill(owner: String?, color: Color?) {
+        when (owner) {
+            MetroStatusBar.OWNER_NOTIFICATIONS -> {
+                if (notificationsShellFill == color) return
+                notificationsShellFill = color
+            }
+            MetroStatusBar.OWNER_VOLUME -> {
+                if (volumeShellFill == color) return
+                volumeShellFill = color
+            }
+            else -> return
+        }
+        theme = resolveTheme()
+    }
+
+    private fun effectiveShellFill(): Color? = volumeShellFill ?: notificationsShellFill
+
     private fun resolveTheme(): TrayThemeSnapshot =
         TrayThemeResolver.resolve(
             preferences = preferences,
@@ -268,6 +299,7 @@ class TrayState(context: Context) {
             matchAppBackground = trayPrefs.matchAppBackground,
             appBackgroundColor = appBackgroundColor,
             metroSuiteForeground = isMetroSuiteForeground(),
+            shellFillColor = effectiveShellFill(),
         )
 
     private fun isMetroSuiteForeground(): Boolean {

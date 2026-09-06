@@ -50,6 +50,8 @@ object VolumeHudSpec {
     const val MUSIC_METADATA_HEIGHT_DP = 56
 
     val PanelBackground = Color(0xFF252525)
+    /** Hex for [PanelBackground] — used to tint the Metro tray while the HUD is up. */
+    const val PANEL_BACKGROUND_HEX = "#252525"
     val SecondaryText = Color(0xFF9E9E9E)
     val PrimaryText = Color.White
 

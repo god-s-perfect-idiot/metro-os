@@ -13,7 +13,9 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   - **Single-line** white text next to the icon as `sender: message` when both parts exist (MessagingStyle / social title+body); overflow uses ellipsis (no wrap onto a second line)
 - Navigation: tap launches the notifying app via the notification content intent.
 - Interactions: auto-dismiss after the setup **toast timeout** (3 / 5 / 10 seconds, default **5 seconds**); **swipe right** dismisses the banner. One toast at a time; a new peek replaces the current banner.
-- Do not show for ongoing/FGS, group summaries, shell packages, or active-call notifications.
+- Do not show for ongoing/FGS, shell packages, or active-call notifications.
+- Android notification **groups**: allow the alerting post (often the group summary). Debounce identical copy in the same group burst so child + summary do not double-peek; newer content replaces the banner.
+- Listener connect re-delivers every shade notification — mark actives as seen so past posts do not replay as toasts; only new / updated peeks raise a banner.
 - Motion: **perspective 3D tile flip** enter (`rotationX` 90° → 0°, `JumpListFlipMs` 300ms ease-out, camera distance from banner width so the bar reads as a trapezoid not a squash). Exit is the same flip in reverse (0° → 90°), then the overlay window is removed. Timeout, tap, and swipe-right all use that reverse flip.
 
 ### Page 2 — Setup
