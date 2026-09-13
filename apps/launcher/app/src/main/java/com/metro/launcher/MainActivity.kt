@@ -1,5 +1,6 @@
 package com.metro.launcher
 
+import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -39,6 +40,32 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    private val widgetBindLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val state = launcherState ?: return@registerForActivityResult
+            val id = result.data?.getIntExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_ID,
+                AppWidgetManager.INVALID_APPWIDGET_ID,
+            ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+            state.onWidgetBindResult(
+                granted = result.resultCode == RESULT_OK,
+                appWidgetId = id,
+            )
+        }
+
+    private val widgetConfigureLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val state = launcherState ?: return@registerForActivityResult
+            val id = result.data?.getIntExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_ID,
+                AppWidgetManager.INVALID_APPWIDGET_ID,
+            ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+            state.onWidgetConfigureResult(
+                ok = result.resultCode == RESULT_OK,
+                appWidgetId = id,
+            )
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = MetroSplash.install(this)
         // Hold the system splash until Compose draws its matching loader (avoids a black gap
@@ -64,26 +91,43 @@ class MainActivity : ComponentActivity() {
                 maybeRequestGalleryMediaPermission(state)
             }
 
+            LaunchedEffect(state.pendingWidgetBindIntent) {
+                val intent = state.pendingWidgetBindIntent ?: return@LaunchedEffect
+                widgetBindLauncher.launch(intent)
+            }
+
+            LaunchedEffect(state.pendingWidgetConfigureIntent) {
+                val intent = state.pendingWidgetConfigureIntent ?: return@LaunchedEffect
+                widgetConfigureLauncher.launch(intent)
+            }
+
             DisposableEffect(state) {
                 state.registerReceivers(context)
+                state.widgetController.startListening()
                 var skipNextResume = true
                 val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME) {
-                        // Going home / Start: briefly reveal status-tray indicators.
-                        MetroStatusBar.requestExpand(context)
-                        if (skipNextResume) {
-                            skipNextResume = false
-                        } else {
-                            scope.launch {
-                                state.refreshAllAsync()
-                                maybeRequestGalleryMediaPermission(state)
+                    when (event) {
+                        Lifecycle.Event.ON_RESUME -> {
+                            // Going home / Start: briefly reveal status-tray indicators.
+                            MetroStatusBar.requestExpand(context)
+                            if (skipNextResume) {
+                                skipNextResume = false
+                            } else {
+                                scope.launch {
+                                    state.refreshAllAsync()
+                                    maybeRequestGalleryMediaPermission(state)
+                                }
                             }
                         }
+                        Lifecycle.Event.ON_START -> state.widgetController.startListening()
+                        Lifecycle.Event.ON_STOP -> state.widgetController.stopListening()
+                        else -> Unit
                     }
                 }
                 lifecycle.addObserver(observer)
                 onDispose {
                     lifecycle.removeObserver(observer)
+                    state.widgetController.stopListening()
                     state.unregisterReceivers(context)
                 }
             }

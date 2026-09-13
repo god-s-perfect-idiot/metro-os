@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Hub catalog — public read, Admin SDK writes only.
+    match /first-party/{appId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /second-party/{appId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /third-party/{appId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /explore/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

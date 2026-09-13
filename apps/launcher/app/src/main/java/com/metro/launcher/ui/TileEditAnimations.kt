@@ -6,11 +6,14 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.util.lerp
@@ -21,6 +24,8 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlinx.coroutines.delay
+
+private val NeverSnapEditExit: State<Boolean> = mutableStateOf(false)
 
 /** Disco Launcher hold threshold before edit mode arms (pointerdown timer). */
 internal const val TILE_EDIT_HOLD_MS = 500L
@@ -133,21 +138,28 @@ internal fun tileEditFocusAlpha(
 /**
  * Two-phase edit visual timeline (Disco `home-menu-back-intro` → `home-menu-back`).
  * Returns 0 (normal) .. 1 (full steady edit).
+ *
+ * [snapExit] skips the outro tween when true at the moment edit mode clears — used while
+ * Start is covered by the customize page.
  */
 @Composable
-internal fun rememberTileEditProgress(editMode: Boolean): Float {
+internal fun rememberTileEditProgress(
+    editMode: Boolean,
+    snapExit: State<Boolean> = NeverSnapEditExit,
+): Float {
     val haptic = LocalHapticFeedback.current
     val progress by animateFloatAsState(
         targetValue = if (editMode) 1f else 0f,
-        animationSpec = if (editMode) {
-            keyframes {
+        animationSpec = when {
+            editMode -> keyframes {
                 durationMillis = TILE_EDIT_ENTER_MS
                 0f at 0
                 0.5f at TILE_EDIT_INTRO_MS using FastOutSlowInEasing
                 1f at TILE_EDIT_ENTER_MS using EditSteadyEasing
             }
-        } else {
-            tween(TILE_EDIT_EXIT_MS, easing = EditExitEasing)
+            // Only read when leaving edit — avoids subscribing the grid to customize-open.
+            snapExit.value -> snap()
+            else -> tween(TILE_EDIT_EXIT_MS, easing = EditExitEasing)
         },
         label = "tileEditProgress",
     )

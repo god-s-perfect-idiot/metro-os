@@ -66,6 +66,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,6 +80,7 @@ import com.metro.launcher.data.compactPlacementRows
 import com.metro.launcher.data.placeTileAt
 import com.metro.launcher.data.rowCompactionMap
 import com.metro.launcher.data.PinnedTileSize
+import com.metro.launcher.data.hasActiveCustomWidget
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import kotlin.math.max
@@ -99,6 +101,8 @@ private const val MESSAGING_PACKAGE = "com.metro.messaging"
 const val TILE_GRID_COLUMNS = 4
 const val TILE_GRID_COLUMNS_EXPANDED = 6
 val TILE_GRID_GAP = 8.dp
+
+private val NeverSuspendEditMotion: State<Boolean> = mutableStateOf(false)
 /** Default (4-col) Start side gutter — dense grid uses [TileChrome.horizontalPadding]. */
 val TILE_GRID_PADDING = TileChrome.Standard.horizontalPadding
 /** How far edit corner discs hang past the tile into the side gutter. */
@@ -288,6 +292,43 @@ fun tilePixelSize(unit: Dp, colSpan: Int, rowSpan: Int, gap: Dp = TILE_GRID_GAP)
     return width to height
 }
 
+/** Half the edit-corner disc — Start keeps this as top inset so unpin is not clipped. */
+internal fun tileGridTopPadding(): Dp = maxOf(8.dp, TileCornerButtonSize / 2)
+
+/**
+ * Vertical scroll offset that parks a newly pinned tile in the upper portion of Start
+ * so the pin-to-Start swipe reveals it instead of leaving it below the fold.
+ */
+internal fun startPinRevealScrollPx(
+    tileTopPx: Float,
+    viewportHeightPx: Float,
+): Int = (tileTopPx - viewportHeightPx * PIN_REVEAL_VIEWPORT_FRACTION)
+    .toInt()
+    .coerceAtLeast(0)
+
+private const val PIN_REVEAL_VIEWPORT_FRACTION = 0.2f
+
+internal fun startGridUnitPx(
+    viewportWidthPx: Float,
+    columns: Int,
+    density: Density,
+): Float {
+    val chrome = TileChrome.forColumns(columns)
+    val padPx = with(density) { chrome.horizontalPadding.toPx() }
+    val gapPx = with(density) { TILE_GRID_GAP.toPx() }
+    return (viewportWidthPx - padPx * 2f - gapPx * (columns - 1)) / columns
+}
+
+internal fun startTileTopPx(
+    row: Int,
+    unitPx: Float,
+    density: Density,
+): Float {
+    val gapPx = with(density) { TILE_GRID_GAP.toPx() }
+    val topPadPx = with(density) { tileGridTopPadding().toPx() }
+    return topPadPx + row * (unitPx + gapPx)
+}
+
 fun gridContentHeight(unit: Dp, placed: List<PlacedTile>, gap: Dp = TILE_GRID_GAP): Dp {
     if (placed.isEmpty()) return unit
     val maxRow = placed.maxOf { it.row + it.tile.entry.size.rowSpan }
@@ -400,12 +441,18 @@ fun TileGrid(
     onDismissEdit: () -> Unit = {},
     onResize: () -> Unit = {},
     onUnpin: () -> Unit = {},
+    onCustomize: () -> Unit = {},
     onDragLayout: (List<PlacedTile>) -> Unit = {},
     onReorderCommit: () -> Unit = {},
     /** Bump to replay the bottom-right → top-left page-pivot enter wave. */
     enterWaveKey: Int = 0,
     /** Waves at or below this key already ran — skip after Start remounts (e.g. app list). */
     consumedEnterWaveKey: Int = 0,
+    /**
+     * Customize page covers Start — freeze jiggle without recomposing the grid on open
+     * (clock reads this [State] inside its frame loop). Snap-clears edit exit while covered.
+     */
+    suspendEditMotion: State<Boolean> = NeverSuspendEditMotion,
 ) {
     val density = LocalDensity.current
     val viewConfiguration = LocalViewConfiguration.current
@@ -446,8 +493,10 @@ fun TileGrid(
     }
 
     // One shared clock for Perlin jiggle — avoids per-tile animation loops on enter.
-    val floatTimeSec = rememberEditModeFloatClock(editMode)
-    val editProgress = rememberTileEditProgress(editMode)
+    // Pause via [suspendEditMotion] State inside the frame loop so customize-open does not
+    // recompose every tile on the same frame as the page shell.
+    val floatTimeSec = rememberEditModeFloatClock(editMode, paused = suspendEditMotion)
+    val editProgress = rememberTileEditProgress(editMode, snapExit = suspendEditMotion)
     val scrimAlpha = TILE_EDIT_SCRIM_ALPHA * editProgress
 
     val chrome = remember(columns) { TileChrome.forColumns(columns) }
@@ -459,7 +508,7 @@ fun TileGrid(
         val cornerOverhang = TileCornerButtonSize / 2
         val horizontalPad = chrome.horizontalPadding
         val cornerSideHang = tileCornerSideHang(horizontalPad)
-        val topPad = maxOf(8.dp, cornerOverhang)
+        val topPad = tileGridTopPadding()
         val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (columns - 1)) /
             columns
         val cellStridePx = with(density) { (unit + TILE_GRID_GAP).toPx() }
@@ -826,6 +875,7 @@ fun TileGrid(
                                 },
                                 onResize = onResize,
                                 onUnpin = onUnpin,
+                                onCustomize = onCustomize,
                                 dragModifier = tileDragModifier,
                             )
                         }
@@ -903,6 +953,7 @@ private fun LauncherTileCell(
     onLongClick: () -> Unit,
     onResize: () -> Unit,
     onUnpin: () -> Unit,
+    onCustomize: () -> Unit,
     dragModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
 ) {
@@ -1024,30 +1075,33 @@ private fun LauncherTileCell(
     val showStaticPhoto = !tile.imageUri.isNullOrBlank()
     val musicNowPlaying = tile.musicNowPlaying
     val showMusicNowPlaying = musicNowPlaying != null
+    val showCustomWidget = tile.entry.hasActiveCustomWidget() && !isUnpinning && !editMode
     val showPhotoContent = showCyclePhoto || showPhotoGrid
     val progress = tile.progress
-    val showProgressOverlay = progress != null && !showMusicNowPlaying
+    val showProgressOverlay = progress != null && !showMusicNowPlaying && !showCustomWidget
     val agenda = tile.agenda?.takeIf { it.hasContent }
     val showAgenda = agenda != null && !showPhotoContent && !showStaticPhoto &&
-        !showMusicNowPlaying &&
+        !showMusicNowPlaying && !showCustomWidget &&
         tile.entry.size != PinnedTileSize.OneByOne
     val isSmall = tile.entry.size == PinnedTileSize.OneByOne
     val isMessaging = tile.entry.packageName == MESSAGING_PACKAGE
     val messagingUnread = tile.counter?.takeIf { it > 0 && isMessaging }
     // Medium/wide Messaging unread: wink glyph + large count (tile_yellow.jpg), not a corner badge.
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
-        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMusicNowPlaying
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMusicNowPlaying &&
+        !showCustomWidget
     // Custom Chrome face: three brand wedges + blue center (full-bleed, no stock icon).
     val showChromeFace = isChromeTilePackage(tile.entry.packageName) &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
-        !showMusicNowPlaying
+        !showMusicNowPlaying && !showCustomWidget
     val startBackground = LocalStartBackgroundViewport.current
     val useWindowFill = tile.revealsStartBackground &&
         startBackground != null &&
         !showPhotoContent &&
         !showStaticPhoto &&
         !showChromeFace &&
-        !showMusicNowPlaying
+        !showMusicNowPlaying &&
+        !showCustomWidget
     val contentColor = if (useWindowFill) {
         Color.White
     } else {
@@ -1062,9 +1116,10 @@ private fun LauncherTileCell(
         !showMessagingUnreadFace &&
         !showChromeFace &&
         !showMusicNowPlaying &&
+        !showCustomWidget &&
         !isSmall &&
         !editMode
-    val forceStaticEditFace = editMode && steadyPhase > 0f
+    val forceStaticEditFace = editMode && steadyPhase > 0f && !showCustomWidget
     val badgeCount = tile.counter?.takeIf {
         it > 0 && !showAgenda && !showMessagingUnreadFace && !showMusicNowPlaying
     }
@@ -1072,7 +1127,8 @@ private fun LauncherTileCell(
     // and nudges the icon left so the numeral does not sit on top of it.
     val tileMinEdge = min(width.value, height.value).dp
     val showSmallIconBadge = isSmall && badgeCount != null &&
-        !showPhotoContent && !showStaticPhoto && !showChromeFace && !showMusicNowPlaying
+        !showPhotoContent && !showStaticPhoto && !showChromeFace && !showMusicNowPlaying &&
+        !showCustomWidget
     val iconBadgeShift = when {
         badgeCount == null -> 0.dp
         tile.entry.size != PinnedTileSize.TwoByTwo -> 0.dp
@@ -1126,6 +1182,7 @@ private fun LauncherTileCell(
                     .clipToBounds()
                     .then(
                         when {
+                            showCustomWidget -> Modifier.background(tile.backgroundColor)
                             showPhotoContent || showStaticPhoto || showChromeFace ||
                                 showMusicNowPlaying -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
@@ -1145,6 +1202,12 @@ private fun LauncherTileCell(
             ) {
                 val frontFace: @Composable () -> Unit = {
                     when {
+                        showCustomWidget -> {
+                            TileAppWidgetFace(
+                                entry = tile.entry,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                         forceStaticEditFace && !isSmall -> {
                             StaticIconTileContent(
                                 packageName = tile.entry.packageName,
@@ -1452,6 +1515,17 @@ private fun LauncherTileCell(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .offset(x = cornerSideHang, y = cornerOffsetY)
+                    .alpha(if (controlsVisible) 1f else 0f),
+            )
+            TileEditCornerButton(
+                onClick = onCustomize,
+                contentDescription = "customize",
+                icon = MetroSystemIconType.Cube,
+                glyphScale = CustomizeGlyphCanvasFraction,
+                enabled = controlsVisible,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = -cornerSideHang, y = cornerOffsetY)
                     .alpha(if (controlsVisible) 1f else 0f),
             )
         }
@@ -2103,7 +2177,10 @@ private fun LiveTileFlipFace(
 
 /** Seconds since Perlin shake started; 0 while edit mode is off or still settling. */
 @Composable
-private fun rememberEditModeFloatClock(editMode: Boolean): State<Float> {
+private fun rememberEditModeFloatClock(
+    editMode: Boolean,
+    paused: State<Boolean> = NeverSuspendEditMotion,
+): State<Float> {
     val timeSec = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(editMode) {
         if (!editMode) {
@@ -2114,7 +2191,10 @@ private fun rememberEditModeFloatClock(editMode: Boolean): State<Float> {
         val startMs = withFrameMillis { it }
         while (true) {
             withFrameMillis { frameMs ->
-                timeSec.floatValue = (frameMs - startMs) / 1000f
+                // Read [paused] only here — flipping it must not recompose the tile grid.
+                if (!paused.value) {
+                    timeSec.floatValue = (frameMs - startMs) / 1000f
+                }
             }
         }
     }

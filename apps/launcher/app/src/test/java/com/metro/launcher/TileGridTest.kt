@@ -4,11 +4,15 @@ import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.PinnedTileStore
+import com.metro.launcher.data.TileBackgroundMode
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
+import com.metro.launcher.data.hasActiveCustomWidget
+import com.metro.launcher.data.mergePinnedDisplayTiles
+import com.metro.launcher.data.supportsCustomWidget
 import com.metro.launcher.data.tileGridColumnCount
 import com.metro.launcher.data.tileOverlapsRegion
 import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT_EXPANDED
@@ -41,7 +45,7 @@ class TileGridTest {
         val chrome = TileChrome.Standard
         assertEquals(12f, chrome.horizontalPadding.value)
         assertEquals(8f, chrome.contentInset.value)
-        assertEquals(10f, chrome.smallIconInset.value)
+        assertEquals(6f, chrome.smallIconInset.value)
         assertEquals(0.55f, chrome.mediumIconFraction)
         assertEquals(0.42f, chrome.wideIconFraction)
         assertEquals(16f, chrome.titleSp)
@@ -167,6 +171,27 @@ class TileGridTest {
         assertEquals(ResizeForwardGlyphCanvasFraction, resizeGlyphScaleForTileSize(PinnedTileSize.TwoByTwo))
         assertEquals(ResizeGlyphCanvasFraction, resizeGlyphScaleForTileSize(PinnedTileSize.FourByTwo))
         assertTrue(ResizeForwardGlyphCanvasFraction > ResizeGlyphCanvasFraction)
+    }
+
+    @Test
+    fun tileCustomize_backgroundModeAndWidgetHelpers() {
+        assertEquals(TileBackgroundMode.Custom, TileBackgroundMode.fromStorage("custom"))
+        assertEquals(TileBackgroundMode.Accent, TileBackgroundMode.fromStorage("accent"))
+        assertEquals(TileBackgroundMode.Default, TileBackgroundMode.fromStorage(null))
+
+        val medium = PinnedTileEntry(
+            packageName = "com.example.app",
+            size = PinnedTileSize.TwoByTwo,
+            useCustomWidget = true,
+            widgetProvider = "com.example.app/.MyWidget",
+            appWidgetId = 42,
+        )
+        assertTrue(medium.supportsCustomWidget())
+        assertTrue(medium.hasActiveCustomWidget())
+
+        val small = medium.copy(size = PinnedTileSize.OneByOne)
+        assertFalse(small.supportsCustomWidget())
+        assertFalse(small.hasActiveCustomWidget())
     }
 
     @Test
@@ -764,6 +789,61 @@ class TileGridTest {
     fun photoGridDimensions_matchesTileSizes() {
         assertEquals(3 to 3, MetroTileContract.photoGridDimensions(2, 2))
         assertEquals(6 to 3, MetroTileContract.photoGridDimensions(4, 2))
+    }
+
+    @Test
+    fun mergePinnedDisplayTiles_keepsExistingChromeAndResolvesOnlyMissing() {
+        val existing = listOf(
+            displayTile("a", PinnedTileSize.TwoByTwo, col = 0, row = 0)
+                .copy(title = "People", hasFlipFace = true, counter = 3),
+        )
+        val newEntry = PinnedTileEntry(
+            "b",
+            size = PinnedTileSize.OneByOne,
+            gridCol = 2,
+            gridRow = 0,
+        )
+        val pinned = listOf(existing[0].entry.copy(gridCol = 0, gridRow = 2), newEntry)
+        var resolvedMissing = emptyList<PinnedTileEntry>()
+        val merged = mergePinnedDisplayTiles(pinned, existing) { missing ->
+            resolvedMissing = missing
+            missing.map { displayTile(it.packageName, it.size, it.gridCol, it.gridRow) }
+        }
+        assertEquals(listOf(newEntry), resolvedMissing)
+        assertEquals(2, merged.size)
+        assertEquals("People", merged[0].title)
+        assertEquals(3, merged[0].counter)
+        assertTrue(merged[0].hasFlipFace)
+        assertEquals(0, merged[0].entry.gridCol)
+        assertEquals(2, merged[0].entry.gridRow)
+        assertEquals("b", merged[1].entry.packageName)
+    }
+
+    @Test
+    fun mergePinnedDisplayTiles_dropsUnpinnedTiles() {
+        val existing = listOf(
+            displayTile("a", PinnedTileSize.OneByOne, col = 0, row = 0),
+            displayTile("b", PinnedTileSize.OneByOne, col = 1, row = 0),
+        )
+        val merged = mergePinnedDisplayTiles(
+            pinned = listOf(existing[1].entry),
+            existing = existing,
+            resolveMissing = { error("no missing tiles") },
+        )
+        assertEquals(1, merged.size)
+        assertEquals("b", merged[0].entry.packageName)
+    }
+
+    @Test
+    fun startPinRevealScrollPx_keepsTopTilesUnscrolled() {
+        assertEquals(0, startPinRevealScrollPx(tileTopPx = 20f, viewportHeightPx = 1280f))
+    }
+
+    @Test
+    fun startPinRevealScrollPx_scrollsLowerTilesIntoView() {
+        val scrolled = startPinRevealScrollPx(tileTopPx = 800f, viewportHeightPx = 1280f)
+        assertEquals((800f - 1280f * 0.2f).toInt(), scrolled)
+        assertTrue(scrolled > 0)
     }
 
     private fun displayTile(

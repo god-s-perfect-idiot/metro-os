@@ -439,6 +439,7 @@ Full-page await surface — use whenever a page is blocked on async work (> 500m
 | Indicator | Accent **dancing dots** below the label — four 3dp squares, 140dp clipped track, 1.8s cycle |
 | Splash variant | `MetroSplashLoadingScreen` — full-bleed **accent** + app glyph (`ic_launcher_foreground`) + **white** dancing dots under the icon (no label). Matches cold-start splash chrome for shell / long content awaits. |
 | Inline | Prefer `MetroLoadingDots` alone when progress sits inside an existing layout |
+| Busy UI thread | `MetroLoadingScreen(useAndroidDots = true)` / `MetroLoadingDotsAndroid` — View-backed dots keep dancing while Compose layout jank would freeze `MetroLoadingDots` |
 | Anti-pattern | Material circular spinner, Lottie blobs, or centered indeterminate bars |
 
 ---
@@ -494,7 +495,7 @@ WP8.1 LongListSelector alphabet jump. Used whenever a list groups rows under let
 | Locale tile | Globe glyph; inactive unless the app supplies locale jump support |
 | Helpers | `MetroJumpListLogic.sortKey` / `activeLetters` / `showSectionMarkers` / `diagonalIndex`; section anchors use `MetroLetterTile` |
 | Sticky section markers | Letter markers **pin** at the top of the scroll viewport while that section's rows scroll underneath. The next letter's header **pushes** the previous marker up and replaces it (classic LongListSelector sticky headers). Implement with `metroStickyLetterHeader` — never plain `item` for letter markers. Give the sticky content an opaque theme background so rows do not show through. |
-| Entrance | Each tile flips in around its **horizontal center** (`rotationX` 90° → 0°, 300ms ease-out). Stagger by diagonal (`row + col`) from top-left at 40ms steps. Shared primitive: `MetroDiagonalFlip` (also used by Settings accents picker; support `exiting` for the reverse 0° → 90° wave) |
+| Entrance | Each tile flips in around its **horizontal center** (`rotationX` 90° → 0°, 300ms ease-out). Stagger by diagonal (`row + col`) from top-left at 40ms steps. Shared primitive: `MetroDiagonalFlip` (also used by Settings accents picker; support `exiting` for the reverse 0° → 90° wave). Jump list passes `hapticOnEnter` so each letter fires a light `TextHandleMove` tick as its flip starts. |
 | Search mode | While an inline list search field is active, **omit** letter section markers (`showSectionMarkers(false)`). Jump list is unavailable until search is dismissed. App-list search uses the **focused TextBox** chrome (white fill + accent border); matching characters in result labels use accent. |
 
 **Agent rule:** Do not reimplement jump grids in apps. Import `MetroJumpList` from `metro-ui-android`. Do not invent per-app sticky-header logic — use `metroStickyLetterHeader` for every alphabet-grouped list.

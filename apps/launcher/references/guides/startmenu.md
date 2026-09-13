@@ -22,6 +22,7 @@ Three immediate visual cues:
 |--------|------|--------|
 | Top-right | Pushpin with strike-through | **Unpin** — tile leaves Start, app remains in app list |
 | Bottom-right | Diagonal resize arrow | **Resize** — cycles supported sizes |
+| Bottom-left | Isometric cube | **Customize** — tile background + optional App Widget (2×2 / 4×2) |
 
 ### Tile sizes (WP8.1)
 

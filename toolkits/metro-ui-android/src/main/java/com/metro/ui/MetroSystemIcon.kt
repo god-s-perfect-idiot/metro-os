@@ -59,6 +59,10 @@ enum class MetroSystemIconType {
     Resize,
     /** Diagonal shrink arrow (top-left corner) — Start tile 4×2 → 1×1. */
     ResizeShrink,
+    /** Paintbrush glyph (kept for reuse). */
+    Brush,
+    /** Isometric cube — Start tile customize corner. */
+    Cube,
     Add,
     More,
     SwitchView,
@@ -190,6 +194,8 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.Unpin -> drawUnpinGlyph(color)
         MetroSystemIconType.Resize -> drawResizeGrowGlyph(color)
         MetroSystemIconType.ResizeShrink -> drawResizeShrinkGlyph(color)
+        MetroSystemIconType.Brush -> drawBrushGlyph(color)
+        MetroSystemIconType.Cube -> drawCubeGlyph(color)
         MetroSystemIconType.Add -> drawAddGlyph(color)
         MetroSystemIconType.More -> drawMoreGlyph(color, glyphStroke)
         MetroSystemIconType.SwitchView -> drawRefreshGlyph(color)
@@ -464,6 +470,30 @@ private val resizeShrinkGlyphPath: Path by lazy {
 
 private fun DrawScope.drawResizeShrinkGlyph(color: Color) {
     drawFilledViewportGlyph(resizeShrinkGlyphPath, color, viewBox = 512f, glyphScale = 0.38f)
+}
+
+/** Filled paintbrush — 512 viewBox path (Start tile customize corner). */
+private const val BRUSH_GLYPH_PATH =
+    "M79.1 372.5C59.4 431.9 49.5 451.7 0 451.7c168.2 69.3 197.9-49.5 197.9-49.5l-49.5-49.5s-49.5-9.8-69.3 19.8zM504.6 46.1c-14-14-38-3.9-38-3.9c-35 7-229.1 201.8-229.1 201.8l69.3 69.3S501.6 119.2 508.6 84.2c-.1-.1 10-24.2-4-38.1zM168.2 333l49.5 49.5L287 333l-69.3-69.3l-49.5 69.3z"
+
+private val brushGlyphPath: Path by lazy {
+    PathParser().parsePathString(BRUSH_GLYPH_PATH).toPath()
+}
+
+private fun DrawScope.drawBrushGlyph(color: Color) {
+    drawFilledViewportGlyph(brushGlyphPath, color, viewBox = 512f, glyphScale = 0.42f)
+}
+
+/** Filled isometric cube — 512 viewBox path (Start tile customize corner). */
+private const val CUBE_GLYPH_PATH =
+    "M275.2 512L480 409.6l20.5-307.2l-225.3 61.4V512zM29.5 409.6L234.3 512V163.8L9 102.4l20.5 307.2zM254.8 0L9 61.4l245.8 61.4l245.8-61.4L254.8 0z"
+
+private val cubeGlyphPath: Path by lazy {
+    PathParser().parsePathString(CUBE_GLYPH_PATH).toPath()
+}
+
+private fun DrawScope.drawCubeGlyph(color: Color) {
+    drawFilledViewportGlyph(cubeGlyphPath, color, viewBox = 512f, glyphScale = 0.42f)
 }
 
 /** Scales a filled reference path into the icon canvas (centered square viewport). */

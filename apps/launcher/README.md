@@ -26,7 +26,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Pinned tiles persisted in `PinnedTileStore`; default seed for shipped metro apps only (uninstalled packages are omitted)
 - Tile taps launch via `PackageManager` / deep link from `MetroTileContract`
 - App list: alphabetical `com.metro.*` discovery with inline search filter and find-by-letter jump list
-- Long-press tile edit overlay: resize (cycles small/medium/wide when `BuildConfig.WIDE_TILES`), unpin, and drag-to-reorder (tile follows thumb; magnet reflow; order persisted on drop)
+- Long-press tile edit overlay: resize (cycles small/medium/wide when `BuildConfig.WIDE_TILES`), unpin, brush customize (background + optional App Widget), and drag-to-reorder (tile follows thumb; magnet reflow; order persisted on drop)
 - `TILE_UPDATE` and `THEME_CHANGED` broadcasts refresh tile content and shell theme
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
 - Cold start shows `MetroSplashLoadingScreen` (accent splash + Start glyph + dancing dots): system splash stays until the View-backed dots start, then Compose holds until Start paints and dots have had a visible beat (~700ms). Live tile providers fill in afterward without re-covering Start; resume refreshes also update in place — no splash.

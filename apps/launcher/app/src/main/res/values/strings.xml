@@ -6,4 +6,15 @@
     <string name="notification_access_body">Allow Start to read notifications for live tiles.</string>
     <string name="notification_access_grant">turn on</string>
     <string name="notification_access_later">not now</string>
+    <string name="tile_customize_bg_label">Tile background</string>
+    <string name="tile_customize_bg_default">default</string>
+    <string name="tile_customize_bg_accent">accent</string>
+    <string name="tile_customize_bg_custom">custom</string>
+    <string name="tile_customize_color_picker">color</string>
+    <string name="tile_customize_accents_title">accents</string>
+    <string name="tile_customize_widget_label">Use custom widgets</string>
+    <string name="tile_customize_widget_pick">choose a widget</string>
+    <string name="tile_customize_widget_empty">This app has no Android widgets.</string>
+    <string name="tile_customize_save">save</string>
+    <string name="tile_customize_close">close</string>
 </resources>

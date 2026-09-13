@@ -1,5 +1,6 @@
 package com.metro.launcher.data
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
@@ -31,6 +32,15 @@ class PinnedTileStore(context: Context) {
                     .apply {
                         tile.gridCol?.let { put("col", it) }
                         tile.gridRow?.let { put("row", it) }
+                        if (tile.backgroundMode != TileBackgroundMode.Default) {
+                            put("bgMode", tile.backgroundMode.storageValue)
+                        }
+                        tile.customBackgroundHex?.let { put("bgHex", it) }
+                        if (tile.useCustomWidget) put("useWidget", true)
+                        tile.widgetProvider?.let { put("widgetProvider", it) }
+                        if (tile.appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                            put("appWidgetId", tile.appWidgetId)
+                        }
                     },
             )
         }
@@ -62,6 +72,18 @@ class PinnedTileStore(context: Context) {
                             size = PinnedTileSize.fromStorage(obj.optString("size", "medium")),
                             gridCol = obj.optInt("col", -1).takeIf { it >= 0 },
                             gridRow = obj.optInt("row", -1).takeIf { it >= 0 },
+                            backgroundMode = TileBackgroundMode.fromStorage(
+                                obj.optString("bgMode", ""),
+                            ),
+                            customBackgroundHex = obj.optString("bgHex", "")
+                                .takeIf { it.isNotBlank() },
+                            useCustomWidget = obj.optBoolean("useWidget", false),
+                            widgetProvider = obj.optString("widgetProvider", "")
+                                .takeIf { it.isNotBlank() },
+                            appWidgetId = obj.optInt(
+                                "appWidgetId",
+                                AppWidgetManager.INVALID_APPWIDGET_ID,
+                            ),
                         ),
                     )
                 }

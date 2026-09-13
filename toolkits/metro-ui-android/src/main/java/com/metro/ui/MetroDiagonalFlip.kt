@@ -8,6 +8,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.delay
 
 /** Start edge-on (WP PlaneProjection RotationX = 90) before flipping flat. */
@@ -22,6 +24,9 @@ private const val DiagonalFlipCameraDistance = 16f
  * Enter: [rotationX] 90° → 0° around the horizontal center, staggered by
  * [MetroJumpListLogic.diagonalIndex] × [MetroTransitions.JumpListFlipStaggerMs].
  * Exit: reverse flip 0° → 90° with the same stagger wave.
+ *
+ * When [hapticOnEnter] is true, each cell fires a light tick as its enter flip starts
+ * (find-by-letter jump list).
  */
 @Composable
 fun MetroDiagonalFlip(
@@ -29,10 +34,12 @@ fun MetroDiagonalFlip(
     columns: Int,
     modifier: Modifier = Modifier,
     exiting: Boolean = false,
+    hapticOnEnter: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val rotationX = remember { Animatable(DiagonalFlipStartDegrees) }
-    LaunchedEffect(exiting, cellIndex, columns) {
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(exiting, cellIndex, columns, hapticOnEnter) {
         val stagger =
             MetroJumpListLogic.diagonalIndex(cellIndex, columns) *
                 MetroTransitions.JumpListFlipStaggerMs.toLong()
@@ -45,6 +52,9 @@ fun MetroDiagonalFlip(
         } else {
             rotationX.snapTo(DiagonalFlipStartDegrees)
             delay(stagger)
+            if (hapticOnEnter) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
             rotationX.animateTo(
                 targetValue = 0f,
                 animationSpec = MetroTransitions.jumpListFlipTween(),

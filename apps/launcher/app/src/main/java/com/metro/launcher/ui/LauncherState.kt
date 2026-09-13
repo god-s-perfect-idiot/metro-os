@@ -1,6 +1,8 @@
 package com.metro.launcher.ui
 
+import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -23,14 +25,19 @@ import com.metro.launcher.data.GalleryLiveTileStore
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.MusicNowPlayingStore
 import com.metro.launcher.data.PinnedTileEntry
+import com.metro.launcher.data.PinnedTileSize
+import com.metro.launcher.data.TileAppWidgetController
+import com.metro.launcher.data.TileBackgroundMode
+import com.metro.launcher.data.TileNotificationAccess
+import com.metro.launcher.data.TileSizeCycle
 import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
-import com.metro.launcher.data.PinnedTileSize
-import com.metro.launcher.data.TileNotificationAccess
-import com.metro.launcher.data.TileSizeCycle
+import com.metro.launcher.data.mergePinnedDisplayTiles
+import com.metro.launcher.data.supportsCustomWidget
 import com.metro.launcher.data.tileGridColumnCount
+import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroBroadcasts
@@ -42,9 +49,12 @@ import com.metro.system.MetroThemeMode
 import com.metro.system.MetroTileContract
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Start-owned open animation request — splash pivots in, then the activity starts underneath. */
@@ -63,6 +73,10 @@ class LauncherState(context: Context) {
     private val hostContext: Context = context
     private val repository = LauncherRepository(appContext)
     private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val persistMutex = Mutex()
+    @Volatile
+    private var persistJob: Job? = null
+    private var persistGeneration = 0
     private val metroPrefs = MetroPreferences(appContext)
     private val launcherPrefs =
         appContext.getSharedPreferences(PREFS_LAUNCHER, Context.MODE_PRIVATE)
@@ -79,9 +93,43 @@ class LauncherState(context: Context) {
     var gridColumns by mutableIntStateOf(tileGridColumnCount(metroPrefs.showMoreColumns))
         private set
     var currentPage by mutableIntStateOf(0)
+    /** Package+tile to bring into view after pin-to-Start; consumed by Start. */
+    var pendingPinReveal by mutableStateOf<TileKey?>(null)
+        private set
     var searchActive by mutableStateOf(false)
     var searchQuery by mutableStateOf("")
     var editingTile by mutableStateOf<DisplayTile?>(null)
+    /** Non-null while the tile customize page is open (brush corner). */
+    var customizingTile by mutableStateOf<DisplayTile?>(null)
+        private set
+    var tileCustomizeDraft by mutableStateOf<TileCustomizeDraft?>(null)
+        private set
+    /** True while the customize page is playing its pivot exit. */
+    var tileCustomizeExiting by mutableStateOf(false)
+    /**
+     * Bumped on every open so [MetroPagePivotLoad] remounts and replays enter, and the
+     * app bar can key its creep-in to the same session.
+     */
+    var tileCustomizeEpoch by mutableIntStateOf(0)
+        private set
+    /** False until the customize page pivot enter finishes — drives app bar creep-in. */
+    var tileCustomizeAppBarVisible by mutableStateOf(false)
+        private set
+    /** Color-picker subpage stacked on customize (Settings accents pattern). */
+    var tileCustomizeColorPickerOpen by mutableStateOf(false)
+        private set
+    var tileCustomizeColorPickerExiting by mutableStateOf(false)
+    val widgetController = TileAppWidgetController(appContext)
+    /**
+     * Pending bind / configure activity after Save chooses a new widget. The activity
+     * launches these intents and calls [onWidgetBindResult] / [onWidgetConfigureResult].
+     */
+    var pendingWidgetBindIntent by mutableStateOf<Intent?>(null)
+        private set
+    var pendingWidgetConfigureIntent by mutableStateOf<Intent?>(null)
+        private set
+    private var pendingWidgetBindEntryKey: TileKey? = null
+    private var pendingWidgetBindId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
     var showNotificationAccessPrompt by mutableStateOf(false)
     /** Non-null while Start is playing the system-wide splash open for a package. */
     var appOpenSplash by mutableStateOf<AppOpenSplashRequest?>(null)
@@ -221,6 +269,8 @@ class LauncherState(context: Context) {
     suspend fun refreshAllAsync() {
         isRefreshingContent = true
         try {
+            // Flush in-flight pin/unpin writes so a resume reload cannot clobber them.
+            persistJob?.join()
             val epochAtStart = layoutEpoch
             applyShowMoreColumns(metroPrefs.showMoreColumns)
             val columns = gridColumns
@@ -386,8 +436,275 @@ class LauncherState(context: Context) {
 
     fun unpinEditingTile() {
         val current = editingTile ?: return
+        deleteWidgetIfNeeded(current.entry)
         unpinTile(current.entry)
         editingTile = null
+    }
+
+    fun openTileCustomize() {
+        val current = editingTile ?: return
+        // Keep editingTile while customize covers Start — clearing it ran the edit-exit tween
+        // across every tile and stalled the page pivot. Motion freezes via suspendEditMotion.
+        tileCustomizeEpoch++
+        customizingTile = current
+        // Never call accentColorHex here — it hits the Settings ContentProvider on the main
+        // thread and can stall open for seconds when the provider process is cold.
+        tileCustomizeDraft = TileCustomizeDraft(
+            backgroundMode = current.entry.backgroundMode,
+            customBackgroundHex = current.entry.customBackgroundHex
+                ?: MetroAccentPalette.normalizeHex(
+                    metroPrefs.peekCachedAccentColorHex()
+                        ?: MetroPreferences.DEFAULT_ACCENT_HEX,
+                ),
+            useCustomWidget = current.entry.useCustomWidget,
+            widgetProvider = current.entry.widgetProvider,
+        )
+        tileCustomizeExiting = false
+        tileCustomizeAppBarVisible = false
+        tileCustomizeColorPickerOpen = false
+        tileCustomizeColorPickerExiting = false
+    }
+
+    fun onTileCustomizeEnterComplete() {
+        // App bar is already visible on open; keep this for any future enter-gated chrome.
+        if (customizingTile == null || tileCustomizeExiting) return
+        if (tileCustomizeColorPickerOpen || tileCustomizeColorPickerExiting) return
+        tileCustomizeAppBarVisible = true
+    }
+
+    fun openTileColorPicker() {
+        if (customizingTile == null || tileCustomizeExiting) return
+        tileCustomizeAppBarVisible = false
+        tileCustomizeColorPickerOpen = true
+        tileCustomizeColorPickerExiting = false
+    }
+
+    fun beginCloseTileColorPicker() {
+        if (!tileCustomizeColorPickerOpen || tileCustomizeColorPickerExiting) return
+        tileCustomizeColorPickerExiting = true
+    }
+
+    fun finishCloseTileColorPicker() {
+        tileCustomizeColorPickerOpen = false
+        tileCustomizeColorPickerExiting = false
+        if (customizingTile != null && !tileCustomizeExiting) {
+            tileCustomizeAppBarVisible = true
+        }
+    }
+
+    fun selectTileCustomColor(hex: String) {
+        val draft = tileCustomizeDraft ?: return
+        tileCustomizeDraft = draft.copy(
+            customBackgroundHex = MetroAccentPalette.normalizeHex(hex) ?: hex,
+            backgroundMode = TileBackgroundMode.Custom,
+        )
+        beginCloseTileColorPicker()
+    }
+
+    fun beginCloseTileCustomize() {
+        if (customizingTile == null || tileCustomizeExiting) return
+        if (tileCustomizeColorPickerOpen) {
+            beginCloseTileColorPicker()
+            return
+        }
+        tileCustomizeAppBarVisible = false
+        tileCustomizeExiting = true
+        // Snap-clear edit under the still-opaque page (suspendEditMotion → snapExit).
+        editingTile = null
+    }
+
+    fun finishCloseTileCustomize() {
+        customizingTile = null
+        tileCustomizeDraft = null
+        tileCustomizeExiting = false
+        tileCustomizeAppBarVisible = false
+        tileCustomizeColorPickerOpen = false
+        tileCustomizeColorPickerExiting = false
+    }
+
+    fun updateTileCustomizeDraft(draft: TileCustomizeDraft) {
+        tileCustomizeDraft = draft
+    }
+
+    /**
+     * Persists draft customize settings. Widget binding may defer completion until the
+     * activity returns from ACTION_APPWIDGET_BIND / configure.
+     */
+    fun saveTileCustomize() {
+        val tile = customizingTile ?: return
+        val draft = tileCustomizeDraft ?: return
+        val key = TileKey(tile.entry.packageName, tile.entry.tileId)
+        val previous = tile.entry
+        val bgHex = when (draft.backgroundMode) {
+            TileBackgroundMode.Custom ->
+                MetroAccentPalette.normalizeHex(draft.customBackgroundHex.orEmpty())
+            else -> null
+        }
+        val wantsWidget = draft.useCustomWidget &&
+            previous.supportsCustomWidget() &&
+            !draft.widgetProvider.isNullOrBlank()
+        val providerChanged = wantsWidget &&
+            (draft.widgetProvider != previous.widgetProvider ||
+                previous.appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID)
+
+        if (!wantsWidget) {
+            deleteWidgetIfNeeded(previous)
+            applyTileCustomize(
+                key = key,
+                backgroundMode = draft.backgroundMode,
+                customBackgroundHex = bgHex,
+                useCustomWidget = false,
+                widgetProvider = null,
+                appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID,
+            )
+            beginCloseTileCustomize()
+            return
+        }
+
+        if (!providerChanged) {
+            applyTileCustomize(
+                key = key,
+                backgroundMode = draft.backgroundMode,
+                customBackgroundHex = bgHex,
+                useCustomWidget = true,
+                widgetProvider = draft.widgetProvider,
+                appWidgetId = previous.appWidgetId,
+            )
+            beginCloseTileCustomize()
+            return
+        }
+
+        val component = ComponentName.unflattenFromString(draft.widgetProvider!!) ?: run {
+            beginCloseTileCustomize()
+            return
+        }
+        deleteWidgetIfNeeded(previous)
+        pendingWidgetBindEntryKey = key
+        tileCustomizeDraft = draft.copy(customBackgroundHex = bgHex)
+        val boundId = widgetController.allocateAndBind(component) { intent ->
+            pendingWidgetBindId = intent.getIntExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_ID,
+                AppWidgetManager.INVALID_APPWIDGET_ID,
+            )
+            pendingWidgetBindIntent = intent
+        }
+        if (boundId != null) {
+            finishWidgetBind(boundId)
+        }
+    }
+
+    fun onWidgetBindResult(granted: Boolean, appWidgetId: Int) {
+        pendingWidgetBindIntent = null
+        val resolvedId = if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            appWidgetId
+        } else {
+            pendingWidgetBindId
+        }
+        if (!granted) {
+            if (resolvedId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                widgetController.deleteAppWidgetId(resolvedId)
+            }
+            pendingWidgetBindEntryKey = null
+            pendingWidgetBindId = AppWidgetManager.INVALID_APPWIDGET_ID
+            beginCloseTileCustomize()
+            return
+        }
+        finishWidgetBind(resolvedId)
+    }
+
+    fun onWidgetConfigureResult(ok: Boolean, appWidgetId: Int) {
+        pendingWidgetConfigureIntent = null
+        val key = pendingWidgetBindEntryKey
+        val draft = tileCustomizeDraft
+        val resolvedId = if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            appWidgetId
+        } else {
+            pendingWidgetBindId
+        }
+        pendingWidgetBindEntryKey = null
+        pendingWidgetBindId = AppWidgetManager.INVALID_APPWIDGET_ID
+        if (!ok || key == null || draft == null) {
+            if (resolvedId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                widgetController.deleteAppWidgetId(resolvedId)
+            }
+            beginCloseTileCustomize()
+            return
+        }
+        applyTileCustomize(
+            key = key,
+            backgroundMode = draft.backgroundMode,
+            customBackgroundHex = draft.customBackgroundHex,
+            useCustomWidget = true,
+            widgetProvider = draft.widgetProvider,
+            appWidgetId = resolvedId,
+        )
+        beginCloseTileCustomize()
+    }
+
+    private fun finishWidgetBind(appWidgetId: Int) {
+        pendingWidgetBindId = appWidgetId
+        val draft = tileCustomizeDraft ?: return
+        val provider = draft.widgetProvider ?: return
+        val info = widgetController.providerInfo(provider)
+        val configure = info?.let { widgetController.configurationIntent(appWidgetId, it) }
+        if (configure != null) {
+            pendingWidgetConfigureIntent = configure
+            return
+        }
+        val key = pendingWidgetBindEntryKey ?: return
+        pendingWidgetBindEntryKey = null
+        pendingWidgetBindId = AppWidgetManager.INVALID_APPWIDGET_ID
+        applyTileCustomize(
+            key = key,
+            backgroundMode = draft.backgroundMode,
+            customBackgroundHex = draft.customBackgroundHex,
+            useCustomWidget = true,
+            widgetProvider = provider,
+            appWidgetId = appWidgetId,
+        )
+        beginCloseTileCustomize()
+    }
+
+    private fun applyTileCustomize(
+        key: TileKey,
+        backgroundMode: TileBackgroundMode,
+        customBackgroundHex: String?,
+        useCustomWidget: Boolean,
+        widgetProvider: String?,
+        appWidgetId: Int,
+    ) {
+        layoutEpoch++
+        pinnedEntries = pinnedEntries.map { entry ->
+            if (entry.packageName == key.packageName && entry.tileId == key.tileId) {
+                entry.copy(
+                    backgroundMode = backgroundMode,
+                    customBackgroundHex = customBackgroundHex,
+                    useCustomWidget = useCustomWidget,
+                    widgetProvider = widgetProvider,
+                    appWidgetId = appWidgetId,
+                )
+            } else {
+                entry
+            }
+        }
+        displayTiles = applyPinnedLayoutToDisplayTiles()
+        editingTile = displayTiles.firstOrNull {
+            it.entry.packageName == key.packageName && it.entry.tileId == key.tileId
+        }
+        customizingTile = editingTile
+        // Keep app-bar / pivot session stable through save; visibility is owned by close.
+        persistPinnedEntriesAsync()
+        refreshTilesLiveAsync(
+            pinnedEntries.filter {
+                it.packageName == key.packageName && it.tileId == key.tileId
+            },
+        )
+    }
+
+    private fun deleteWidgetIfNeeded(entry: PinnedTileEntry) {
+        if (entry.appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            widgetController.deleteAppWidgetId(entry.appWidgetId)
+        }
     }
 
     /**
@@ -444,60 +761,85 @@ class LauncherState(context: Context) {
 
     fun updateTileSize(entry: PinnedTileEntry, size: PinnedTileSize) {
         layoutEpoch++
-        pinnedEntries = applyTileResize(
+        val resized = applyTileResize(
             entries = pinnedEntries,
             packageName = entry.packageName,
             tileId = entry.tileId,
             newSize = size,
             columns = gridColumns,
         )
+        pinnedEntries = resized.map { next ->
+            if (next.packageName == entry.packageName && next.tileId == entry.tileId) {
+                if (next.supportsCustomWidget()) {
+                    next
+                } else {
+                    if (next.appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                        widgetController.deleteAppWidgetId(next.appWidgetId)
+                    }
+                    next.copy(
+                        useCustomWidget = false,
+                        widgetProvider = null,
+                        appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID,
+                    )
+                }
+            } else {
+                next
+            }
+        }
         displayTiles = applyPinnedLayoutToDisplayTiles()
         persistPinnedEntriesAsync()
     }
 
     fun unpinTile(entry: PinnedTileEntry) {
+        deleteWidgetIfNeeded(entry)
         pinnedEntries = pinnedEntries.filterNot {
             it.packageName == entry.packageName && it.tileId == entry.tileId
         }
-        persistAndRefresh()
+        persistLayoutAndPaint()
+        syncAppPinnedFlags()
     }
 
     fun pinApp(app: MetroAppInfo) {
-        if (pinnedEntries.any { it.packageName == app.packageName }) return
-        pinnedEntries = ensureGridPositions(
-            pinnedEntries + PinnedTileEntry(
+        val existing = pinnedEntries.firstOrNull { it.packageName == app.packageName }
+        if (existing != null) {
+            revealPinnedTile(existing.packageName, existing.tileId)
+            return
+        }
+        pinNewEntry(
+            PinnedTileEntry(
                 packageName = app.packageName,
                 size = PinnedTileSize.OneByOne,
             ),
-            columns = gridColumns,
         )
-        persistAndRefresh()
-        currentPage = 0
     }
 
     /**
      * Pin a primary or secondary tile (e.g. People contact shortcut).
-     * No-ops when the same package+tileId is already pinned.
+     * Reveals Start when the same package+tileId is already pinned.
      */
     fun pinTile(
         packageName: String,
         tileId: String,
         size: PinnedTileSize = PinnedTileSize.TwoByTwo,
     ) {
-        if (pinnedEntries.any { it.packageName == packageName && it.tileId == tileId }) {
-            currentPage = 0
+        val existing = pinnedEntries.firstOrNull {
+            it.packageName == packageName && it.tileId == tileId
+        }
+        if (existing != null) {
+            revealPinnedTile(existing.packageName, existing.tileId)
             return
         }
-        pinnedEntries = ensureGridPositions(
-            pinnedEntries + PinnedTileEntry(
+        pinNewEntry(
+            PinnedTileEntry(
                 packageName = packageName,
                 tileId = tileId,
                 size = size,
             ),
-            columns = gridColumns,
         )
-        persistAndRefresh()
-        currentPage = 0
+    }
+
+    fun consumePinReveal() {
+        pendingPinReveal = null
     }
 
     fun handlePinTileIntent(intent: Intent?) {
@@ -559,17 +901,73 @@ class LauncherState(context: Context) {
 
     private fun persistPinnedEntriesAsync() {
         val snapshot = pinnedEntries.toList()
-        persistScope.launch {
-            repository.savePinnedTiles(snapshot)
+        val generation = ++persistGeneration
+        persistJob = persistScope.launch {
+            persistMutex.withLock {
+                if (generation != persistGeneration) return@withLock
+                repository.savePinnedTiles(snapshot)
+            }
         }
     }
 
-    private fun persistAndRefresh() {
+    /**
+     * Immediate Start paint: keep existing live chrome, resolve only newly pinned
+     * tiles as static faces, persist off the main thread. Live payloads fill in after.
+     */
+    private fun persistLayoutAndPaint() {
         layoutEpoch++
         pinnedEntries = compactEmptyRows(pinnedEntries)
-        repository.savePinnedTiles(pinnedEntries)
-        displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
-        apps = repository.discoverApps(pinnedEntries)
+        val previousKeys = displayTiles.map { it.entry.packageName to it.entry.tileId }.toSet()
+        displayTiles = mergePinnedDisplayTiles(
+            pinned = pinnedEntries,
+            existing = displayTiles,
+            resolveMissing = { missing ->
+                repository.resolveDisplayTiles(missing, liveContent = false)
+            },
+        )
+        persistPinnedEntriesAsync()
+        val added = pinnedEntries.filter { entry ->
+            (entry.packageName to entry.tileId) !in previousKeys
+        }
+        refreshTilesLiveAsync(added)
+    }
+
+    private fun pinNewEntry(entry: PinnedTileEntry) {
+        pinnedEntries = ensureGridPositions(
+            pinnedEntries + entry,
+            columns = gridColumns,
+        )
+        persistLayoutAndPaint()
+        syncAppPinnedFlags()
+        revealPinnedTile(entry.packageName, entry.tileId)
+    }
+
+    private fun revealPinnedTile(packageName: String, tileId: String) {
+        pendingPinReveal = TileKey(packageName, tileId)
+        currentPage = 0
+    }
+
+    private fun syncAppPinnedFlags() {
+        val pinnedPackages = pinnedEntries.map { it.packageName }.toSet()
+        apps = apps.map { app ->
+            val pinned = app.packageName in pinnedPackages
+            if (app.isPinned == pinned) app else app.copy(isPinned = pinned)
+        }
+    }
+
+    private fun refreshTilesLiveAsync(entries: List<PinnedTileEntry>) {
+        if (entries.isEmpty()) return
+        val epoch = layoutEpoch
+        persistScope.launch {
+            val live = repository.resolveDisplayTiles(entries, liveContent = true)
+            withContext(Dispatchers.Main) {
+                if (epoch != layoutEpoch) return@withContext
+                val liveByKey = live.associateBy { it.entry.packageName to it.entry.tileId }
+                displayTiles = displayTiles.map { tile ->
+                    liveByKey[tile.entry.packageName to tile.entry.tileId] ?: tile
+                }
+            }
+        }
     }
 
     /** Applies Settings → show more columns; reflows when the column count changes. */
@@ -578,7 +976,7 @@ class LauncherState(context: Context) {
         if (columns == gridColumns) return
         gridColumns = columns
         pinnedEntries = adaptTilesToColumnCount(pinnedEntries, columns)
-        persistAndRefresh()
+        persistLayoutAndPaint()
     }
 
     companion object {

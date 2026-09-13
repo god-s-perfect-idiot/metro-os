@@ -29,7 +29,7 @@ source "$ROOT/scripts/lib/metro-common.sh"
 APP_ORDER=(
   launcher statusbar notifications navbar volume lockscreen
   browser notes music
-  photos calendar mail messaging people dialer store settings calculator clock files discord
+  photos calendar mail messaging people dialer store settings calculator clock files hub discord
 )
 
 SHELL_APPS=(launcher statusbar notifications navbar volume lockscreen)

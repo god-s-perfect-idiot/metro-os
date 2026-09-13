@@ -40,3 +40,12 @@ Thumbs.db
 *.keystore
 *.jks
 signing.properties
+
+# Firebase / Hub secrets (never commit)
+apps/hub/app/google-services.json
+firebase/service-account.json
+firebase/*-firebase-adminsdk-*.json
+firebase/.runtimeconfig.json
+firebase/node_modules/
+firebase/package-lock.json
+firebase/package.json

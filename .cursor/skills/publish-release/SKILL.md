@@ -265,6 +265,12 @@ gh release create "$NEXT_TAG" \
   --title "$NEXT_TAG" \
   --notes-file "$NOTES_FILE" \
   deploy/apks/*-debug.apk
+
+# Hub OTA catalog (per-app versionName); regenerate after APKs exist:
+./scripts/generate-hub-catalog.sh --upload "$NEXT_TAG"
+
+# Firestore first-party sync (versions, logoXml, apkUrl, creator=Entropy):
+./scripts/sync-hub-firestore.sh --tag "$NEXT_TAG"
 ```
 
 Flags:
@@ -275,6 +281,46 @@ Flags:
 - Do **not** pass `--latest=false` unless the user does not want this marked latest.
 
 If the release already exists without assets, upload instead:
+
+```bash
+gh release upload "$NEXT_TAG" deploy/apks/*-debug.apk --clobber
+./scripts/generate-hub-catalog.sh --upload "$NEXT_TAG"
+./scripts/sync-hub-firestore.sh --tag "$NEXT_TAG"
+```
+
+### Hub Firestore catalog (required for Hub OTA metadata)
+
+Collections (Firebase project `metro-os-a961a`):
+
+| Collection | Purpose |
+|------------|---------|
+| `first-party` | All metro-os suite apps (creator **Entropy**) |
+| `second-party` | External repos associated with metro-os |
+| `third-party` | Unrelated WP8.1-style projects |
+| `explore` | Featured entries for a future Hub section |
+
+Each app doc (first/second/third) should include: `name`, `packageName`,
+`description`, `versionName`, `versionCode`, `type` (`core`/`shell`/…),
+`creator`, `logoXml` (vector XML text) and/or `logoPngBase64`, `apkName`,
+`apkUrl`, `releaseUrl`, `githubRepo`, `sizeBytes`, `party`, `updatedAt`.
+
+Sync after APKs are built / attached:
+
+```bash
+# Uses firebase/service-account.json (gitignored)
+./scripts/sync-hub-firestore.sh --tag "$NEXT_TAG"
+```
+
+Optional Hub GitHub catalog notes:
+
+```bash
+# Builds deploy/hub-catalog.json from aapt badging of deploy/apks/*
+./scripts/generate-hub-catalog.sh
+# Attach so Hub can read per-app versions OTA (icons via APK / installed package)
+./scripts/generate-hub-catalog.sh --upload "$NEXT_TAG"
+```
+
+If the release already exists without assets, upload instead (legacy block kept below for APK-only):
 
 ```bash
 gh release upload "$NEXT_TAG" deploy/apks/*-debug.apk --clobber
@@ -306,6 +352,9 @@ Tell the user:
   (or when the user requests it).
 - Do not force-push or delete existing release tags.
 - Do not commit APKs; only attach from `deploy/apks/` (gitignored).
+- Do not commit `apps/hub/app/google-services.json` or `firebase/service-account.json`.
+- After attaching APKs, run `./scripts/sync-hub-firestore.sh --tag "$NEXT_TAG"` so Hub
+  first-party Firestore docs match the release (versions, apkUrl, logoXml).
 - Do not update golden screenshots as part of release.
 - Prefer `./scripts/build-apks.sh` over ad-hoc Gradle loops.
 - Prefer

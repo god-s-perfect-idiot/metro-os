@@ -191,6 +191,12 @@ fun AppListScreen(
     val dismissContextMenu: () -> Unit = {
         contextMenuVisible.targetState = false
     }
+    /** Instant close — use when leaving the app list (pin / launch) so the
+     * window-level Popup does not collapse mid-pan over Start. */
+    val snapDismissContextMenu: () -> Unit = {
+        contextMenuVisible.targetState = false
+        contextMenuApp = null
+    }
 
     // Drop the host once the shrink animation finishes.
     LaunchedEffect(contextMenuVisible.isIdle, contextMenuVisible.currentState) {
@@ -200,10 +206,13 @@ fun AppListScreen(
     }
     val contextMenuFocusTransition =
         updateTransition(contextMenuVisible, label = "appListContextMenuFocus")
-    val contextMenuFocusFraction by contextMenuFocusTransition.animateFloat(
+    val contextMenuFocusFractionAnimated by contextMenuFocusTransition.animateFloat(
         transitionSpec = { tween(ContextMenuExpandMs) },
         label = "focusFraction",
     ) { visible -> if (visible) 1f else 0f }
+    // Host already gone after snap-dismiss — don't keep animating list dim/shift.
+    val contextMenuFocusFraction =
+        if (contextMenuApp == null) 0f else contextMenuFocusFractionAnimated
     val showLetterMarkers = MetroJumpListLogic.showSectionMarkers(searchActive)
     val letterMarkerVisibility by animateFloatAsState(
         targetValue = if (showLetterMarkers) 1f else 0f,
@@ -401,19 +410,20 @@ fun AppListScreen(
                     modifier = Modifier.clipToBounds(),
                     content = {
                         AppListContextMenu(
+                            pinToStartEnabled = AppListContextMenuLogic.pinToStartEnabled(app.isPinned),
                             uninstallEnabled = !app.isSystemApp,
                             appOptions = appOptions,
                             onPinToStart = {
+                                snapDismissContextMenu()
                                 onPinToStart(app)
-                                dismissContextMenu()
                             },
                             onUninstall = {
                                 onUninstall(app)
                                 dismissContextMenu()
                             },
                             onLaunchAppOption = { option ->
+                                snapDismissContextMenu()
                                 onLaunchAppOption(option)
-                                dismissContextMenu()
                             },
                         )
                     },
@@ -495,15 +505,16 @@ private fun AppListSearchField(
 
 @Composable
 private fun AppListContextMenu(
+    pinToStartEnabled: Boolean,
     uninstallEnabled: Boolean,
     appOptions: List<AppLauncherOption>,
     onPinToStart: () -> Unit,
     onUninstall: () -> Unit,
     onLaunchAppOption: (AppLauncherOption) -> Unit,
 ) {
-    val menuEntries = remember(uninstallEnabled, appOptions) {
+    val menuEntries = remember(pinToStartEnabled, uninstallEnabled, appOptions) {
         buildList {
-            add(ContextMenuEntry("pin to start"))
+            add(ContextMenuEntry("pin to start", enabled = pinToStartEnabled))
             add(ContextMenuEntry("uninstall", enabled = uninstallEnabled))
             appOptions.forEach { option ->
                 add(ContextMenuEntry(option.label.lowercase(), option = option))

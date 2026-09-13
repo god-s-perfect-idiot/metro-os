@@ -18,6 +18,7 @@ import com.metro.system.MetroTilePhotoGrid
 import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT
 import com.metro.system.MetroAppBranding
+import com.metro.system.MetroPreferences
 import com.metro.system.MetroStartBackground
 import com.metro.launcher.data.CustomTileBranding
 import com.metro.ui.MetroActivities
@@ -134,13 +135,11 @@ class LauncherRepository(private val context: Context) {
         }
         val label = resolveAppLabel(packageName)
         val title = providerData?.title ?: label ?: packageName.substringAfterLast('.')
-        val background = CustomTileBranding.resolveBackgroundColor(context, packageName)
-            ?: MetroAppBranding.resolveTileBackgroundColor(
-                context = context,
-                packageName = packageName,
-                providerBackgroundHex = providerData?.backgroundColorHex,
-            )
-        val revealsStartBackground = tileRevealsStartBackground(packageName)
+        val background = resolvePinnedBackgroundColor(
+            entry = this,
+            providerBackgroundHex = providerData?.backgroundColorHex,
+        )
+        val revealsStartBackground = tileRevealsStartBackground(this)
         val photoGrid = resolvePhotoGrid(
             packageName = packageName,
             providerGrid = providerData?.photoGrid,
@@ -194,15 +193,43 @@ class LauncherRepository(private val context: Context) {
 
     /**
      * Accent-following tiles become transparent windows when a Start background is set.
-     * Fixed-brand custom tiles stay opaque.
+     * Fixed-brand / user-custom fills stay opaque.
      */
-    private fun tileRevealsStartBackground(packageName: String): Boolean {
+    private fun tileRevealsStartBackground(entry: PinnedTileEntry): Boolean {
         if (!MetroStartBackground.isEnabled(context)) return false
-        CustomTileBranding.entry(packageName)?.let { entry ->
-            // Explicit brand hex → opaque; accent-tracking custom glyph → transparent.
-            return entry.backgroundHex == null
+        when (entry.backgroundMode) {
+            TileBackgroundMode.Custom -> return false
+            TileBackgroundMode.Accent -> return true
+            TileBackgroundMode.Default -> Unit
         }
-        return MetroStartBackground.revealsThroughPackage(context, packageName)
+        CustomTileBranding.entry(entry.packageName)?.let { branding ->
+            // Explicit brand hex → opaque; accent-tracking custom glyph → transparent.
+            return branding.backgroundHex == null
+        }
+        return MetroStartBackground.revealsThroughPackage(context, entry.packageName)
+    }
+
+    private fun resolvePinnedBackgroundColor(
+        entry: PinnedTileEntry,
+        providerBackgroundHex: String?,
+    ): Color {
+        val prefs = MetroPreferences(context)
+        return when (entry.backgroundMode) {
+            TileBackgroundMode.Accent -> prefs.accentColor
+            TileBackgroundMode.Custom -> {
+                entry.customBackgroundHex
+                    ?.let { MetroPreferences.parseAccentHex(it) }
+                    ?: prefs.accentColor
+            }
+            TileBackgroundMode.Default -> {
+                CustomTileBranding.resolveBackgroundColor(context, entry.packageName)
+                    ?: MetroAppBranding.resolveTileBackgroundColor(
+                        context = context,
+                        packageName = entry.packageName,
+                        providerBackgroundHex = providerBackgroundHex,
+                    )
+            }
+        }
     }
 
     private fun resolveAppLabel(packageName: String): String? = try {
@@ -233,8 +260,10 @@ class LauncherRepository(private val context: Context) {
         val isGallery = GalleryTilePackages.isGalleryApp(context, packageName)
         if (isGallery) {
             if (!liveContent) {
-                return providerGrid?.takeIf { it.cycle }
-                    ?: GalleryLiveTileStore.photoGrid(context)
+                // Cached cells only — never hit MediaStore on the paint-critical path
+                // (pin-to-Start on the main thread, cold-start static chrome).
+                return providerGrid?.takeIf { it.cycle && it.hasContent }
+                    ?: GalleryLiveTileStore.peekCachedPhotoGrid()
             }
             val synthesized = GalleryLiveTileStore.photoGrid(context)
             val providerCycle = providerGrid?.takeIf { it.cycle && it.hasContent }
@@ -252,5 +281,29 @@ class LauncherRepository(private val context: Context) {
         return providerGrid?.let { grid ->
             if (grid.cycle) null else grid
         }
+    }
+}
+
+/**
+ * Applies a new pinned layout while keeping already-resolved tile chrome (photos,
+ * contacts, music). Only [pinned] entries missing from [existing] are resolved.
+ */
+internal fun mergePinnedDisplayTiles(
+    pinned: List<PinnedTileEntry>,
+    existing: List<DisplayTile>,
+    resolveMissing: (List<PinnedTileEntry>) -> List<DisplayTile>,
+): List<DisplayTile> {
+    val existingByKey = existing.associateBy { it.entry.packageName to it.entry.tileId }
+    val missing = pinned.filter { entry ->
+        (entry.packageName to entry.tileId) !in existingByKey
+    }
+    val resolvedByKey = if (missing.isEmpty()) {
+        emptyMap()
+    } else {
+        resolveMissing(missing).associateBy { it.entry.packageName to it.entry.tileId }
+    }
+    return pinned.mapNotNull { entry ->
+        val key = entry.packageName to entry.tileId
+        existingByKey[key]?.copy(entry = entry) ?: resolvedByKey[key]
     }
 }

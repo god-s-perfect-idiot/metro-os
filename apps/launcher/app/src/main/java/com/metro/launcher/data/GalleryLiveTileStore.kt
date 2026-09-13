@@ -31,6 +31,9 @@ object GalleryLiveTileStore {
         cached = null
     }
 
+    /** Last MediaStore cycle grid, or null when nothing has been queried yet. */
+    fun peekCachedPhotoGrid(): MetroTilePhotoGrid? = cached?.grid
+
     /**
      * Cycle photo grid for a connected gallery app, or null when media permission is missing
      * and no usable cells can be built.

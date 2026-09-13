@@ -108,7 +108,7 @@ fun StartThemeScreen(
                 .padding(horizontal = MetroDimens.ScreenHorizontalMargin)
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
-                .border(1.dp, MetroTheme.colors.primaryText)
+                .border(2.dp, MetroTheme.colors.primaryText)
                 .clickable { state.open(SettingsRoute.AccentPicker) }
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,

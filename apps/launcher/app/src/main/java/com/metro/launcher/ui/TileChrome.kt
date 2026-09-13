@@ -65,11 +65,12 @@ data class TileChrome(
     }
 
     companion object {
-        /** 4-column Start — keep these values unchanged for visual parity. */
+        /** 4-column Start — default density metrics. */
         val Standard = TileChrome(
             horizontalPadding = 12.dp,
             contentInset = 8.dp,
-            smallIconInset = 10.dp,
+            // Slightly fuller 1×1 glyphs than the legacy 10.dp inset.
+            smallIconInset = 6.dp,
             mediumIconFraction = 0.55f,
             wideIconFraction = 0.42f,
             titleSp = 16f,

@@ -56,33 +56,37 @@ fun MetroPanorama(
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
         val viewportWidth = maxWidth
         val paneWidth = (viewportWidth - contentPeek).coerceAtLeast(0.dp)
-        val lastPageIndex = titles.lastIndex.coerceAtLeast(0)
+        val showTitles = titles.any { it.isNotBlank() }
+        val titleHeight = if (showTitles) MetroPanoramaTitleHeight else 0.dp
+        val lastPageIndex = (pagerState.pageCount - 1).coerceAtLeast(0)
         val density = LocalDensity.current
         val paneStridePx = remember(paneWidth, density) {
             with(density) { paneWidth.roundToPx() }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(MetroPanoramaTitleHeight),
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                MetroPanoramaTitleRow(
-                    titles = titles,
-                    pagerState = pagerState,
-                    paneWidth = paneWidth,
-                    viewportWidth = viewportWidth,
-                    paneStridePx = paneStridePx,
-                    onTitleClick = onTitleClick,
-                )
+            if (showTitles) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(titleHeight),
+                    contentAlignment = Alignment.BottomStart,
+                ) {
+                    MetroPanoramaTitleRow(
+                        titles = titles,
+                        pagerState = pagerState,
+                        paneWidth = paneWidth,
+                        viewportWidth = viewportWidth,
+                        paneStridePx = paneStridePx,
+                        onTitleClick = onTitleClick,
+                    )
+                }
             }
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = MetroPanoramaTitleHeight),
+                    .padding(top = titleHeight),
                 pageSize = PageSize.Fixed(paneWidth),
                 // Trailing padding extends the scroll range by [contentPeek] so the last pane
                 // can snap flush-left. Without it, max scroll stops [contentPeek] short and the

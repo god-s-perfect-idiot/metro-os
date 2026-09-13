@@ -180,11 +180,15 @@ private fun LoadingDot(
  *
  * For cold-start / shell awaits that should match the system splash chrome, prefer
  * [MetroSplashLoadingScreen] (accent fill + app glyph + dots, no label).
+ *
+ * Set [useAndroidDots] when the UI thread may be busy (heavy first layout) — the
+ * View-backed dots keep dancing while Compose [MetroLoadingDots] would freeze.
  */
 @Composable
 fun MetroLoadingScreen(
     modifier: Modifier = Modifier,
     message: String = "Loading...",
+    useAndroidDots: Boolean = false,
 ) {
     Box(
         modifier = modifier
@@ -210,7 +214,11 @@ fun MetroLoadingScreen(
                     color = MetroTheme.colors.primaryText,
                 ),
             )
-            MetroLoadingDots()
+            if (useAndroidDots) {
+                MetroLoadingDotsAndroid()
+            } else {
+                MetroLoadingDots()
+            }
         }
     }
 }

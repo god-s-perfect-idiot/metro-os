@@ -18,6 +18,9 @@
             <action android:name="android.intent.action.DELETE" />
             <data android:scheme="package" />
         </intent>
+        <intent>
+            <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent>
         <!-- Metro suite packages — required for cross-app live tile ContentProviders (API 30+). -->
         <package android:name="com.metro.browser" />
         <package android:name="com.metro.notes" />

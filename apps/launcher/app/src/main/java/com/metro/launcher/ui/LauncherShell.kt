@@ -1,19 +1,26 @@
 package com.metro.launcher.ui
 
 import android.os.SystemClock
+import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,12 +30,15 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
@@ -36,18 +46,40 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.metro.launcher.R
+import com.metro.launcher.data.AppLauncherOption
+import com.metro.launcher.data.DisplayTile
+import com.metro.system.MetroAppInfo
+import com.metro.ui.MetroAppBar
+import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppOpenSplash
+import com.metro.ui.MetroLoadingScreen
+import com.metro.ui.MetroPagePivotLoad
 import com.metro.ui.MetroSplashLoadingScreen
+import com.metro.ui.MetroSystemIconType
+import com.metro.ui.MetroTheme
+import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
+import com.metro.ui.metroPagePivotCameraDistance
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /** First dots need ~150–600ms delay + travel before they read as “dancing”. */
 private const val MIN_SPLASH_DOTS_VISIBLE_MS = 700L
 
+private const val CUSTOMIZE_DEBUG_TAG = "MetroCustomize"
+
+internal fun customizeDebugLog(event: String) {
+    Log.i(CUSTOMIZE_DEBUG_TAG, "t=${SystemClock.elapsedRealtime()} $event")
+}
+
 /**
  * Two-page shell: Start tiles (page 0) and app menu (page 1).
  * Reference: references/guides/blueprint.md
+ *
+ * Customize is a sibling composition scope that does **not** share state reads with the
+ * Start pager — opening the cube must not rebuild the tile grid on the pivot frame.
  */
 @OptIn(ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -57,7 +89,12 @@ fun LauncherShell(
     onComposeSplashReady: () -> Unit = {},
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
-    val editing = state.editingTile != null
+    // Written from the customize overlay / cube tap — Start reads only inside the float-clock
+    // loop so flipping it does not recompose the tile grid.
+    val customizeSuspendStart = remember { mutableStateOf(false) }
+    // Drop the Start pager after cube tap so its layout/draw cannot starve the page pivot.
+    // Read only by [LauncherPagerHost] — not by this shell — so overlay open stays cheap.
+    val startCoveredByCustomize = remember { mutableStateOf(false) }
     // Cold start waits for the splash loader to lift before playing the enter wave.
     var enterWaveKey by remember { mutableIntStateOf(0) }
     // Survives Start dispose when the pager drops page 0 — returning from the app list
@@ -69,6 +106,48 @@ fun LauncherShell(
     var startDrawn by remember { mutableStateOf(false) }
     // Cold-start only: do not re-cover Start on resume / live refresh.
     var coldSplashActive by remember { mutableStateOf(true) }
+
+    // Stable identities — unstable lambdas / modifiers force a full Start+AppList rebuild.
+    val startPageModifier = remember { Modifier.testTag("metro_page_start") }
+    val appListPageModifier = remember { Modifier.testTag("metro_page_app_list") }
+    val noopTileClick = remember<(DisplayTile) -> Unit> { {} }
+    val openAppList = remember(state) { { state.currentPage = 1 } }
+    val onTileClick = remember(state) { state::onTileClick }
+    val onTileLongPress = remember(state) { state::onTileLongPress }
+    val onDismissEdit = remember(state) { state::dismissEdit }
+    val onResize = remember(state) { state::resizeEditingTile }
+    val onUnpin = remember(state) { state::unpinEditingTile }
+    val onCustomize = remember(state, customizeSuspendStart, startCoveredByCustomize) {
+        {
+            customizeDebugLog("cube_tap")
+            // Freeze jiggle, then remove Start from composition before the overlay mounts.
+            // Keeping Start under the page was starving frames (~800ms+/frame) so the 200ms
+            // pivot took ~2.5s and looked like a pop-in.
+            customizeSuspendStart.value = true
+            startCoveredByCustomize.value = true
+            consumedEnterWaveKey = enterWaveKey
+            state.openTileCustomize()
+            customizeDebugLog("openTileCustomize_returned")
+        }
+    }
+    val onDragLayout = remember(state) { state::applyDragLayout }
+    val onReorderCommit = remember(state) { state::commitTileOrder }
+    val onPinRevealConsumed = remember(state) { state::consumePinReveal }
+    val onSearchActiveChange = remember(state) { state::onSearchActiveChange }
+    val onSearchQueryChange = remember(state) { state::onSearchQueryChange }
+    val onAppClick = remember(state) { state::launchApp }
+    val onPinToStart = remember(state) { state::pinApp }
+    val onUninstall = remember(state) { state::uninstallApp }
+    val queryAppOptions = remember(state) { state::queryAppOptions }
+    val onLaunchAppOption = remember(state) { state::launchAppOption }
+    val onGrantNotificationAccess = remember(state) { state::openNotificationAccessSettings }
+    val onDismissNotificationAccess = remember(state) { state::dismissNotificationAccessPrompt }
+    val onUnfreezeStart = remember(customizeSuspendStart, startCoveredByCustomize) {
+        {
+            startCoveredByCustomize.value = false
+            customizeSuspendStart.value = false
+        }
+    }
 
     LaunchedEffect(state.hasCompletedInitialLoad) {
         if (!state.hasCompletedInitialLoad) {
@@ -104,9 +183,11 @@ fun LauncherShell(
 
     // Home must consume Back: the default finish/relaunch path resumes Start and replays
     // the enter wave (hang). App-list search keeps its own BackHandler (child wins).
+    // Customize BackHandlers live in [TileCustomizeOverlay] (child wins while open).
     BackHandler {
         when {
-            editing -> state.dismissEdit()
+            state.customizingTile != null -> state.beginCloseTileCustomize()
+            state.editingTile != null -> state.dismissEdit()
             state.currentPage == 1 -> state.currentPage = 0
             // Start: consume and stay put.
         }
@@ -123,7 +204,11 @@ fun LauncherShell(
 
     LaunchedEffect(state.currentPage) {
         if (pagerState.currentPage != state.currentPage) {
-            pagerState.animateScrollToPage(state.currentPage)
+            // WP8.1 Start ↔ app list: 300ms horizontal pan (Back, → arrow, pin-to-Start).
+            pagerState.animateScrollToPage(
+                page = state.currentPage,
+                animationSpec = MetroTransitions.pageTween(),
+            )
         }
         if (state.currentPage != 1) {
             state.dismissSearch()
@@ -161,84 +246,46 @@ fun LauncherShell(
             .fillMaxSize()
             .semantics { testTagsAsResourceId = true },
     ) {
-        // Mount Start as soon as live data is ready, but keep the splash on top until
-        // Start has drawn (View-backed dots keep moving during that mount).
+        // Pager host must not read customizingTile — otherwise every cube tap rebuilds Start.
         if (state.hasCompletedInitialLoad) {
-            val density = LocalDensity.current
-            val configuration = LocalConfiguration.current
-            val viewportWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-            val viewportHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-            val startBackground = remember(state.startBackgroundBitmap, viewportWidthPx, viewportHeightPx) {
-                state.startBackgroundBitmap?.let { bmp ->
-                    StartBackgroundViewport(
-                        bitmap = bmp.asImageBitmap(),
-                        viewportWidthPx = viewportWidthPx,
-                        viewportHeightPx = viewportHeightPx,
-                    )
-                }
-            }
-            CompositionLocalProvider(LocalStartBackgroundViewport provides startBackground) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .metroNavBarPadding()
-                    .background(Color.Black),
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    beyondViewportPageCount = 0,
-                    userScrollEnabled = !editing && !showSplashLoader && state.appOpenSplash == null,
-                ) { page ->
-                    when (page) {
-                        0 -> StartScreen(
-                            tiles = state.displayTiles,
-                            onTileClick = if (editing) ({}) else state::onTileClick,
-                            onTileLongPress = state::onTileLongPress,
-                            onOpenAppList = { state.currentPage = 1 },
-                            columns = state.gridColumns,
-                            editMode = editing,
-                            editingTile = state.editingTile,
-                            onDismissEdit = state::dismissEdit,
-                            onResize = state::resizeEditingTile,
-                            onUnpin = state::unpinEditingTile,
-                            onDragLayout = state::applyDragLayout,
-                            onReorderCommit = state::commitTileOrder,
-                            enterWaveKey = enterWaveKey,
-                            consumedEnterWaveKey = consumedEnterWaveKey,
-                            modifier = Modifier.testTag("metro_page_start"),
-                        )
-                        1 -> AppListScreen(
-                            apps = state.filteredApps,
-                            searchActive = state.searchActive,
-                            searchQuery = state.searchQuery,
-                            onSearchActiveChange = state::onSearchActiveChange,
-                            onSearchQueryChange = state::onSearchQueryChange,
-                            onAppClick = state::launchApp,
-                            onPinToStart = state::pinApp,
-                            onUninstall = state::uninstallApp,
-                            queryAppOptions = state::queryAppOptions,
-                            onLaunchAppOption = state::launchAppOption,
-                            modifier = Modifier.testTag("metro_page_app_list"),
-                        )
-                    }
-                }
-
-                if (state.showNotificationAccessPrompt &&
-                    state.currentPage == 0 &&
-                    !editing &&
-                    !showSplashLoader
-                ) {
-                    NotificationAccessPrompt(
-                        onGrant = state::openNotificationAccessSettings,
-                        onDismiss = state::dismissNotificationAccessPrompt,
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
-                }
-            }
-            }
+            LauncherPagerHost(
+                state = state,
+                pagerState = pagerState,
+                showSplashLoader = showSplashLoader,
+                enterWaveKey = enterWaveKey,
+                consumedEnterWaveKey = consumedEnterWaveKey,
+                suspendEditMotion = customizeSuspendStart,
+                coveredByCustomize = startCoveredByCustomize,
+                startPageModifier = startPageModifier,
+                appListPageModifier = appListPageModifier,
+                noopTileClick = noopTileClick,
+                openAppList = openAppList,
+                onTileClick = onTileClick,
+                onTileLongPress = onTileLongPress,
+                onDismissEdit = onDismissEdit,
+                onResize = onResize,
+                onUnpin = onUnpin,
+                onCustomize = onCustomize,
+                onDragLayout = onDragLayout,
+                onReorderCommit = onReorderCommit,
+                onPinRevealConsumed = onPinRevealConsumed,
+                onSearchActiveChange = onSearchActiveChange,
+                onSearchQueryChange = onSearchQueryChange,
+                onAppClick = onAppClick,
+                onPinToStart = onPinToStart,
+                onUninstall = onUninstall,
+                queryAppOptions = queryAppOptions,
+                onLaunchAppOption = onLaunchAppOption,
+                onGrantNotificationAccess = onGrantNotificationAccess,
+                onDismissNotificationAccess = onDismissNotificationAccess,
+            )
         }
+
+        // Sibling scope — only this subtree invalidates when customize opens/closes.
+        TileCustomizeOverlay(
+            state = state,
+            onClosed = onUnfreezeStart,
+        )
 
         if (showSplashLoader) {
             MetroSplashLoadingScreen(
@@ -275,5 +322,398 @@ fun LauncherShell(
                 state.clearAppOpenSplash()
             }
         }
+    }
+}
+
+/**
+ * Start + app list pager. Intentionally avoids reading [LauncherState.customizingTile] so a
+ * cube tap does not rebuild the tile grid on the same frame as the customize pivot.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LauncherPagerHost(
+    state: LauncherState,
+    pagerState: PagerState,
+    showSplashLoader: Boolean,
+    enterWaveKey: Int,
+    consumedEnterWaveKey: Int,
+    suspendEditMotion: State<Boolean>,
+    coveredByCustomize: State<Boolean>,
+    startPageModifier: Modifier,
+    appListPageModifier: Modifier,
+    noopTileClick: (DisplayTile) -> Unit,
+    openAppList: () -> Unit,
+    onTileClick: (DisplayTile) -> Unit,
+    onTileLongPress: (DisplayTile) -> Unit,
+    onDismissEdit: () -> Unit,
+    onResize: () -> Unit,
+    onUnpin: () -> Unit,
+    onCustomize: () -> Unit,
+    onDragLayout: (List<PlacedTile>) -> Unit,
+    onReorderCommit: () -> Unit,
+    onPinRevealConsumed: () -> Unit,
+    onSearchActiveChange: (Boolean) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onAppClick: (MetroAppInfo) -> Unit,
+    onPinToStart: (MetroAppInfo) -> Unit,
+    onUninstall: (MetroAppInfo) -> Unit,
+    queryAppOptions: suspend (String) -> List<AppLauncherOption>,
+    onLaunchAppOption: (AppLauncherOption) -> Unit,
+    onGrantNotificationAccess: () -> Unit,
+    onDismissNotificationAccess: () -> Unit,
+) {
+    // Placeholder while customize owns the screen — avoids Start layout/draw starving the pivot.
+    // Overlay shows MetroLoadingScreen during warm; this is only the underlay once Start drops.
+    if (coveredByCustomize.value) {
+        SideEffect { customizeDebugLog("pager_covered_placeholder") }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        )
+        return
+    }
+
+    val editing = state.editingTile != null
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val viewportWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val viewportHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val startBackground = remember(state.startBackgroundBitmap, viewportWidthPx, viewportHeightPx) {
+        state.startBackgroundBitmap?.let { bmp ->
+            StartBackgroundViewport(
+                bitmap = bmp.asImageBitmap(),
+                viewportWidthPx = viewportWidthPx,
+                viewportHeightPx = viewportHeightPx,
+            )
+        }
+    }
+    // Cache so AppList can skip when this host recomposes for unrelated Start edits.
+    val filteredApps = remember(state.apps, state.searchQuery) {
+        state.filteredApps
+    }
+    CompositionLocalProvider(
+        LocalStartBackgroundViewport provides startBackground,
+        LocalTileAppWidgetController provides state.widgetController,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .metroNavBarPadding()
+                .background(Color.Black),
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                // Keep the neighbor composed so animateScrollToPage can pan (Back / →)
+                // instead of snapping when the target page has no layout info.
+                beyondViewportPageCount = 1,
+                userScrollEnabled = !editing && !showSplashLoader && state.appOpenSplash == null,
+            ) { page ->
+                when (page) {
+                    0 -> StartScreen(
+                        tiles = state.displayTiles,
+                        onTileClick = if (editing) noopTileClick else onTileClick,
+                        onTileLongPress = onTileLongPress,
+                        onOpenAppList = openAppList,
+                        columns = state.gridColumns,
+                        editMode = editing,
+                        editingTile = state.editingTile,
+                        onDismissEdit = onDismissEdit,
+                        onResize = onResize,
+                        onUnpin = onUnpin,
+                        onCustomize = onCustomize,
+                        onDragLayout = onDragLayout,
+                        onReorderCommit = onReorderCommit,
+                        enterWaveKey = enterWaveKey,
+                        consumedEnterWaveKey = consumedEnterWaveKey,
+                        pendingPinReveal = state.pendingPinReveal,
+                        onPinRevealConsumed = onPinRevealConsumed,
+                        suspendEditMotion = suspendEditMotion,
+                        modifier = startPageModifier,
+                    )
+                    1 -> AppListScreen(
+                        apps = filteredApps,
+                        searchActive = state.searchActive,
+                        searchQuery = state.searchQuery,
+                        onSearchActiveChange = onSearchActiveChange,
+                        onSearchQueryChange = onSearchQueryChange,
+                        onAppClick = onAppClick,
+                        onPinToStart = onPinToStart,
+                        onUninstall = onUninstall,
+                        queryAppOptions = queryAppOptions,
+                        onLaunchAppOption = onLaunchAppOption,
+                        modifier = appListPageModifier,
+                    )
+                }
+            }
+
+            if (state.showNotificationAccessPrompt &&
+                state.currentPage == 0 &&
+                !editing &&
+                !showSplashLoader
+            ) {
+                NotificationAccessPrompt(
+                    onGrant = onGrantNotificationAccess,
+                    onDismiss = onDismissNotificationAccess,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Customize page over Start. Owns all customize state reads so the Start pager stays
+ * skippable while this mounts.
+ *
+ * Critical sequencing (from live traces on Pixel 9):
+ * 1. Unmount Start on cube tap so the tile grid cannot draw under the page.
+ * 2. Compose the form at alpha=0 and let it layout for a few frames (warm).
+ * 3. Only then run the 200ms pivot + app-bar creep — mounting the form on the same
+ *    frame as [MetroPagePivotLoad] was starving the animation (~1–1.5s for 200ms).
+ *
+ * While warming, cover with [MetroLoadingScreen] (Android dots) so the wait is not a
+ * blank black frame.
+ */
+@Composable
+private fun TileCustomizeOverlay(
+    state: LauncherState,
+    onClosed: () -> Unit,
+) {
+    val customizing = state.customizingTile ?: return
+    val customizeDraft = state.tileCustomizeDraft ?: return
+
+    DisposableEffect(Unit) {
+        customizeDebugLog("overlay_enter")
+        onDispose {
+            customizeDebugLog("overlay_exit")
+            onClosed()
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalTileAppWidgetController provides state.widgetController,
+    ) {
+        val colorPickerOpen = state.tileCustomizeColorPickerOpen
+        val colorPickerExiting = state.tileCustomizeColorPickerExiting
+        val showingColorPicker = colorPickerOpen || colorPickerExiting
+        val epoch = state.tileCustomizeEpoch
+        val exiting = state.tileCustomizeExiting
+
+        BackHandler(enabled = !exiting && !showingColorPicker) {
+            state.beginCloseTileCustomize()
+        }
+        BackHandler(enabled = colorPickerOpen && !colorPickerExiting) {
+            state.beginCloseTileColorPicker()
+        }
+        BackHandler(enabled = exiting || colorPickerExiting) { }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .metroNavBarPadding(),
+            ) {
+                key(epoch) {
+                    var motionStarted by remember(epoch) { mutableStateOf(false) }
+                    WarmThenPivotPage(
+                        exiting = exiting,
+                        onEnterComplete = {
+                            customizeDebugLog("pivot_enter_complete")
+                            state.onTileCustomizeEnterComplete()
+                        },
+                        onExitComplete = {
+                            customizeDebugLog("pivot_exit_complete")
+                            state.finishCloseTileCustomize()
+                        },
+                        onEnterMotionStarted = {
+                            motionStarted = true
+                            customizeDebugLog("enter_motion_started")
+                        },
+                    ) {
+                        SideEffect { customizeDebugLog("form_compose") }
+                        TileCustomizeScreen(
+                            tile = customizing,
+                            draft = customizeDraft,
+                            onDraftChange = state::updateTileCustomizeDraft,
+                            onOpenColorPicker = state::openTileColorPicker,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    val saveLabel = stringResource(R.string.tile_customize_save)
+                    val closeLabel = stringResource(R.string.tile_customize_close)
+                    val appBarIcons = remember(saveLabel, closeLabel, state) {
+                        listOf(
+                            MetroAppBarIcon(
+                                type = MetroSystemIconType.Check,
+                                label = saveLabel,
+                                onClick = state::saveTileCustomize,
+                            ),
+                            MetroAppBarIcon(
+                                type = MetroSystemIconType.Close,
+                                label = closeLabel,
+                                onClick = state::beginCloseTileCustomize,
+                            ),
+                        )
+                    }
+                    // Sibling of the pivot — must not live inside the rotating layer.
+                    MetroAppBar(
+                        visible = motionStarted && !showingColorPicker && !exiting,
+                        enterKey = if (motionStarted) epoch else null,
+                        icons = appBarIcons,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+
+                    // Warm covers Start with an invisible form; show feedback until pivot starts.
+                    if (!motionStarted && !exiting) {
+                        MetroLoadingScreen(
+                            useAndroidDots = true,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("metro_tile_customize_loading"),
+                        )
+                    }
+                }
+
+                if (showingColorPicker) {
+                    MetroPagePivotLoad(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MetroTheme.colors.background),
+                        loadKey = "colorPicker:$epoch",
+                        exiting = colorPickerExiting,
+                        onExitComplete = state::finishCloseTileColorPicker,
+                    ) {
+                        TileColorPickerScreen(
+                            onColorSelected = state::selectTileCustomColor,
+                            onClose = state::beginCloseTileColorPicker,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Page pivot that composes [content] at alpha=0 first (warm layout), then plays enter.
+ * Avoids starting the 200ms tween on the same frame as first form composition.
+ */
+@Composable
+private fun WarmThenPivotPage(
+    exiting: Boolean,
+    onEnterComplete: () -> Unit,
+    onExitComplete: () -> Unit,
+    onEnterMotionStarted: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val rotationY = remember {
+        Animatable(MetroTransitions.PagePivotLoadStartDegrees)
+    }
+    val alpha = remember { Animatable(0f) }
+    val translationXFraction = remember {
+        Animatable(MetroTransitions.PagePivotLoadStartTranslationXFraction)
+    }
+
+    LaunchedEffect(exiting) {
+        if (exiting) {
+            rotationY.snapTo(0f)
+            alpha.snapTo(1f)
+            translationXFraction.snapTo(0f)
+            onEnterMotionStarted()
+            customizeDebugLog("pivot_exit_start")
+            coroutineScope {
+                launch { alpha.animateTo(0f, MetroTransitions.pagePivotExitTween()) }
+                launch {
+                    rotationY.animateTo(
+                        MetroTransitions.PagePivotExitEndDegrees,
+                        MetroTransitions.pagePivotExitTween(),
+                    )
+                }
+                launch {
+                    translationXFraction.animateTo(
+                        MetroTransitions.PagePivotExitTranslationXFraction,
+                        MetroTransitions.pagePivotExitTween(),
+                    )
+                }
+            }
+            customizeDebugLog("pivot_exit_end")
+            onExitComplete()
+            return@LaunchedEffect
+        }
+
+        // Warm: content is composed below at alpha 0 — pay layout cost before tweening.
+        rotationY.snapTo(MetroTransitions.PagePivotLoadStartDegrees)
+        alpha.snapTo(0f)
+        translationXFraction.snapTo(MetroTransitions.PagePivotLoadStartTranslationXFraction)
+        customizeDebugLog("warm_start")
+        withFrameNanos { customizeDebugLog("warm_frame_1") }
+        withFrameNanos { customizeDebugLog("warm_frame_2") }
+        // Require one healthy gap after form layout before motion.
+        var attempts = 0
+        while (attempts < 8) {
+            val t0 = withFrameNanos { it }
+            val t1 = withFrameNanos { it }
+            val gapMs = (t1 - t0) / 1_000_000L
+            customizeDebugLog("warm_gap_ms=$gapMs attempt=$attempts")
+            if (gapMs in 1L..40L) break
+            attempts++
+        }
+        onEnterMotionStarted()
+        customizeDebugLog("pivot_anim_start")
+        val animStart = SystemClock.elapsedRealtime()
+        coroutineScope {
+            launch { alpha.animateTo(1f, MetroTransitions.pagePivotLoadTween()) }
+            launch { rotationY.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
+            launch { translationXFraction.animateTo(0f, MetroTransitions.pagePivotLoadTween()) }
+        }
+        customizeDebugLog(
+            "pivot_anim_end wall_ms=${SystemClock.elapsedRealtime() - animStart}",
+        )
+        onEnterComplete()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                this.rotationY = rotationY.value
+                this.alpha = alpha.value
+                val layerWidth = size.width.coerceAtLeast(1f)
+                translationX = translationXFraction.value * layerWidth
+                transformOrigin = if (exiting) {
+                    TransformOrigin(
+                        pivotFractionX = MetroTransitions.PagePivotExitOriginX,
+                        pivotFractionY = 0.5f,
+                    )
+                } else {
+                    TransformOrigin(
+                        pivotFractionX = MetroTransitions.PagePivotLoadOriginX,
+                        pivotFractionY = 0.5f,
+                    )
+                }
+                clip = false
+                cameraDistance = metroPagePivotCameraDistance(
+                    widthPx = size.width,
+                    widthFactor = if (exiting) {
+                        MetroTransitions.PagePivotExitCameraWidthFactor
+                    } else {
+                        0.9f
+                    },
+                )
+            }
+            .background(MetroTheme.colors.background),
+    ) {
+        content()
     }
 }

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hub</string>
+    <string name="hub_brand">hub</string>
+    <string name="pane_home">home</string>
+    <string name="pane_apps">apps</string>
+    <string name="quick_links">QUICK LINKS</string>
+    <string name="link_all_metro_apps">all metro apps</string>
+    <string name="link_related_projects">related projects</string>
+    <string name="link_get_started">get started</string>
+    <string name="link_github">github</string>
+    <string name="link_about_project">about project</string>
+    <string name="link_buy_me_a_coffee">buy me a coffee</string>
+    <string name="tile_core">core</string>
+    <string name="tile_shell">shell</string>
+    <string name="tile_second_party">second party</string>
+    <string name="tile_third_party">third party</string>
+    <string name="apps_empty">No apps in this category yet.</string>
+    <string name="apps_loading">Loading release…</string>
+    <string name="apps_error">Could not load the latest release.</string>
+    <string name="apps_download_failed">Download failed.</string>
+    <string name="apps_install_ready">Ready to install</string>
+    <string name="stub_coming_soon">Coming soon</string>
+</resources>

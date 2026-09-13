@@ -44,7 +44,7 @@ private val JumpListScrimAlpha = 0.72f
  * do nothing. Back or tapping the scrim calls [onDismiss].
  *
  * On open, tiles flip in around their horizontal center (`rotationX`) in a diagonal wave from
- * the top-left cell.
+ * the top-left cell, with a light haptic tick as each letter starts flipping in.
  *
  * Open this when the user taps a letter section marker in a LongListSelector-style list.
  */
@@ -93,7 +93,11 @@ fun MetroJumpList(
             ) {
                 itemsIndexed(MetroJumpListLogic.LetterKeys, key = { _, letter -> letter }) { index, letter ->
                     val active = letter in normalizedActive
-                    MetroDiagonalFlip(cellIndex = index, columns = columns) {
+                    MetroDiagonalFlip(
+                        cellIndex = index,
+                        columns = columns,
+                        hapticOnEnter = true,
+                    ) {
                         MetroLetterTile(
                             letter = letter,
                             size = tileSize,
@@ -112,6 +116,7 @@ fun MetroJumpList(
                     MetroDiagonalFlip(
                         cellIndex = MetroJumpListLogic.LetterKeys.size,
                         columns = columns,
+                        hapticOnEnter = true,
                     ) {
                         JumpListLocaleTile(
                             size = tileSize,

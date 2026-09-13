@@ -25,6 +25,8 @@ import com.metro.ui.drawMetroSystemIconGlyph
 internal val TileCornerButtonSize = 40.dp
 private val TileCornerBorderWidth = 2.dp
 private const val UnpinGlyphCanvasFraction = 0.58f
+/** Cube customize corner — larger in the disc for legibility. */
+internal const val CustomizeGlyphCanvasFraction = 0.86f
 /** Diagonal resize arrows — tuned for the corner disc. */
 internal const val ResizeGlyphCanvasFraction = 0.8f
 /** Forward arrow has more viewBox padding; bump canvas so it matches the diagonals. */
