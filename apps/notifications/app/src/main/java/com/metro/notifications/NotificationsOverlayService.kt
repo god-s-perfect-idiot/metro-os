@@ -44,6 +44,7 @@ import com.metro.system.MetroPreferences
 import com.metro.system.MetroStatusBar
 import com.metro.system.MetroThemeMode
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroTransitions
 import kotlin.math.roundToInt
 
 /**
@@ -252,6 +253,8 @@ class NotificationsOverlayService :
         handler.removeCallbacks(toastTimeout)
         if (toast == null || toastExiting) return
         toastExiting = true
+        // Clear during the exit flip so the tray accent morphs with the banner, not after.
+        clearTrayShellFill()
     }
 
     private fun finishExit() {
@@ -268,11 +271,17 @@ class NotificationsOverlayService :
             this,
             MetroStatusBar.OWNER_NOTIFICATIONS,
             MetroPreferences(this).accentColorHex,
+            durationMs = MetroTransitions.JumpListFlipMs,
         )
     }
 
     private fun clearTrayShellFill() {
-        MetroStatusBar.requestShellFill(this, MetroStatusBar.OWNER_NOTIFICATIONS, null)
+        MetroStatusBar.requestShellFill(
+            this,
+            MetroStatusBar.OWNER_NOTIFICATIONS,
+            null,
+            durationMs = MetroTransitions.JumpListFlipMs,
+        )
     }
 
     private fun ensureOverlayShowing() {

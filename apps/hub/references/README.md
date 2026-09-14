@@ -29,6 +29,7 @@ references/
 | File | Theme / accent | Illustrates |
 |------|----------------|-------------|
 | `panorama_dark_teal.png` | Dark / teal (Music source) | Panorama chrome stand-in for Hub home + apps panes |
+| `extras_info_dark_cyan.png` | Dark / cyan (Lumia extras+info) | Title, Software release accent name + info glyph, underlined link, component list, more info border button |
 
 See `known-gaps.md` for missing Hub-specific captures.
 

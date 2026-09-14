@@ -109,5 +109,6 @@ fun FirestoreHubApp.toReleaseApkAsset(): ReleaseApkAsset {
         backgroundColor = backgroundColor
             ?: HubAppCatalog.backgroundColorForPackage(packageName),
         firestoreId = id,
+        githubRepo = githubRepo,
     )
 }

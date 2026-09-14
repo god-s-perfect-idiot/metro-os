@@ -37,6 +37,8 @@ data class ReleaseApkAsset(
     /** App tile / icon square fill as `#RRGGBB` when known from Firestore. */
     val backgroundColor: String? = null,
     val firestoreId: String? = null,
+    /** Public GitHub repo URL when known (Firestore `githubRepo`). */
+    val githubRepo: String? = null,
 )
 
 data class GitHubRelease(
@@ -154,6 +156,23 @@ object HubAppCatalog {
             .removeSuffix("-debug")
             .removeSuffix("-release")
             .lowercase()
+    }
+
+    /** Case-insensitive match on display name, description, publisher, package, or APK name. */
+    fun matchesQuery(asset: ReleaseApkAsset, query: String): Boolean {
+        val needle = query.trim().lowercase()
+        if (needle.isEmpty()) return false
+        return asset.displayName.lowercase().contains(needle) ||
+            asset.description.lowercase().contains(needle) ||
+            asset.publisher.lowercase().contains(needle) ||
+            asset.packageName.lowercase().contains(needle) ||
+            asset.name.lowercase().contains(needle)
+    }
+
+    fun filterByQuery(assets: List<ReleaseApkAsset>, query: String): List<ReleaseApkAsset> {
+        val needle = query.trim()
+        if (needle.isEmpty()) return emptyList()
+        return assets.filter { matchesQuery(it, needle) }
     }
 
     fun gradlePathForAsset(assetName: String): String {

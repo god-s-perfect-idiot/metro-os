@@ -91,6 +91,18 @@ class TrayThemeResolverTest {
     }
 
     @Test
+    fun resolve_shellFillUnderlay_keepsTransparentTrayWithContrastGlyphs() {
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            shellFillColor = Color(0xFF252525),
+            shellFillUnderlay = true,
+        )
+        assertEquals(Color.Transparent, snapshot.backgroundColor)
+        assertEquals(Color(0xFF252525), snapshot.backdropColor)
+        assertEquals(Color.White, snapshot.foregroundColor)
+    }
+
+    @Test
     fun resolve_shellFill_lightAccent_usesDarkGlyphs() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,

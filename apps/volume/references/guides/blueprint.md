@@ -7,7 +7,7 @@
 ### Page 1 — Volume HUD collapsed
 
 - Trigger: hardware Volume Up / Down (consumed by this app’s accessibility key filter)
-- Placement: overlay window pinned at y=0 over the tray/cutout; charcoal content uses top inset padding so it sits just below the Metro status tray (no notch clipping)
+- Placement: overlay window pinned at y=0 over the tray/cutout; charcoal wipe includes the status-bar inset so the HUD and tray read as one continuous band (tray stays transparent with glyphs raised above the underlay; no notch clipping)
 - Layout (L→R): large white zero-padded level `NN`, muted gray `/max`, stream label, far-right **down** chevron
 - Stream labels (exact): `Ringer + Notifications` (max **10**), `Media + Apps` (max **30**), or `Call volume` (max **10**) while in-call
 - Default stream: in-call → call; else if media is active → media; else → ringer

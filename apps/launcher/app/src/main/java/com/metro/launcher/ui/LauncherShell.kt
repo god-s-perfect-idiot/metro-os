@@ -24,6 +24,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -51,6 +52,7 @@ import com.metro.launcher.data.DisplayTile
 import com.metro.system.MetroAppInfo
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroAppOpenSplash
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroPagePivotLoad
@@ -100,6 +102,14 @@ fun LauncherShell(
     // Survives Start dispose when the pager drops page 0 — returning from the app list
     // remounts tiles without replaying a wave that already ran (or was left mid-flight).
     var consumedEnterWaveKey by remember { mutableIntStateOf(0) }
+    // Debounce enter-wave bumps when onNewIntent + ON_RESUME both fire for Home.
+    var lastEnterWaveBumpElapsed by remember { mutableStateOf(0L) }
+    fun bumpEnterWave() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastEnterWaveBumpElapsed < 400L) return
+        lastEnterWaveBumpElapsed = now
+        enterWaveKey++
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     // Keep splash until Start has actually drawn — dismissing on shell-ready alone leaves a
     // brief black gap while the tile grid mounts. Live-tile refreshes update in place.
@@ -142,10 +152,15 @@ fun LauncherShell(
     val onLaunchAppOption = remember(state) { state::launchAppOption }
     val onGrantNotificationAccess = remember(state) { state::openNotificationAccessSettings }
     val onDismissNotificationAccess = remember(state) { state::dismissNotificationAccessPrompt }
+    // Latest bump for overlay dispose — DisposableEffect(Unit) keeps the first onClosed.
+    val bumpEnterWaveUpdated = rememberUpdatedState(newValue = { bumpEnterWave() })
     val onUnfreezeStart = remember(customizeSuspendStart, startCoveredByCustomize) {
         {
             startCoveredByCustomize.value = false
             customizeSuspendStart.value = false
+            // Back/Save/Close remounts Start after the page pivot — replay the tile enter wave
+            // (Home also bumps via homeEnterRequestId; debounce collapses the double fire).
+            bumpEnterWaveUpdated.value.invoke()
         }
     }
 
@@ -230,8 +245,10 @@ fun LauncherShell(
                         skipNextResume = false
                         return@LifecycleEventObserver
                     }
-                    if (state.currentPage == 0 && state.editingTile == null) {
-                        enterWaveKey++
+                    // Edit / tile-customize: Home returns to Start with the enter wave, not
+                    // the in-place edit chrome. Normal Start resume only replays the wave.
+                    if (!state.onHomeRequested() && state.currentPage == 0) {
+                        bumpEnterWave()
                     }
                 }
                 else -> Unit
@@ -239,6 +256,18 @@ fun LauncherShell(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Home while edit/customize was open — remount Start (if covered) and play enter wave.
+    LaunchedEffect(state.homeEnterRequestId) {
+        if (state.homeEnterRequestId == 0) return@LaunchedEffect
+        // Arm snapExit before clearing edit so tiles do not play the edit outro.
+        customizeSuspendStart.value = true
+        startCoveredByCustomize.value = false
+        state.dismissEdit()
+        withFrameNanos { }
+        customizeSuspendStart.value = false
+        bumpEnterWave()
     }
 
     Box(
@@ -288,8 +317,10 @@ fun LauncherShell(
         )
 
         if (showSplashLoader) {
+            // Use the suite vector — ic_launcher_foreground is a layer-list wrapper that
+            // Compose painterResource cannot load (crashes cold start).
             MetroSplashLoadingScreen(
-                icon = painterResource(id = R.drawable.ic_launcher_foreground),
+                icon = painterResource(id = MetroAppGlyphs.Launcher),
                 backgroundColor = state.accent,
                 modifier = Modifier
                     .fillMaxSize()
@@ -493,8 +524,23 @@ private fun TileCustomizeOverlay(
         }
     }
 
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val viewportWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val viewportHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val startBackground = remember(state.startBackgroundBitmap, viewportWidthPx, viewportHeightPx) {
+        state.startBackgroundBitmap?.let { bmp ->
+            StartBackgroundViewport(
+                bitmap = bmp.asImageBitmap(),
+                viewportWidthPx = viewportWidthPx,
+                viewportHeightPx = viewportHeightPx,
+            )
+        }
+    }
+
     CompositionLocalProvider(
         LocalTileAppWidgetController provides state.widgetController,
+        LocalStartBackgroundViewport provides startBackground,
     ) {
         val colorPickerOpen = state.tileCustomizeColorPickerOpen
         val colorPickerExiting = state.tileCustomizeColorPickerExiting

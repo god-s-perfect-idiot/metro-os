@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# Sync metro-os first-party suite apps into Firestore `first-party`.
-# Only apps with an .apk on the GitHub release are kept; others are deleted.
-# Requires: firebase/service-account.json, gh auth, network.
+# Sync Hub catalog collections into Firestore.
+#   first-party  — metro-os suite APKs from a GitHub release (local aapt optional)
+#   second-party — curated external Metro apps; metadata from GitHub Releases API only
+# Requires: firebase/service-account.json, network. gh optional for first-party.
 #
 # Usage:
 #   ./scripts/sync-hub-firestore.sh
 #   ./scripts/sync-hub-firestore.sh --tag alpha-8
+#   ./scripts/sync-hub-firestore.sh --party second
+#   ./scripts/sync-hub-firestore.sh --party all --tag alpha-8
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SA="${FIREBASE_SERVICE_ACCOUNT:-$ROOT/firebase/service-account.json}"
 TAG=""
 RELEASE_REPO="god-s-perfect-idiot/metro-os"
+PARTY="first"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -19,8 +23,12 @@ while [[ $# -gt 0 ]]; do
       TAG="${2:-}"
       shift 2
       ;;
+    --party)
+      PARTY="${2:-}"
+      shift 2
+      ;;
     -h|--help)
-      sed -n '2,12p' "$0"
+      sed -n '2,14p' "$0"
       exit 0
       ;;
     *)
@@ -30,35 +38,45 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+case "$PARTY" in
+  first|second|all) ;;
+  *)
+    echo "ERROR: --party must be first|second|all (got: $PARTY)" >&2
+    exit 2
+    ;;
+esac
+
 if [[ ! -f "$SA" ]]; then
   echo "ERROR: missing service account at $SA" >&2
   exit 1
 fi
 
-if [[ -z "$TAG" ]]; then
-  TAG="$(gh release view --repo "$RELEASE_REPO" --json tagName -q .tagName 2>/dev/null || true)"
-fi
-
-export ROOT SA TAG RELEASE_REPO
+export ROOT SA TAG RELEASE_REPO PARTY
 export APK_DIR="$ROOT/deploy/apks"
 export AAPT="$(ls "${ANDROID_HOME:-$HOME/Library/Android/sdk}"/build-tools/*/aapt 2>/dev/null | tail -1 || true)"
 
-# APK asset names attached to the release — source of truth for first-party.
-# Prefer live GitHub assets; fall back to local deploy/apks when gh is unavailable.
-RELEASE_APKS="$(gh release view "${TAG}" --repo "$RELEASE_REPO" --json assets \
-  --jq '[.assets[].name | select(endswith(".apk"))] | join(" ")' 2>/dev/null || true)"
-if [[ -z "${RELEASE_APKS// /}" && -d "$ROOT/deploy/apks" ]]; then
-  RELEASE_APKS="$(find "$ROOT/deploy/apks" -maxdepth 1 -name '*.apk' -exec basename {} \; | tr '\n' ' ')"
-  echo "WARN  gh release assets unavailable — using local deploy/apks/"
-fi
-if [[ -z "${RELEASE_APKS// /}" ]]; then
-  echo "ERROR: no .apk assets found on release ${TAG:-latest} (and no deploy/apks/*.apk)" >&2
-  exit 1
-fi
-export RELEASE_APKS
+sync_first_party() {
+  if [[ -z "$TAG" ]]; then
+    TAG="$(gh release view --repo "$RELEASE_REPO" --json tagName -q .tagName 2>/dev/null || true)"
+  fi
+  export TAG
 
-cd "$ROOT"
-node --input-type=module <<'NODE'
+  # APK asset names attached to the release — source of truth for first-party.
+  # Prefer live GitHub assets; fall back to local deploy/apks when gh is unavailable.
+  RELEASE_APKS="$(gh release view "${TAG}" --repo "$RELEASE_REPO" --json assets \
+    --jq '[.assets[].name | select(endswith(".apk"))] | join(" ")' 2>/dev/null || true)"
+  if [[ -z "${RELEASE_APKS// /}" && -d "$ROOT/deploy/apks" ]]; then
+    RELEASE_APKS="$(find "$ROOT/deploy/apks" -maxdepth 1 -name '*.apk' -exec basename {} \; | tr '\n' ' ')"
+    echo "WARN  gh release assets unavailable — using local deploy/apks/"
+  fi
+  if [[ -z "${RELEASE_APKS// /}" ]]; then
+    echo "ERROR: no .apk assets found on release ${TAG:-latest} (and no deploy/apks/*.apk)" >&2
+    exit 1
+  fi
+  export RELEASE_APKS
+
+  cd "$ROOT"
+  node --input-type=module <<'NODE'
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -355,3 +373,295 @@ for (const name of ["second-party", "third-party", "explore"]) {
 }
 console.log("OK  ensured second-party / third-party / explore collections");
 NODE
+}
+
+sync_second_party() {
+  cd "$ROOT"
+  node --input-type=module <<'NODE'
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+let admin;
+try {
+  admin = require("firebase-admin");
+} catch {
+  console.error("Installing firebase-admin locally under firebase/ …");
+  execFileSync("npm", ["install", "--prefix", "firebase", "firebase-admin@13"], {
+    stdio: "inherit",
+  });
+  admin = require(join(process.env.ROOT, "firebase/node_modules/firebase-admin"));
+}
+
+const saPath = process.env.SA;
+
+/**
+ * Curated second-party Hub catalog.
+ * Release APK + size come from GitHub Releases API (no local APK download).
+ * packageName / creator / description are pinned from each project's source.
+ */
+const CATALOG = [
+  {
+    id: "metro-wordle",
+    name: "Metro Wordle",
+    packageName: "com.metrowordle.app",
+    description: "WP8.1-style Wordle daily puzzle with Metro keyboard and tile flips.",
+    creator: "Entropy",
+    type: "core",
+    backgroundColor: "#000000",
+    githubRepo: "god-s-perfect-idiot/metro-wordle",
+    preferApk: (name) => name.toLowerCase().endsWith(".apk"),
+    versionNameFromTag: (tag) => tag.replace(/^v/i, ""),
+  },
+  {
+    id: "metro-notes",
+    name: "Metro Notes",
+    packageName: "com.metronotes.app",
+    description: "Capacitor Metro notes with notebooks, sketches, and settings shell.",
+    creator: "Entropy",
+    type: "core",
+    backgroundColor: "#5D5D5D",
+    githubRepo: "god-s-perfect-idiot/metro-notes",
+    preferApk: (name) => name.toLowerCase().endsWith(".apk"),
+    versionNameFromTag: (tag) => tag,
+  },
+  {
+    id: "metro-browser-native",
+    name: "Metro Browser",
+    packageName: "com.metro.browser",
+    description: "IE Mobile–style browser with tabs, address bar, and Metro animations.",
+    creator: "Entropy",
+    type: "core",
+    backgroundColor: "#046AB8",
+    githubRepo: "god-s-perfect-idiot/metro-browser-native",
+    preferApk: (name) => name.toLowerCase().endsWith(".apk"),
+    versionNameFromTag: (tag) => (tag === "beta-2" ? "0.2" : tag),
+    versionCode: null,
+  },
+  {
+    id: "metro-weather",
+    name: "Metro Weather",
+    packageName: "com.metro.weather",
+    description: "Metro weather hub with live location and animated backgrounds.",
+    creator: "Entropy",
+    type: "core",
+    backgroundColor: "#1BA1E2",
+    githubRepo: "god-s-perfect-idiot/Metro-Weather",
+    preferApk: (name) => name.toLowerCase().endsWith(".apk"),
+    versionNameFromTag: (tag) => tag,
+  },
+  {
+    id: "disco-launcher",
+    name: "Disco Launcher",
+    packageName: "io.github.cherryhoax.discolauncher2",
+    description: "Metro-inspired Android launcher (DiscoUI nightly builds).",
+    creator: "DiscoUI",
+    type: "shell",
+    backgroundColor: "#E51400",
+    githubRepo: "discoui-org/discolauncher",
+    includePrerelease: true,
+    preferApk: (name) => {
+      const n = name.toLowerCase();
+      return n.endsWith(".apk") && n.includes("webview") && n.includes("arm64");
+    },
+    versionNameFromTag: (tag) => tag,
+    versionName: "0.7.0-beta",
+    versionCode: 70,
+  },
+  {
+    id: "metro-store",
+    name: "Metro Store",
+    packageName: "com.aurora.store",
+    description: "Metro-skinned Aurora Store client for Play downloads without Google account.",
+    creator: "Cyanexani",
+    type: "core",
+    backgroundColor: "#7CB342",
+    githubRepo: "Cyanexani/metrostore",
+    preferApk: (name) => {
+      const n = name.toLowerCase();
+      return n.endsWith(".apk") && n.includes("universal");
+    },
+    versionName: "0.8.5-beta",
+    versionCode: 77,
+  },
+  {
+    id: "metro-maps",
+    name: "Metro Maps",
+    packageName: "com.metromap.ultimate",
+    description: "HERE Maps–style WP8.1 maps clone with pivots, favorites, and navigation.",
+    creator: "alexthew1",
+    type: "core",
+    backgroundColor: "#0078D7",
+    githubRepo: "alexthew1/Metro-Maps",
+    preferApk: (name) => name.toLowerCase().endsWith(".apk"),
+    versionNameFromTag: (tag) => tag.replace(/^v/i, ""),
+  },
+  {
+    id: "metro-keyboard",
+    name: "Metro Keyboard",
+    packageName: "dev.patrickgold.metroboard",
+    description: "Metroboard — WP8.1-style soft keyboard fork (Cyanexani builds).",
+    creator: "Cyanexani",
+    type: "shell",
+    backgroundColor: "#1BA1E2",
+    githubRepo: "Cyanexani/metrokeyboard",
+    preferApk: (name) => {
+      const n = name.toLowerCase();
+      return n.endsWith(".apk") && n.includes("universal");
+    },
+    versionName: "0.6.0-alpha02",
+    versionCode: 119,
+  },
+];
+
+async function fetchJson(url) {
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "metro-os-sync-hub-firestore",
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`GET ${url} → ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+async function latestRelease(repo, includePrerelease) {
+  if (includePrerelease) {
+    const list = await fetchJson(
+      `https://api.github.com/repos/${repo}/releases?per_page=5`,
+    );
+    if (!Array.isArray(list) || list.length === 0) {
+      throw new Error(`No releases for ${repo}`);
+    }
+    return list[0];
+  }
+  try {
+    return await fetchJson(`https://api.github.com/repos/${repo}/releases/latest`);
+  } catch (err) {
+    // Some repos only ship pre-releases (GitHub /latest 404s).
+    const list = await fetchJson(
+      `https://api.github.com/repos/${repo}/releases?per_page=5`,
+    );
+    if (!Array.isArray(list) || list.length === 0) throw err;
+    return list[0];
+  }
+}
+
+function pickApk(assets, preferApk) {
+  const apks = (assets || []).filter((a) => /\.apk$/i.test(a.name || ""));
+  if (apks.length === 0) return null;
+  const preferred = apks.find((a) => preferApk(a.name));
+  if (preferred) return preferred;
+  // Fallback: universal → arm64 → first
+  const score = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes("universal")) return 0;
+    if (n.includes("arm64") && n.includes("webview")) return 1;
+    if (n.includes("arm64")) return 2;
+    return 9;
+  };
+  return [...apks].sort((a, b) => score(a.name) - score(b.name))[0];
+}
+
+const credential = admin.credential.cert(JSON.parse(readFileSync(saPath, "utf8")));
+if (!admin.apps.length) {
+  admin.initializeApp({ credential });
+}
+const db = admin.firestore();
+const col = db.collection("second-party");
+
+const batch = db.batch();
+const keepIds = new Set(["_meta"]);
+let upserted = 0;
+
+console.log(`Second-party: syncing ${CATALOG.length} curated app(s) from GitHub Releases…`);
+
+for (const app of CATALOG) {
+  const release = await latestRelease(app.githubRepo, !!app.includePrerelease);
+  const tag = release.tag_name;
+  const apk = pickApk(release.assets, app.preferApk);
+  if (!apk) {
+    console.error(`  SKIP ${app.id}: no .apk on ${app.githubRepo}@${tag}`);
+    continue;
+  }
+
+  const versionName =
+    app.versionName ||
+    (app.versionNameFromTag ? app.versionNameFromTag(tag) : tag) ||
+    null;
+
+  const doc = {
+    id: app.id,
+    name: app.name,
+    packageName: app.packageName,
+    description: app.description,
+    versionName,
+    versionCode: app.versionCode ?? null,
+    type: app.type,
+    creator: app.creator,
+    backgroundColor: app.backgroundColor,
+    apkName: apk.name,
+    apkUrl: apk.browser_download_url,
+    releaseUrl: release.html_url,
+    githubRepo: `https://github.com/${app.githubRepo}`,
+    sizeBytes: apk.size ?? null,
+    party: "second",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  const patch = Object.fromEntries(
+    Object.entries(doc).filter(([, v]) => v !== null && v !== undefined),
+  );
+
+  batch.set(col.doc(app.id), patch, { merge: true });
+  keepIds.add(app.id);
+  upserted += 1;
+  console.log(
+    `  upsert second-party/${app.id}  ${versionName || "?"}  ${apk.name}  (${apk.size} bytes)`,
+  );
+}
+
+await batch.commit();
+
+const existing = await col.get();
+let deleted = 0;
+const deleteBatch = db.batch();
+for (const doc of existing.docs) {
+  if (keepIds.has(doc.id)) continue;
+  deleteBatch.delete(doc.ref);
+  deleted += 1;
+  console.log(`  delete second-party/${doc.id}`);
+}
+if (deleted > 0) {
+  await deleteBatch.commit();
+}
+
+await col.doc("_meta").set(
+  {
+    description:
+      "second-party Hub catalog. Same fields as first-party (incl. backgroundColor); creator + githubRepo vary per app.",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  },
+  { merge: true },
+);
+
+console.log(`OK  second-party: upserted ${upserted}, deleted ${deleted}`);
+NODE
+}
+
+case "$PARTY" in
+  first)
+    sync_first_party
+    ;;
+  second)
+    sync_second_party
+    ;;
+  all)
+    sync_first_party
+    sync_second_party
+    ;;
+esac

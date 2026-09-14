@@ -65,6 +65,21 @@ class TrayCollapseSchedulerTest {
     }
 
     @Test
+    fun autoCollapse_neverWhenHoldIsNegative() {
+        val icons = 5
+        val enterMs = TraySpec.staggerSequenceMs(icons)
+        assertFalse(
+            TrayCollapseScheduler.shouldAutoCollapse(
+                expanded = true,
+                lastExpandedAtMs = 0L,
+                nowMs = enterMs + 60_000L,
+                animatingIconCount = icons,
+                holdMs = StatusTrayPreferences.TIMEOUT_NEVER_MS,
+            ),
+        )
+    }
+
+    @Test
     fun staggerSequence_scalesWithIconCount() {
         assertEquals(0L, TraySpec.staggerSequenceMs(0))
         assertEquals(TraySpec.EXPAND_ANIMATION_MS, TraySpec.staggerSequenceMs(1))
@@ -75,12 +90,13 @@ class TrayCollapseSchedulerTest {
     }
 
     @Test
-    fun expandedIndicatorOrder_isNetworkWifiOnly() {
+    fun expandedIndicatorOrder_isNetworkWifiMute() {
         assertEquals(
             listOf(
                 TrayIndicator.Cellular,
                 TrayIndicator.DataConnection,
                 TrayIndicator.Wifi,
+                TrayIndicator.Ringer,
             ),
             TrayIndicatorOrder.expanded,
         )

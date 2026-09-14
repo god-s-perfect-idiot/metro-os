@@ -34,7 +34,11 @@ class SignalBarsStatusTest {
     fun visibleLeft_hidesWifiWhenDisconnected() {
         assertEquals(
             listOf(TrayIndicator.Cellular, TrayIndicator.DataConnection),
-            TrayIndicatorOrder.visibleLeft(dataConnectionLabel = "4G", wifiConnected = false),
+            TrayIndicatorOrder.visibleLeft(
+                dataConnectionLabel = "4G",
+                wifiConnected = false,
+                ringerMuted = false,
+            ),
         )
     }
 
@@ -42,7 +46,11 @@ class SignalBarsStatusTest {
     fun visibleLeft_includesWifiWhenConnected() {
         assertEquals(
             listOf(TrayIndicator.Cellular, TrayIndicator.DataConnection, TrayIndicator.Wifi),
-            TrayIndicatorOrder.visibleLeft(dataConnectionLabel = "4G", wifiConnected = true),
+            TrayIndicatorOrder.visibleLeft(
+                dataConnectionLabel = "4G",
+                wifiConnected = true,
+                ringerMuted = false,
+            ),
         )
     }
 
@@ -50,7 +58,40 @@ class SignalBarsStatusTest {
     fun visibleLeft_skipsDataLabelWhenAbsent() {
         assertEquals(
             listOf(TrayIndicator.Cellular, TrayIndicator.Wifi),
-            TrayIndicatorOrder.visibleLeft(dataConnectionLabel = null, wifiConnected = true),
+            TrayIndicatorOrder.visibleLeft(
+                dataConnectionLabel = null,
+                wifiConnected = true,
+                ringerMuted = false,
+            ),
+        )
+    }
+
+    @Test
+    fun visibleLeft_includesMuteAfterWifiWhenRingerMuted() {
+        assertEquals(
+            listOf(
+                TrayIndicator.Cellular,
+                TrayIndicator.DataConnection,
+                TrayIndicator.Wifi,
+                TrayIndicator.Ringer,
+            ),
+            TrayIndicatorOrder.visibleLeft(
+                dataConnectionLabel = "4G",
+                wifiConnected = true,
+                ringerMuted = true,
+            ),
+        )
+    }
+
+    @Test
+    fun visibleLeft_showsMuteWithoutWifiWhenMuted() {
+        assertEquals(
+            listOf(TrayIndicator.Cellular, TrayIndicator.DataConnection, TrayIndicator.Ringer),
+            TrayIndicatorOrder.visibleLeft(
+                dataConnectionLabel = "4G",
+                wifiConnected = false,
+                ringerMuted = true,
+            ),
         )
     }
 }

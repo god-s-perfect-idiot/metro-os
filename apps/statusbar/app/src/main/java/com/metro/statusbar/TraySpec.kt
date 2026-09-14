@@ -24,6 +24,8 @@ object TraySpec {
     const val CELLULAR_DATA_LABEL_GAP_DP = 2
     /** Extra leading space before Wi-Fi so it sits clearly apart from the network group. */
     const val WIFI_LEADING_PADDING_DP = 8
+    /** Extra leading space before mute so it sits a touch clear of Wi-Fi. */
+    const val MUTE_LEADING_PADDING_DP = 4
     /** Per-icon slide duration when dropping in or exiting upward. */
     const val EXPAND_ANIMATION_MS = 200L
     const val COLLAPSE_ANIMATION_MS = 200L
@@ -33,7 +35,7 @@ object TraySpec {
     const val PRIVACY_CLOCK_NUDGE_MS = 200L
     /** Delay between successive icons (right → left) on enter and exit. */
     const val ICON_STAGGER_MS = 90L
-    /** WP8.1 default hold after the last enter finishes; setup can choose 3s / 5s / 10s. */
+    /** WP8.1 default hold after the last enter finishes; setup can choose 3s / 5s / 10s / never. */
     const val AUTO_COLLAPSE_MS = MetroStatusBar.AUTO_COLLAPSE_MS
 
     /** Total time for a staggered enter (or exit) of [iconCount] icons. */
@@ -181,6 +183,11 @@ data class TrayThemeSnapshot(
     val accentColor: androidx.compose.ui.graphics.Color,
     val darkTheme: Boolean,
     val visibilityMode: TrayVisibilityMode,
+    /**
+     * Color used to carve glyph interiors (battery plug, moon). Matches [backgroundColor] unless
+     * the tray is a transparent underlay over a shell overlay — then this is the logical fill.
+     */
+    val backdropColor: androidx.compose.ui.graphics.Color = backgroundColor,
 )
 
 data class TraySnapshot(
@@ -192,6 +199,8 @@ data class TraySnapshot(
     val dataConnectionLabel: String?,
     /** Live cellular bar count and Wi-Fi arc count (null Wi-Fi = icon hidden). */
     val signalBars: SignalBarsStatus,
+    /** True when ringer stream volume is 0 — shows the mute glyph after Wi-Fi. */
+    val ringerMuted: Boolean = false,
     val battery: BatteryStatus,
     val theme: TrayThemeSnapshot,
     /**
@@ -204,6 +213,11 @@ data class TraySnapshot(
      * not draw over edge-to-edge fullscreen content.
      */
     val systemStatusBarsHidden: Boolean = false,
+    /**
+     * Tray fill / glyph morph duration while a shell overlay (toast / volume) is tinting the strip.
+     * Matches the overlay's enter/exit motion so the band does not snap separately.
+     */
+    val shellFillAnimationMs: Int = MetroStatusBar.SHELL_FILL_DURATION_MS_DEFAULT,
 )
 
 object TrayIndicatorOrder {
@@ -211,28 +225,32 @@ object TrayIndicatorOrder {
     val collapsed: List<TrayIndicator> = emptyList()
 
     /**
-     * Left-side indicators revealed on tap / home: network (cellular + data label) and Wi-Fi.
-     * Battery and clock live on the right.
+     * Left-side indicators revealed on tap / home: network (cellular + data label), Wi-Fi, and
+     * mute (when ringer is 0). Battery and clock live on the right.
      */
     val expanded: List<TrayIndicator> = listOf(
         TrayIndicator.Cellular,
         TrayIndicator.DataConnection,
         TrayIndicator.Wifi,
+        TrayIndicator.Ringer,
     )
 
     /**
-     * Left-row glyphs that actually draw for [dataConnectionLabel] / [wifiConnected].
-     * Skips [TrayIndicator.DataConnection] when there is no label and [TrayIndicator.Wifi] when
-     * Wi-Fi is off/disconnected so stagger timing matches visible icons.
+     * Left-row glyphs that actually draw for [dataConnectionLabel] / [wifiConnected] /
+     * [ringerMuted]. Skips [TrayIndicator.DataConnection] when there is no label,
+     * [TrayIndicator.Wifi] when Wi-Fi is off/disconnected, and [TrayIndicator.Ringer] when the
+     * ringer is not muted so stagger timing matches visible icons.
      */
     fun visibleLeft(
         dataConnectionLabel: String?,
         wifiConnected: Boolean,
+        ringerMuted: Boolean = false,
     ): List<TrayIndicator> =
         expanded.filter {
             when (it) {
                 TrayIndicator.DataConnection -> dataConnectionLabel != null
                 TrayIndicator.Wifi -> wifiConnected
+                TrayIndicator.Ringer -> ringerMuted
                 else -> true
             }
         }
@@ -242,6 +260,7 @@ object TrayCollapseScheduler {
     /**
      * Auto-collapse after the staggered enter finishes plus the hold timeout.
      * [animatingIconCount] includes left indicators and battery when present.
+     * Negative [holdMs] (e.g. [StatusTrayPreferences.TIMEOUT_NEVER_MS]) means never collapse.
      */
     fun shouldAutoCollapse(
         expanded: Boolean,
@@ -251,6 +270,7 @@ object TrayCollapseScheduler {
         holdMs: Long = TraySpec.AUTO_COLLAPSE_MS,
     ): Boolean {
         if (!expanded) return false
+        if (holdMs < 0L) return false
         val enterMs = TraySpec.staggerSequenceMs(animatingIconCount)
         return nowMs - lastExpandedAtMs >= enterMs + holdMs
     }

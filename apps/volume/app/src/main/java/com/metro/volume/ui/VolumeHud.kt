@@ -61,10 +61,12 @@ import kotlin.math.sin
  * WP8.1 volume control HUD — collapsed strip or expanded dual-slider panel.
  *
  * Show / hide and expand / collapse both use a top-anchored height wipe inside a
- * fixed-size overlay window (see [onWindowHeightDp]). The collapsed header row is
- * always the real top-bar chrome; expand only reveals the body beneath it.
- * Animating `WRAP_CONTENT` overlay height every frame is jittery on WindowManager.
- * Call [onExitFinished] after the hide wipe so the host can drop the WindowManager view.
+ * fixed-size overlay window (see [onWindowHeightDp]). The wipe includes [topInsetDp]
+ * so charcoal creeps as one band under the Metro tray (tray stays transparent while
+ * the HUD is up). The collapsed header row is always the real top-bar chrome; expand
+ * only reveals the body beneath it. Animating `WRAP_CONTENT` overlay height every
+ * frame is jittery on WindowManager. Call [onExitFinished] after the hide wipe so
+ * the host can drop the WindowManager view.
  */
 @Composable
 fun VolumeHud(
@@ -81,18 +83,33 @@ fun VolumeHud(
     onPlayPause: () -> Unit = {},
     onSkipNext: () -> Unit = {},
     onSkipPrevious: () -> Unit = {},
+    /**
+     * Status-bar / cutout height painted as part of the charcoal wipe so the tray and
+     * HUD read as one continuous band (tray glyphs float on this underlay).
+     */
+    topInsetDp: Int = 0,
     onWindowHeightDp: (Int) -> Unit = {},
+    /**
+     * Fired at the start of the hide wipe so the host can make the Metro tray opaque before
+     * charcoal leaves the inset (prevents a system status-bar flash).
+     */
+    onExitStarted: () -> Unit = {},
     onExitFinished: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     MetroTheme(darkTheme = true, accent = snapshot.accentColor) {
         val musicDefault = snapshot.mediaTransport != null && !snapshot.inCall
-        val targetHeightDp = if (snapshot.visible) {
+        val panelTargetDp = if (snapshot.visible) {
             VolumeHudSpec.panelHeightDp(
                 expanded = snapshot.expanded,
                 inCall = snapshot.inCall,
                 musicTransport = musicDefault,
             )
+        } else {
+            0
+        }
+        val targetHeightDp = if (snapshot.visible) {
+            topInsetDp + panelTargetDp
         } else {
             0
         }
@@ -105,21 +122,27 @@ fun VolumeHud(
         val expandedBodyRestingDp = expandedRestingDp - VolumeHudSpec.COLLAPSED_HEIGHT_DP
         val heightAnim = remember { Animatable(0f) }
 
-        LaunchedEffect(snapshot.visible, targetHeightDp, snapshot.expanded, musicDefault) {
+        LaunchedEffect(snapshot.visible, targetHeightDp, snapshot.expanded, musicDefault, topInsetDp) {
             if (snapshot.visible) {
                 val panelDp = VolumeHudSpec.panelHeightDp(
                     expanded = snapshot.expanded,
                     inCall = snapshot.inCall,
                     musicTransport = musicDefault,
                 )
+                val fullDp = topInsetDp + panelDp
                 val entering = heightAnim.value < 0.5f
+                // Cover the tray inset immediately on enter so glyphs never flash over the
+                // app, then wipe the panel — one continuous charcoal surface.
+                if (entering && topInsetDp > 0 && heightAnim.value < topInsetDp) {
+                    heightAnim.snapTo(topInsetDp.toFloat())
+                }
                 // Grow the overlay before expand / enter wipes. Keep the tall window
                 // during collapse so the wipe is not clipped by WindowManager.
                 if (snapshot.expanded || musicDefault || entering) {
-                    onWindowHeightDp(panelDp)
+                    onWindowHeightDp(fullDp)
                 }
                 heightAnim.animateTo(
-                    targetValue = panelDp.toFloat(),
+                    targetValue = fullDp.toFloat(),
                     animationSpec = tween(
                         durationMillis = if (entering) {
                             VolumeHudSpec.SHOW_HIDE_MS
@@ -130,18 +153,26 @@ fun VolumeHud(
                     ),
                 )
                 if (!snapshot.expanded && !musicDefault) {
-                    onWindowHeightDp(VolumeHudSpec.COLLAPSED_HEIGHT_DP)
+                    onWindowHeightDp(topInsetDp + VolumeHudSpec.COLLAPSED_HEIGHT_DP)
                 } else if (!snapshot.expanded && musicDefault) {
-                    onWindowHeightDp(VolumeHudSpec.MUSIC_TRANSPORT_HEIGHT_DP)
+                    onWindowHeightDp(topInsetDp + VolumeHudSpec.MUSIC_TRANSPORT_HEIGHT_DP)
                 }
             } else if (heightAnim.value > 0.5f) {
-                heightAnim.animateTo(
-                    targetValue = 0f,
-                    animationSpec = tween(
-                        durationMillis = VolumeHudSpec.SHOW_HIDE_MS,
-                        easing = EaseOutCubic,
-                    ),
-                )
+                // Opaque Metro tray over the inset before charcoal retreats — otherwise the
+                // system status bar shows through the transparent underlay.
+                onExitStarted()
+                // Wipe the panel only; leave inset charcoal until the host removes the window
+                // (covers the system bar if the tray handoff broadcast is still in flight).
+                val insetFloor = topInsetDp.toFloat()
+                if (heightAnim.value > insetFloor + 0.5f) {
+                    heightAnim.animateTo(
+                        targetValue = insetFloor.coerceAtLeast(0f),
+                        animationSpec = tween(
+                            durationMillis = VolumeHudSpec.SHOW_HIDE_MS,
+                            easing = EaseOutCubic,
+                        ),
+                    )
+                }
                 onExitFinished()
             } else {
                 // Already at zero height while hidden — drop any leftover window.
@@ -151,7 +182,9 @@ fun VolumeHud(
 
         if (heightAnim.value <= 0.5f && !snapshot.visible) return@MetroTheme
 
-        val bodyRevealDp = (heightAnim.value - VolumeHudSpec.COLLAPSED_HEIGHT_DP)
+        val insetPaintDp = heightAnim.value.coerceAtMost(topInsetDp.toFloat())
+        val panelRevealDp = (heightAnim.value - topInsetDp).coerceAtLeast(0f)
+        val bodyRevealDp = (panelRevealDp - VolumeHudSpec.COLLAPSED_HEIGHT_DP)
             .coerceAtLeast(0f)
 
         Box(modifier = modifier.fillMaxSize()) {
@@ -161,50 +194,62 @@ fun VolumeHud(
                     .height(heightAnim.value.dp)
                     .align(Alignment.TopStart)
                     .clipToBounds()
-                    .background(VolumeHudSpec.PanelBackground)
-                    .padding(horizontal = VolumeHudSpec.HORIZONTAL_PADDING_DP.dp),
+                    .background(VolumeHudSpec.PanelBackground),
             ) {
-                // Always the real collapsed top bar — never a clipped slice of the body.
-                VolumeHeader(
-                    snapshot = snapshot,
-                    onToggleExpanded = onToggleExpanded,
-                    onCollapse = onCollapse,
-                )
-
-                if (bodyRevealDp > 0.5f) {
-                    Box(
+                if (insetPaintDp > 0.5f) {
+                    Spacer(modifier = Modifier.height(insetPaintDp.dp))
+                }
+                if (panelRevealDp > 0.5f) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(bodyRevealDp.dp)
-                            .clipToBounds(),
+                            .height(panelRevealDp.dp)
+                            .clipToBounds()
+                            .padding(horizontal = VolumeHudSpec.HORIZONTAL_PADDING_DP.dp),
                     ) {
-                        if (snapshot.expanded) {
-                            VolumeBody(
-                                snapshot = snapshot,
+                        // Always the real collapsed top bar — never a clipped slice of the body.
+                        VolumeHeader(
+                            snapshot = snapshot,
+                            onToggleExpanded = onToggleExpanded,
+                            onCollapse = onCollapse,
+                        )
+
+                        if (bodyRevealDp > 0.5f) {
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .requiredHeight(expandedBodyRestingDp.dp),
-                                onCollapse = onCollapse,
-                                onRingerLevel = onRingerLevel,
-                                onMediaLevel = onMediaLevel,
-                                onCallLevel = onCallLevel,
-                                onToggleRingerMute = onToggleRingerMute,
-                                onToggleMediaMute = onToggleMediaMute,
-                                onToggleSilentMode = onToggleSilentMode,
-                                onOpenSoundSettings = onOpenSoundSettings,
-                            )
-                        } else {
-                            val transport = snapshot.mediaTransport
-                            if (transport != null && !snapshot.inCall) {
-                                MusicTransportBody(
-                                    transport = transport,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .requiredHeight(musicBodyRestingDp.dp),
-                                    onPlayPause = onPlayPause,
-                                    onSkipNext = onSkipNext,
-                                    onSkipPrevious = onSkipPrevious,
-                                )
+                                    .height(bodyRevealDp.dp)
+                                    .clipToBounds(),
+                            ) {
+                                if (snapshot.expanded) {
+                                    VolumeBody(
+                                        snapshot = snapshot,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .requiredHeight(expandedBodyRestingDp.dp),
+                                        onCollapse = onCollapse,
+                                        onRingerLevel = onRingerLevel,
+                                        onMediaLevel = onMediaLevel,
+                                        onCallLevel = onCallLevel,
+                                        onToggleRingerMute = onToggleRingerMute,
+                                        onToggleMediaMute = onToggleMediaMute,
+                                        onToggleSilentMode = onToggleSilentMode,
+                                        onOpenSoundSettings = onOpenSoundSettings,
+                                    )
+                                } else {
+                                    val transport = snapshot.mediaTransport
+                                    if (transport != null && !snapshot.inCall) {
+                                        MusicTransportBody(
+                                            transport = transport,
+                                            onPlayPause = onPlayPause,
+                                            onSkipNext = onSkipNext,
+                                            onSkipPrevious = onSkipPrevious,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .requiredHeight(musicBodyRestingDp.dp),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

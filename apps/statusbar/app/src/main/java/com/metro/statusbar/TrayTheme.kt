@@ -31,6 +31,12 @@ object TrayThemeResolver {
          * theme and match-app background so the tray and overlay read as one band.
          */
         shellFillColor: Color? = null,
+        /**
+         * When true, the shell overlay paints the continuous fill under the tray (volume wipe).
+         * The tray stays transparent so glyphs float on that underlay — avoids a hard seam
+         * between two separately animated windows.
+         */
+        shellFillUnderlay: Boolean = false,
     ): TrayThemeSnapshot {
         val darkTheme = preferences.isDark
         val themeBackground = MetroColors.background(darkTheme)
@@ -39,14 +45,24 @@ object TrayThemeResolver {
             matchAppBackground && appBackgroundColor != null -> appBackgroundColor
             else -> themeBackground
         }
-        val baseBackground = shellFillColor ?: matchedBackground
+        val logicalShell = shellFillColor
+        val baseBackground = when {
+            logicalShell != null && shellFillUnderlay -> Color.Transparent
+            logicalShell != null -> logicalShell
+            else -> matchedBackground
+        }
         val backgroundColor = when (visibilityMode) {
             TrayVisibilityMode.Opaque -> baseBackground
-            TrayVisibilityMode.Translucent -> baseBackground.copy(alpha = 0.5f)
+            TrayVisibilityMode.Translucent ->
+                if (baseBackground == Color.Transparent) {
+                    Color.Transparent
+                } else {
+                    baseBackground.copy(alpha = 0.5f)
+                }
             TrayVisibilityMode.Hidden -> Color.Transparent
         }
         val foregroundColor = when {
-            shellFillColor != null -> foregroundForBackground(baseBackground)
+            logicalShell != null -> foregroundForBackground(logicalShell)
             metroSuiteForeground -> MetroColors.primaryText(darkTheme)
             matchAppBackground && appBackgroundColor != null -> foregroundForBackground(matchedBackground)
             else -> MetroColors.primaryText(darkTheme)
@@ -57,6 +73,11 @@ object TrayThemeResolver {
             accentColor = preferences.accentColor,
             darkTheme = darkTheme,
             visibilityMode = visibilityMode,
+            backdropColor = when {
+                logicalShell != null && shellFillUnderlay -> logicalShell
+                backgroundColor == Color.Transparent -> matchedBackground
+                else -> backgroundColor
+            },
         )
     }
 

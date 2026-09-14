@@ -41,12 +41,29 @@ class MetroAppBarTest {
     @Test
     fun defaults_matchUxSpecLimits() {
         assertEquals(4, MetroAppBarDefaults.MaxIcons)
+        assertEquals(3, MetroAppBarDefaults.MaxTextButtons)
         assertEquals(5, MetroAppBarDefaults.MaxMenuItems)
         assertEquals(52f, MetroAppBarDefaults.BarHeight.value, 0.01f)
         assertEquals(42f, MetroAppBarDefaults.GlyphSize.value, 0.01f)
         assertEquals(MetroColors.DarkSecondarySurface, MetroAppBarDefaults.ChromeBackground)
         assertEquals(6f, MetroAppBarDefaults.EllipsisTopPadding.value, 0.01f)
         assertEquals(9f, MetroAppBarDefaults.EllipsisDotSpacing.value, 0.01f)
+        assertEquals(12f, MetroAppBarDefaults.TextButtonSpacing.value, 0.01f)
+        assertEquals(6f, MetroAppBarDefaults.TextButtonVerticalInset.value, 0.01f)
+        assertEquals(48f, MetroAppBarDefaults.TextButtonRowEndInset.value, 0.01f)
+    }
+
+    @Test
+    fun textButton_defaultsToEnabled() {
+        val button = MetroAppBarTextButton("download") {}
+        assertEquals("download", button.text)
+        assertTrue(button.enabled)
+    }
+
+    @Test
+    fun textButton_keepsExplicitEnabled() {
+        val button = MetroAppBarTextButton("share", enabled = false) {}
+        assertFalse(button.enabled)
     }
 
     @Test

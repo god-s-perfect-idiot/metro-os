@@ -18,8 +18,16 @@ Hub is a **metro-os original** about / suite-catalog app. There is no 1:1 WP8.1 
 | GitHub Releases API | https://docs.github.com/en/rest/releases/releases#get-the-latest-release | Latest release + asset download URLs |
 | metro-os releases | https://github.com/god-s-perfect-idiot/metro-os/releases | Live APK catalog for this suite |
 
+## extras+info
+
+| Source | URL | What it informs |
+|--------|-----|-----------------|
+| Lumia extras+info capture | `images/extras_info_dark_cyan.png` | Page title, Software release accent name + circular `i`, underlined policies link, component list, more info border button |
+| Settings extras+info | [`apps/settings`](../../settings/README.md) | Suite already uses the `extras+info` title string for device about |
+
 ## Reference images
 
 | File | Source | Notes |
 |------|--------|-------|
 | `images/panorama_dark_teal.png` | Copied from Music `hub_fullpage.png` | Stand-in for panorama chrome until Hub-specific captures exist |
+| `images/extras_info_dark_cyan.png` | Lumia extras+info screenshot (user-provided) | Layout reference; Hub paints **Metro Ruby** in crimson instead of cyan |

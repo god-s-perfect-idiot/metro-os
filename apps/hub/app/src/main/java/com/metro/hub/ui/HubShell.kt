@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.metro.hub.data.ApkInstaller
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroAppBarTextButton
 import com.metro.ui.MetroPagePivotLoad
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
@@ -82,7 +83,7 @@ fun HubShell(
                     loadKey = subpageLoadKey(exitingRoute!!, state),
                     exiting = true,
                     onExitComplete = {
-                        suppressEnterFor = exitingRoute!!.parentRoute()
+                        suppressEnterFor = exitingRoute!!.parentRoute(state)
                         state.goBack()
                         exitingRoute = null
                     },
@@ -92,7 +93,7 @@ fun HubShell(
             state.route == HubRoute.Hub -> {
                 val pagerState = rememberPagerState(
                     initialPage = state.hubPage,
-                    pageCount = { 2 },
+                    pageCount = { 3 },
                 )
                 LaunchedEffect(pagerState.currentPage) {
                     state.hubPage = pagerState.currentPage
@@ -112,7 +113,7 @@ fun HubShell(
                         MetroAppBarIcon(
                             type = MetroSystemIconType.Search,
                             label = "search",
-                            onClick = { /* wired later */ },
+                            onClick = state::openSearch,
                         ),
                     ),
                     modifier = Modifier.align(Alignment.BottomCenter),
@@ -177,20 +178,39 @@ private fun HubSubpage(
                     )
                     MetroAppBar(
                         minimized = false,
-                        icons = listOf(
-                            MetroAppBarIcon(
-                                type = MetroSystemIconType.Save,
-                                label = "download",
+                        textButtons = listOf(
+                            MetroAppBarTextButton(
+                                text = "download",
+                                enabled = asset != null && !downloading && asset.downloadUrl.isNotBlank(),
                                 onClick = {
-                                    val selected = state.selectedAsset ?: return@MetroAppBarIcon
+                                    val selected = state.selectedAsset ?: return@MetroAppBarTextButton
                                     if (state.downloadingAssetName == null) {
                                         state.downloadAndInstall(selected)
                                     }
                                 },
-                                enabled = asset != null && !downloading && asset.downloadUrl.isNotBlank(),
+                            ),
+                            MetroAppBarTextButton(
+                                text = "share",
+                                enabled = asset != null,
+                                onClick = {
+                                    val selected = state.selectedAsset ?: return@MetroAppBarTextButton
+                                    state.shareApp(selected)
+                                },
                             ),
                         ),
                         modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
+                HubRoute.ExtrasInfo -> {
+                    ExtrasInfoScreen(
+                        state = state,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                HubRoute.Search -> {
+                    SearchScreen(
+                        state = state,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
                 HubRoute.Hub -> Unit
@@ -199,14 +219,18 @@ private fun HubSubpage(
     }
 }
 
-private fun HubRoute.parentRoute(): HubRoute = when (this) {
-    HubRoute.AppDetail -> HubRoute.AppList
+private fun HubRoute.parentRoute(state: HubState): HubRoute = when (this) {
+    HubRoute.AppDetail -> state.appDetailParent
     HubRoute.AppList -> HubRoute.Hub
+    HubRoute.Search -> HubRoute.Hub
+    HubRoute.ExtrasInfo -> HubRoute.Hub
     HubRoute.Hub -> HubRoute.Hub
 }
 
 private fun subpageLoadKey(route: HubRoute, state: HubState): Any = when (route) {
     HubRoute.AppList -> "AppList:${state.listFilter?.name ?: "all"}"
     HubRoute.AppDetail -> "AppDetail:${state.selectedAssetName.orEmpty()}"
+    HubRoute.Search -> "Search"
+    HubRoute.ExtrasInfo -> "ExtrasInfo"
     HubRoute.Hub -> "Hub"
 }

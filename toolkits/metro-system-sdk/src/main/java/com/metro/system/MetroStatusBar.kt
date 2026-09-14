@@ -71,11 +71,27 @@ object MetroStatusBar {
      */
     const val EXTRA_SHELL_FILL_OWNER = "shell_fill_owner"
 
+    /**
+     * Optional ms for the tray fill / glyph color morph when applying or clearing a shell fill.
+     * Toast uses the flip duration; volume uses the show/hide wipe duration.
+     */
+    const val EXTRA_SHELL_FILL_DURATION_MS = "shell_fill_duration_ms"
+
+    /**
+     * When true with a volume fill, the tray stays transparent so the HUD can paint the
+     * continuous band underneath. Set false before the HUD exit wipe so the Metro tray goes
+     * opaque and covers the system status bar (avoids a flash as charcoal leaves the inset).
+     */
+    const val EXTRA_SHELL_FILL_UNDERLAY = "shell_fill_underlay"
+
     /** [EXTRA_SHELL_FILL_OWNER] value used by `com.metro.notifications` toasts. */
     const val OWNER_NOTIFICATIONS = "notifications"
 
     /** [EXTRA_SHELL_FILL_OWNER] value used by `com.metro.volume` HUD. Outranks notifications. */
     const val OWNER_VOLUME = "volume"
+
+    /** Default tray color morph when [EXTRA_SHELL_FILL_DURATION_MS] is omitted. */
+    const val SHELL_FILL_DURATION_MS_DEFAULT = 200
 
     /** Opaque theme-colored tray (WP8.1 default). */
     const val MODE_OPAQUE = "Opaque"
@@ -122,9 +138,25 @@ object MetroStatusBar {
      * Tint the tray fill to match a top shell overlay (toast accent, volume charcoal) so the
      * strip reads as one continuous band. Pass [colorHex] null to clear that [owner]'s request.
      * Volume outranks notifications when both are active.
+     *
+     * [durationMs] drives the tray color morph so it can run in lockstep with the overlay's
+     * enter/exit motion (toast flip / volume wipe).
+     *
+     * [underlay] is volume-only: true keeps the tray transparent over the HUD charcoal band;
+     * false makes the tray opaque (used at exit handoff so the system bar never flashes).
+     * Ignored for notifications / clears. Defaults to true while a volume color is set.
      */
-    fun requestShellFill(context: Context, owner: String, colorHex: String?) {
-        val intent = request(ACTION_SET_SHELL_FILL).putExtra(EXTRA_SHELL_FILL_OWNER, owner)
+    fun requestShellFill(
+        context: Context,
+        owner: String,
+        colorHex: String?,
+        durationMs: Int = SHELL_FILL_DURATION_MS_DEFAULT,
+        underlay: Boolean = owner == OWNER_VOLUME && colorHex != null,
+    ) {
+        val intent = request(ACTION_SET_SHELL_FILL)
+            .putExtra(EXTRA_SHELL_FILL_OWNER, owner)
+            .putExtra(EXTRA_SHELL_FILL_DURATION_MS, durationMs.coerceAtLeast(0))
+            .putExtra(EXTRA_SHELL_FILL_UNDERLAY, underlay)
         if (colorHex != null) {
             intent.putExtra(EXTRA_SHELL_FILL_COLOR, colorHex)
         }

@@ -1,8 +1,10 @@
 package com.metro.statusbar.ui
 
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -45,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -59,6 +62,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.PathParser
 import com.metro.statusbar.BatteryStatus
 import com.metro.statusbar.SignalBarsStatus
 import com.metro.statusbar.TrayIndicator
@@ -84,7 +88,13 @@ private val CellularGlyphWidth = 18.dp
 // Shared [drawMetroWifiGlyph] is square; outer arc clips the box edges.
 private val WifiGlyphHeight = 13.dp
 private val WifiGlyphWidth = 13.dp
+// Mute (speaker + X) — a step larger than Wi-Fi so the mark reads at tray size.
+private val MuteGlyphHeight = 16.dp
+private val MuteGlyphWidth = 18.dp
 private val DataGlyphWidth = 22.dp
+/** 512×512 mute path: speaker cone + X (status tray when ringer volume is 0). */
+private const val MuteGlyphPathData =
+    "M159.8,320l64,-64l-64,-64l85.3,-85.3l64,64V0L159.8,149.3H74.4v213.3h85.3L309.1,512V341.3l-64,64l-85.3,-85.3zm245.3,-128l-32,-32l-64,64l-64,-64l-32,32l64,64l-64,64l32,32l64,-64l64,64l32,-32l-64,-64l64,-64z"
 // WP8.1 battery sits close to clock cap height, with a slightly longer and shallower silhouette.
 private val BatteryWidth = 29.dp
 private val BatteryHeight = 14.dp
@@ -151,19 +161,47 @@ fun StatusTray(
 
     if (!onScreen) return
 
-    val foreground = paintTheme.foregroundColor
-    val background = paintTheme.backgroundColor
-        .takeUnless { it == Color.Transparent }
-        ?: MetroColors.background(paintTheme.darkTheme)
+    val targetForeground = paintTheme.foregroundColor
+    // Volume underlay keeps the tray transparent so the HUD can paint one continuous band.
+    // Toast / theme fills stay opaque — never fall back to page chrome while transparent.
+    val targetBackground = paintTheme.backgroundColor
+    val toUnderlay = targetBackground == Color.Transparent
+    // Snap to transparent when the volume underlay takes over so charcoal is not veiled by a
+    // fading tray fill; morph colors for toast accent and restore-from-underlay.
+    val shellFillSpec = if (toUnderlay) {
+        tween<Color>(0)
+    } else {
+        MetroTransitions.statusTrayShellFillTween(snapshot.shellFillAnimationMs)
+    }
+    val foreground by animateColorAsState(
+        targetValue = targetForeground,
+        animationSpec = shellFillSpec,
+        label = "trayShellFillForeground",
+    )
+    val background by animateColorAsState(
+        targetValue = targetBackground,
+        animationSpec = shellFillSpec,
+        label = "trayShellFillBackground",
+    )
+    val backdrop by animateColorAsState(
+        targetValue = paintTheme.backdropColor,
+        animationSpec = shellFillSpec,
+        label = "trayShellFillBackdrop",
+    )
     val density = LocalDensity.current
     val slidePx = with(density) { barHeightDp.dp.toPx() }
     // 1 = fully tucked above the top edge; 0 = resting.
     val creepTranslationY = -barOffset.value * slidePx
     val shadeOpenDragPx = with(density) { TraySpec.SHADE_OPEN_DRAG_DP.dp.toPx() }
-    val leftVisible = remember(snapshot.dataConnectionLabel, snapshot.signalBars.wifiBands) {
+    val leftVisible = remember(
+        snapshot.dataConnectionLabel,
+        snapshot.signalBars.wifiBands,
+        snapshot.ringerMuted,
+    ) {
         TrayIndicatorOrder.visibleLeft(
             dataConnectionLabel = snapshot.dataConnectionLabel,
             wifiConnected = snapshot.signalBars.wifiBands != null,
+            ringerMuted = snapshot.ringerMuted,
         )
     }
     val batteryPresent = snapshot.battery.present
@@ -228,7 +266,7 @@ fun StatusTray(
                 expanded = snapshot.expanded,
                 color = foreground,
                 inactiveColor = if (paintTheme.darkTheme) SignalInactiveDark else SignalInactiveLight,
-                backgroundColor = background,
+                backgroundColor = backdrop,
                 dataConnectionLabel = snapshot.dataConnectionLabel,
                 signalBars = snapshot.signalBars,
                 reverseIndexOffset = leftBatteryOffset,
@@ -253,7 +291,7 @@ fun StatusTray(
                     TrayBatteryGlyph(
                         battery = snapshot.battery,
                         color = foreground,
-                        backgroundColor = background,
+                        backgroundColor = backdrop,
                     )
                 }
                 BasicText(
@@ -364,6 +402,7 @@ private fun TrayIndicatorRow(
                     visible = expanded,
                     reverseIndex = (indicators.size - 1 - index) + reverseIndexOffset,
                 ) {
+                    val wifiVisible = indicators.contains(TrayIndicator.Wifi)
                     TrayIndicatorItem(
                         indicator = indicator,
                         color = color,
@@ -371,10 +410,16 @@ private fun TrayIndicatorRow(
                         backgroundColor = backgroundColor,
                         dataConnectionLabel = dataConnectionLabel,
                         signalBars = signalBars,
-                        modifier = if (indicator == TrayIndicator.Wifi) {
-                            Modifier.padding(start = TraySpec.WIFI_LEADING_PADDING_DP.dp)
-                        } else {
-                            Modifier
+                        modifier = when (indicator) {
+                            TrayIndicator.Wifi ->
+                                Modifier.padding(start = TraySpec.WIFI_LEADING_PADDING_DP.dp)
+                            TrayIndicator.Ringer ->
+                                if (wifiVisible) {
+                                    Modifier.padding(start = TraySpec.MUTE_LEADING_PADDING_DP.dp)
+                                } else {
+                                    Modifier.padding(start = TraySpec.WIFI_LEADING_PADDING_DP.dp)
+                                }
+                            else -> Modifier
                         },
                     )
                 }
@@ -412,6 +457,7 @@ private fun TrayIndicatorItem(
         TrayIndicator.Cellular -> CellularGlyphWidth to CellularGlyphHeight
         TrayIndicator.DataConnection -> DataGlyphWidth to GlyphHeight
         TrayIndicator.Wifi -> WifiGlyphWidth to WifiGlyphHeight
+        TrayIndicator.Ringer -> MuteGlyphWidth to MuteGlyphHeight
         else -> GlyphWidth to GlyphHeight
     }
     Canvas(modifier = modifier.size(width = width, height = height)) {
@@ -525,23 +571,8 @@ private fun DrawScope.drawIndicator(
             drawLine(color, Offset(w * 0.08f, h * 0.72f), Offset(w * 0.92f, h * 0.72f), stroke)
         }
         TrayIndicator.Ringer -> {
-            // Vibrate: a small handset flanked by two motion arcs.
-            drawRoundRectPath(left = w * 0.42f, top = h * 0.24f, right = w * 0.58f, bottom = h * 0.76f, color = color)
-            val stroke = Stroke(width = w * 0.07f, cap = StrokeCap.Round)
-            repeat(2) { side ->
-                val dir = if (side == 0) -1f else 1f
-                val radius = w * (0.16f + 0f)
-                val cx = w / 2f + dir * w * 0.34f
-                drawArc(
-                    color = color,
-                    startAngle = if (dir < 0) 300f else 120f,
-                    sweepAngle = 120f,
-                    useCenter = false,
-                    topLeft = Offset(cx - radius, h * 0.5f - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = stroke,
-                )
-            }
+            // Mute: speaker + X when ringer volume is 0 (expanded row only).
+            drawMuteGlyph(color)
         }
         TrayIndicator.Location -> {
             val stroke = Stroke(width = h * 0.09f)
@@ -554,6 +585,16 @@ private fun DrawScope.drawIndicator(
         }
         TrayIndicator.Battery -> Unit // Rendered separately on the right by TrayBatteryGlyph.
     }
+}
+
+/** Speaker + X mute mark scaled from the 512×512 tray reference path. */
+private fun DrawScope.drawMuteGlyph(color: Color) {
+    val androidPath = PathParser.createPathFromPathData(MuteGlyphPathData)
+    val matrix = Matrix().apply {
+        setScale(size.width / 512f, size.height / 512f)
+    }
+    androidPath.transform(matrix)
+    drawPath(androidPath.asComposePath(), color)
 }
 
 /** Small filled-rect helper to keep the car/handset glyphs readable at tray sizes. */

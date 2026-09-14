@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.PhoneStateListener
@@ -53,6 +54,20 @@ class TrayState(context: Context) {
     var volumeShellFill by mutableStateOf<Color?>(null)
         private set
 
+    /**
+     * When [volumeShellFill] is set, true = tray transparent over the HUD underlay;
+     * false = tray paints opaque charcoal (exit handoff so the system bar stays covered).
+     */
+    var volumeShellUnderlay by mutableStateOf(true)
+        private set
+
+    /**
+     * Morph duration for the next tray fill / glyph transition driven by shell overlays.
+     * Overlays set this to match their enter/exit motion.
+     */
+    var shellFillAnimationMs by mutableStateOf(MetroStatusBar.SHELL_FILL_DURATION_MS_DEFAULT)
+        private set
+
     var theme by mutableStateOf(resolveTheme())
         private set
 
@@ -66,6 +81,10 @@ class TrayState(context: Context) {
         private set
 
     var signalBars by mutableStateOf(SignalBarsStatus.Unknown)
+        private set
+
+    /** True when [AudioManager.STREAM_RING] volume is 0 — mute glyph after Wi-Fi. */
+    var ringerMuted by mutableStateOf(false)
         private set
 
     var lastExpandedAtMs by mutableLongStateOf(0L)
@@ -96,10 +115,12 @@ class TrayState(context: Context) {
             indicators = TrayIndicatorOrder.expanded,
             dataConnectionLabel = dataConnectionLabel,
             signalBars = signalBars,
+            ringerMuted = ringerMuted,
             battery = battery,
             theme = theme,
             notificationShadeOpen = notificationShadeOpen,
             systemStatusBarsHidden = systemStatusBarsHidden,
+            shellFillAnimationMs = shellFillAnimationMs,
         )
 
     /** Left icons + battery when present — drives stagger timing for auto-collapse. */
@@ -107,6 +128,7 @@ class TrayState(context: Context) {
         val left = TrayIndicatorOrder.visibleLeft(
             dataConnectionLabel = dataConnectionLabel,
             wifiConnected = signalBars.wifiBands != null,
+            ringerMuted = ringerMuted,
         ).size
         val batteryIcon = if (battery.present) 1 else 0
         return left + batteryIcon
@@ -135,6 +157,16 @@ class TrayState(context: Context) {
                 WifiManager.NETWORK_STATE_CHANGED_ACTION,
                 WifiManager.WIFI_STATE_CHANGED_ACTION,
                 -> refreshWifiSignal()
+            }
+        }
+    }
+
+    private val ringerReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                VOLUME_CHANGED_ACTION,
+                AudioManager.RINGER_MODE_CHANGED_ACTION,
+                -> refreshRingerMute()
             }
         }
     }
@@ -218,6 +250,10 @@ class TrayState(context: Context) {
         signalBars = signalBars.copy(wifiBands = WifiSignalSource.currentBands(appContext))
     }
 
+    fun refreshRingerMute() {
+        ringerMuted = RingerMuteSource.isMuted(appContext)
+    }
+
     fun refreshCellularSignal(signalStrength: SignalStrength? = null) {
         val bars = if (signalStrength != null) {
             CellularSignalLevels.fromSignalStrength(signalStrength)
@@ -234,6 +270,7 @@ class TrayState(context: Context) {
         }
         refreshSignalBars()
         refreshDataConnectionLabel()
+        refreshRingerMute()
         expanded = true
         lastExpandedAtMs = nowMs
     }
@@ -274,16 +311,30 @@ class TrayState(context: Context) {
      * Applies or clears a temporary shell-overlay fill. [owner] must be
      * [MetroStatusBar.OWNER_NOTIFICATIONS] or [MetroStatusBar.OWNER_VOLUME]; unknown owners are
      * ignored. Volume outranks notifications when both are set.
+     *
+     * Volume can paint as an underlay (tray transparent) or opaque tray fill. Toast keeps an
+     * opaque accent fill on the tray itself.
+     *
+     * [durationMs] is stored for [StatusTray] color morphs so they can match the overlay motion.
+     * [underlay] only applies while a volume color is set; clears reset it to true.
      */
-    fun applyShellFill(owner: String?, color: Color?) {
+    fun applyShellFill(
+        owner: String?,
+        color: Color?,
+        durationMs: Int = MetroStatusBar.SHELL_FILL_DURATION_MS_DEFAULT,
+        underlay: Boolean = owner == MetroStatusBar.OWNER_VOLUME && color != null,
+    ) {
+        shellFillAnimationMs = durationMs.coerceAtLeast(0)
         when (owner) {
             MetroStatusBar.OWNER_NOTIFICATIONS -> {
                 if (notificationsShellFill == color) return
                 notificationsShellFill = color
             }
             MetroStatusBar.OWNER_VOLUME -> {
-                if (volumeShellFill == color) return
+                val nextUnderlay = if (color == null) true else underlay
+                if (volumeShellFill == color && volumeShellUnderlay == nextUnderlay) return
                 volumeShellFill = color
+                volumeShellUnderlay = nextUnderlay
             }
             else -> return
         }
@@ -291,6 +342,9 @@ class TrayState(context: Context) {
     }
 
     private fun effectiveShellFill(): Color? = volumeShellFill ?: notificationsShellFill
+
+    /** Volume underlay paints the continuous fill under the tray; opaque volume / toast tint the tray. */
+    private fun shellFillUnderlay(): Boolean = volumeShellFill != null && volumeShellUnderlay
 
     private fun resolveTheme(): TrayThemeSnapshot =
         TrayThemeResolver.resolve(
@@ -300,6 +354,7 @@ class TrayState(context: Context) {
             appBackgroundColor = appBackgroundColor,
             metroSuiteForeground = isMetroSuiteForeground(),
             shellFillColor = effectiveShellFill(),
+            shellFillUnderlay = shellFillUnderlay(),
         )
 
     private fun isMetroSuiteForeground(): Boolean {
@@ -313,6 +368,8 @@ class TrayState(context: Context) {
         notificationShadeOpen = open
         if (open) {
             collapse()
+        } else {
+            ensureExpandedIfNeverHides()
         }
     }
 
@@ -322,6 +379,15 @@ class TrayState(context: Context) {
         systemStatusBarsHidden = hidden
         if (hidden) {
             collapse()
+        } else {
+            ensureExpandedIfNeverHides()
+        }
+    }
+
+    /** Keep indicators expanded when setup chooses Never for hide-icons. */
+    fun ensureExpandedIfNeverHides(nowMs: Long = System.currentTimeMillis()) {
+        if (trayPrefs.neverHidesIcons) {
+            expand(nowMs)
         }
     }
 
@@ -350,8 +416,19 @@ class TrayState(context: Context) {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             context.registerReceiver(wifiReceiver, wifiFilter)
         }
+        val ringerFilter = IntentFilter().apply {
+            addAction(VOLUME_CHANGED_ACTION)
+            addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(ringerReceiver, ringerFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(ringerReceiver, ringerFilter)
+        }
         refreshDataConnectionLabel()
         refreshSignalBars()
+        refreshRingerMute()
         registerTelephonyUpdates(context)
     }
 
@@ -359,7 +436,13 @@ class TrayState(context: Context) {
         runCatching { context.unregisterReceiver(themeReceiver) }
         runCatching { context.unregisterReceiver(batteryReceiver) }
         runCatching { context.unregisterReceiver(wifiReceiver) }
+        runCatching { context.unregisterReceiver(ringerReceiver) }
         unregisterTelephonyUpdates()
+    }
+
+    companion object {
+        /** Same action string the volume HUD listens on for stream level changes. */
+        private const val VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION"
     }
 
     private fun registerTelephonyUpdates(context: Context) {

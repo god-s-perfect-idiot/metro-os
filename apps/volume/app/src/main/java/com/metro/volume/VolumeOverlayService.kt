@@ -20,7 +20,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
@@ -201,8 +201,8 @@ class VolumeOverlayService :
                 applicationOverlayWindowType()
             }
 
-        // Window at y=0 spans the tray/cutout; charcoal content is padded below the inset
-        // so the tray stays visible and nothing is clipped by the notch.
+        // Window at y=0 spans the tray/cutout; charcoal wipes from the top as one band under
+        // the Metro tray (tray stays transparent + raised above this underlay).
         topInsetPx = statusBarInsetPx()
         overlayHeightPx = topInsetPx + dpToPx(VolumeHudSpec.COLLAPSED_HEIGHT_DP)
         val composeView = ComposeView(host).apply {
@@ -214,7 +214,9 @@ class VolumeOverlayService :
             setContent {
                 val snapshot = controller.snapshot
                 val density = LocalDensity.current
-                val topInsetDp = with(density) { topInsetPx.toDp() }
+                val topInsetDp = remember(topInsetPx, density.density) {
+                    (topInsetPx / density.density + 0.5f).toInt()
+                }
                 VolumeHud(
                     snapshot = snapshot,
                     onToggleExpanded = { controller.toggleExpanded() },
@@ -229,19 +231,23 @@ class VolumeOverlayService :
                     onPlayPause = { controller.togglePlayPause() },
                     onSkipNext = { controller.skipToNext() },
                     onSkipPrevious = { controller.skipToPrevious() },
+                    topInsetDp = topInsetDp,
                     onWindowHeightDp = { heightDp ->
                         // Compose is on the main thread — update synchronously so the
                         // overlay grows before the wipe starts (handler.post races).
-                        updateOverlayContentHeightDp(heightDp)
+                        // [heightDp] already includes the tray inset.
+                        updateOverlayWindowHeightDp(heightDp)
+                    },
+                    onExitStarted = {
+                        // Cover the inset with an opaque Metro tray before charcoal retreats.
+                        handOffTrayFromUnderlay()
                     },
                     onExitFinished = {
                         // Drop the window after the hide wipe so nothing remains that can
                         // steal touches or leave a zombie overlay.
                         handler.post { removeOverlayIfHidden() }
                     },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = topInsetDp),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
@@ -285,37 +291,61 @@ class VolumeOverlayService :
         hostContext = null
         overlayHeightPx = 0
         topInsetPx = 0
-        clearTrayShellFill()
+        // Remove the underlay while the Metro tray still holds opaque charcoal from
+        // [handOffTrayFromUnderlay], then clear the fill so theme restores without a
+        // transparent gap over the system status bar.
         if (view != null && manager != null) {
             runCatching { manager.removeView(view) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
         }
+        clearTrayShellFill()
     }
 
-    /** Match the Metro tray fill to the charcoal HUD so the strip and panel read as one band. */
+    /** Match the Metro tray to the charcoal HUD underlay so glyphs float on one band. */
     private fun requestTrayShellFill() {
         MetroStatusBar.requestShellFill(
             this,
             MetroStatusBar.OWNER_VOLUME,
             VolumeHudSpec.PANEL_BACKGROUND_HEX,
+            durationMs = VolumeHudSpec.SHOW_HIDE_MS,
+            underlay = true,
+        )
+    }
+
+    /**
+     * Before the hide wipe, paint the Metro tray opaque charcoal so the system status bar
+     * never shows through as the underlay retreats from the inset.
+     */
+    private fun handOffTrayFromUnderlay() {
+        MetroStatusBar.requestShellFill(
+            this,
+            MetroStatusBar.OWNER_VOLUME,
+            VolumeHudSpec.PANEL_BACKGROUND_HEX,
+            durationMs = 0,
+            underlay = false,
         )
     }
 
     private fun clearTrayShellFill() {
-        MetroStatusBar.requestShellFill(this, MetroStatusBar.OWNER_VOLUME, null)
+        MetroStatusBar.requestShellFill(
+            this,
+            MetroStatusBar.OWNER_VOLUME,
+            null,
+            durationMs = VolumeHudSpec.SHOW_HIDE_MS,
+        )
     }
 
     /**
      * Snap overlay height at expand/collapse boundaries only. Per-frame WRAP_CONTENT
      * updates during the wipe make WindowManager jitter.
      *
-     * [contentHeightDp] is the charcoal panel height; the window also includes [topInsetPx].
+     * [windowHeightDp] is the full charcoal band (tray inset + panel).
      */
-    private fun updateOverlayContentHeightDp(contentHeightDp: Int) {
+    private fun updateOverlayWindowHeightDp(windowHeightDp: Int) {
         val view = overlayView ?: return
         val manager = overlayManager ?: return
         val windowType = currentWindowType ?: return
-        val heightPx = (topInsetPx + dpToPx(contentHeightDp)).coerceAtLeast(1)
+        val heightPx = dpToPx(windowHeightDp).coerceAtLeast(1)
         if (heightPx == overlayHeightPx) return
         overlayHeightPx = heightPx
         runCatching {

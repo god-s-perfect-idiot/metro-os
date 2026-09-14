@@ -5,12 +5,26 @@
     <string name="pane_home">home</string>
     <string name="pane_apps">apps</string>
     <string name="quick_links">QUICK LINKS</string>
+    <string name="featured_apps">featured apps</string>
     <string name="link_metro_os_apps">metro os apps</string>
     <string name="link_related_apps">related apps</string>
     <string name="link_unofficial_metro_apps">unofficial metro apps</string>
     <string name="link_get_started_with_os">get started with os</string>
     <string name="link_metro_os_github">metro os github</string>
-    <string name="link_about_project">about project</string>
+    <string name="link_extras_info">extras+info</string>
+    <string name="extras_info_title">extras+info</string>
+    <string name="extras_software_release">Software release</string>
+    <string name="extras_metro_ruby">Metro Ruby</string>
+    <string name="extras_source_on_github">source on github</string>
+    <string name="extras_intro">Detailed here are extras for metro-os — a 1:1 Windows Phone 8.1 experience on Android. Alphas ship under the Metro Ruby channel.</string>
+    <string name="extras_buy_me_a_coffee">buy me a coffee</string>
+    <string name="extras_line_latest_release">metro-os %1$s</string>
+    <string name="extras_line_channel">Metro Ruby channel</string>
+    <string name="extras_line_suite_apps">Suite apps %1$d</string>
+    <string name="extras_line_publisher">Publisher Entropy</string>
+    <string name="extras_line_platform">WP8.1 on Android</string>
+    <string name="extras_more_info">more info</string>
+    <string name="extras_release_unknown">unavailable</string>
     <string name="tile_core">core</string>
     <string name="tile_shell">shell</string>
     <string name="tile_second_party">second party</string>
@@ -25,5 +39,9 @@
     <string name="apps_detail_version">Version</string>
     <string name="apps_detail_download_size">Download size</string>
     <string name="apps_detail_category">Category</string>
+    <string name="search_title">search</string>
+    <string name="search_placeholder">search</string>
+    <string name="search_hint">Type to find suite apps by name or description.</string>
+    <string name="search_empty">No apps match that search.</string>
     <string name="stub_coming_soon">Coming soon</string>
 </resources>

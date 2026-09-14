@@ -99,6 +99,12 @@ class LauncherState(context: Context) {
     var searchActive by mutableStateOf(false)
     var searchQuery by mutableStateOf("")
     var editingTile by mutableStateOf<DisplayTile?>(null)
+    /**
+     * Bumped by [onHomeRequested] when leaving edit/customize via Start/Home so the shell
+     * can remount Start and replay the tile enter wave.
+     */
+    var homeEnterRequestId by mutableIntStateOf(0)
+        private set
     /** Non-null while the tile customize page is open (brush corner). */
     var customizingTile by mutableStateOf<DisplayTile?>(null)
         private set
@@ -422,6 +428,27 @@ class LauncherState(context: Context) {
 
     fun dismissEdit() {
         editingTile = null
+    }
+
+    /**
+     * Navbar Start / system Home while edit or tile-customize is open: snap back to Start
+     * and ask the shell to replay the tile enter wave. Leaves [editingTile] for the shell
+     * to clear after arming snap-exit so the edit outro does not fight the enter wave.
+     *
+     * @return true when an overlay was active and the shell should finish the home return.
+     */
+    fun onHomeRequested(): Boolean {
+        val wasCustomizing = customizingTile != null
+        val wasEditing = editingTile != null
+        if (!wasCustomizing && !wasEditing) return false
+        if (wasCustomizing) {
+            // Skip the customize pivot exit — Home should land on Start immediately.
+            finishCloseTileCustomize()
+        }
+        currentPage = 0
+        dismissSearch()
+        homeEnterRequestId++
+        return true
     }
 
     fun resizeEditingTile() {

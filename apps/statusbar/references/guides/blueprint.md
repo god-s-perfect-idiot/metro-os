@@ -16,9 +16,9 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 ### Page 2 — Expanded tray
 
 - Layout: same height; full indicator row left-aligned in WP order; battery + clock on the right
-- Indicator order L→R: cellular + data label, Wi-Fi; battery + clock on the right
-- Interactions: icons drop in one-by-one from above (**200ms**/icon, **90ms** stagger, right → left); hold **3s / 5s / 10s** (setup **Hide icons after** ListPicker; WP default **5000ms**); exit upward one-by-one (same R→L order)
-- Cellular bars, data label, Wi-Fi arcs, and battery use live device telemetry
+- Indicator order L→R: cellular + data label, Wi-Fi, mute (when ringer volume is 0); battery + clock on the right
+- Interactions: icons drop in one-by-one from above (**200ms**/icon, **90ms** stagger, right → left); hold **3s / 5s / 10s** or **Never** (setup **Hide icons after** ListPicker; WP default **5000ms**); timed options exit upward one-by-one (same R→L order)
+- Cellular bars, data label, Wi-Fi arcs, mute (ringer volume 0), and battery use live device telemetry
 
 ### Page 3 — Progress tray state
 
@@ -37,6 +37,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | Battery | Real `ACTION_BATTERY_CHANGED` telemetry; glyph fills proportionally (red ≤20%, foreground above). While charging: solid two-prong plug with a black edge stroke interrupts the casing — head at the top gap, cord ending at the bottom casing line |
 | Cellular | Real `SignalStrength` level (`0..4`) mapped to four filled bars; data label from telephony display info |
 | Wi-Fi | Real `WifiManager` RSSI mapped to three arcs (`0..3`); icon hidden when Wi-Fi is off/disconnected |
+| Mute | Shown after Wi-Fi when `STREAM_RING` volume is 0 (speaker + X glyph); participates in expand/collapse stagger |
 | Coverage | Window height = system status-bar inset (incl. cutout), so the Android bar is fully covered |
 | Side insets | Physical left/right padding from cutout + waterfall + top rounded-corner chords; when Android privacy dots appear near the clock, the clock animates a small end nudge left (200ms, opaque tray — dots paint on top) |
 | Notification shade | Swipe down on the tray opens the Android notification shade; the Metro overlay hides while the shade is open (accessibility overlay would otherwise paint on top of SystemUI) |

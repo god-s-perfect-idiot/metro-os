@@ -173,6 +173,12 @@ class MainActivity : ComponentActivity() {
         // Handle synchronously before ON_RESUME's refreshAllAsync can race with pin.
         if (intent.action == MetroIntents.ACTION_PIN_TILE) {
             launcherState?.handlePinTileIntent(intent)
+            return
+        }
+        // Already on launcher (singleTask): Home/Start delivers MAIN here without a second
+        // ON_RESUME when still resumed — exit edit/customize and replay Start enter wave.
+        if (intent.action == Intent.ACTION_MAIN) {
+            launcherState?.onHomeRequested()
         }
     }
 }

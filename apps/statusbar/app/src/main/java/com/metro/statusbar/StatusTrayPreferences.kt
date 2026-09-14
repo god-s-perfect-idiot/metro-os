@@ -19,7 +19,8 @@ class StatusTrayPreferences(context: Context) {
 
     /**
      * How long expanded indicators stay fully visible after the staggered enter finishes.
-     * One of [TIMEOUT_3S_MS], [TIMEOUT_5S_MS], [TIMEOUT_10S_MS]. Defaults to the WP8.1 5s hold.
+     * One of [TIMEOUT_3S_MS], [TIMEOUT_5S_MS], [TIMEOUT_10S_MS], or [TIMEOUT_NEVER_MS]
+     * (always keep indicators expanded). Defaults to the WP8.1 5s hold.
      */
     var iconHideTimeoutMs: Long
         get() = coerceIconHideTimeoutMs(
@@ -28,6 +29,10 @@ class StatusTrayPreferences(context: Context) {
         set(value) = prefs.edit()
             .putLong(KEY_ICON_HIDE_TIMEOUT_MS, coerceIconHideTimeoutMs(value))
             .apply()
+
+    /** True when indicators should stay expanded and never auto-collapse. */
+    val neverHidesIcons: Boolean
+        get() = iconHideTimeoutMs == TIMEOUT_NEVER_MS
 
     /**
      * Display cutout / punch-hole side. [NotchPosition.Center] keeps the default tray layout;
@@ -56,9 +61,16 @@ class StatusTrayPreferences(context: Context) {
         const val TIMEOUT_3S_MS = 3_000L
         const val TIMEOUT_5S_MS = MetroStatusBar.AUTO_COLLAPSE_MS
         const val TIMEOUT_10S_MS = 10_000L
+        /** Sentinel: never auto-hide expanded indicators. */
+        const val TIMEOUT_NEVER_MS = -1L
         const val DEFAULT_ICON_HIDE_TIMEOUT_MS = TIMEOUT_5S_MS
 
-        val ICON_HIDE_TIMEOUT_OPTIONS_MS = listOf(TIMEOUT_3S_MS, TIMEOUT_5S_MS, TIMEOUT_10S_MS)
+        val ICON_HIDE_TIMEOUT_OPTIONS_MS = listOf(
+            TIMEOUT_3S_MS,
+            TIMEOUT_5S_MS,
+            TIMEOUT_10S_MS,
+            TIMEOUT_NEVER_MS,
+        )
         val NOTCH_POSITION_OPTIONS = listOf(
             NotchPosition.Center,
             NotchPosition.Left,

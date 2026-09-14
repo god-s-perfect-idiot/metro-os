@@ -35,6 +35,11 @@ object MetroTransitions {
     const val StatusTrayCreepMs = 200
     /** Clock/battery row slides left/right when Android privacy dots appear or clear. */
     const val StatusTrayPrivacyNudgeMs = 200
+    /**
+     * Default tray fill morph when a toast/volume shell overlay tints the strip.
+     * Overlays may request a matching duration (toast flip / volume wipe).
+     */
+    const val StatusTrayShellFillMs = 200
     /** Action Center shade open / close. */
     const val ActionCenterOpenMs = 280
     const val ActionCenterCloseMs = 240
@@ -141,6 +146,14 @@ object MetroTransitions {
 
     fun <T> statusTrayPrivacyNudgeTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = StatusTrayPrivacyNudgeMs,
+        easing = PageEasing,
+    )
+
+    /** Tray background / glyph morph while a shell overlay (toast / volume) is up. */
+    fun <T> statusTrayShellFillTween(
+        durationMs: Int = StatusTrayShellFillMs,
+    ): FiniteAnimationSpec<T> = tween(
+        durationMillis = durationMs.coerceAtLeast(0),
         easing = PageEasing,
     )
 

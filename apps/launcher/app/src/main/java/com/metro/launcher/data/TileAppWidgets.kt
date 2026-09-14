@@ -72,6 +72,9 @@ class TileAppWidgetController(context: Context) {
     fun createHostView(appWidgetId: Int, info: AppWidgetProviderInfo): AppWidgetHostView {
         val view = host.createView(appContext, appWidgetId, info)
         view.setAppWidget(appWidgetId, info)
+        // Transparent host so Start tile fill (accent / wallpaper window) shows through.
+        view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        view.setPadding(0, 0, 0, 0)
         // Medium / wide Start tiles: tell the widget the available cell budget.
         val options = Bundle().apply {
             putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, info.minWidth.coerceAtLeast(110))

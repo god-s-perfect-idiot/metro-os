@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -42,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -57,11 +60,14 @@ import kotlinx.coroutines.launch
 /**
  * WP8.1 application bar (§6.2 of METRO-UX-LANGUAGE.md).
  *
- * Anchored to the **bottom** of the screen. In its collapsed state it shows up to four
- * monochrome icon buttons plus the `…` ellipsis. Tapping the ellipsis (or any of the icons'
- * white dots) expands the bar to reveal:
+ * Anchored to the **bottom** of the screen. Default (icon) mode shows up to four monochrome
+ * icon buttons plus the `…` ellipsis. Tapping the ellipsis expands the bar to reveal:
  *   1. a short text label beneath every icon, and
  *   2. a vertical list of text-only overflow [menuItems] below the icon row.
+ *
+ * **Text-button mode** (Store-style): pass [textButtons] instead of [icons] for flush-left
+ * rectangular outlined verb buttons (`update`, `share`, `download`, …). Same chrome, ellipsis,
+ * overflow menu, and enter/creep/overshoot motion — only the primary row chrome differs.
  *
  * Place it last inside a bottom-aligned [Box] so the expanded panel can overlay page content:
  *
@@ -126,6 +132,17 @@ fun MetroAppBarIcon(
     },
 )
 
+/**
+ * A primary rectangular outlined text button for Store-style app bars (WP Store `update` /
+ * `share`). Prefer lowercase verb labels. Mutually exclusive with [MetroAppBarIcon] — pass
+ * [MetroAppBar] `textButtons`, not `icons`.
+ */
+class MetroAppBarTextButton(
+    val text: String,
+    val enabled: Boolean = true,
+    val onClick: () -> Unit,
+)
+
 /** A text-only overflow row revealed when the bar is expanded. */
 class MetroAppBarMenuItem(
     val text: String,
@@ -153,15 +170,23 @@ object MetroAppBarDefaults {
     val EllipsisDotRadius: Dp = 2.dp
     /** Center-to-center spacing between ellipsis dots. */
     val EllipsisDotSpacing: Dp = 9.dp
+    /** Gap between Store-style text buttons in the primary row. */
+    val TextButtonSpacing: Dp = 12.dp
+    /** Vertical inset so text-button borders sit inside the chrome row. */
+    val TextButtonVerticalInset: Dp = 6.dp
+    /** End inset so width-filling text buttons clear the ellipsis touch target. */
+    val TextButtonRowEndInset: Dp = 48.dp
     const val MaxIcons = 4
+    const val MaxTextButtons = 3
     const val MaxMenuItems = 5
 }
 
 /** Uncontrolled variant — manages its own expand/collapse state. */
 @Composable
 fun MetroAppBar(
-    icons: List<MetroAppBarIcon>,
+    icons: List<MetroAppBarIcon> = emptyList(),
     modifier: Modifier = Modifier,
+    textButtons: List<MetroAppBarTextButton> = emptyList(),
     menuItems: List<MetroAppBarMenuItem> = emptyList(),
     minimized: Boolean = false,
     /** When false, plays a creep-out animation before removing the bar from composition. */
@@ -180,6 +205,7 @@ fun MetroAppBar(
         expanded = expanded,
         onExpandedChange = { expanded = it },
         modifier = modifier,
+        textButtons = textButtons,
         menuItems = menuItems,
         minimized = minimized,
         visible = visible,
@@ -192,14 +218,18 @@ fun MetroAppBar(
  * [expanded] / [onExpandedChange] and wire their own `BackHandler(expanded) { … false }`.
  *
  * @param minimized when true the collapsed bar shows only the `…` ellipsis (mandatory on
- *   panorama pages); the icon row appears once expanded.
+ *   panorama pages); the primary row appears once expanded.
+ * @param textButtons when non-empty, renders Store-style outlined text buttons that share the
+ *   bar width equally (a single button still fills the row). Do not pass both [icons] and
+ *   [textButtons].
  */
 @Composable
 fun MetroAppBar(
-    icons: List<MetroAppBarIcon>,
+    icons: List<MetroAppBarIcon> = emptyList(),
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    textButtons: List<MetroAppBarTextButton> = emptyList(),
     menuItems: List<MetroAppBarMenuItem> = emptyList(),
     minimized: Boolean = false,
     /** When false, plays a creep-out animation before removing the bar from composition. */
@@ -207,7 +237,12 @@ fun MetroAppBar(
     /** When non-null, replays the enter animation whenever this value changes while [visible]. */
     enterKey: Any? = null,
 ) {
+    require(icons.isEmpty() || textButtons.isEmpty()) {
+        "MetroAppBar: pass icons or textButtons, not both"
+    }
+    val useTextButtons = textButtons.isNotEmpty()
     val visibleIcons = icons.take(MetroAppBarDefaults.MaxIcons)
+    val visibleTextButtons = textButtons.take(MetroAppBarDefaults.MaxTextButtons)
     val visibleMenu = menuItems.take(MetroAppBarDefaults.MaxMenuItems)
     val chrome = MetroAppBarDefaults.ChromeBackground
     var enterEpoch by remember { mutableIntStateOf(0) }
@@ -239,7 +274,7 @@ fun MetroAppBar(
     val hiddenFraction = barOffset.value
     val slidePx = collapsedSlidePx.takeIf { it > 0f } ?: defaultSlidePx
     val creepTranslationY = hiddenFraction * slidePx
-    val animateIconKeys = visible && enterEpoch > 0
+    val animateKeys = visible && enterEpoch > 0
 
     // Fill the parent only while expanded so the dismiss scrim can intercept outside taps;
     // collapsed it simply wraps the bar so page content underneath stays interactive.
@@ -283,20 +318,45 @@ fun MetroAppBar(
                     .padding(start = 8.dp, end = 8.dp, bottom = 2.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                val showIconRow = expanded || !minimized
-                if (showIconRow) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        visibleIcons.forEach { item ->
-                            AppBarIconButton(
-                                item = item,
-                                showLabel = expanded,
-                                enterEpoch = enterEpoch,
-                                animateKeys = animateIconKeys,
-                            )
+                val showPrimaryRow = expanded || !minimized
+                if (showPrimaryRow) {
+                    if (useTextButtons) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(MetroAppBarDefaults.BarHeight)
+                                .padding(end = MetroAppBarDefaults.TextButtonRowEndInset),
+                            horizontalArrangement = Arrangement.spacedBy(
+                                MetroAppBarDefaults.TextButtonSpacing,
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            visibleTextButtons.forEach { item ->
+                                AppBarTextButton(
+                                    item = item,
+                                    enterEpoch = enterEpoch,
+                                    animateKeys = animateKeys,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .padding(vertical = MetroAppBarDefaults.TextButtonVerticalInset),
+                                )
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            visibleIcons.forEach { item ->
+                                AppBarIconButton(
+                                    item = item,
+                                    showLabel = expanded,
+                                    enterEpoch = enterEpoch,
+                                    animateKeys = animateKeys,
+                                )
+                            }
                         }
                     }
                 }
@@ -414,6 +474,74 @@ private fun AppBarIconButton(
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun AppBarTextButton(
+    item: MetroAppBarTextButton,
+    enterEpoch: Int,
+    animateKeys: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val foreground = MetroTheme.colors.primaryText
+    val borderColor = if (item.enabled) foreground else foreground.copy(alpha = 0.4f)
+    val textColor = if (item.enabled) foreground else foreground.copy(alpha = 0.4f)
+    val background = when {
+        !item.enabled -> Color.Transparent
+        pressed -> foreground.copy(alpha = 0.2f)
+        else -> Color.Transparent
+    }
+    val buttonHeightPx = with(LocalDensity.current) { MetroAppBarDefaults.TouchTarget.toPx() }
+    val offsetAnim = remember { Animatable(0f) }
+    val opacityAnim = remember { Animatable(1f) }
+
+    LaunchedEffect(enterEpoch, animateKeys) {
+        if (!animateKeys || enterEpoch == 0) {
+            offsetAnim.snapTo(0f)
+            opacityAnim.snapTo(1f)
+            return@LaunchedEffect
+        }
+        offsetAnim.snapTo(MetroTransitions.AppBarButtonStartOffsetFraction)
+        opacityAnim.snapTo(0f)
+        launch {
+            opacityAnim.animateTo(1f, MetroTransitions.appBarCreepTween())
+        }
+        offsetAnim.animateTo(0f, MetroTransitions.appBarButtonOvershootKeyframes())
+    }
+
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                translationY = offsetAnim.value * buttonHeightPx
+                alpha = opacityAnim.value
+            }
+            .background(background, RectangleShape)
+            .border(width = 2.dp, color = borderColor, shape = RectangleShape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = item.enabled,
+                onClick = item.onClick,
+            )
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(
+            text = item.text,
+            style = TextStyle(
+                fontFamily = MetroFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
+                color = textColor,
+                textAlign = TextAlign.Center,
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

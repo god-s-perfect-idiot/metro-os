@@ -32,6 +32,8 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
@@ -52,6 +54,8 @@ import com.metro.ui.MetroTheme
 import java.io.File
 
 internal val StoreIconSize = 72.dp
+/** Larger catalog tiles for the panorama featured pane. */
+internal val FeaturedStoreIconSize = 108.dp
 internal val StoreIconGlyphScale = 0.72f
 private val StoreRowSpacing = 16.dp
 /** Extra space under the last row so it clears the overlay app bar with room to breathe. */
@@ -155,11 +159,12 @@ fun AppListScreen(
 }
 
 @Composable
-private fun StoreAppRow(
+internal fun StoreAppRow(
     asset: ReleaseApkAsset,
     iconPath: String?,
     onVisible: () -> Unit,
     onClick: () -> Unit,
+    iconSize: Dp = StoreIconSize,
 ) {
     LaunchedEffect(asset.name, asset.sizeBytes, asset.iconUrl) {
         onVisible()
@@ -181,6 +186,7 @@ private fun StoreAppRow(
             logoPngBase64 = asset.logoPngBase64,
             backgroundColorHex = asset.backgroundColor,
             glyphResId = asset.glyphResId,
+            iconSize = iconSize,
         )
         Column(
             modifier = Modifier
@@ -219,6 +225,7 @@ internal fun StoreAppIcon(
     logoPngBase64: String?,
     backgroundColorHex: String?,
     glyphResId: Int?,
+    iconSize: Dp = StoreIconSize,
 ) {
     val context = LocalContext.current
     val hasMetroTileBg = !backgroundColorHex.isNullOrBlank()
@@ -234,9 +241,10 @@ internal fun StoreAppIcon(
     val firestoreVector = remember(logoXml) {
         logoXml?.let { xml -> HubLogoDecoder.bitmapFromLogoXml(context, xml) }
     }
+    val letterSp = (42f * (iconSize / StoreIconSize)).sp
     Box(
         modifier = Modifier
-            .size(StoreIconSize)
+            .size(iconSize)
             .background(background),
         contentAlignment = Alignment.Center,
     ) {
@@ -248,7 +256,7 @@ internal fun StoreAppIcon(
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(StoreIconSize * 0.12f),
+                        .padding(iconSize * 0.12f),
                 )
             }
             firestoreVector != null -> {
@@ -257,7 +265,7 @@ internal fun StoreAppIcon(
                     contentDescription = title,
                     colorFilter = ColorFilter.tint(content),
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(StoreIconSize * StoreIconGlyphScale),
+                    modifier = Modifier.size(iconSize * StoreIconGlyphScale),
                 )
             }
             // Prefer flat Metro glyph/letter on the catalog tile color — never nest a
@@ -272,10 +280,10 @@ internal fun StoreAppIcon(
                         painter = painterResource(glyphResId),
                         contentDescription = title,
                         colorFilter = if (tintVectors) ColorFilter.tint(content) else null,
-                        modifier = Modifier.size(StoreIconSize * StoreIconGlyphScale),
+                        modifier = Modifier.size(iconSize * StoreIconGlyphScale),
                     )
                 } else {
-                    StoreAppLetter(title = title, color = content)
+                    StoreAppLetter(title = title, color = content, fontSize = letterSp)
                 }
             }
             !iconUrl.isNullOrBlank() -> {
@@ -316,7 +324,7 @@ internal fun StoreAppIcon(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    StoreAppLetter(title = title, color = content)
+                    StoreAppLetter(title = title, color = content, fontSize = letterSp)
                 }
             }
         }
@@ -327,13 +335,14 @@ internal fun StoreAppIcon(
 private fun StoreAppLetter(
     title: String,
     color: Color,
+    fontSize: TextUnit = 42.sp,
 ) {
     BasicText(
         text = title.firstOrNull()?.uppercaseChar()?.toString().orEmpty(),
         style = TextStyle(
             fontFamily = MetroFontFamily,
             fontWeight = FontWeight.Light,
-            fontSize = 42.sp,
+            fontSize = fontSize,
             color = color,
             platformStyle = PlatformTextStyle(includeFontPadding = false),
         ),

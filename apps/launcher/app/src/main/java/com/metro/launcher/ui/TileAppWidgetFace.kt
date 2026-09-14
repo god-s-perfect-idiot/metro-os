@@ -1,5 +1,6 @@
 package com.metro.launcher.ui
 
+import android.graphics.Color as AndroidColor
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -16,6 +17,7 @@ val LocalTileAppWidgetController = staticCompositionLocalOf<TileAppWidgetControl
 
 /**
  * Hosts an Android App Widget inside a medium/wide Start tile when customize → widget is on.
+ * Host chrome stays transparent so the Metro tile fill (accent or Start wallpaper window) shows.
  */
 @Composable
 fun TileAppWidgetFace(
@@ -28,7 +30,10 @@ fun TileAppWidgetFace(
         controller.providerInfo(entry.widgetProvider)
     } ?: return
     val hostView = remember(entry.appWidgetId, info.provider) {
-        controller.createHostView(entry.appWidgetId, info)
+        controller.createHostView(entry.appWidgetId, info).also { view ->
+            view.setBackgroundColor(AndroidColor.TRANSPARENT)
+            view.setPadding(0, 0, 0, 0)
+        }
     }
     DisposableEffect(hostView) {
         onDispose {
@@ -39,6 +44,7 @@ fun TileAppWidgetFace(
         factory = { hostView },
         modifier = modifier.fillMaxSize(),
         update = { view ->
+            view.setBackgroundColor(AndroidColor.TRANSPARENT)
             view.setAppWidget(entry.appWidgetId, info)
         },
     )

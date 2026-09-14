@@ -31,9 +31,11 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.launcher.R
 import com.metro.launcher.data.DisplayTile
+import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileBackgroundMode
 import com.metro.launcher.data.TileWidgetOption
 import com.metro.launcher.data.supportsCustomWidget
@@ -116,6 +118,22 @@ fun TileCustomizeScreen(
         ?: MetroTheme.colors.accent
     val customName = customHex?.let { MetroAccentPalette.displayName(it) }
         ?: stringResource(R.string.tile_customize_bg_custom)
+
+    val startBackground = LocalStartBackgroundViewport.current
+    val draftRevealsWindow = when (draft.backgroundMode) {
+        TileBackgroundMode.Custom -> false
+        TileBackgroundMode.Accent -> startBackground != null
+        TileBackgroundMode.Default -> tile.revealsStartBackground && startBackground != null
+    }
+    val draftTileFill = when (draft.backgroundMode) {
+        TileBackgroundMode.Accent -> MetroTheme.colors.accent
+        TileBackgroundMode.Custom -> customColor
+        TileBackgroundMode.Default -> tile.backgroundColor
+    }
+    val tileAspect = when (tile.entry.size) {
+        PinnedTileSize.FourByTwo -> 2f
+        else -> 1f
+    }
 
     Column(
         modifier = modifier
@@ -227,10 +245,13 @@ fun TileCustomizeScreen(
                             ),
                         )
                         widgetOptions.forEach { option ->
-                            WidgetProviderPreviewCard(
+                            WidgetProviderPreviewTile(
                                 option = option,
                                 selected = draft.widgetProvider ==
                                     option.provider.flattenToString(),
+                                aspectRatio = tileAspect,
+                                useWindowFill = draftRevealsWindow,
+                                tileFill = draftTileFill,
                                 onClick = {
                                     onDraftChange(
                                         draft.copy(
@@ -242,7 +263,7 @@ fun TileCustomizeScreen(
                                     .fillMaxWidth()
                                     .padding(
                                         horizontal = MetroDimens.ScreenHorizontalMargin,
-                                        vertical = 6.dp,
+                                        vertical = 8.dp,
                                     ),
                             )
                         }
@@ -254,61 +275,66 @@ fun TileCustomizeScreen(
 }
 
 /**
- * Selectable App Widget preview — square Metro border, provider preview art, label under.
+ * Selectable widget option framed as a Start tile — transparent wallpaper window or solid
+ * Metro fill, matching how the launcher hosts the widget after Save.
  */
 @Composable
-private fun WidgetProviderPreviewCard(
+private fun WidgetProviderPreviewTile(
     option: TileWidgetOption,
     selected: Boolean,
+    aspectRatio: Float,
+    useWindowFill: Boolean,
+    tileFill: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Selected border is thicker so the pick reads clearly on wallpaper previews.
+    val borderWidth = if (selected) 4.dp else 2.dp
     val borderColor = if (selected) MetroTheme.colors.accent else MetroTheme.colors.primaryText
-    val aspect = remember(option.minWidth, option.minHeight) {
-        val w = option.minWidth.coerceAtLeast(1).toFloat()
-        val h = option.minHeight.coerceAtLeast(1).toFloat()
-        (w / h).coerceIn(0.75f, 2.5f)
-    }
     val preview = remember(option.previewBitmap) {
         option.previewBitmap?.asImageBitmap()
     }
+    val startBackground = LocalStartBackgroundViewport.current
+    val chrome = TileChrome.Standard
+    val titleColor = if (useWindowFill) Color.White else MetroTheme.colors.primaryText
 
-    Column(
+    Box(
         modifier = modifier
-            .border(2.dp, borderColor)
+            .fillMaxWidth()
+            .aspectRatio(aspectRatio)
             .clickable(onClick = onClick)
-            .padding(10.dp),
+            .then(
+                if (useWindowFill) {
+                    Modifier.drawStartBackgroundWindow(startBackground)
+                } else {
+                    Modifier.background(tileFill)
+                },
+            )
+            .border(borderWidth, borderColor),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(aspect)
-                .background(Color(0xFF1A1A1A)),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (preview != null) {
-                Image(
-                    bitmap = preview,
-                    contentDescription = option.label,
-                    contentScale = ContentScale.Fit,
-                    filterQuality = FilterQuality.Medium,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(4.dp),
-                )
-            } else {
-                MetroText(
-                    text = option.label.take(1).uppercase(),
-                    style = MetroTextStyle.PageTitle,
-                    color = MetroTheme.colors.secondaryText,
-                )
-            }
+        if (preview != null) {
+            Image(
+                bitmap = preview,
+                contentDescription = option.label,
+                // Fit keeps provider art inside the tile without inventing a Material card plate.
+                contentScale = ContentScale.Fit,
+                filterQuality = FilterQuality.Medium,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        MetroText(
+        // Bottom-left app title — same placement as Start tile faces.
+        TileText(
             text = option.label,
-            style = MetroTextStyle.Body,
-            color = if (selected) MetroTheme.colors.accent else MetroTheme.colors.primaryText,
+            style = chrome.titleStyle,
+            color = titleColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(
+                    horizontal = chrome.titlePaddingH,
+                    vertical = chrome.titlePaddingV,
+                ),
         )
     }
 }

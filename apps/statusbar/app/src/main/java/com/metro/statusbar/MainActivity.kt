@@ -247,10 +247,15 @@ class MainActivity : ComponentActivity() {
                                 StatusTrayPreferences.TIMEOUT_10S_MS,
                                 stringResource(R.string.icon_hide_timeout_10s),
                             ),
+                            MetroListPickerOption(
+                                StatusTrayPreferences.TIMEOUT_NEVER_MS,
+                                stringResource(R.string.icon_hide_timeout_never),
+                            ),
                         ),
                         onSelectedChange = { timeoutMs ->
                             trayPrefs.iconHideTimeoutMs = timeoutMs
                             iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
+                            StatusBarOverlayService.requestIconHideTimeoutRefresh()
                         },
                         label = stringResource(R.string.icon_hide_timeout_label),
                         labelStyle = MetroTextStyle.DialogBody,

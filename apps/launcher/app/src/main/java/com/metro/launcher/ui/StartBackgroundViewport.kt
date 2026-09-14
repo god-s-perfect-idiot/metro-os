@@ -7,9 +7,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.IntOffset
@@ -31,6 +32,8 @@ val LocalStartBackgroundViewport = staticCompositionLocalOf<StartBackgroundViewp
 
 /**
  * Draws the Start background cropped to this composable's window rect (parallax factor 0).
+ * Always clips — the blit is full-viewport sized and would otherwise paint over siblings
+ * (e.g. customize widget previews).
  */
 fun Modifier.drawStartBackgroundWindow(
     viewport: StartBackgroundViewport?,
@@ -40,6 +43,7 @@ fun Modifier.drawStartBackgroundWindow(
         var windowOffset by remember { mutableStateOf(Offset.Zero) }
         val bmp = viewport.bitmap
         Modifier
+            .clipToBounds()
             .onGloballyPositioned { coords ->
                 windowOffset = coords.positionInWindow()
             }

@@ -1095,13 +1095,14 @@ private fun LauncherTileCell(
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
         !showMusicNowPlaying && !showCustomWidget
     val startBackground = LocalStartBackgroundViewport.current
+    // Custom App Widgets keep the same transparent-window fill as accent tiles so they
+    // read as Metro tiles, not opaque Android home-screen widgets.
     val useWindowFill = tile.revealsStartBackground &&
         startBackground != null &&
         !showPhotoContent &&
         !showStaticPhoto &&
         !showChromeFace &&
-        !showMusicNowPlaying &&
-        !showCustomWidget
+        !showMusicNowPlaying
     val contentColor = if (useWindowFill) {
         Color.White
     } else {
@@ -1182,6 +1183,8 @@ private fun LauncherTileCell(
                     .clipToBounds()
                     .then(
                         when {
+                            showCustomWidget && useWindowFill ->
+                                Modifier.drawStartBackgroundWindow(startBackground)
                             showCustomWidget -> Modifier.background(tile.backgroundColor)
                             showPhotoContent || showStaticPhoto || showChromeFace ||
                                 showMusicNowPlaying -> Modifier

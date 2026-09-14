@@ -188,31 +188,32 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 
 ### 6.2 App bar (`MetroAppBar`)
 
-**Purpose:** Up to four primary actions as **icon buttons**; overflow in **text menu**.
+**Purpose:** Up to four primary actions as **icon buttons**; overflow in **text menu**. Optional Store-style **text-button** primary row for verb actions (`update`, `share`, `download`).
 
 | Property | Spec |
 |----------|------|
 | Position | **Bottom** of screen, full width — never top |
 | Height | 72dp portrait (icon row + padding) |
 | Background | `#1F1F1F` (`MetroAppBarDefaults.ChromeBackground`) |
-| Standard mode | Up to **4** icon buttons visible |
+| Standard mode | Up to **4** icon buttons visible **or** up to **3** outlined text buttons |
 | Minimized mode | **Ellipsis only** (`…`) — **mandatory on panorama** |
-| Icon buttons | **Icon only** in the bar — **no text-only bar buttons** |
+| Icon buttons | **Icon only** in the bar — circular outline + circular press |
+| Text buttons (optional mode) | Equal-width rectangular outlined verbs that fill the bar row (one button still spans full width aside from the `…` slot); same enter creep + overshoot as icon buttons; mutually exclusive with icon row |
 | Icon asset | 48×48dp canvas; **26×26dp** white glyph centered; transparent PNG |
 | Icon color | White on dark theme, black on light — monochrome only |
-| Press state | `MetroAppBar` fills a **white/black circle** behind the icon and inverts the glyph — **do not bake the press circle into the asset** |
+| Press state | `MetroAppBar` fills a **white/black circle** behind the icon and inverts the glyph — **do not bake the press circle into the asset**. Text buttons use border-button press fill (§6.3). |
 | Disabled icon | 40% opacity |
-| Collapsed reveal | Icon row only (no labels); `…` ellipsis pinned **top-right**, near the bar’s top edge |
-| Expanded reveal | Tapping `…` fades in a **text label beneath every icon** and slides a **text-only menu list in below the icon row** — the bar grows upward from the bottom edge |
-| Menu | Up to **5** text-only items, listed beneath the icon row when expanded |
+| Collapsed reveal | Icon row only (no labels) **or** text-button row; `…` ellipsis pinned **top-right**, near the bar’s top edge |
+| Expanded reveal | Tapping `…` fades in a **text label beneath every icon** (icon mode only) and slides a **text-only menu list in below the primary row** — the bar grows upward from the bottom edge |
+| Menu | Up to **5** text-only items, listed beneath the primary row when expanded |
 | Menu item text | lowercase, 14–20 char recommended |
 | Menu item height | 48dp minimum touch row |
 | Expand gesture | Tap `…` (or any icon's dots) to toggle |
 | Dismiss | Tap outside (scrim), system Back, or select a menu item |
 
-**Don't:** FAB, top toolbar, text buttons in icon row, colored multi-hue icons, more than 4 icons "because slots exist".
+**Don't:** FAB, top toolbar, mixing icons and text buttons in the same bar, colored multi-hue icons, more than 4 icons "because slots exist".
 
-**Toolkit:** `MetroAppBar` (uncontrolled or `expanded`/`onExpandedChange` controlled), `MetroAppBarIcon` (icon-type or custom-glyph), `MetroAppBarMenuItem`, `MetroAppBarDefaults`. Place it last in a bottom-aligned `Box` so the expanded panel overlays page content.
+**Toolkit:** `MetroAppBar` (uncontrolled or `expanded`/`onExpandedChange` controlled), `MetroAppBarIcon` (icon-type or custom-glyph), `MetroAppBarTextButton` (Store-style outlined verbs), `MetroAppBarMenuItem`, `MetroAppBarDefaults`. Place it last in a bottom-aligned `Box` so the expanded panel overlays page content.
 
 ---
 

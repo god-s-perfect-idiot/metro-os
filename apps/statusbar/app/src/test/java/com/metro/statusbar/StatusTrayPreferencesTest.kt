@@ -53,6 +53,12 @@ class StatusTrayPreferencesTest {
             StatusTrayPreferences.TIMEOUT_10S_MS,
             StatusTrayPreferences(RuntimeEnvironment.getApplication()).iconHideTimeoutMs,
         )
+        prefs.iconHideTimeoutMs = StatusTrayPreferences.TIMEOUT_NEVER_MS
+        assertEquals(
+            StatusTrayPreferences.TIMEOUT_NEVER_MS,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).iconHideTimeoutMs,
+        )
+        assertTrue(StatusTrayPreferences(RuntimeEnvironment.getApplication()).neverHidesIcons)
     }
 
     @Test

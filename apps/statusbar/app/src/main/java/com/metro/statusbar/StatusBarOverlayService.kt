@@ -97,6 +97,7 @@ class StatusBarOverlayService :
         trayState.refreshDataConnectionLabel()
         scheduleNextClockTick()
         handler.post(autoCollapseRunnable)
+        trayState.ensureExpandedIfNeverHides()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
     }
 
@@ -114,7 +115,21 @@ class StatusBarOverlayService :
                 val owner = intent.getStringExtra(MetroStatusBar.EXTRA_SHELL_FILL_OWNER)
                 val hex = intent.getStringExtra(MetroStatusBar.EXTRA_SHELL_FILL_COLOR)
                 val color = hex?.let { MetroPreferences.parseAccentHex(it) }
-                trayState.applyShellFill(owner, color)
+                val durationMs = intent.getIntExtra(
+                    MetroStatusBar.EXTRA_SHELL_FILL_DURATION_MS,
+                    MetroStatusBar.SHELL_FILL_DURATION_MS_DEFAULT,
+                )
+                val underlay = intent.getBooleanExtra(
+                    MetroStatusBar.EXTRA_SHELL_FILL_UNDERLAY,
+                    owner == MetroStatusBar.OWNER_VOLUME && color != null,
+                )
+                val volumeUnderlayRequested =
+                    owner == MetroStatusBar.OWNER_VOLUME && color != null && underlay
+                trayState.applyShellFill(owner, color, durationMs, underlay)
+                // Volume paints the continuous charcoal band under the tray; keep glyphs on top.
+                if (volumeUnderlayRequested) {
+                    raiseTrayAboveShellOverlays()
+                }
             }
         }
         return START_STICKY
@@ -212,6 +227,15 @@ class StatusBarOverlayService :
         overlayView = null
         overlayManager = null
         currentWindowType = null
+    }
+
+    /**
+     * Re-add the tray window so it stacks above a newly attached volume underlay. Same-type
+     * accessibility overlays paint in add order — last on top.
+     */
+    private fun raiseTrayAboveShellOverlays() {
+        if (overlayView == null) return
+        rehostOverlay(force = true)
     }
 
     private fun createLayoutParams(
@@ -469,6 +493,15 @@ class StatusBarOverlayService :
             instance?.let { svc ->
                 svc.handler.post {
                     svc.trayState.applyMatchAppBackgroundPreference()
+                }
+            }
+        }
+
+        /** Applies Never hide-icons by expanding indicators on the running overlay. */
+        fun requestIconHideTimeoutRefresh() {
+            instance?.let { svc ->
+                svc.handler.post {
+                    svc.trayState.ensureExpandedIfNeverHides()
                 }
             }
         }

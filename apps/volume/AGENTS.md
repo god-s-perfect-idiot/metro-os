@@ -12,7 +12,7 @@ ringer / media / call streams. Standalone shell app (not statusbar).
 | Prerequisite | Required |
 |--------------|----------|
 | Toolkits verified | Yes |
-| Statusbar installed | Recommended (HUD content pads below tray inset) |
+| Statusbar installed | Recommended (HUD charcoal underlay fills the tray inset) |
 
 ## Surfaces
 

@@ -13,9 +13,11 @@ About / suite catalog for metro-os: panoramic overview, category quick links, an
 
 ## Screen inventory
 
-1. **Hub panorama** — brand `hub`; panes `home` (HubLinks) and `apps` (quick-link tiles)
+1. **Hub panorama** — brand `hub`; panes `home` (HubLinks), `apps` (quick-link tiles), and `featured` (4 random Store rows from combined catalogs); app-bar search opens catalog search
 2. **Suite apps list** — Firestore / release assets as Store-style rows (title, description, By); tap opens detail
-3. **App detail** — version, size, category, full description; bottom app bar download icon installs the APK
+3. **App detail** — version, size, category, full description; bottom app bar download text button installs the APK
+4. **extras+info** — project about page (Metro Ruby alphas, latest release, buy me a coffee)
+5. **Search** — Music explore–style `MetroTextBox` filtering the suite catalog; tap opens detail
 
 See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
@@ -31,7 +33,8 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
 - Toolkit-first: `MetroPanorama`, `MetroListItem`, `MetroAppBar`, `MetroLoadingScreen`, `MetroLoadingDots`
 - No Material components
-- Stub destinations for most home links until wired
+- Home catalog links: `metro os apps` → first-party, `related apps` → second-party, `unofficial metro apps` → third-party
+- `get started with os` remains disabled in v1
 
 ## Data and state model
 
@@ -49,8 +52,10 @@ cd apps/hub
 ./gradlew :app:installDebug
 ./gradlew :app:test
 
-# From repo root — sync first-party docs after a release
-./scripts/sync-hub-firestore.sh --tag alpha-8
+# From repo root — sync Hub Firestore catalogs
+./scripts/sync-hub-firestore.sh --tag alpha-8          # first-party (default)
+./scripts/sync-hub-firestore.sh --party second         # curated second-party
+./scripts/sync-hub-firestore.sh --party all --tag alpha-8
 ../../scripts/verify-app.sh hub
 ```
 

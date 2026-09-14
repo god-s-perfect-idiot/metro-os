@@ -117,8 +117,8 @@ fun HubPanorama(
         }
 
         MetroPanorama(
-            // Brand-only hub — no pane HubTitles (`home` / `apps`).
-            titles = listOf("", ""),
+            // Brand-only hub — no pane HubTitles (`home` / `apps` / `featured`).
+            titles = listOf("", "", ""),
             pagerState = pagerState,
             modifier = Modifier
                 .weight(1f)
@@ -127,7 +127,8 @@ fun HubPanorama(
             pageContent = { page ->
                 when (page) {
                     HubState.HUB_HOME -> HomePane(state = state)
-                    else -> QuickLinksPane(state = state)
+                    HubState.HUB_APPS -> QuickLinksPane(state = state)
+                    else -> FeaturedAppsPane(state = state)
                 }
             },
         )
@@ -142,17 +143,24 @@ private fun HomePane(state: HubState) {
             .verticalScroll(rememberScrollState())
             .padding(top = 12.dp),
     ) {
+        val metroOsAppsTitle = stringResource(R.string.link_metro_os_apps)
         HubLinkRow(
-            title = stringResource(R.string.link_metro_os_apps),
-            onClick = state::openAllApps,
+            title = metroOsAppsTitle,
+            onClick = { state.openAllApps(metroOsAppsTitle) },
         )
+        val relatedAppsTitle = stringResource(R.string.link_related_apps)
         HubLinkRow(
-            title = stringResource(R.string.link_related_apps),
-            onClick = { /* wired later */ },
+            title = relatedAppsTitle,
+            onClick = {
+                state.openCategory(HubAppCategory.SecondParty, title = relatedAppsTitle)
+            },
         )
+        val unofficialTitle = stringResource(R.string.link_unofficial_metro_apps)
         HubLinkRow(
-            title = stringResource(R.string.link_unofficial_metro_apps),
-            onClick = { /* wired later */ },
+            title = unofficialTitle,
+            onClick = {
+                state.openCategory(HubAppCategory.ThirdParty, title = unofficialTitle)
+            },
         )
         HubLinkRow(
             title = stringResource(R.string.link_get_started_with_os),
@@ -164,8 +172,8 @@ private fun HomePane(state: HubState) {
             onClick = { state.openExternalUrl(HubState.GITHUB_URL) },
         )
         HubLinkRow(
-            title = stringResource(R.string.link_about_project),
-            onClick = { /* wired later */ },
+            title = stringResource(R.string.link_extras_info),
+            onClick = state::openExtrasInfo,
         )
     }
 }
@@ -241,6 +249,56 @@ private fun QuickLinksPane(state: HubState) {
                         if (row.size == 1) {
                             Spacer(modifier = Modifier.size(tileSize))
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeaturedAppsPane(state: HubState) {
+    val generation = state.generation
+    @Suppress("UNUSED_VARIABLE")
+    val observe = generation
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp)
+            .padding(top = 24.dp, bottom = 24.dp),
+    ) {
+        MetroText(
+            text = stringResource(R.string.featured_apps).uppercase(),
+            style = MetroTextStyle.SectionHeader,
+            modifier = Modifier.padding(bottom = 16.dp),
+        )
+        when {
+            state.catalogLoadMode == CatalogLoadMode.Loading && state.featuredAssets.isEmpty() -> {
+                MetroText(
+                    text = stringResource(R.string.apps_loading),
+                    style = MetroTextStyle.Body,
+                    color = MetroTheme.colors.secondaryText,
+                )
+            }
+            state.featuredAssets.isEmpty() -> {
+                MetroText(
+                    text = stringResource(R.string.apps_empty),
+                    style = MetroTextStyle.Body,
+                    color = MetroTheme.colors.secondaryText,
+                )
+            }
+            else -> {
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    state.featuredAssets.forEach { asset ->
+                        StoreAppRow(
+                            asset = asset,
+                            iconPath = state.iconPathFor(asset),
+                            onVisible = { state.ensureIcon(asset) },
+                            onClick = { state.openAppDetail(asset) },
+                            iconSize = FeaturedStoreIconSize,
+                        )
                     }
                 }
             }

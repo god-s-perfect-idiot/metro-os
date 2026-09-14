@@ -4,6 +4,7 @@ import com.metro.hub.data.FirestoreHubApp
 import com.metro.hub.data.GitHubReleaseClient
 import com.metro.hub.data.HubAppCatalog
 import com.metro.hub.data.HubAppCategory
+import com.metro.hub.data.ReleaseApkAsset
 import com.metro.hub.data.toReleaseApkAsset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -128,6 +129,34 @@ class HubCatalogTest {
         val asset = app.toReleaseApkAsset()
         assertEquals("#D34829", asset.backgroundColor)
         assertEquals("People", asset.displayName)
+        assertNull(asset.githubRepo)
+    }
+
+    @Test
+    fun firestoreAppMapsGithubRepoOntoAsset() {
+        val app = FirestoreHubApp(
+            id = "wordle",
+            name = "Wordle",
+            packageName = "com.example.wordle",
+            description = "Game",
+            versionName = "1.0.0",
+            versionCode = 1,
+            type = "core",
+            creator = "Entropy",
+            logoXml = null,
+            logoPngBase64 = null,
+            backgroundColor = "#1BA1E2",
+            apkName = "wordle-debug.apk",
+            apkUrl = "https://example.com/wordle-debug.apk",
+            releaseUrl = null,
+            githubRepo = "https://github.com/god-s-perfect-idiot/metro-wordle",
+            sizeBytes = 1L,
+            party = "second",
+        )
+        assertEquals(
+            "https://github.com/god-s-perfect-idiot/metro-wordle",
+            app.toReleaseApkAsset().githubRepo,
+        )
     }
 
     @Test
@@ -152,5 +181,37 @@ class HubCatalogTest {
             party = "first",
         )
         assertEquals("#E3008C", app.toReleaseApkAsset().backgroundColor)
+    }
+
+    @Test
+    fun filterByQueryMatchesNameAndDescription() {
+        val music = ReleaseApkAsset(
+            name = "music-debug.apk",
+            displayName = "Music",
+            downloadUrl = "https://example.com/music-debug.apk",
+            sizeBytes = 1L,
+            category = HubAppCategory.Core,
+            packageName = "com.metro.music",
+            description = "Xbox Music–style player with local and streaming library.",
+            publisher = "Entropy",
+        )
+        val launcher = ReleaseApkAsset(
+            name = "launcher-debug.apk",
+            displayName = "Launcher",
+            downloadUrl = "https://example.com/launcher-debug.apk",
+            sizeBytes = 1L,
+            category = HubAppCategory.Shell,
+            packageName = "com.metro.launcher",
+            description = "Start screen, live tiles, and app list for metro-os.",
+            publisher = "Entropy",
+        )
+        val assets = listOf(music, launcher)
+
+        assertEquals(emptyList<ReleaseApkAsset>(), HubAppCatalog.filterByQuery(assets, "  "))
+        assertEquals(listOf(music), HubAppCatalog.filterByQuery(assets, "music"))
+        assertEquals(listOf(music), HubAppCatalog.filterByQuery(assets, "STREAMING"))
+        assertEquals(listOf(launcher), HubAppCatalog.filterByQuery(assets, "live tiles"))
+        assertEquals(listOf(music, launcher), HubAppCatalog.filterByQuery(assets, "entropy"))
+        assertTrue(HubAppCatalog.filterByQuery(assets, "zzzz").isEmpty())
     }
 }

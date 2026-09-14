@@ -10,9 +10,11 @@ import androidx.compose.runtime.setValue
 import com.metro.hub.data.ApkIconResolver
 import com.metro.hub.data.ApkInstaller
 import com.metro.hub.data.FirestoreExploreEntry
+import com.metro.hub.data.FirestoreHubApp
 import com.metro.hub.data.FirestoreHubRepository
 import com.metro.hub.data.GitHubRelease
 import com.metro.hub.data.GitHubReleaseClient
+import com.metro.hub.data.HubAppCatalog
 import com.metro.hub.data.HubAppCategory
 import com.metro.hub.data.HubFirestorePaths
 import com.metro.hub.data.ReleaseApkAsset
@@ -31,6 +33,8 @@ enum class HubRoute {
     Hub,
     AppList,
     AppDetail,
+    Search,
+    ExtrasInfo,
 }
 
 /**
@@ -50,6 +54,7 @@ enum class CatalogLoadMode {
 private enum class CatalogSnapshot {
     None,
     Full,
+    FirstParty,
     SecondParty,
     ThirdParty,
 }
@@ -98,10 +103,17 @@ class HubState(
     var releaseError by mutableStateOf<String?>(null)
         private set
 
-    var listTitle by mutableStateOf("all metro apps")
+    var listTitle by mutableStateOf("")
         private set
 
     var listFilter by mutableStateOf<HubAppCategory?>(null)
+        private set
+
+    var searchQuery by mutableStateOf("")
+        private set
+
+    /** Where app detail returns — list or search. */
+    var appDetailParent by mutableStateOf(HubRoute.AppList)
         private set
 
     /** Asset name for the open app detail drill-in. */
@@ -121,15 +133,23 @@ class HubState(
     var iconPaths by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
+    /**
+     * Up to [FEATURED_COUNT] apps picked at random from the full combined catalog
+     * (first + second + third party). Kept across party-only list navigations.
+     */
+    var featuredAssets by mutableStateOf<List<ReleaseApkAsset>>(emptyList())
+        private set
+
     private val hasCatalogData: Boolean
         get() = firestoreAssets.isNotEmpty() || release != null
 
     val allAssets: List<ReleaseApkAsset>
         get() = when {
             firestoreAssets.isNotEmpty() -> firestoreAssets
-            // Party-only views must not fall back to the GitHub suite list while empty/loading.
+            // Second/third party must not fall back to the GitHub suite list.
             catalogSnapshot == CatalogSnapshot.SecondParty ||
                 catalogSnapshot == CatalogSnapshot.ThirdParty -> emptyList()
+            // First-party / full catalog: GitHub suite APKs are first-party only.
             else -> release?.assets.orEmpty()
         }
 
@@ -147,24 +167,29 @@ class HubState(
             }
         }
 
+    /** Catalog rows matching [searchQuery] (empty query → empty results, Music explore style). */
+    val searchResults: List<ReleaseApkAsset>
+        get() = HubAppCatalog.filterByQuery(allAssets, searchQuery)
+
     val selectedAsset: ReleaseApkAsset?
         get() {
             val name = selectedAssetName ?: return null
             return allAssets.find { it.name == name }
         }
 
-    fun openAllApps() {
-        listTitle = "all metro apps"
+    /** Home link: first-party suite apps only (Firestore `first-party`, GitHub fallback). */
+    fun openAllApps(title: String) {
+        listTitle = title
         listFilter = null
         selectedAssetName = null
         downloadError = null
         route = HubRoute.AppList
-        ensureFullCatalog()
+        loadFirstPartyCatalog()
         bump()
     }
 
-    fun openCategory(category: HubAppCategory) {
-        listTitle = category.label
+    fun openCategory(category: HubAppCategory, title: String? = null) {
+        listTitle = title ?: category.label
         listFilter = category
         selectedAssetName = null
         downloadError = null
@@ -172,12 +197,18 @@ class HubState(
         when (category) {
             HubAppCategory.SecondParty -> loadPartyCollection(HubFirestorePaths.SecondParty)
             HubAppCategory.ThirdParty -> loadPartyCollection(HubFirestorePaths.ThirdParty)
-            else -> ensureFullCatalog()
+            // Core / shell are first-party subtypes — do not mix in second/third party.
+            HubAppCategory.Core, HubAppCategory.Shell -> loadFirstPartyCatalog()
         }
         bump()
     }
 
     fun openAppDetail(asset: ReleaseApkAsset) {
+        appDetailParent = when (route) {
+            HubRoute.Search -> HubRoute.Search
+            HubRoute.Hub -> HubRoute.Hub
+            else -> HubRoute.AppList
+        }
         selectedAssetName = asset.name
         downloadError = null
         route = HubRoute.AppDetail
@@ -186,7 +217,7 @@ class HubState(
     }
 
     fun closeAppDetail() {
-        route = HubRoute.AppList
+        route = appDetailParent
         selectedAssetName = null
         downloadError = null
         bump()
@@ -199,10 +230,45 @@ class HubState(
         bump()
     }
 
+    fun openSearch() {
+        searchQuery = ""
+        selectedAssetName = null
+        downloadError = null
+        route = HubRoute.Search
+        ensureFullCatalog()
+        bump()
+    }
+
+    fun closeSearch() {
+        searchQuery = ""
+        route = HubRoute.Hub
+        bump()
+    }
+
+    fun updateSearchQuery(query: String) {
+        searchQuery = query
+        bump()
+    }
+
+    fun openExtrasInfo() {
+        selectedAssetName = null
+        downloadError = null
+        route = HubRoute.ExtrasInfo
+        ensureReleaseLoaded()
+        bump()
+    }
+
+    fun closeExtrasInfo() {
+        route = HubRoute.Hub
+        bump()
+    }
+
     fun goBack() {
         when (route) {
             HubRoute.AppDetail -> closeAppDetail()
             HubRoute.AppList -> closeAppList()
+            HubRoute.Search -> closeSearch()
+            HubRoute.ExtrasInfo -> closeExtrasInfo()
             HubRoute.Hub -> Unit
         }
     }
@@ -259,6 +325,7 @@ class HubState(
             result.onSuccess {
                 catalogSnapshot = CatalogSnapshot.Full
                 releaseError = null
+                refreshFeaturedPicks(force = featuredAssets.isEmpty())
                 prefetchVisibleIcons(visibleAssets)
             }.onFailure { err ->
                 if (firestoreAssets.isEmpty() && release == null) {
@@ -348,11 +415,74 @@ class HubState(
         }
     }
 
+    /** Shares the app's GitHub link (Firestore `githubRepo`, else the suite repo). */
+    fun shareApp(asset: ReleaseApkAsset) {
+        val url = asset.githubRepo?.takeIf { it.isNotBlank() } ?: GITHUB_URL
+        runCatching {
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, asset.displayName)
+                putExtra(Intent.EXTRA_TEXT, url)
+            }
+            val chooser = Intent.createChooser(send, null).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            appContext.startActivity(chooser)
+        }
+    }
+
+    /**
+     * First-party suite only — used by `metro os apps` and core/shell quick links.
+     * Prefers Firestore `first-party`; falls back to GitHub latest-release APKs.
+     */
+    private fun loadFirstPartyCatalog() {
+        if (catalogSnapshot == CatalogSnapshot.FirstParty && hasCatalogData) {
+            return
+        }
+        fetchJob?.cancel()
+        firestoreAssets = emptyList()
+        catalogSnapshot = CatalogSnapshot.FirstParty
+        catalogLoadMode = CatalogLoadMode.Loading
+        releaseError = null
+        bump()
+        fetchJob = scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val docs = firestore.fetchCollection(HubFirestorePaths.FirstParty)
+                    val gh = runCatching { client.fetchLatestRelease() }.getOrNull()
+                    docs to gh
+                }
+            }
+            result.onSuccess { (docs, gh) ->
+                if (gh != null) release = gh
+                if (docs.isNotEmpty()) {
+                    firestoreAssets = mergeFirestoreWithGitHub(docs, gh)
+                    catalogSource = "firestore:first-party"
+                    releaseError = null
+                } else if (gh != null) {
+                    firestoreAssets = emptyList()
+                    catalogSource = "github"
+                    releaseError = null
+                } else if (visibleAssets.isEmpty()) {
+                    releaseError = "Could not load the app catalog."
+                }
+                prefetchVisibleIcons(visibleAssets)
+            }.onFailure { err ->
+                if (visibleAssets.isEmpty()) {
+                    releaseError = err.message ?: "Could not load the app catalog."
+                }
+            }
+            catalogLoadMode = CatalogLoadMode.Idle
+            bump()
+        }
+    }
+
     private fun loadPartyCollection(collection: String) {
         fetchJob?.cancel()
         // Replace the list — do not keep a stale full catalog under an overlay loader.
         firestoreAssets = emptyList()
         catalogSnapshot = when (collection) {
+            HubFirestorePaths.FirstParty -> CatalogSnapshot.FirstParty
             HubFirestorePaths.SecondParty -> CatalogSnapshot.SecondParty
             HubFirestorePaths.ThirdParty -> CatalogSnapshot.ThirdParty
             else -> CatalogSnapshot.None
@@ -402,21 +532,7 @@ class HubState(
         val gh = github.await()
 
         if (first.isNotEmpty()) {
-            val byApk = gh?.assets?.associateBy { it.name }.orEmpty()
-            firestoreAssets = (first + second + third).map { doc ->
-                val mapped = doc.toReleaseApkAsset()
-                val remote = byApk[mapped.name]
-                if (remote != null && mapped.downloadUrl.isBlank()) {
-                    mapped.copy(
-                        downloadUrl = remote.downloadUrl,
-                        sizeBytes = mapped.sizeBytes.takeIf { it > 0 } ?: remote.sizeBytes,
-                    )
-                } else if (remote != null && (mapped.versionName.isNullOrBlank())) {
-                    mapped.copy(versionName = remote.versionName ?: mapped.versionName)
-                } else {
-                    mapped
-                }
-            }
+            firestoreAssets = mergeFirestoreWithGitHub(first + second + third, gh)
             release = gh
             catalogSource = "firestore"
         } else if (gh != null) {
@@ -426,6 +542,53 @@ class HubState(
         } else {
             error("Firestore empty and GitHub release unavailable")
         }
+    }
+
+    private fun mergeFirestoreWithGitHub(
+        docs: List<FirestoreHubApp>,
+        gh: GitHubRelease?,
+    ): List<ReleaseApkAsset> {
+        val byApk = gh?.assets?.associateBy { it.name }.orEmpty()
+        return docs.map { doc ->
+            val mapped = doc.toReleaseApkAsset()
+            val remote = byApk[mapped.name]
+            when {
+                remote != null && mapped.downloadUrl.isBlank() -> mapped.copy(
+                    downloadUrl = remote.downloadUrl,
+                    sizeBytes = mapped.sizeBytes.takeIf { it > 0 } ?: remote.sizeBytes,
+                )
+                remote != null && mapped.versionName.isNullOrBlank() ->
+                    mapped.copy(versionName = remote.versionName ?: mapped.versionName)
+                else -> mapped
+            }
+        }
+    }
+
+    /**
+     * Pick [FEATURED_COUNT] random apps from the full combined catalog.
+     * When [force] is false and picks already exist, refresh metadata only.
+     */
+    private fun refreshFeaturedPicks(force: Boolean) {
+        val pool = when {
+            firestoreAssets.isNotEmpty() -> firestoreAssets
+            else -> release?.assets.orEmpty()
+        }
+        if (pool.isEmpty()) {
+            if (force) featuredAssets = emptyList()
+            return
+        }
+        if (!force && featuredAssets.isNotEmpty()) {
+            val refreshed = featuredAssets.mapNotNull { pick ->
+                pool.find { it.name == pick.name }
+            }
+            featuredAssets = if (refreshed.size == featuredAssets.size) {
+                refreshed
+            } else {
+                pool.shuffled().take(FEATURED_COUNT)
+            }
+            return
+        }
+        featuredAssets = pool.shuffled().take(FEATURED_COUNT)
     }
 
     private fun prefetchVisibleIcons(assets: List<ReleaseApkAsset>) {
@@ -461,6 +624,12 @@ class HubState(
     companion object {
         const val HUB_HOME = 0
         const val HUB_APPS = 1
+        const val HUB_FEATURED = 2
+        const val FEATURED_COUNT = 4
         const val GITHUB_URL = "https://github.com/god-s-perfect-idiot/metro-os"
+        const val BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/godsperfectidiot"
+
+        fun releaseUrlForTag(tag: String): String =
+            "https://github.com/god-s-perfect-idiot/metro-os/releases/tag/$tag"
     }
 }
