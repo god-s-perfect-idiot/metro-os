@@ -201,10 +201,12 @@ class VolumeOverlayService :
                 applicationOverlayWindowType()
             }
 
-        // Window at y=0 spans the tray/cutout; charcoal wipes from the top as one band under
-        // the Metro tray (tray stays transparent + raised above this underlay).
+        // Window at y=0; charcoal panel sits below the tray inset. The Metro tray stays
+        // opaque charcoal (not transparent) so the system status bar never shows through.
         topInsetPx = statusBarInsetPx()
         overlayHeightPx = topInsetPx + dpToPx(VolumeHudSpec.COLLAPSED_HEIGHT_DP)
+        // Tint the tray before the HUD attaches so there is no transparent gap.
+        requestTrayShellFill()
         val composeView = ComposeView(host).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             suppressSystemBarInsets()
@@ -235,12 +237,12 @@ class VolumeOverlayService :
                     onWindowHeightDp = { heightDp ->
                         // Compose is on the main thread — update synchronously so the
                         // overlay grows before the wipe starts (handler.post races).
-                        // [heightDp] already includes the tray inset.
+                        // [heightDp] is inset + panel.
                         updateOverlayWindowHeightDp(heightDp)
                     },
                     onExitStarted = {
-                        // Cover the inset with an opaque Metro tray before charcoal retreats.
-                        handOffTrayFromUnderlay()
+                        // Clear tray charcoal as the panel wipes — same duration / easing family.
+                        clearTrayShellFill()
                     },
                     onExitFinished = {
                         // Drop the window after the hide wipe so nothing remains that can
@@ -262,7 +264,6 @@ class VolumeOverlayService :
             overlayManager = manager
             currentWindowType = windowType
             hostContext = host
-            requestTrayShellFill()
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to attach volume overlay", t)
             runCatching { manager.removeView(composeView) }
@@ -291,47 +292,36 @@ class VolumeOverlayService :
         hostContext = null
         overlayHeightPx = 0
         topInsetPx = 0
-        // Remove the underlay while the Metro tray still holds opaque charcoal from
-        // [handOffTrayFromUnderlay], then clear the fill so theme restores without a
-        // transparent gap over the system status bar.
         if (view != null && manager != null) {
             runCatching { manager.removeView(view) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
         }
+        // Safety clear if exit started without [onExitStarted] (e.g. display-off tear-down).
         clearTrayShellFill()
     }
 
-    /** Match the Metro tray to the charcoal HUD underlay so glyphs float on one band. */
+    /**
+     * Tint the Metro tray opaque charcoal with the same duration as the HUD wipe so enter
+     * reads as one motion.
+     */
     private fun requestTrayShellFill() {
         MetroStatusBar.requestShellFill(
             this,
             MetroStatusBar.OWNER_VOLUME,
             VolumeHudSpec.PANEL_BACKGROUND_HEX,
             durationMs = VolumeHudSpec.SHOW_HIDE_MS,
-            underlay = true,
-        )
-    }
-
-    /**
-     * Before the hide wipe, paint the Metro tray opaque charcoal so the system status bar
-     * never shows through as the underlay retreats from the inset.
-     */
-    private fun handOffTrayFromUnderlay() {
-        MetroStatusBar.requestShellFill(
-            this,
-            MetroStatusBar.OWNER_VOLUME,
-            VolumeHudSpec.PANEL_BACKGROUND_HEX,
-            durationMs = 0,
             underlay = false,
         )
     }
 
+    /** Morph tray charcoal back to theme with the HUD hide wipe (started from [onExitStarted]). */
     private fun clearTrayShellFill() {
         MetroStatusBar.requestShellFill(
             this,
             MetroStatusBar.OWNER_VOLUME,
             null,
             durationMs = VolumeHudSpec.SHOW_HIDE_MS,
+            underlay = false,
         )
     }
 

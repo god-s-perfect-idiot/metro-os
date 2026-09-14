@@ -22,9 +22,11 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -51,8 +53,8 @@ import kotlin.math.roundToInt
  * Foreground service hosting WP8.1 toast banners.
  *
  * The WindowManager view exists only while a toast is visible — same attach/detach pattern as
- * the volume HUD. The window is pinned below the status-bar / cutout inset so the accent bar
- * does not draw under a notch. No Action Center and no status-tray chrome.
+ * the volume HUD. The window sits at y=0 so the full accent band (tray inset + banner) can flip
+ * behind an opaque matching Metro tray. No Action Center and no status-tray chrome.
  */
 class NotificationsOverlayService :
     Service(),
@@ -73,7 +75,7 @@ class NotificationsOverlayService :
     private var overlayView: ComposeView? = null
     private var overlayManager: WindowManager? = null
     private var currentWindowType: Int? = null
-    /** Status-bar / cutout inset; the toast window is pinned just below this. */
+    /** Status-bar / cutout inset; accent extension under the Metro tray (flips with the banner). */
     private var topInsetPx: Int = 0
 
     private val handler = Handler(Looper.getMainLooper())
@@ -225,8 +227,10 @@ class NotificationsOverlayService :
         toast = snapshot
         handler.removeCallbacks(toastTimeout)
         handler.postDelayed(toastTimeout, NotificationsPreferences(this).toastDurationMs)
-        requestTrayShellFill()
+        // Attach first, then tint + raise the Metro tray above this band so glyphs stay on top.
+        // Raising before attach leaves the toast on top and hides tray glyphs.
         ensureOverlayShowing()
+        requestTrayShellFill()
     }
 
     private fun showTestToast() {
@@ -253,7 +257,7 @@ class NotificationsOverlayService :
         handler.removeCallbacks(toastTimeout)
         if (toast == null || toastExiting) return
         toastExiting = true
-        // Clear during the exit flip so the tray accent morphs with the banner, not after.
+        // Morph tray accent away in lockstep with the full-band exit flip.
         clearTrayShellFill()
     }
 
@@ -261,17 +265,21 @@ class NotificationsOverlayService :
         if (!toastExiting) return
         toastExiting = false
         toast = null
-        clearTrayShellFill()
         removeOverlay()
+        clearTrayShellFill()
     }
 
-    /** Match the Metro tray fill to the toast accent so the strip and banner read as one band. */
+    /**
+     * Opaque Metro tray matching the toast accent, raised above this window so the full band
+     * flips behind the tray. Must run **after** attach so [raiseTray] stacks correctly.
+     */
     private fun requestTrayShellFill() {
         MetroStatusBar.requestShellFill(
             this,
             MetroStatusBar.OWNER_NOTIFICATIONS,
             MetroPreferences(this).accentColorHex,
             durationMs = MetroTransitions.JumpListFlipMs,
+            underlay = false,
         )
     }
 
@@ -281,6 +289,7 @@ class NotificationsOverlayService :
             MetroStatusBar.OWNER_NOTIFICATIONS,
             null,
             durationMs = MetroTransitions.JumpListFlipMs,
+            underlay = false,
         )
     }
 
@@ -322,6 +331,10 @@ class NotificationsOverlayService :
             setContent {
                 MetroTheme(darkTheme = darkTheme, accent = accent) {
                     val current = toast
+                    val density = LocalDensity.current
+                    val topInsetDp = remember(topInsetPx, density.density) {
+                        (topInsetPx / density.density + 0.5f).toInt()
+                    }
                     if (current != null) {
                         ToastBanner(
                             toast = current,
@@ -330,6 +343,7 @@ class NotificationsOverlayService :
                             onTap = { acknowledgeToast() },
                             onSwipeDismiss = { dismissToast() },
                             onExitFinished = { handler.post { finishExit() } },
+                            topInsetDp = topInsetDp,
                         )
                     }
                 }
@@ -337,12 +351,13 @@ class NotificationsOverlayService :
         }
         val manager = host.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         runCatching {
+            // y=0: full accent band flips behind the opaque Metro tray raised after attach.
             manager.addView(
                 composeView,
                 createLayoutParams(
                     windowType,
                     WindowManager.LayoutParams.WRAP_CONTENT,
-                    topInsetPx,
+                    yPx = 0,
                 ),
             )
             overlayView = composeView
@@ -394,7 +409,7 @@ class NotificationsOverlayService :
 
     /**
      * Top of the Metro tray / system status-bar region, including notch or hole-punch.
-     * Matches the volume HUD inset so the accent bar starts below the tray, not under the cutout.
+     * Extends the flipping accent band under the tray so the pivot is not inset-offset.
      */
     private fun statusBarInsetPx(): Int {
         val density = resources.displayMetrics.density

@@ -42,7 +42,7 @@ adb shell pm grant com.metro.notifications android.permission.WRITE_SECURE_SETTI
 
 ### 1. Toast
 
-- Accent bar (~52dp) below the status-bar / cutout inset so it clears the notch
+- Continuous accent band: full tray-inset + banner flips behind an opaque matching Metro tray
 - Square app logo + single-line `sender: message` with ellipsis; no clock (the tray already shows time)
 - Reference: `references/images/toast.png`
 - Auto-dismiss after 3 / 5 / 10 seconds (setup ListPicker; default 5s); swipe right dismisses the banner; tap opens the notifying app
@@ -72,7 +72,7 @@ cd apps/notifications
 |-------|---------|------------|
 | System toast peek | No public pre-peek API | `heads_up_notifications_enabled=0` + Metro toast overlay |
 | Heads-up off on all OEMs | Samsung/MIUI may ignore the global setting | Documented; AOSP/emulator is the v1 target |
-| Overlay vs Metro tray | Two a11y overlays have undefined z-order | Toast window `y` is the status-bar/cutout inset so it sits below the tray and does not draw under the notch |
+| Overlay vs Metro tray | Two a11y overlays have undefined z-order | Attach toast first, then raise Metro tray (opaque accent) above so the flip runs behind glyphs |
 
 ## Agent postmortem
 

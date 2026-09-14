@@ -1,8 +1,14 @@
 package com.metro.launcher.ui
 
+import android.app.KeyguardManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.SystemClock
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -36,6 +42,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -104,13 +111,20 @@ fun LauncherShell(
     var consumedEnterWaveKey by remember { mutableIntStateOf(0) }
     // Debounce enter-wave bumps when onNewIntent + ON_RESUME both fire for Home.
     var lastEnterWaveBumpElapsed by remember { mutableStateOf(0L) }
+    // Screen-off / keyguard — unlock must not replay the enter wave (ANR + black Start).
+    var stoppedBehindLock by remember { mutableStateOf(false) }
     fun bumpEnterWave() {
+        if (stoppedBehindLock) return
         val now = SystemClock.elapsedRealtime()
         if (now - lastEnterWaveBumpElapsed < 400L) return
         lastEnterWaveBumpElapsed = now
         enterWaveKey++
     }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val keyguardManager = remember(context) {
+        context.getSystemService(KeyguardManager::class.java)
+    }
     // Keep splash until Start has actually drawn — dismissing on shell-ready alone leaves a
     // brief black gap while the tile grid mounts. Live-tile refreshes update in place.
     var startDrawn by remember { mutableStateOf(false) }
@@ -230,6 +244,23 @@ fun LauncherShell(
         }
     }
 
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    stoppedBehindLock = true
+                }
+            }
+        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(Intent.ACTION_SCREEN_OFF),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+
     DisposableEffect(lifecycleOwner) {
         var skipNextResume = true
         val observer = LifecycleEventObserver { _, event ->
@@ -245,11 +276,31 @@ fun LauncherShell(
                         skipNextResume = false
                         return@LifecycleEventObserver
                     }
-                    // Edit / tile-customize: Home returns to Start with the enter wave, not
-                    // the in-place edit chrome. Normal Start resume only replays the wave.
-                    if (!state.onHomeRequested() && state.currentPage == 0) {
-                        bumpEnterWave()
+                    val stillLocked = keyguardManager?.isKeyguardLocked == true
+                    if (stillLocked) {
+                        stoppedBehindLock = true
                     }
+                    val fromLock = stoppedBehindLock || stillLocked
+                    // Edit / tile-customize: Home returns to Start with the enter wave, not
+                    // the in-place edit chrome. Unlock skips the wave so tiles stay painted.
+                    if (state.onHomeRequested()) {
+                        // Leave stoppedBehindLock set so homeEnterRequestId does not bump wave.
+                        if (fromLock && !stillLocked) {
+                            // Cleared in homeEnter LaunchedEffect after it skips the wave.
+                        } else if (!fromLock) {
+                            // normal home-from-edit — wave plays via homeEnterRequestId
+                        }
+                        return@LifecycleEventObserver
+                    }
+                    if (state.currentPage != 0) {
+                        if (fromLock && !stillLocked) stoppedBehindLock = false
+                        return@LifecycleEventObserver
+                    }
+                    if (fromLock) {
+                        if (!stillLocked) stoppedBehindLock = false
+                        return@LifecycleEventObserver
+                    }
+                    bumpEnterWave()
                 }
                 else -> Unit
             }
@@ -267,6 +318,12 @@ fun LauncherShell(
         state.dismissEdit()
         withFrameNanos { }
         customizeSuspendStart.value = false
+        if (stoppedBehindLock || keyguardManager?.isKeyguardLocked == true) {
+            if (keyguardManager?.isKeyguardLocked != true) {
+                stoppedBehindLock = false
+            }
+            return@LaunchedEffect
+        }
         bumpEnterWave()
     }
 

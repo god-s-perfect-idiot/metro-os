@@ -179,20 +179,20 @@ class LauncherState(context: Context) {
             MetroPreferenceKeys.THEME_MODE -> darkTheme = metroPrefs.isDark
             MetroPreferenceKeys.ACCENT_COLOR -> {
                 accent = metroPrefs.accentColor
-                // System/Metro tiles follow accent; re-resolve fills immediately.
-                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+                // System/Metro tiles follow accent — never resolve providers on this callback thread.
                 clearAppListIconCache()
+                refreshTilesLiveAsync(pinnedEntries)
             }
             MetroPreferenceKeys.SHOW_MORE_COLUMNS -> applyShowMoreColumns(metroPrefs.showMoreColumns)
             MetroPreferenceKeys.START_BACKGROUND_ENABLED -> {
-                reloadStartBackground()
-                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+                scheduleStartBackgroundReload()
+                refreshTilesLiveAsync(pinnedEntries)
             }
             MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
             MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
             -> {
                 GalleryLiveTileStore.clearCache()
-                displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+                refreshTilesLiveAsync(pinnedEntries)
             }
         }
     }
@@ -220,12 +220,14 @@ class LauncherState(context: Context) {
                 accent = MetroPreferences.parseAccentHex(hex)
                 clearAppListIconCache()
             }
-            reloadStartBackground()
-            displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
+            scheduleStartBackgroundReload()
+            refreshTilesLiveAsync(pinnedEntries)
         }
     }
 
     private var prefsObserver: ContentObserver? = null
+    /** Coalesces Settings ContentObserver storms (common right after unlock). */
+    private var prefsDrivenRefreshJob: Job? = null
 
     init {
         appContext.getSharedPreferences(MetroPreferenceKeys.PREFS_NAME, Context.MODE_PRIVATE)
@@ -239,12 +241,13 @@ class LauncherState(context: Context) {
         // Settings is a different package — must be exported to receive THEME_CHANGED.
         context.registerReceiver(themeReceiver, themeFilter, Context.RECEIVER_EXPORTED)
         prefsObserver = metroPrefs.registerObserver {
+            // ContentObserver.onChange runs on the main thread. Theme fields are cheap; live
+            // tile ContentProvider queries must not run here (ANR on unlock / theme pull).
             darkTheme = metroPrefs.isDark
             accent = metroPrefs.accentColor
             applyShowMoreColumns(metroPrefs.showMoreColumns)
-            reloadStartBackground()
-            displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
             clearAppListIconCache()
+            schedulePrefsDrivenRefresh()
         }
     }
 
@@ -258,14 +261,11 @@ class LauncherState(context: Context) {
     }
 
     fun refreshAll() {
-        applyShowMoreColumns(metroPrefs.showMoreColumns)
-        pinnedEntries = repository.loadPinnedTiles(gridColumns)
-        displayTiles = repository.resolveDisplayTiles(pinnedEntries, liveContent = true)
-        apps = repository.discoverApps(pinnedEntries)
-        darkTheme = metroPrefs.isDark
-        accent = metroPrefs.accentColor
-        reloadStartBackground()
-        refreshNotificationAccessPrompt()
+        // Keep API sync-looking for callers, but never resolve live providers on the calling
+        // thread (permission callbacks / tests may be on main).
+        persistScope.launch {
+            withContext(Dispatchers.Main) { refreshAllAsync() }
+        }
     }
 
     /**
@@ -296,7 +296,14 @@ class LauncherState(context: Context) {
             darkTheme = metroPrefs.isDark
             accent = metroPrefs.accentColor
             refreshNotificationAccessPrompt()
-            withContext(Dispatchers.IO) { reloadStartBackground() }
+            val background = withContext(Dispatchers.IO) {
+                if (metroPrefs.startBackgroundEnabled) {
+                    MetroStartBackground.decode(appContext)
+                } else {
+                    null
+                }
+            }
+            startBackgroundBitmap = background
             // Paint static chrome first so cold-start splash can lift; live providers fill in.
             displayTiles = withContext(Dispatchers.IO) {
                 repository.resolveDisplayTiles(pinned, liveContent = false)
@@ -331,21 +338,11 @@ class LauncherState(context: Context) {
 
     /** Loads or clears the cropped Start background JPEG from Settings. */
     fun reloadStartBackground() {
-        startBackgroundBitmap = if (metroPrefs.startBackgroundEnabled) {
-            MetroStartBackground.decode(appContext)
-        } else {
-            null
-        }
+        scheduleStartBackgroundReload()
     }
 
     fun refreshTile(packageName: String) {
-        displayTiles = displayTiles.map { tile ->
-            if (tile.entry.packageName == packageName) {
-                repository.resolveDisplayTiles(listOf(tile.entry)).first()
-            } else {
-                tile
-            }
-        }
+        refreshTilesLiveAsync(pinnedEntries.filter { it.packageName == packageName })
     }
 
     fun onTileClick(tile: DisplayTile) {
@@ -993,6 +990,43 @@ class LauncherState(context: Context) {
                 displayTiles = displayTiles.map { tile ->
                     liveByKey[tile.entry.packageName to tile.entry.tileId] ?: tile
                 }
+            }
+        }
+    }
+
+    /**
+     * Settings ContentObserver can fire in a burst on unlock. Coalesce background decode +
+     * live tile resolve onto IO so the main thread can keep a focused window.
+     */
+    private fun schedulePrefsDrivenRefresh() {
+        prefsDrivenRefreshJob?.cancel()
+        prefsDrivenRefreshJob = persistScope.launch {
+            delay(48L)
+            val epoch = layoutEpoch
+            val pinned = pinnedEntries
+            val bmp = if (metroPrefs.startBackgroundEnabled) {
+                MetroStartBackground.decode(appContext)
+            } else {
+                null
+            }
+            val live = repository.resolveDisplayTiles(pinned, liveContent = true)
+            withContext(Dispatchers.Main) {
+                if (epoch != layoutEpoch) return@withContext
+                startBackgroundBitmap = bmp
+                displayTiles = live
+            }
+        }
+    }
+
+    private fun scheduleStartBackgroundReload() {
+        persistScope.launch {
+            val bmp = if (metroPrefs.startBackgroundEnabled) {
+                MetroStartBackground.decode(appContext)
+            } else {
+                null
+            }
+            withContext(Dispatchers.Main) {
+                startBackgroundBitmap = bmp
             }
         }
     }

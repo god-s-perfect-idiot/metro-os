@@ -114,6 +114,10 @@ class MainActivity : ComponentActivity() {
                                 skipNextResume = false
                             } else {
                                 scope.launch {
+                                    // Let the window focus / paint first. Unlock often fires a
+                                    // Settings ContentObserver storm; stacking a full refresh
+                                    // on the same frames caused Start ANRs (no focused window).
+                                    kotlinx.coroutines.yield()
                                     state.refreshAllAsync()
                                     maybeRequestGalleryMediaPermission(state)
                                 }

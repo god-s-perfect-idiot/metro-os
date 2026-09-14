@@ -25,7 +25,7 @@ statusbar, and not Action Center.
 
 - Toast: accent fill, square logo + single-line `sender: message` with ellipsis; no clock (tray already shows time); 3/5/10s timeout (setup ListPicker, default 5s), swipe right to dismiss, tap to open
 - Enter/exit: perspective 3D tile flip (`rotationX` 90° ↔ 0°, camera from banner width); exit is the reverse of enter
-- Overlay is offset below the status-bar / cutout inset so it does not draw under a notch
+- Overlay at y=0; full accent band (tray inset + banner) flips behind an opaque matching Metro tray raised after attach
 - Overlay window exists **only** while a toast is visible
 - Stock Android heads-up disabled while **Show notifications** is on
   (`heads_up_notifications_enabled=0` + listener hints; restore when toggle off)

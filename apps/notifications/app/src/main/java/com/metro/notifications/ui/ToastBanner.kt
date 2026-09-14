@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -57,7 +58,9 @@ import kotlinx.coroutines.delay
  * WP8.1 toast: accent-filled bar, square app logo + single-line `sender: message` with ellipsis.
  * Clock is owned by the status tray — not drawn here.
  *
- * Enters with a perspective 3D tile flip (`rotationX` 90° → 0°) and leaves as the reverse.
+ * The window sits at y=0. The full accent band ([topInsetDp] under the Metro tray + banner)
+ * flips as one tile behind the opaque accent tray so the pivot is not offset to the safe
+ * inset. Icon/text live only in the banner below the tray.
  */
 @Composable
 fun ToastBanner(
@@ -67,6 +70,8 @@ fun ToastBanner(
     onTap: () -> Unit,
     onSwipeDismiss: () -> Unit,
     onExitFinished: () -> Unit,
+    /** Status-bar / cutout height — accent extension under the Metro tray (flips with banner). */
+    topInsetDp: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -93,70 +98,80 @@ fun ToastBanner(
                 .fillMaxWidth()
                 .padding(bottom = ToastSpec.FLIP_PROJECTION_PAD_DP.dp),
         ) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(ToastSpec.HEIGHT_DP.dp)
-                    .offset { IntOffset(dragPx.roundToInt().coerceAtLeast(0), 0) }
-                    .background(accent)
-                    .pointerInput(toast.key, exiting, dismissPx) {
-                        if (exiting) return@pointerInput
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            var overSlop = Offset.Zero
-                            val slopChange = awaitTouchSlopOrCancellation(down.id) { change, over ->
-                                overSlop = over
-                                change.consume()
-                            }
-                            if (slopChange == null) {
-                                // Released before touch slop → tap opens the notification.
-                                onTapState.value()
-                                return@awaitEachGesture
-                            }
-                            if (overSlop.x <= 0f) {
-                                // Non-rightward drag: ignore for dismiss.
-                                horizontalDrag(slopChange.id) { it.consume() }
-                                return@awaitEachGesture
-                            }
-                            var totalDx = overSlop.x
-                            dragPx = totalDx
-                            horizontalDrag(slopChange.id) { change ->
-                                totalDx += change.positionChange().x
-                                dragPx = totalDx.coerceAtLeast(0f)
-                                change.consume()
-                            }
-                            if (dragPx >= dismissPx) {
-                                onSwipeDismissState.value()
-                            } else {
-                                dragPx = 0f
-                            }
-                        }
-                    }
-                    .padding(horizontal = ToastSpec.HORIZONTAL_PADDING_DP.dp)
-                    .testTag("metro_toast_banner"),
-                contentAlignment = Alignment.CenterStart,
+                    .background(accent),
             ) {
-                Row(
+                if (topInsetDp > 0) {
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(topInsetDp.dp),
+                    )
+                }
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .height(ToastSpec.HEIGHT_DP.dp)
+                        .offset { IntOffset(dragPx.roundToInt().coerceAtLeast(0), 0) }
+                        .pointerInput(toast.key, exiting, dismissPx) {
+                            if (exiting) return@pointerInput
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var overSlop = Offset.Zero
+                                val slopChange = awaitTouchSlopOrCancellation(down.id) { change, over ->
+                                    overSlop = over
+                                    change.consume()
+                                }
+                                if (slopChange == null) {
+                                    onTapState.value()
+                                    return@awaitEachGesture
+                                }
+                                if (overSlop.x <= 0f) {
+                                    horizontalDrag(slopChange.id) { it.consume() }
+                                    return@awaitEachGesture
+                                }
+                                var totalDx = overSlop.x
+                                dragPx = totalDx
+                                horizontalDrag(slopChange.id) { change ->
+                                    totalDx += change.positionChange().x
+                                    dragPx = totalDx.coerceAtLeast(0f)
+                                    change.consume()
+                                }
+                                if (dragPx >= dismissPx) {
+                                    onSwipeDismissState.value()
+                                } else {
+                                    dragPx = 0f
+                                }
+                            }
+                        }
+                        .padding(horizontal = ToastSpec.HORIZONTAL_PADDING_DP.dp)
+                        .testTag("metro_toast_banner"),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
-                    ToastAppGlyph(
-                        drawable = iconAsset.drawable,
-                        background = iconAsset.backgroundColor,
-                        modifier = Modifier.size(ToastSpec.ICON_DP.dp),
-                    )
-                    Spacer(modifier = Modifier.width(ToastSpec.ICON_TEXT_GAP_DP.dp))
-                    MetroText(
-                        text = line,
-                        style = MetroTextStyle.DialogBody,
-                        color = MetroColors.TileContentOnAccent,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ToastAppGlyph(
+                            drawable = iconAsset.drawable,
+                            background = iconAsset.backgroundColor,
+                            modifier = Modifier.size(ToastSpec.ICON_DP.dp),
+                        )
+                        Spacer(modifier = Modifier.width(ToastSpec.ICON_TEXT_GAP_DP.dp))
+                        MetroText(
+                            text = line,
+                            style = MetroTextStyle.DialogBody,
+                            color = MetroColors.TileContentOnAccent,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }

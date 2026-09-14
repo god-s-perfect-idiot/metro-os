@@ -24,16 +24,19 @@ class TrayShellFillTest {
 
     @Test
     fun volumeOutranksNotifications() {
-        trayState.applyShellFill(MetroStatusBar.OWNER_NOTIFICATIONS, Color(0xFF1BA1E2))
-        assertEquals(Color(0xFF1BA1E2), trayState.theme.backgroundColor)
-
-        trayState.applyShellFill(MetroStatusBar.OWNER_VOLUME, Color(0xFF252525), underlay = true)
-        // Volume paints the continuous band under the tray — glyphs only on the tray.
+        trayState.applyShellFill(
+            MetroStatusBar.OWNER_NOTIFICATIONS,
+            Color(0xFF1BA1E2),
+            underlay = true,
+        )
         assertEquals(Color.Transparent, trayState.theme.backgroundColor)
+
+        trayState.applyShellFill(MetroStatusBar.OWNER_VOLUME, Color(0xFF252525), underlay = false)
+        assertEquals(Color(0xFF252525), trayState.theme.backgroundColor)
         assertEquals(Color.White, trayState.theme.foregroundColor)
 
         trayState.applyShellFill(MetroStatusBar.OWNER_VOLUME, null)
-        assertEquals(Color(0xFF1BA1E2), trayState.theme.backgroundColor)
+        assertEquals(Color.Transparent, trayState.theme.backgroundColor)
 
         trayState.applyShellFill(MetroStatusBar.OWNER_NOTIFICATIONS, null)
         assertNull(trayState.notificationsShellFill)
@@ -41,18 +44,32 @@ class TrayShellFillTest {
     }
 
     @Test
-    fun volumeExitHandoff_makesTrayOpaqueCharcoal() {
+    fun notificationsShellFill_defaultsOpaqueAccent() {
         trayState.applyShellFill(
-            MetroStatusBar.OWNER_VOLUME,
-            Color(0xFF252525),
+            MetroStatusBar.OWNER_NOTIFICATIONS,
+            Color(0xFF1BA1E2),
+        )
+        assertEquals(Color(0xFF1BA1E2), trayState.theme.backgroundColor)
+        assertEquals(false, trayState.notificationsShellUnderlay)
+    }
+
+    @Test
+    fun notificationsUnderlay_keepsTransparentTray() {
+        trayState.applyShellFill(
+            MetroStatusBar.OWNER_NOTIFICATIONS,
+            Color(0xFF1BA1E2),
             underlay = true,
         )
         assertEquals(Color.Transparent, trayState.theme.backgroundColor)
+        assertEquals(Color(0xFF1BA1E2), trayState.theme.backdropColor)
+        assertEquals(true, trayState.notificationsShellUnderlay)
+    }
 
+    @Test
+    fun volumeShellFill_staysOpaqueCharcoal() {
         trayState.applyShellFill(
             MetroStatusBar.OWNER_VOLUME,
             Color(0xFF252525),
-            durationMs = 0,
             underlay = false,
         )
         assertEquals(Color(0xFF252525), trayState.theme.backgroundColor)

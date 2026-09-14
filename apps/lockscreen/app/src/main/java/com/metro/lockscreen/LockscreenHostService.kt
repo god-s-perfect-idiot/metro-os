@@ -98,6 +98,24 @@ class LockscreenHostService :
     private val presentRetries = longArrayOf(0L, 50L, 150L, 400L, 1000L)
     private val glancePresentRetries = longArrayOf(0L, 8L, 16L, 32L, 64L, 128L, 250L, 500L, 1000L)
 
+    /**
+     * While the Metro fill is up, poll keyguard every frame-ish so biometric unlock tears the
+     * overlay down as soon as [KeyguardManager.isKeyguardLocked] flips — waiting on
+     * [Intent.ACTION_USER_PRESENT] or the 500ms tick left Start covered for ~0.5–1s after unlock.
+     */
+    private val unlockWatcher = object : Runnable {
+        override fun run() {
+            if (overlayRoot == null) return
+            if (!LockscreenKeyguard.isLocked(this@LockscreenHostService)) {
+                Log.i(TAG, "unlockWatcher: keyguard clear — remove overlay")
+                removeOverlay(reason = "keyguard_unlocked")
+                LockscreenBouncerActivity.finishIfShowing()
+                return
+            }
+            handler.postDelayed(this, UNLOCK_WATCH_MS)
+        }
+    }
+
     private val glanceSleepWatcher = object : Runnable {
         override fun run() {
             val prefs = LockscreenPreferences(this@LockscreenHostService)
@@ -134,7 +152,7 @@ class LockscreenHostService :
                     schedulePresentAttempts()
                 }
                 Intent.ACTION_USER_PRESENT -> {
-                    removeOverlay()
+                    removeOverlay(reason = "user_present")
                     LockscreenBouncerActivity.finishIfShowing()
                 }
             }
@@ -241,11 +259,11 @@ class LockscreenHostService :
     private fun syncOverlayToKeyguard() {
         val prefs = LockscreenPreferences(this)
         if (!prefs.enabled) {
-            removeOverlay()
+            removeOverlay(reason = "disabled")
             return
         }
         if (LockscreenBouncerActivity.isShowing()) {
-            removeOverlay()
+            removeOverlay(reason = "bouncer_visible")
             return
         }
 
@@ -273,7 +291,7 @@ class LockscreenHostService :
         if (mode != null) {
             ensureOverlayShowing(mode)
         } else {
-            removeOverlay()
+            removeOverlay(reason = if (!locked) "sync_unlocked" else "sync_not_present")
         }
     }
 
@@ -305,10 +323,21 @@ class LockscreenHostService :
         }
     }
 
-    private fun removeOverlay() {
+    private fun removeOverlay(reason: String = "unspecified") {
         synchronized(attachLock) {
+            if (overlayRoot == null) return
+            Log.i(TAG, "Lock overlay removed ($reason)")
             removeOverlayLocked()
         }
+    }
+
+    private fun startUnlockWatcher() {
+        handler.removeCallbacks(unlockWatcher)
+        handler.post(unlockWatcher)
+    }
+
+    private fun stopUnlockWatcher() {
+        handler.removeCallbacks(unlockWatcher)
     }
 
     private fun attachOverlayLocked(mode: LockscreenPresentationMode) {
@@ -363,6 +392,7 @@ class LockscreenHostService :
             // Lock draws its own transparent tray; hide the opaque system Metro tray.
             MetroStatusBar.requestFullscreen(this, fullscreen = true)
             Log.i(TAG, "Lock overlay attached ($mode)")
+            startUnlockWatcher()
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to attach lock overlay", t)
             runCatching { manager.removeView(root) }
@@ -381,6 +411,7 @@ class LockscreenHostService :
         view.bindOverlayContent(mode, statusBarInsetPx())
         overlayMode = mode
         Log.i(TAG, "Lock overlay morphed ($mode)")
+        startUnlockWatcher()
     }
 
     private fun ComposeView.bindOverlayContent(
@@ -417,6 +448,7 @@ class LockscreenHostService :
     }
 
     private fun removeOverlayLocked() {
+        stopUnlockWatcher()
         val root = overlayRoot
         val manager = overlayManager
         overlayRoot = null
@@ -440,7 +472,7 @@ class LockscreenHostService :
      */
     private fun commitSwipeUnlock() {
         handedOffUntilScreenOff = true
-        removeOverlay()
+        removeOverlay(reason = "swipe_commit")
         launchBouncerActivity()
         // Immediate a11y swipe in parallel — covers devices where activity start is delayed.
         handler.post {
@@ -728,6 +760,8 @@ class LockscreenHostService :
         private const val TICK_MS = 500L
         private const val GLANCE_SLEEP_WATCH_MS = 16L
         private const val GLANCE_SLEEP_WATCH_IDLE_MS = 500L
+        /** Poll while Metro fill is up so biometric unlock does not wait on USER_PRESENT. */
+        private const val UNLOCK_WATCH_MS = 16L
         private val PRESENT_TOKEN = Any()
 
         @Volatile
@@ -742,7 +776,7 @@ class LockscreenHostService :
             instance?.let { svc ->
                 svc.handedOffUntilScreenOff = true
                 svc.handler.post {
-                    svc.removeOverlay()
+                    svc.removeOverlay(reason = "bouncer_notify")
                     svc.getSystemService(NotificationManager::class.java)
                         ?.cancel(NOTIFICATION_BOUNCER_ID)
                 }

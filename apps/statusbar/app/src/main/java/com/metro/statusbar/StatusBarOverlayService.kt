@@ -123,11 +123,14 @@ class StatusBarOverlayService :
                     MetroStatusBar.EXTRA_SHELL_FILL_UNDERLAY,
                     owner == MetroStatusBar.OWNER_VOLUME && color != null,
                 )
-                val volumeUnderlayRequested =
-                    owner == MetroStatusBar.OWNER_VOLUME && color != null && underlay
                 trayState.applyShellFill(owner, color, durationMs, underlay)
-                // Volume paints the continuous charcoal band under the tray; keep glyphs on top.
-                if (volumeUnderlayRequested) {
+                // Toast paints under the tray (opaque or underlay); volume underlay does too.
+                // Rehost so glyphs stay above the overlay band.
+                val raiseTray = color != null && (
+                    owner == MetroStatusBar.OWNER_NOTIFICATIONS ||
+                        (owner == MetroStatusBar.OWNER_VOLUME && underlay)
+                    )
+                if (raiseTray) {
                     raiseTrayAboveShellOverlays()
                 }
             }

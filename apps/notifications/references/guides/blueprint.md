@@ -8,7 +8,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ### Page 1 — Toast banner
 
-- Layout: full-width **accent** bar (~52dp) pinned **below** the status-bar / cutout inset so the banner never draws under a notch. Reference: `images/toast.png` (clock in that capture is tray chrome — do not draw a second clock on the toast).
+- Layout: full-width **accent** band from the top of the screen (tray inset + banner). The whole band flips as one tile behind an opaque accent Metro tray so the pivot is not offset to the safe inset; icon/text sit only in the banner below the tray. Reference: `images/toast.png`.
   - **Square app logo** on the left (manifest / package icon, never a payload image)
   - **Single-line** white text next to the icon as `sender: message` when both parts exist (MessagingStyle / social title+body); overflow uses ellipsis (no wrap onto a second line)
 - Navigation: tap launches the notifying app via the notification content intent.
@@ -34,7 +34,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | Window lifetime | Attach only while a toast is visible; never an always-on hit target |
 | Heads-up | While FGS is running, set `heads_up_notifications_enabled=0` (restore on stop) |
 | Theme | Observe `THEME_CHANGED` |
-| Tray | This app does not talk to `com.metro.statusbar`. The toast window is offset by the status-bar/cutout inset (`MetroStatusBar.HEIGHT_DP` minimum) so it sits below the tray and clears the notch. |
+| Tray | Toast attaches at y=0 first; then Metro tray tints opaque accent + rehosts above so the full band flips behind the glyphs. Tray accent morphs away with the exit flip. |
 
 ## Images
 
