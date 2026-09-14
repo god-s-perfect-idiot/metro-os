@@ -20,7 +20,8 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 | Screen | Pattern | Reference |
 |--------|---------|-----------|
 | Hub | `MetroPanorama` + panoramic `hub` brand | `references/images/panorama_dark_teal.png` |
-| Suite apps list | Full page list + install | Blueprint § Page 3 / `known-gaps.md` |
+| Suite apps list | Full page list (title / description / By) | Blueprint § Page 3 / `known-gaps.md` |
+| App detail | Full page + download app-bar icon | Blueprint § Page 4 |
 
 ## WP8.1 rules
 
@@ -34,7 +35,7 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 
 1. Launch → panorama brand `hub`, swipe `home` ↔ `apps`
 2. Tap `all metro apps` → fetch latest GitHub release → list APKs
-3. Tap APK → download → system install prompt
+3. Tap list row → app detail → download icon → system install prompt
 4. Tap category tile → filtered list (may be empty for 3rd/second party)
 
 ## Golden screenshots

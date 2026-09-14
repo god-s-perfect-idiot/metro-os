@@ -40,11 +40,20 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 ### Page 3 — Suite apps list (drill-in, not a panorama pane)
 
 - **Pattern:** Full page with `MetroAppTitle` + page title (e.g. `all metro apps` or category name).
-- **Data:** Fetch `GET https://api.github.com/repos/god-s-perfect-idiot/metro-os/releases/latest`, map `.apk` assets to list rows.
-- **Row:** `MetroListItem` — display name + optional subtitle (release tag / size / installed).
-- **Tap:** Download APK to app cache → prompt install via package installer (`REQUEST_INSTALL_PACKAGES` + `FileProvider`).
-- **Loading / error:** `MetroLoadingDots` / body error copy — no Material snackbars.
+- **Data:** Fetch `GET https://api.github.com/repos/god-s-perfect-idiot/metro-os/releases/latest`, map `.apk` assets to list rows (Firestore catalog preferred when present).
+- **Row:** Store-style icon + **title**, **description**, and **By:** publisher only (no version / size on the list).
+- **Tap:** Opens **Page 4 — App detail**.
+- **App bar:** Refresh.
+- **Loading / error:** full-page `MetroLoadingScreen` only while the catalog is empty and a blocking load is in flight (`CatalogLoadMode.Loading`). Refresh / navigation / foreground soft-sync over an already-populated list must stay silent — never overlay dots or a loader on existing rows. Body error copy — no Material snackbars.
 - **Back:** Returns to panorama hub.
+
+### Page 4 — App detail (drill-in)
+
+- **Pattern:** Full page with `MetroAppTitle` + page title = app display name.
+- **Content:** Icon + title + publisher; full description; version; download size; category.
+- **App bar:** Download icon (`MetroSystemIconType.Save`) — downloads APK to app cache → package installer (`REQUEST_INSTALL_PACKAGES` + `FileProvider`). Disabled while a download is in progress.
+- **Loading:** Inline `MetroLoadingDots` + “Downloading…” on the detail body while the APK downloads.
+- **Back:** Returns to the suite apps list.
 
 ## Images
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 Action Center newspaper glyph (monochrome for tile tinting).
+     Key wells are evenOdd cutouts so the tile fill shows through. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M30,32 H78 V76 H30 Z
+                M36,40 H54 V52 H36 Z
+                M58,40 H72 V44 H58 Z
+                M58,48 H72 V52 H58 Z
+                M36,58 H72 V62 H36 Z
+                M36,66 H64 V70 H36 Z" />
+    </group>
+</vector>

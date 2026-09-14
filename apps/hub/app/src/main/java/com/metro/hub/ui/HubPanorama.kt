@@ -143,28 +143,28 @@ private fun HomePane(state: HubState) {
             .padding(top = 12.dp),
     ) {
         HubLinkRow(
-            title = stringResource(R.string.link_all_metro_apps),
+            title = stringResource(R.string.link_metro_os_apps),
             onClick = state::openAllApps,
         )
         HubLinkRow(
-            title = stringResource(R.string.link_related_projects),
+            title = stringResource(R.string.link_related_apps),
             onClick = { /* wired later */ },
         )
         HubLinkRow(
-            title = stringResource(R.string.link_get_started),
+            title = stringResource(R.string.link_unofficial_metro_apps),
+            onClick = { /* wired later */ },
+        )
+        HubLinkRow(
+            title = stringResource(R.string.link_get_started_with_os),
             enabled = false,
             onClick = null,
         )
         HubLinkRow(
-            title = stringResource(R.string.link_github),
+            title = stringResource(R.string.link_metro_os_github),
             onClick = { state.openExternalUrl(HubState.GITHUB_URL) },
         )
         HubLinkRow(
             title = stringResource(R.string.link_about_project),
-            onClick = { /* wired later */ },
-        )
-        HubLinkRow(
-            title = stringResource(R.string.link_buy_me_a_coffee),
             onClick = { /* wired later */ },
         )
     }

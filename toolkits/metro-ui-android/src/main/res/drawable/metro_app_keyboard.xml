@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8.1 Keyboard glyph: rectangular keyboard with key grid + space bar.
+     Scaled into the adaptive-icon safe zone (~70% of the 108dp canvas).
+     Key wells are evenOdd cutouts so the tile fill shows through. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M22,36h64v36h-64z
+                M28,42h8v6h-8z
+                M40,42h8v6h-8z
+                M52,42h8v6h-8z
+                M64,42h8v6h-8z
+                M76,42h4v6h-4z
+                M28,52h8v6h-8z
+                M40,52h8v6h-8z
+                M52,52h8v6h-8z
+                M64,52h8v6h-8z
+                M76,52h4v6h-4z
+                M28,62h10v6h-10z
+                M42,62h24v6h-24z
+                M70,62h10v6h-10z" />
+    </group>
+</vector>

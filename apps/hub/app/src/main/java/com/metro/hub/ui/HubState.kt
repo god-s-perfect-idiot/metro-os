@@ -30,6 +30,28 @@ import kotlinx.coroutines.withContext
 enum class HubRoute {
     Hub,
     AppList,
+    AppDetail,
+}
+
+/**
+ * Catalog fetch UI phase.
+ *
+ * - [Idle] — no in-flight fetch, or a silent refresh over an already-populated list.
+ * - [Loading] — blocking wait; list should show [com.metro.ui.MetroLoadingScreen] when empty.
+ *
+ * Never overlay a loader on existing app rows — refresh in place with no chrome.
+ */
+enum class CatalogLoadMode {
+    Idle,
+    Loading,
+}
+
+/** Which catalog snapshot [HubState.firestoreAssets] currently represents. */
+private enum class CatalogSnapshot {
+    None,
+    Full,
+    SecondParty,
+    ThirdParty,
 }
 
 class HubState(
@@ -43,6 +65,7 @@ class HubState(
     private var fetchJob: Job? = null
     private var downloadJob: Job? = null
     private val iconJobs = ConcurrentHashMap<String, Job>()
+    private var catalogSnapshot = CatalogSnapshot.None
 
     var generation by mutableIntStateOf(0)
         private set
@@ -65,8 +88,12 @@ class HubState(
     var catalogSource by mutableStateOf("github")
         private set
 
-    var loadingRelease by mutableStateOf(false)
+    var catalogLoadMode by mutableStateOf(CatalogLoadMode.Idle)
         private set
+
+    /** True while a blocking catalog fetch is in flight. */
+    val loadingRelease: Boolean
+        get() = catalogLoadMode == CatalogLoadMode.Loading
 
     var releaseError by mutableStateOf<String?>(null)
         private set
@@ -75,6 +102,10 @@ class HubState(
         private set
 
     var listFilter by mutableStateOf<HubAppCategory?>(null)
+        private set
+
+    /** Asset name for the open app detail drill-in. */
+    var selectedAssetName by mutableStateOf<String?>(null)
         private set
 
     var downloadingAssetName by mutableStateOf<String?>(null)
@@ -90,12 +121,21 @@ class HubState(
     var iconPaths by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
+    private val hasCatalogData: Boolean
+        get() = firestoreAssets.isNotEmpty() || release != null
+
+    val allAssets: List<ReleaseApkAsset>
+        get() = when {
+            firestoreAssets.isNotEmpty() -> firestoreAssets
+            // Party-only views must not fall back to the GitHub suite list while empty/loading.
+            catalogSnapshot == CatalogSnapshot.SecondParty ||
+                catalogSnapshot == CatalogSnapshot.ThirdParty -> emptyList()
+            else -> release?.assets.orEmpty()
+        }
+
     val visibleAssets: List<ReleaseApkAsset>
         get() {
-            val all = when {
-                firestoreAssets.isNotEmpty() -> firestoreAssets
-                else -> release?.assets.orEmpty()
-            }
+            val all = allAssets
             val filter = listFilter ?: return all
             return all.filter { asset ->
                 when (filter) {
@@ -107,38 +147,109 @@ class HubState(
             }
         }
 
+    val selectedAsset: ReleaseApkAsset?
+        get() {
+            val name = selectedAssetName ?: return null
+            return allAssets.find { it.name == name }
+        }
+
     fun openAllApps() {
         listTitle = "all metro apps"
         listFilter = null
+        selectedAssetName = null
         downloadError = null
         route = HubRoute.AppList
-        refreshRelease()
+        ensureFullCatalog()
         bump()
     }
 
     fun openCategory(category: HubAppCategory) {
         listTitle = category.label
         listFilter = category
+        selectedAssetName = null
         downloadError = null
         route = HubRoute.AppList
         when (category) {
             HubAppCategory.SecondParty -> loadPartyCollection(HubFirestorePaths.SecondParty)
             HubAppCategory.ThirdParty -> loadPartyCollection(HubFirestorePaths.ThirdParty)
-            else -> refreshRelease()
+            else -> ensureFullCatalog()
         }
+        bump()
+    }
+
+    fun openAppDetail(asset: ReleaseApkAsset) {
+        selectedAssetName = asset.name
+        downloadError = null
+        route = HubRoute.AppDetail
+        ensureIcon(asset)
+        bump()
+    }
+
+    fun closeAppDetail() {
+        route = HubRoute.AppList
+        selectedAssetName = null
+        downloadError = null
         bump()
     }
 
     fun closeAppList() {
         route = HubRoute.Hub
+        selectedAssetName = null
         downloadError = null
         bump()
     }
 
+    fun goBack() {
+        when (route) {
+            HubRoute.AppDetail -> closeAppDetail()
+            HubRoute.AppList -> closeAppList()
+            HubRoute.Hub -> Unit
+        }
+    }
+
+    /**
+     * Load the catalog once if missing. Does not flash a loader over an already-populated list.
+     */
     fun ensureReleaseLoaded(force: Boolean = false) {
-        if (!force && ((firestoreAssets.isNotEmpty() || release != null) || loadingRelease)) return
+        if (!force && (hasCatalogData || catalogLoadMode != CatalogLoadMode.Idle)) return
+        startFullCatalogFetch(
+            mode = if (hasCatalogData) CatalogLoadMode.Idle else CatalogLoadMode.Loading,
+        )
+    }
+
+    /** App-bar refresh — keep existing rows visible with no loader overlay. */
+    fun refreshRelease() {
+        startFullCatalogFetch(
+            mode = if (visibleAssets.isEmpty()) {
+                CatalogLoadMode.Loading
+            } else {
+                CatalogLoadMode.Idle
+            },
+        )
+    }
+
+    fun onForeground() {
+        // Soft refresh: update in the background without overlaying loaders on existing UI.
+        if (catalogLoadMode == CatalogLoadMode.Loading) return
+        startFullCatalogFetch(mode = CatalogLoadMode.Idle)
+    }
+
+    /** Navigate to a filtered/full list using a cached full catalog when possible. */
+    private fun ensureFullCatalog() {
+        if (catalogSnapshot == CatalogSnapshot.Full && hasCatalogData) {
+            return
+        }
+        if (catalogSnapshot != CatalogSnapshot.Full) {
+            // Drop party-only rows so we never paint them under a full-catalog wait.
+            firestoreAssets = emptyList()
+            catalogSnapshot = CatalogSnapshot.None
+        }
+        startFullCatalogFetch(mode = CatalogLoadMode.Loading)
+    }
+
+    private fun startFullCatalogFetch(mode: CatalogLoadMode) {
         fetchJob?.cancel()
-        loadingRelease = true
+        catalogLoadMode = mode
         releaseError = null
         bump()
         fetchJob = scope.launch {
@@ -146,6 +257,7 @@ class HubState(
                 runCatching { loadCatalog() }
             }
             result.onSuccess {
+                catalogSnapshot = CatalogSnapshot.Full
                 releaseError = null
                 prefetchVisibleIcons(visibleAssets)
             }.onFailure { err ->
@@ -153,23 +265,17 @@ class HubState(
                     releaseError = err.message ?: "Could not load the app catalog."
                 }
             }
-            loadingRelease = false
+            catalogLoadMode = CatalogLoadMode.Idle
             bump()
         }
-    }
-
-    fun refreshRelease() {
-        ensureReleaseLoaded(force = true)
-    }
-
-    fun onForeground() {
-        refreshRelease()
     }
 
     fun iconPathFor(asset: ReleaseApkAsset): String? = iconPaths[asset.name]
 
     fun ensureIcon(asset: ReleaseApkAsset) {
+        // Metro catalog tiles use Firestore bg + logo/glyph — skip adaptive APK icons.
         if (!asset.logoXml.isNullOrBlank() || !asset.logoPngBase64.isNullOrBlank()) return
+        if (!asset.backgroundColor.isNullOrBlank() || asset.glyphResId != null) return
         if (iconPaths.containsKey(asset.name)) return
         if (asset.iconUrl != null) return
         val cached = iconResolver.cachedIconFile(asset)
@@ -243,14 +349,32 @@ class HubState(
     }
 
     private fun loadPartyCollection(collection: String) {
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) { firestore.fetchCollection(collection) }
-            }.onSuccess { docs ->
+        fetchJob?.cancel()
+        // Replace the list — do not keep a stale full catalog under an overlay loader.
+        firestoreAssets = emptyList()
+        catalogSnapshot = when (collection) {
+            HubFirestorePaths.SecondParty -> CatalogSnapshot.SecondParty
+            HubFirestorePaths.ThirdParty -> CatalogSnapshot.ThirdParty
+            else -> CatalogSnapshot.None
+        }
+        catalogLoadMode = CatalogLoadMode.Loading
+        releaseError = null
+        bump()
+        fetchJob = scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { firestore.fetchCollection(collection) }
+            }
+            result.onSuccess { docs ->
                 firestoreAssets = docs.map { it.toReleaseApkAsset() }
                 catalogSource = "firestore:$collection"
-                bump()
+                releaseError = null
+            }.onFailure { err ->
+                if (visibleAssets.isEmpty()) {
+                    releaseError = err.message ?: "Could not load the app catalog."
+                }
             }
+            catalogLoadMode = CatalogLoadMode.Idle
+            bump()
         }
     }
 
@@ -306,6 +430,8 @@ class HubState(
 
     private fun prefetchVisibleIcons(assets: List<ReleaseApkAsset>) {
         assets.forEach { asset ->
+            if (!asset.logoXml.isNullOrBlank() || !asset.logoPngBase64.isNullOrBlank()) return@forEach
+            if (!asset.backgroundColor.isNullOrBlank() || asset.glyphResId != null) return@forEach
             val cached = iconResolver.cachedIconFile(asset)
             if (cached.exists() && cached.length() > 0L) {
                 iconPaths = iconPaths + (asset.name to cached.absolutePath)

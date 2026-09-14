@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -37,7 +38,6 @@ import androidx.core.graphics.drawable.toBitmap
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.metro.hub.R
-import com.metro.hub.data.ApkInstaller
 import com.metro.hub.data.HubLogoDecoder
 import com.metro.hub.data.ReleaseApkAsset
 import com.metro.system.MetroPreferences
@@ -45,17 +45,19 @@ import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
-import com.metro.ui.MetroLoadingDots
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import java.io.File
 
-private val StoreIconSize = 72.dp
-private val StoreIconGlyphScale = 0.55f
+internal val StoreIconSize = 72.dp
+internal val StoreIconGlyphScale = 0.72f
 private val StoreRowSpacing = 16.dp
+/** Extra space under the last row so it clears the overlay app bar with room to breathe. */
+internal val ListBottomExtraPadding = 64.dp
 
-private val StoreMetaStyle = TextStyle(
+internal val StoreMetaStyle = TextStyle(
     fontFamily = MetroFontFamily,
     fontWeight = FontWeight.Normal,
     fontSize = 15.sp,
@@ -91,17 +93,15 @@ fun AppListScreen(
         }
 
         when {
-            state.loadingRelease && state.release == null -> {
-                Box(
+            state.catalogLoadMode == CatalogLoadMode.Loading && state.visibleAssets.isEmpty() -> {
+                MetroLoadingScreen(
+                    message = stringResource(R.string.apps_loading),
                     modifier = Modifier
-                        .fillMaxSize()
+                        .weight(1f)
                         .padding(bottom = MetroAppBarDefaults.BarHeight),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    MetroLoadingDots()
-                }
+                )
             }
-            state.releaseError != null && state.release == null -> {
+            state.releaseError != null && state.visibleAssets.isEmpty() -> {
                 MetroText(
                     text = state.releaseError ?: stringResource(R.string.apps_error),
                     style = MetroTextStyle.Body,
@@ -128,18 +128,15 @@ fun AppListScreen(
                         end = 12.dp,
                         top = 8.dp,
                         // Clear the overlay app bar so the last row’s text isn’t cut off.
-                        bottom = MetroAppBarDefaults.BarHeight + 16.dp,
+                        bottom = MetroAppBarDefaults.BarHeight + ListBottomExtraPadding,
                     ),
                 ) {
                     items(state.visibleAssets, key = { it.name }) { asset ->
-                        val downloading = state.downloadingAssetName == asset.name
                         StoreAppRow(
                             asset = asset,
                             iconPath = state.iconPathFor(asset),
-                            downloading = downloading,
-                            enabled = !downloading && state.downloadingAssetName == null,
                             onVisible = { state.ensureIcon(asset) },
-                            onClick = { state.downloadAndInstall(asset) },
+                            onClick = { state.openAppDetail(asset) },
                         )
                     }
                 }
@@ -161,8 +158,6 @@ fun AppListScreen(
 private fun StoreAppRow(
     asset: ReleaseApkAsset,
     iconPath: String?,
-    downloading: Boolean,
-    enabled: Boolean,
     onVisible: () -> Unit,
     onClick: () -> Unit,
 ) {
@@ -171,12 +166,10 @@ private fun StoreAppRow(
     }
 
     val secondary = MetroTheme.colors.secondaryText
-    val sizeLabel = ApkInstaller.formatSize(asset.sizeBytes).ifBlank { "—" }
-    val versionLabel = asset.versionName?.takeIf { it.isNotBlank() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StoreAppIcon(
@@ -201,21 +194,7 @@ private fun StoreAppRow(
                 maxLines = 1,
             )
             BasicText(
-                text = if (downloading) "Downloading…" else asset.description,
-                style = StoreMetaStyle.copy(color = secondary),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (versionLabel != null) {
-                BasicText(
-                    text = "Version: $versionLabel",
-                    style = StoreMetaStyle.copy(color = secondary),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            BasicText(
-                text = "Download size: $sizeLabel",
+                text = asset.description,
                 style = StoreMetaStyle.copy(color = secondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -231,7 +210,7 @@ private fun StoreAppRow(
 }
 
 @Composable
-private fun StoreAppIcon(
+internal fun StoreAppIcon(
     title: String,
     packageName: String,
     iconUrl: String?,
@@ -242,6 +221,7 @@ private fun StoreAppIcon(
     glyphResId: Int?,
 ) {
     val context = LocalContext.current
+    val hasMetroTileBg = !backgroundColorHex.isNullOrBlank()
     val background = remember(backgroundColorHex) {
         backgroundColorHex
             ?.takeIf { it.isNotBlank() }
@@ -251,13 +231,8 @@ private fun StoreAppIcon(
     val firestorePng = remember(logoPngBase64) {
         logoPngBase64?.let { HubLogoDecoder.bitmapFromPngBase64(it) }
     }
-    val firestoreVector = remember(logoXml, content) {
-        logoXml?.let { xml ->
-            HubLogoDecoder.bitmapFromLogoXml(context, xml)?.let { bmp ->
-                // Re-tint monochrome vectors onto accent tile content color via ColorFilter below.
-                bmp
-            }
-        }
+    val firestoreVector = remember(logoXml) {
+        logoXml?.let { xml -> HubLogoDecoder.bitmapFromLogoXml(context, xml) }
     }
     Box(
         modifier = Modifier
@@ -284,6 +259,24 @@ private fun StoreAppIcon(
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.size(StoreIconSize * StoreIconGlyphScale),
                 )
+            }
+            // Prefer flat Metro glyph/letter on the catalog tile color — never nest a
+            // rounded Android adaptive launcher icon inside the square.
+            hasMetroTileBg || glyphResId != null -> {
+                if (glyphResId != null) {
+                    val entryName = runCatching {
+                        context.resources.getResourceEntryName(glyphResId)
+                    }.getOrNull().orEmpty()
+                    val tintVectors = !entryName.contains("people", ignoreCase = true)
+                    Image(
+                        painter = painterResource(glyphResId),
+                        contentDescription = title,
+                        colorFilter = if (tintVectors) ColorFilter.tint(content) else null,
+                        modifier = Modifier.size(StoreIconSize * StoreIconGlyphScale),
+                    )
+                } else {
+                    StoreAppLetter(title = title, color = content)
+                }
             }
             !iconUrl.isNullOrBlank() -> {
                 AsyncImage(
@@ -322,30 +315,27 @@ private fun StoreAppIcon(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                } else if (glyphResId != null) {
-                    val entryName = runCatching {
-                        context.resources.getResourceEntryName(glyphResId)
-                    }.getOrNull().orEmpty()
-                    val tintVectors = !entryName.contains("people", ignoreCase = true)
-                    Image(
-                        painter = painterResource(glyphResId),
-                        contentDescription = title,
-                        colorFilter = if (tintVectors) ColorFilter.tint(content) else null,
-                        modifier = Modifier.size(StoreIconSize * StoreIconGlyphScale),
-                    )
                 } else {
-                    BasicText(
-                        text = title.firstOrNull()?.uppercaseChar()?.toString().orEmpty(),
-                        style = TextStyle(
-                            fontFamily = MetroFontFamily,
-                            fontWeight = FontWeight.Light,
-                            fontSize = 36.sp,
-                            color = content,
-                            platformStyle = PlatformTextStyle(includeFontPadding = false),
-                        ),
-                    )
+                    StoreAppLetter(title = title, color = content)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun StoreAppLetter(
+    title: String,
+    color: Color,
+) {
+    BasicText(
+        text = title.firstOrNull()?.uppercaseChar()?.toString().orEmpty(),
+        style = TextStyle(
+            fontFamily = MetroFontFamily,
+            fontWeight = FontWeight.Light,
+            fontSize = 42.sp,
+            color = color,
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+        ),
+    )
 }

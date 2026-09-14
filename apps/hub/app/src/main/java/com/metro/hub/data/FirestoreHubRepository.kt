@@ -106,7 +106,8 @@ fun FirestoreHubApp.toReleaseApkAsset(): ReleaseApkAsset {
         glyphResId = HubAppCatalog.glyphResIdForAsset(apk),
         logoXml = logoXml,
         logoPngBase64 = logoPngBase64,
-        backgroundColor = backgroundColor,
+        backgroundColor = backgroundColor
+            ?: HubAppCatalog.backgroundColorForPackage(packageName),
         firestoreId = id,
     )
 }

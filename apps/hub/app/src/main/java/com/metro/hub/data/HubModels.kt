@@ -1,6 +1,7 @@
 package com.metro.hub.data
 
 import com.metro.ui.MetroAppGlyphs
+import com.metro.system.MetroAppRegistry
 
 /**
  * Suite APK categories shown on the Hub quick-links tiles.
@@ -134,6 +135,19 @@ object HubAppCatalog {
         return MetroAppGlyphs.forPackage(packageNameForAsset(assetName))
     }
 
+    /**
+     * Catalog tile fill when Firestore omits `backgroundColor`.
+     * Uses [MetroAppRegistry.brandHex], then local suite defaults (same as sync script).
+     */
+    fun backgroundColorForPackage(packageName: String): String? {
+        MetroAppRegistry.brandHex(packageName)?.let { return it }
+        val id = packageName.removePrefix("com.metro.")
+        return brandHexFallback[id]
+    }
+
+    fun backgroundColorForAsset(assetName: String): String? =
+        backgroundColorForPackage(packageNameForAsset(assetName))
+
     fun assetId(assetName: String): String {
         return assetName
             .removeSuffix(".apk")
@@ -150,4 +164,29 @@ object HubAppCatalog {
             "apps/$id/app/build.gradle.kts"
         }
     }
+
+    private val brandHexFallback = mapOf(
+        "browser" to "#1BA1E2",
+        "notes" to "#A200FF",
+        "music" to "#E3008C",
+        "settings" to "#F09609",
+        "store" to "#7CB342",
+        "photos" to "#EB3C00",
+        "calendar" to "#0078D7",
+        "mail" to "#0078D7",
+        "messaging" to "#0078D7",
+        "people" to "#D34829",
+        "dialer" to "#0078D7",
+        "calculator" to "#007500",
+        "clock" to "#0078D7",
+        "files" to "#0078D7",
+        "hub" to "#1BA1E2",
+        "launcher" to "#1BA1E2",
+        "statusbar" to "#1BA1E2",
+        "notifications" to "#1BA1E2",
+        "navbar" to "#1BA1E2",
+        "volume" to "#1BA1E2",
+        "lockscreen" to "#1BA1E2",
+        "keyboard" to "#1BA1E2",
+    )
 }

@@ -155,6 +155,7 @@ class GitHubReleaseClient(
                             description = HubAppCatalog.descriptionForAsset(assetName),
                             publisher = HubAppCatalog.publisherForAsset(assetName),
                             glyphResId = HubAppCatalog.glyphResIdForAsset(assetName),
+                            backgroundColor = HubAppCatalog.backgroundColorForAsset(assetName),
                         ),
                     )
                 }

@@ -43,6 +43,12 @@ object MetroAppGlyphs {
     val Clock: Int get() = R.drawable.metro_app_clock
     val Files: Int get() = R.drawable.metro_app_files
     val Lockscreen: Int get() = R.drawable.metro_app_lockscreen
+    val Volume: Int get() = R.drawable.metro_app_volume
+    val Statusbar: Int get() = R.drawable.metro_app_statusbar
+    val Navbar: Int get() = R.drawable.metro_app_navbar
+    val Notifications: Int get() = R.drawable.metro_app_notifications
+    val Launcher: Int get() = R.drawable.metro_app_launcher
+    val Keyboard: Int get() = R.drawable.metro_app_keyboard
 
     val NotificationPhone: Int get() = R.drawable.metro_notification_phone
     val NotificationMusic: Int get() = R.drawable.metro_notification_music
@@ -63,6 +69,12 @@ object MetroAppGlyphs {
         "com.metro.clock" to R.drawable.metro_app_clock,
         "com.metro.files" to R.drawable.metro_app_files,
         "com.metro.lockscreen" to R.drawable.metro_app_lockscreen,
+        "com.metro.volume" to R.drawable.metro_app_volume,
+        "com.metro.statusbar" to R.drawable.metro_app_statusbar,
+        "com.metro.navbar" to R.drawable.metro_app_navbar,
+        "com.metro.notifications" to R.drawable.metro_app_notifications,
+        "com.metro.launcher" to R.drawable.metro_app_launcher,
+        "com.metro.keyboard" to R.drawable.metro_app_keyboard,
     )
 
     private val notificationByPackage: Map<String, Int> = mapOf(

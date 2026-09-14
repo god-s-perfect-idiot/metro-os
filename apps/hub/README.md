@@ -14,7 +14,8 @@ About / suite catalog for metro-os: panoramic overview, category quick links, an
 ## Screen inventory
 
 1. **Hub panorama** — brand `hub`; panes `home` (HubLinks) and `apps` (quick-link tiles)
-2. **Suite apps list** — Firestore / release assets as Store-style rows; tap downloads and installs
+2. **Suite apps list** — Firestore / release assets as Store-style rows (title, description, By); tap opens detail
+3. **App detail** — version, size, category, full description; bottom app bar download icon installs the APK
 
 See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
@@ -28,7 +29,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
 ## UI guardrails
 
-- Toolkit-first: `MetroPanorama`, `MetroListItem`, `MetroAppBar`, `MetroLoadingDots`
+- Toolkit-first: `MetroPanorama`, `MetroListItem`, `MetroAppBar`, `MetroLoadingScreen`, `MetroLoadingDots`
 - No Material components
 - Stub destinations for most home links until wired
 

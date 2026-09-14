@@ -145,6 +145,12 @@ const glyphFiles = {
   clock: "metro_app_clock.xml",
   files: "metro_app_files.xml",
   lockscreen: "metro_app_lockscreen.xml",
+  volume: "metro_app_volume.xml",
+  statusbar: "metro_app_statusbar.xml",
+  navbar: "metro_app_navbar.xml",
+  notifications: "metro_app_notifications.xml",
+  launcher: "metro_app_launcher.xml",
+  keyboard: "metro_app_keyboard.xml",
 };
 
 /** Catalog brand fills (MetroAppRegistry.brandHex) when launcher bg is missing. */
@@ -205,9 +211,21 @@ function readBackgroundColor(id) {
   if (existsSync(launcherBg)) {
     const text = readFileSync(launcherBg, "utf8");
     const m = text.match(/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\b/);
-    if (m) return `#${m[1].slice(-6).toUpperCase()}`;
+    if (m) {
+      const hex = `#${m[1].slice(-6).toUpperCase()}`;
+      // Adaptive icon fills are often pure white — unusable as a Hub catalog tile.
+      if (!isNearWhite(hex)) return hex;
+    }
   }
   return brandHexFallback[id] || DEFAULT_BACKGROUND_COLOR;
+}
+
+function isNearWhite(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 0xff;
+  const g = (n >> 8) & 0xff;
+  const b = n & 0xff;
+  return r >= 0xf0 && g >= 0xf0 && b >= 0xf0;
 }
 
 function badging(apkPath) {
@@ -293,7 +311,12 @@ for (const apkName of releaseApks.sort()) {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
-  batch.set(col.doc(id), doc, { merge: true });
+  // Omit nulls so a tag-less / APK-less run cannot wipe apkUrl and friends.
+  const patch = Object.fromEntries(
+    Object.entries(doc).filter(([, v]) => v !== null && v !== undefined),
+  );
+
+  batch.set(col.doc(id), patch, { merge: true });
   upserted += 1;
   console.log(`  upsert first-party/${id}  ${doc.versionName || "?"}  ${doc.type}  ${backgroundColor}`);
 }

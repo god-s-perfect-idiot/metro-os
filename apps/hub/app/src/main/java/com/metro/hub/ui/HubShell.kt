@@ -35,8 +35,9 @@ fun HubShell(
     @Suppress("UNUSED_VARIABLE")
     val observe = generation
 
-    var exitingAppList by remember { mutableStateOf(false) }
-    val showingAppList = state.route == HubRoute.AppList || exitingAppList
+    var exitingRoute by remember { mutableStateOf<HubRoute?>(null) }
+    var suppressEnterFor by remember { mutableStateOf<HubRoute?>(null) }
+    val isExiting = exitingRoute != null
 
     LaunchedEffect(Unit) {
         state.ensureReleaseLoaded()
@@ -52,11 +53,17 @@ fun HubShell(
         context.startActivity(ApkInstaller.installIntent(context, apk))
     }
 
-    BackHandler(enabled = state.route == HubRoute.AppList && !exitingAppList) {
-        exitingAppList = true
+    LaunchedEffect(state.route, suppressEnterFor) {
+        if (suppressEnterFor != null && state.route != suppressEnterFor) {
+            suppressEnterFor = null
+        }
     }
 
-    BackHandler(enabled = exitingAppList) {
+    BackHandler(enabled = state.route != HubRoute.Hub && !isExiting) {
+        exitingRoute = state.route
+    }
+
+    BackHandler(enabled = isExiting) {
         // Hold the stack until the flip-out finishes.
     }
 
@@ -68,19 +75,21 @@ fun HubShell(
             .background(MetroTheme.colors.background),
     ) {
         when {
-            showingAppList -> {
-                HubAppListPage(
+            isExiting -> {
+                HubSubpage(
+                    route = exitingRoute!!,
                     state = state,
-                    loadKey = appListLoadKey(state),
-                    exiting = exitingAppList,
+                    loadKey = subpageLoadKey(exitingRoute!!, state),
+                    exiting = true,
                     onExitComplete = {
-                        state.closeAppList()
-                        exitingAppList = false
+                        suppressEnterFor = exitingRoute!!.parentRoute()
+                        state.goBack()
+                        exitingRoute = null
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            else -> {
+            state.route == HubRoute.Hub -> {
                 val pagerState = rememberPagerState(
                     initialPage = state.hubPage,
                     pageCount = { 2 },
@@ -109,43 +118,95 @@ fun HubShell(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
+            else -> {
+                val route = state.route
+                HubSubpage(
+                    route = route,
+                    state = state,
+                    loadKey = subpageLoadKey(route, state),
+                    skipEnter = route == suppressEnterFor,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun HubAppListPage(
+private fun HubSubpage(
+    route: HubRoute,
     state: HubState,
     loadKey: Any,
-    exiting: Boolean,
-    onExitComplete: () -> Unit,
     modifier: Modifier = Modifier,
+    exiting: Boolean = false,
+    skipEnter: Boolean = false,
+    onExitComplete: () -> Unit = {},
 ) {
     MetroPagePivotLoad(
         modifier = modifier.background(MetroTheme.colors.background),
         loadKey = loadKey,
         exiting = exiting,
+        skipEnter = skipEnter,
         onExitComplete = onExitComplete,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            AppListScreen(
-                state = state,
-                modifier = Modifier.fillMaxSize(),
-            )
-            MetroAppBar(
-                minimized = false,
-                icons = listOf(
-                    MetroAppBarIcon(
-                        type = MetroSystemIconType.Refresh,
-                        label = "refresh",
-                        onClick = state::refreshRelease,
-                    ),
-                ),
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
+            when (route) {
+                HubRoute.AppList -> {
+                    AppListScreen(
+                        state = state,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    MetroAppBar(
+                        minimized = false,
+                        icons = listOf(
+                            MetroAppBarIcon(
+                                type = MetroSystemIconType.Refresh,
+                                label = "refresh",
+                                onClick = state::refreshRelease,
+                            ),
+                        ),
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
+                HubRoute.AppDetail -> {
+                    val asset = state.selectedAsset
+                    val downloading = asset != null && state.downloadingAssetName == asset.name
+                    AppDetailScreen(
+                        state = state,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    MetroAppBar(
+                        minimized = false,
+                        icons = listOf(
+                            MetroAppBarIcon(
+                                type = MetroSystemIconType.Save,
+                                label = "download",
+                                onClick = {
+                                    val selected = state.selectedAsset ?: return@MetroAppBarIcon
+                                    if (state.downloadingAssetName == null) {
+                                        state.downloadAndInstall(selected)
+                                    }
+                                },
+                                enabled = asset != null && !downloading && asset.downloadUrl.isNotBlank(),
+                            ),
+                        ),
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
+                HubRoute.Hub -> Unit
+            }
         }
     }
 }
 
-private fun appListLoadKey(state: HubState): Any =
-    "AppList:${state.listFilter?.name ?: "all"}"
+private fun HubRoute.parentRoute(): HubRoute = when (this) {
+    HubRoute.AppDetail -> HubRoute.AppList
+    HubRoute.AppList -> HubRoute.Hub
+    HubRoute.Hub -> HubRoute.Hub
+}
+
+private fun subpageLoadKey(route: HubRoute, state: HubState): Any = when (route) {
+    HubRoute.AppList -> "AppList:${state.listFilter?.name ?: "all"}"
+    HubRoute.AppDetail -> "AppDetail:${state.selectedAssetName.orEmpty()}"
+    HubRoute.Hub -> "Hub"
+}

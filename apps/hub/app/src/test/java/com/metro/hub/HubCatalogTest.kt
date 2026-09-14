@@ -129,4 +129,28 @@ class HubCatalogTest {
         assertEquals("#D34829", asset.backgroundColor)
         assertEquals("People", asset.displayName)
     }
+
+    @Test
+    fun firestoreAppFallsBackToRegistryBrandWhenBackgroundMissing() {
+        val app = FirestoreHubApp(
+            id = "music",
+            name = "Music",
+            packageName = "com.metro.music",
+            description = "Player",
+            versionName = "1.0.0",
+            versionCode = 1,
+            type = "core",
+            creator = "Entropy",
+            logoXml = null,
+            logoPngBase64 = null,
+            backgroundColor = null,
+            apkName = "music-debug.apk",
+            apkUrl = "https://example.com/music-debug.apk",
+            releaseUrl = null,
+            githubRepo = null,
+            sizeBytes = 1L,
+            party = "first",
+        )
+        assertEquals("#E3008C", app.toReleaseApkAsset().backgroundColor)
+    }
 }
