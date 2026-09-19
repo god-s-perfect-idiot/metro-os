@@ -389,6 +389,8 @@ class LockscreenHostService :
             overlayView = composeView
             overlayManager = manager
             overlayMode = mode
+            // Keep Compose effects (clock ticks, etc.) running while the fill is visible.
+            lifecycleRegistry.currentState = Lifecycle.State.RESUMED
             // Lock draws its own transparent tray; hide the opaque system Metro tray.
             MetroStatusBar.requestFullscreen(this, fullscreen = true)
             Log.i(TAG, "Lock overlay attached ($mode)")
@@ -410,6 +412,7 @@ class LockscreenHostService :
         applyOverlayTouchPolicy(mode)
         view.bindOverlayContent(mode, statusBarInsetPx())
         overlayMode = mode
+        lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         Log.i(TAG, "Lock overlay morphed ($mode)")
         startUnlockWatcher()
     }
@@ -460,6 +463,9 @@ class LockscreenHostService :
             runCatching { manager.removeView(root) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
             MetroStatusBar.requestFullscreen(this, fullscreen = false)
+        }
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            lifecycleRegistry.currentState = Lifecycle.State.STARTED
         }
     }
 

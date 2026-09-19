@@ -1,5 +1,12 @@
 package com.metro.lockscreen
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -36,13 +43,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroNavBarPadding
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
+
+/** Softened chrome on AMOLED glance — less harsh than pure white on black. */
+private val GlanceContentColor = Color(0xFFCCCCCC)
 
 /** How the lock overlay is presented — full lock fill or AMOLED glance over system AOD. */
 enum class LockscreenPresentationMode {
@@ -144,11 +153,53 @@ fun LockscreenSurface(
         }
     }
 
-    LaunchedEffect(calendar) {
-        while (isActive) {
-            labels = calendar.loadChromeLabels(ZonedDateTime.now())
+    // Handler + TIME_TICK — not Compose delay. Overlay recomposers pause without frames
+    // (AOD / doze / idle lock), and a thrown calendar query killed the old LaunchedEffect loop
+    // until the overlay was torn down on the next wake.
+    DisposableEffect(calendar) {
+        val appContext = context.applicationContext
+        val handler = Handler(Looper.getMainLooper())
+        fun refreshChromeLabels() {
+            try {
+                labels = calendar.loadChromeLabels(ZonedDateTime.now())
+            } catch (t: Throwable) {
+                Log.w(TAG, "chrome labels refresh failed", t)
+            }
+        }
+        val tickRunnable = object : Runnable {
+            override fun run() {
+                refreshChromeLabels()
+                val wait = LockscreenChromeLogic.millisUntilNextMinute(System.currentTimeMillis())
+                handler.postDelayed(this, wait)
+            }
+        }
+        fun rescheduleTick() {
+            handler.removeCallbacks(tickRunnable)
             val wait = LockscreenChromeLogic.millisUntilNextMinute(System.currentTimeMillis())
-            delay(wait)
+            handler.postDelayed(tickRunnable, wait)
+        }
+        val timeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                refreshChromeLabels()
+                // Realign the Handler schedule after TIME_TICK / wall-clock / zone changes.
+                rescheduleTick()
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        ContextCompat.registerReceiver(
+            appContext,
+            timeReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        handler.post(tickRunnable)
+        onDispose {
+            handler.removeCallbacks(tickRunnable)
+            runCatching { appContext.unregisterReceiver(timeReceiver) }
         }
     }
 
@@ -161,7 +212,7 @@ fun LockscreenSurface(
     thresholdHolder.floatValue = thresholdPx
     flingVelocityHolder.floatValue = LockscreenLogic.flingVelocityPx(density.density)
 
-    val contentColor = if (isGlance) Color.White else fill.contentColor
+    val contentColor = if (isGlance) GlanceContentColor else fill.contentColor
     val solidFill = if (isGlance) Color.Black else fill.accentColor
 
     fun cancelOffsetJob() {
@@ -336,3 +387,5 @@ fun LockscreenSurface(
         }
     }
 }
+
+private const val TAG = "LockscreenSurface"

@@ -304,12 +304,28 @@ class LauncherState(context: Context) {
                 }
             }
             startBackgroundBitmap = background
-            // Paint static chrome first so cold-start splash can lift; live providers fill in.
-            displayTiles = withContext(Dispatchers.IO) {
-                repository.resolveDisplayTiles(pinned, liveContent = false)
+            if (!hasCompletedInitialLoad) {
+                // Cold start: paint static chrome so splash can lift; live providers fill in.
+                displayTiles = withContext(Dispatchers.IO) {
+                    repository.resolveDisplayTiles(pinned, liveContent = false)
+                }
+                if (epochAtStart != layoutEpoch) return
+                hasCompletedInitialLoad = true
+            } else {
+                // Resume / unlock: keep already-painted live faces. Never flash icon+title
+                // placeholders (calendar, photos, …) while ContentProviders re-resolve.
+                val existing = displayTiles
+                displayTiles = withContext(Dispatchers.IO) {
+                    mergePinnedDisplayTiles(
+                        pinned = pinned,
+                        existing = existing,
+                        resolveMissing = { missing ->
+                            repository.resolveDisplayTiles(missing, liveContent = false)
+                        },
+                    )
+                }
+                if (epochAtStart != layoutEpoch) return
             }
-            if (epochAtStart != layoutEpoch) return
-            hasCompletedInitialLoad = true
             val liveTiles = withContext(Dispatchers.IO) {
                 repository.resolveDisplayTiles(pinned, liveContent = true)
             }
