@@ -37,6 +37,8 @@ Verb in grey, value in accent blue:
 |-------|--------|
 | call mobile | Dial default mobile |
 | text | SMS intent |
+| call WhatsApp | Shown only when WhatsApp voice binding exists for this contact |
+| text WhatsApp | Shown when WhatsApp message binding or synced raw contact + phone exists |
 | post to timeline | External app stub (`Facebook`) |
 | send email | Mail intent |
 

@@ -31,10 +31,13 @@ fun ContactDetailScreen(
     onBack: () -> Unit,
     onCall: () -> Unit,
     onText: () -> Unit,
+    onWhatsAppCall: () -> Unit,
+    onWhatsAppText: () -> Unit,
     onEmail: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val summary = detail.summary
+    val whatsApp = detail.whatsApp
     BackHandler(onBack = onBack)
 
     Column(
@@ -90,6 +93,22 @@ fun ContactDetailScreen(
                 enabled = summary.defaultPhone != null,
                 onClick = onText,
             )
+            if (whatsApp?.canVoiceCall == true) {
+                ActionRow(
+                    label = stringResource(R.string.call_whatsapp),
+                    value = stringResource(R.string.whatsapp_label),
+                    enabled = true,
+                    onClick = onWhatsAppCall,
+                )
+            }
+            if (whatsApp?.canMessage == true) {
+                ActionRow(
+                    label = stringResource(R.string.text_whatsapp),
+                    value = stringResource(R.string.whatsapp_label),
+                    enabled = true,
+                    onClick = onWhatsAppText,
+                )
+            }
             summary.defaultEmail?.let { email ->
                 ActionRow(
                     label = stringResource(R.string.send_email),

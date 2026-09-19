@@ -32,16 +32,19 @@ class LockscreenAccessibilityService : AccessibilityService() {
     /**
      * Swipe up on the display so SystemUI treats it like a lock-screen unlock gesture and
      * shows the PIN / pattern / password bouncer.
+     *
+     * Travel must be nearly full-screen and unhurried — short strokes leave SystemUI mid-swipe
+     * on the decorative lock wallpaper instead of opening lock input.
      */
     fun injectSwipeUpToBouncer(): Boolean {
         val dm = resources.displayMetrics
         val w = dm.widthPixels.toFloat()
         val h = dm.heightPixels.toFloat()
         val path = Path().apply {
-            moveTo(w / 2f, h * 0.85f)
-            lineTo(w / 2f, h * 0.25f)
+            moveTo(w / 2f, h * 0.94f)
+            lineTo(w / 2f, h * 0.06f)
         }
-        val stroke = GestureDescription.StrokeDescription(path, 0L, 280L)
+        val stroke = GestureDescription.StrokeDescription(path, /*startTime=*/0L, /*duration=*/520L)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         return try {
             dispatchGesture(

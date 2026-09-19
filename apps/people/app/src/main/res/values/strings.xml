@@ -18,6 +18,10 @@
     <string name="call">call</string>
     <string name="call_mobile">call mobile</string>
     <string name="text">text</string>
+    <string name="call_whatsapp">call WhatsApp</string>
+    <string name="text_whatsapp">text WhatsApp</string>
+    <string name="whatsapp_label">WhatsApp</string>
+    <string name="whatsapp_unavailable">WhatsApp is not available</string>
     <string name="post_timeline">post to timeline</string>
     <string name="send_email">send email</string>
     <string name="add_apps">add apps</string>

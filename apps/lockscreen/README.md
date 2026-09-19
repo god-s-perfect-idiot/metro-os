@@ -7,7 +7,8 @@
 
 **Implemented** — lock fill (accent / custom photo / Bing wallpaper) over the system keyguard with
 WP8.1 lock chrome (transparent status tray icons, time, day, date, next calendar event, quick-status
-glyphs with counts). Swipe up reveals the system unlock screen; fingerprint / face unlock continue to work.
+glyphs with counts). Swipe up reveals the system unlock **input** (PIN / pattern / password),
+not the decorative lock wallpaper; fingerprint / face unlock animate a swipe-up exit then dismiss.
 
 ## App role
 

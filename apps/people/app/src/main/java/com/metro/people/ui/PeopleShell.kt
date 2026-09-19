@@ -133,6 +133,12 @@ fun PeopleShell(
                         onBack = state::closeOverlay,
                         onCall = { state.callContact(detail.summary) },
                         onText = { state.textContact(detail.summary) },
+                        onWhatsAppCall = {
+                            detail.whatsApp?.let(state::whatsAppCall)
+                        },
+                        onWhatsAppText = {
+                            detail.whatsApp?.let(state::whatsAppText)
+                        },
                         onEmail = state::emailContact,
                     )
                 }

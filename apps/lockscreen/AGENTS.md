@@ -38,8 +38,8 @@ unlock (PIN / pattern / password) UI.
 
 1. Enable Lock screen accessibility + master **Show lock screen** toggle (starts host FGS)
 2. Screen on + keyguard locked → attach accessibility overlay (chosen background + chrome)
-3. Fingerprint / face success → remove overlay
-4. Swipe up (finger-tracking slide) past threshold → SystemUI bouncer via `requestDismissKeyguard` only
+3. Fingerprint / face success → animate swipe-up slide-off → remove overlay
+4. Swipe up (finger-tracking slide) past threshold → SystemUI **lock input** (PIN / pattern / password) via accessibility swipe-up on keyguard; `requestDismissKeyguard` trampoline only if gesture unavailable
 5. Screen off → remove overlay
 6. Optional: grant calendar → next appointment appears under the date
 7. Setup **Background** ListPicker → Accent / Custom (choose photo + crop) / Bing (fetch + cache)

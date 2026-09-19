@@ -1,10 +1,13 @@
 package com.metro.people.ui
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.ContactsContract
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -17,6 +20,7 @@ import com.metro.people.data.PeopleContactsLogic
 import com.metro.people.data.PeopleFilter
 import com.metro.people.data.PersonDetail
 import com.metro.people.data.PersonSummary
+import com.metro.people.data.WhatsAppLink
 import com.metro.people.tiles.PeopleTileLogic
 import com.metro.system.MetroIntents
 
@@ -201,6 +205,45 @@ class PeopleState(context: Context) {
         appContext.startActivity(intent)
     }
 
+    fun whatsAppCall(link: WhatsAppLink) {
+        val dataId = link.voiceCallDataId ?: return
+        openWhatsAppData(dataId, link.packageName)
+    }
+
+    fun whatsAppText(link: WhatsAppLink) {
+        val dataId = link.messageDataId
+        if (dataId != null) {
+            openWhatsAppData(dataId, link.packageName)
+            return
+        }
+        val digits = link.phoneDigits ?: return
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$digits")).apply {
+            setPackage(link.packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            appContext.startActivity(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "WhatsApp text deep-link failed", e)
+            Toast.makeText(appContext, R.string.whatsapp_unavailable, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openWhatsAppData(dataId: Long, packageName: String) {
+        val uri = ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, dataId)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setData(uri)
+            setPackage(packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            appContext.startActivity(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "WhatsApp contact action failed", e)
+            Toast.makeText(appContext, R.string.whatsapp_unavailable, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun emailContact(address: String) {
         val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$address"))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -228,4 +271,8 @@ class PeopleState(context: Context) {
         } else {
             allContacts.map { it.sourceLabel }.toSet()
         }
+
+    companion object {
+        private const val TAG = "PeopleState"
+    }
 }

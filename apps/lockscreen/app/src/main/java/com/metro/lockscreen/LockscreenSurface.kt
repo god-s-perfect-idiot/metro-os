@@ -68,22 +68,25 @@ enum class LockscreenPresentationMode {
  * - Drag tracks the finger upward only (offset updated synchronously — no async snap race).
  * - Release below threshold (and without a qualifying fling) → spring bounce back.
  * - Release at/above threshold, or a decisive upward fling → animate fully off-screen,
- *   then [onUnlockCommitted] once (also if the slide-off animation is cancelled).
+ *   then [onExitFinished] with [LockscreenExitReason.SwipeCommit].
+ * - [exitController] can request the same slide-off for biometric unlock
+ *   ([LockscreenExitReason.BiometricUnlock]).
  *
  * Snap-back bounce is pure vertical translation. Spring overshoot past rest is mirrored
  * upward ([LockscreenLogic.bounceTranslationY]) so the fill jumps off the top and the
  * gap opens at the bottom — never sinks under the status bar, never scale/squash.
  *
- * Never arms SystemUI mid-drag — unlock is only requested after a committed slide-off.
+ * Never arms SystemUI mid-drag — swipe unlock is only requested after a committed slide-off.
  */
 @Composable
 fun LockscreenSurface(
-    onUnlockCommitted: () -> Unit,
+    onExitFinished: (LockscreenExitReason) -> Unit,
     modifier: Modifier = Modifier,
     mode: LockscreenPresentationMode = LockscreenPresentationMode.Lock,
     fillColor: Color = MetroTheme.colors.accent,
     /** System status-bar / cutout band height in px — tray icons are centered in this region. */
     topInsetPx: Int = 0,
+    exitController: LockscreenExitController? = null,
 ) {
     val isGlance = mode == LockscreenPresentationMode.Glance
     val density = LocalDensity.current
@@ -254,17 +257,19 @@ fun LockscreenSurface(
         }
     }
 
-    fun commitUnlock() {
+    fun commitExit(reason: LockscreenExitReason) {
         if (unlockCommitted) return
         phase.value = LockscreenLogic.SwipePhase.Committing
         cancelOffsetJob()
         offsetJob = scope.launch {
-            val offscreen = -(size.height.toFloat().coerceAtLeast(1f))
+            val measured = size.height.toFloat()
+            val fallback = context.resources.displayMetrics.heightPixels.toFloat()
+            val offscreen = -(measured.takeIf { it > 1f } ?: fallback).coerceAtLeast(1f)
             offsetAnim.snapTo(rawOffsetY)
             try {
                 offsetAnim.animateTo(
                     targetValue = offscreen,
-                    animationSpec = tween(durationMillis = 220),
+                    animationSpec = tween(durationMillis = 280),
                 ) {
                     rawOffsetY = value
                 }
@@ -274,10 +279,21 @@ fun LockscreenSurface(
                     unlockCommitted = true
                     rawOffsetY = offscreen
                     phase.value = LockscreenLogic.SwipePhase.HandedOff
-                    onUnlockCommitted()
+                    onExitFinished(reason)
                 }
             }
         }
+    }
+
+    DisposableEffect(exitController, isGlance) {
+        if (exitController == null || isGlance) {
+            return@DisposableEffect onDispose { }
+        }
+        val playExit: () -> Unit = {
+            commitExit(LockscreenExitReason.BiometricUnlock)
+        }
+        exitController.bind(playExit)
+        onDispose { exitController.unbind(playExit) }
     }
 
     fun beginDrag() {
@@ -337,7 +353,8 @@ fun LockscreenSurface(
                                         flingVelocityPx = flingVelocityHolder.floatValue,
                                     )
                                 ) {
-                                    LockscreenLogic.ReleaseAction.Commit -> commitUnlock()
+                                    LockscreenLogic.ReleaseAction.Commit ->
+                                        commitExit(LockscreenExitReason.SwipeCommit)
                                     LockscreenLogic.ReleaseAction.SnapBack -> snapBack()
                                 }
                             },

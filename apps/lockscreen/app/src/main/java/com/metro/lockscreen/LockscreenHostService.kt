@@ -51,8 +51,13 @@ import com.metro.ui.MetroSystemTheme
  * **Render path:** [TYPE_ACCESSIBILITY_OVERLAY] hosted by [LockscreenAccessibilityService].
  *
  * **Swipe-up path:** surface animates fully off-screen past threshold, then this service
- * hands off to SystemUI via [LockscreenBouncerActivity]. After a committed hand-off the
- * Metro fill stays suppressed until the next [Intent.ACTION_SCREEN_OFF] (sleep / lock).
+ * hands off to SystemUI **lock input** (PIN / pattern / password) via an accessibility
+ * swipe-up on the keyguard (trampoline [LockscreenBouncerActivity] only if the gesture
+ * cannot run). After a committed hand-off the Metro fill stays suppressed until the next
+ * [Intent.ACTION_SCREEN_OFF] (sleep / lock).
+ *
+ * **Biometric path:** when the keyguard clears under the fill, animate the overlay
+ * window fully off-screen (View translation), then remove it (no lock-input hand-off).
  */
 class LockscreenHostService :
     Service(),
@@ -89,6 +94,12 @@ class LockscreenHostService :
      */
     @Volatile
     private var handedOffUntilScreenOff = false
+
+    /** True while the Compose fill is playing the biometric (or swipe) slide-off animation. */
+    @Volatile
+    private var exitAnimating = false
+
+    private val exitController = LockscreenExitController()
 
     /** Keeps Glance Compose drawing while a quick-status flip runs on AOD. */
     private val glanceFlipPulse = object : Runnable {
@@ -131,17 +142,16 @@ class LockscreenHostService :
     private val glancePresentRetries = longArrayOf(0L, 8L, 16L, 32L, 64L, 128L, 250L, 500L, 1000L)
 
     /**
-     * While the Metro fill is up, poll keyguard every frame-ish so biometric unlock tears the
-     * overlay down as soon as [KeyguardManager.isKeyguardLocked] flips — waiting on
+     * While the Metro fill is up, poll keyguard every frame-ish so biometric unlock can play
+     * the swipe-up exit as soon as [KeyguardManager.isKeyguardLocked] flips — waiting on
      * [Intent.ACTION_USER_PRESENT] or the 500ms tick left Start covered for ~0.5–1s after unlock.
      */
     private val unlockWatcher = object : Runnable {
         override fun run() {
             if (overlayRoot == null) return
             if (!LockscreenKeyguard.isLocked(this@LockscreenHostService)) {
-                Log.i(TAG, "unlockWatcher: keyguard clear — remove overlay")
-                removeOverlay(reason = "keyguard_unlocked")
-                LockscreenBouncerActivity.finishIfShowing()
+                Log.i(TAG, "unlockWatcher: keyguard clear — animate biometric exit")
+                beginBiometricExit()
                 return
             }
             handler.postDelayed(this, UNLOCK_WATCH_MS)
@@ -184,7 +194,7 @@ class LockscreenHostService :
                     schedulePresentAttempts()
                 }
                 Intent.ACTION_USER_PRESENT -> {
-                    removeOverlay(reason = "user_present")
+                    beginBiometricExit()
                     LockscreenBouncerActivity.finishIfShowing()
                 }
             }
@@ -325,6 +335,12 @@ class LockscreenHostService :
         if (mode != null) {
             ensureOverlayShowing(mode)
         } else {
+            // Biometric / swipe slide-off in progress — do not yank the fill away early.
+            if (exitAnimating) return
+            if (!locked && overlayRoot != null) {
+                beginBiometricExit()
+                return
+            }
             removeOverlay(reason = if (!locked) "sync_unlocked" else "sync_not_present")
         }
     }
@@ -398,6 +414,7 @@ class LockscreenHostService :
             setViewTreeLifecycleOwner(this@LockscreenHostService)
             setViewTreeSavedStateRegistryOwner(this@LockscreenHostService)
             setViewTreeViewModelStoreOwner(this@LockscreenHostService)
+            translationY = 0f
             addView(
                 blackCover,
                 FrameLayout.LayoutParams(
@@ -460,10 +477,11 @@ class LockscreenHostService :
             MetroSystemTheme {
                 LockscreenSurface(
                     mode = mode,
-                    onUnlockCommitted = {
-                        handler.post { commitSwipeUnlock() }
+                    onExitFinished = { reason ->
+                        handler.post { onSurfaceExitFinished(reason) }
                     },
                     topInsetPx = topInsetPx,
+                    exitController = exitController,
                 )
             }
         }
@@ -487,6 +505,7 @@ class LockscreenHostService :
 
     private fun removeOverlayLocked() {
         stopUnlockWatcher()
+        exitAnimating = false
         val root = overlayRoot
         val manager = overlayManager
         overlayRoot = null
@@ -495,6 +514,7 @@ class LockscreenHostService :
         overlayManager = null
         overlayMode = null
         if (root != null && manager != null) {
+            root.animate().cancel()
             runCatching { manager.removeView(root) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
             MetroStatusBar.requestFullscreen(this, fullscreen = false)
@@ -505,37 +525,133 @@ class LockscreenHostService :
         }
     }
 
+    private fun onSurfaceExitFinished(reason: LockscreenExitReason) {
+        when (reason) {
+            LockscreenExitReason.SwipeCommit -> commitSwipeUnlock()
+            LockscreenExitReason.BiometricUnlock -> {
+                exitAnimating = false
+                removeOverlay(reason = "biometric_exit")
+                LockscreenBouncerActivity.finishIfShowing()
+            }
+        }
+    }
+
     /**
-     * Panel has finished sliding off-screen. Hand off to SystemUI and keep Metro suppressed
-     * until the next screen-off — biometric fail/cancel must not bring the fill back.
+     * Keyguard cleared (fingerprint / face / system unlock). Animate the overlay root
+     * fully off-screen (View animation — not Compose), then tear it down.
      *
-     * Always remove the fill first so touches reach SystemUI, then start the trampoline
-     * and retry aggressively — a single BAL-blocked start must not leave a dead lock.
+     * Compose [LockscreenExitController] is intentionally not used here: a started-but-
+     * never-finished Compose exit left [exitAnimating] stuck and Start covered.
+     */
+    private fun beginBiometricExit() {
+        if (overlayRoot == null) {
+            LockscreenBouncerActivity.finishIfShowing()
+            return
+        }
+        if (exitAnimating) return
+        stopUnlockWatcher()
+        // Glance has no swipe chrome — remove immediately.
+        if (overlayMode == LockscreenPresentationMode.Glance) {
+            removeOverlay(reason = "biometric_glance")
+            LockscreenBouncerActivity.finishIfShowing()
+            return
+        }
+        exitAnimating = true
+        Log.i(TAG, "biometric exit: animating overlay root off-screen")
+        animateOverlayRootOffScreen {
+            exitAnimating = false
+            removeOverlay(reason = "biometric_exit")
+            LockscreenBouncerActivity.finishIfShowing()
+        }
+        // Failsafe — never leave Start covered if the animator is cancelled.
+        handler.postDelayed({
+            if (overlayRoot != null && exitAnimating) {
+                Log.w(TAG, "biometric exit timeout — force remove")
+                exitAnimating = false
+                overlayRoot?.animate()?.cancel()
+                removeOverlay(reason = "biometric_timeout")
+                LockscreenBouncerActivity.finishIfShowing()
+            }
+        }, BIOMETRIC_EXIT_TIMEOUT_MS)
+    }
+
+    /**
+     * Slide the accessibility overlay window fully upward, then [onEnd].
+     * Uses the view root so biometric unlock does not depend on Compose being composed.
+     */
+    private fun animateOverlayRootOffScreen(onEnd: () -> Unit) {
+        val root = overlayRoot
+        if (root == null) {
+            onEnd()
+            return
+        }
+        val distance = root.height.takeIf { it > 0 }?.toFloat()
+            ?: resources.displayMetrics.heightPixels.toFloat()
+        root.animate().cancel()
+        root.translationY = 0f
+        root.animate()
+            .translationY(-distance)
+            .setDuration(BIOMETRIC_EXIT_MS)
+            .setInterpolator(android.view.animation.AccelerateInterpolator(1.2f))
+            .withEndAction { handler.post(onEnd) }
+            .start()
+    }
+
+    /**
+     * Panel has finished sliding off-screen. Hand off to SystemUI **lock input** (PIN /
+     * pattern / password bouncer) — not the decorative lock wallpaper — and keep Metro
+     * suppressed until the next screen-off.
+     *
+     * Sequence: accessibility full-height swipe-up on the uncovered SystemUI lock, then
+     * [requestDismissKeyguard] trampoline so a partial gesture cannot leave the user on
+     * the decorative lock screen.
      */
     private fun commitSwipeUnlock() {
         handedOffUntilScreenOff = true
+        exitAnimating = false
         removeOverlay(reason = "swipe_commit")
-        launchBouncerActivity()
-        // Immediate a11y swipe in parallel — covers devices where activity start is delayed.
-        handler.post {
-            if (!LockscreenBouncerActivity.isShowing()) {
-                LockscreenAccessibilityService.getInstance()?.injectSwipeUpToBouncer()
-            }
+
+        if (!LockscreenKeyguard.isLocked(this)) {
+            Log.i(TAG, "already unlocked after swipe — skip lock input")
+            LockscreenBouncerActivity.finishIfShowing()
+            return
         }
+
+        val a11y = LockscreenAccessibilityService.getInstance()
+        val gestured = a11y?.injectSwipeUpToBouncer() == true
+        if (gestured) {
+            Log.i(TAG, "lock input: accessibility swipe-up dispatched")
+            // Let the full stroke finish, then raise lock input if still needed.
+            handler.postDelayed({
+                if (LockscreenKeyguard.isLocked(this@LockscreenHostService)) {
+                    a11y.injectSwipeUpToBouncer()
+                }
+            }, 560L)
+            handler.postDelayed({
+                if (LockscreenKeyguard.isLocked(this@LockscreenHostService)) {
+                    Log.i(TAG, "lock input: dismiss trampoline after gesture")
+                    launchBouncerActivity()
+                }
+            }, 620L)
+            return
+        }
+
+        Log.w(TAG, "lock input: gesture unavailable — dismiss trampoline")
+        launchBouncerActivity()
         handler.postDelayed({
-            if (!LockscreenBouncerActivity.isShowing()) {
-                Log.w(TAG, "Bouncer activity not up — retry + gesture fallback")
-                LockscreenAccessibilityService.getInstance()?.injectSwipeUpToBouncer()
+            if (LockscreenKeyguard.isLocked(this@LockscreenHostService) &&
+                !LockscreenBouncerActivity.isShowing()
+            ) {
                 launchBouncerActivity()
             }
-        }, 180L)
+        }, 400L)
         handler.postDelayed({
-            if (!LockscreenBouncerActivity.isShowing() && LockscreenKeyguard.isLocked(this)) {
-                Log.w(TAG, "Bouncer still missing — final retry")
+            if (LockscreenKeyguard.isLocked(this@LockscreenHostService) &&
+                !LockscreenBouncerActivity.isShowing()
+            ) {
                 launchBouncerActivity()
-                LockscreenAccessibilityService.getInstance()?.injectSwipeUpToBouncer()
             }
-        }, 500L)
+        }, 800L)
     }
 
     private fun launchBouncerActivity() {
@@ -804,6 +920,10 @@ class LockscreenHostService :
         private const val GLANCE_SLEEP_WATCH_IDLE_MS = 500L
         /** Poll while Metro fill is up so biometric unlock does not wait on USER_PRESENT. */
         private const val UNLOCK_WATCH_MS = 16L
+        /** View slide-off duration when keyguard clears under the Metro fill. */
+        private const val BIOMETRIC_EXIT_MS = 280L
+        /** Force-remove if the biometric exit animator never ends. */
+        private const val BIOMETRIC_EXIT_TIMEOUT_MS = 500L
         private val PRESENT_TOKEN = Any()
 
         @Volatile

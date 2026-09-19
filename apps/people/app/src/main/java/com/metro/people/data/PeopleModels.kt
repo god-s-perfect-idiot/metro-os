@@ -15,6 +15,7 @@ data class PersonDetail(
     val summary: PersonSummary,
     val phones: List<ContactMethod>,
     val emails: List<ContactMethod>,
+    val whatsApp: WhatsAppLink? = null,
 )
 
 data class ContactMethod(

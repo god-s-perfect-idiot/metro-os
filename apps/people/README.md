@@ -112,6 +112,7 @@ cd apps/people
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | Social integration surfaces backed by Microsoft/social services | Out of current v1 backend scope | Focus on local contacts first and stub or omit external social feeds with explicit documentation |
+| Skype / social call-chat rows on profile | WhatsApp is the common Android messaging binding | When WhatsApp (or Business) is installed and has synced the contact, show `call WhatsApp` / `text WhatsApp` via ContactsContract data rows (or `wa.me` for text if only a raw-contact sync exists) |
 
 ## Agent postmortem
 
