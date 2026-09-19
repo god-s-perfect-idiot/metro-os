@@ -2,6 +2,7 @@ package com.metro.launcher.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -90,9 +91,9 @@ import kotlin.random.Random
 import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
-import com.metro.ui.MetroPagePivotSwing
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTransitions
+import com.metro.ui.metroPagePivotCameraDistance
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -126,11 +127,27 @@ internal val START_BOTTOM_SCROLL_PADDING = 48.dp
 /** Extra scroll tail while edit mode hides the arrow row. */
 internal val START_EDIT_EXTRA_BOTTOM_PADDING = 32.dp
 /**
- * Delay between successive diagonals on Start enter. Slightly longer than the
- * jump-list step ([MetroTransitions.JumpListFlipStaggerMs]) so the BR→TL wave
- * reads clearly across the larger Start tiles.
+ * Disco `tileListAppTransitionAnim1` — outer shell swing duration
+ * (`calc(.5s * var(--animation-duration-scale))`, scale default 1).
  */
-private const val TileEnterStaggerMs = 55L
+internal const val TileEnterOuterMs = 500
+/**
+ * Disco `innerTileListAppTransitionAnim0` — inner face duration (`.35s`).
+ */
+internal const val TileEnterInnerMs = 350
+/**
+ * Delay between successive BR→TL diagonals on Start enter. Kept as a fixed step
+ * (not normalized into a short window) so each diagonal reads as its own beat.
+ */
+internal const val TileEnterStaggerMs = 55L
+/** Disco compound enter angle: `rotateY(60deg)` + nested `rotateY(10deg)`. */
+private const val TileEnterOuterStartDegrees = 70f
+/** Disco inner face start: `translateX(60px)`. */
+private val TileEnterInnerStartOffset = 60.dp
+/** Disco outer easing: `cubic-bezier(.3, 1, .2, 1)`. */
+private val TileEnterOuterEasing = CubicBezierEasing(0.3f, 1f, 0.2f, 1f)
+/** Disco inner easing: `cubic-bezier(.2, .25, 0.25, 1)`. */
+private val TileEnterInnerEasing = CubicBezierEasing(0.2f, 0.25f, 0.25f, 1f)
 /**
  * Delay between successive diagonals on Start exit. Matches jump-list stagger so
  * the BR→TL weave stays snappy without the old multi-second 85ms gate.
@@ -398,13 +415,20 @@ fun tileEnterMaxDiagonal(placed: List<PlacedTile>): Int {
 }
 
 /**
- * Total time for the Start enter wave: last diagonal's stagger + page-pivot swing duration.
+ * Total time for the Start enter wave: last diagonal stagger + Disco outer shell.
  * Live-tile motion should wait this long before starting.
  */
 fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
-    if (placed.isEmpty()) return MetroTransitions.PagePivotLoadMs.toLong()
-    return tileEnterMaxDiagonal(placed) * TileEnterStaggerMs + MetroTransitions.PagePivotLoadMs
+    if (placed.isEmpty()) return TileEnterOuterMs.toLong()
+    return tileEnterMaxDiagonal(placed) * TileEnterStaggerMs + TileEnterOuterMs
 }
+
+/**
+ * Stagger delay for an enter-wave diagonal — fixed step so BR→TL diagonals
+ * start as separate beats.
+ */
+fun tileEnterStaggerDelayMs(diagonalIndex: Int): Long =
+    diagonalIndex.toLong() * TileEnterStaggerMs
 
 /**
  * Stagger delay for an exit-wave step. [stepIndex] is the BR→TL diagonal (or
@@ -498,7 +522,7 @@ fun TileGrid(
         exitingTileKey = null
     }
 
-    // Unlock / lock-skip path: drop exit pose and let MetroPagePivotSwing snap to rest
+    // Unlock / lock-skip path: drop exit pose and let TilePivotEnter snap to rest
     // (skipEnter + !exiting) without starting a new alpha-0 enter wave.
     LaunchedEffect(restPoseRequestId) {
         if (restPoseRequestId <= 0) return@LaunchedEffect
@@ -816,14 +840,16 @@ fun TileGrid(
                         Modifier
                     }
 
-                    val enterDelayMs = tileEnterDiagonalIndex(
-                        col = placement.col,
-                        row = placement.row,
-                        colSpan = tile.entry.size.colSpan,
-                        rowSpan = tile.entry.size.rowSpan,
-                        maxRight = enterMaxRight,
-                        maxBottom = enterMaxBottom,
-                    ) * TileEnterStaggerMs
+                    val enterDelayMs = tileEnterStaggerDelayMs(
+                        diagonalIndex = tileEnterDiagonalIndex(
+                            col = placement.col,
+                            row = placement.row,
+                            colSpan = tile.entry.size.colSpan,
+                            rowSpan = tile.entry.size.rowSpan,
+                            maxRight = enterMaxRight,
+                            maxBottom = enterMaxBottom,
+                        ),
+                    )
                     val exitDelayMs = if (exitingTileKey == tileKey) {
                         // Tapped tile leaves after every BR→TL diagonal group.
                         tileExitStaggerDelayMs(enterMaxDiagonal + 1)
@@ -839,8 +865,11 @@ fun TileGrid(
                             ),
                         )
                     }
-                    // Layout slot (not finger offset) — page hinge is left of the Start viewport.
-                    val tileLeftInPagePx = horizontalPadPx + with(density) { layoutX.toPx() }
+                    // Disco `--app-animation-distance: -offsetLeft` is relative to the
+                    // tile-list inner container (= our padded grid), not the screen edge.
+                    val tileLeftInGridPx = with(density) { layoutX.toPx() }
+                    // Exit page-hinge still measures from the Start viewport left.
+                    val tileLeftInPagePx = horizontalPadPx + tileLeftInGridPx
 
                     Box(modifier = positionModifier) {
                         TilePivotEnter(
@@ -851,6 +880,7 @@ fun TileGrid(
                             skip = editMode || tileIsDragging,
                             exiting = isExiting,
                             pageWidthPx = pageWidthPx,
+                            tileLeftInGridPx = tileLeftInGridPx,
                             tileLeftInPagePx = tileLeftInPagePx,
                             onExitComplete = if (exitingTileKey == tileKey) {
                                 {
@@ -908,13 +938,14 @@ fun TileGrid(
 }
 
 /**
- * WP8.1 Start enter/exit — [MetroPagePivotSwing] shared page-hinge rotateY + fade (**no** X
- * slide). Enter and exit both stagger BR→TL; exit uses [exitDelayMs] so the tapped tile
- * leaves last. [skip] shows content flat (edit / drag). [consumedKey] skips waves that
- * already ran before Start was disposed (app-list round-trip).
+ * Start enter/exit wrapper.
  *
- * Always wraps [content] in the swing layer so People/Photos bitmaps are not disposed
- * when a wave starts or finishes.
+ * Enter: Disco-style shared hinge at the **tile grid** left
+ * (`transform-origin: -offsetLeft 50%`, offsetLeft within the padded grid) with
+ * `rotateY(70°→0°)` + inner `translateX(60dp→0)`, staggered by BR→TL diagonal.
+ * Layout stays tile-sized so the grid does not shift.
+ *
+ * Exit keeps the shared page-hinge tilt-back. [content] stays mounted across waves.
  */
 @Composable
 private fun TilePivotEnter(
@@ -925,6 +956,9 @@ private fun TilePivotEnter(
     skip: Boolean,
     exiting: Boolean,
     pageWidthPx: Float,
+    /** Distance from padded tile-grid left to this tile — Disco `-offsetLeft`. */
+    tileLeftInGridPx: Float,
+    /** Distance from Start viewport left — used for exit page hinge. */
     tileLeftInPagePx: Float,
     onExitComplete: (() -> Unit)? = null,
     content: @Composable () -> Unit,
@@ -932,26 +966,114 @@ private fun TilePivotEnter(
     var lastPlayedKey by remember { mutableIntStateOf(Int.MIN_VALUE) }
     val skipEnter = skip || playKey <= consumedKey || playKey == lastPlayedKey
     val onExitCompleteState = rememberUpdatedState(onExitComplete)
+    val density = LocalDensity.current
+    val slideStartTxPx = with(density) { TileEnterInnerStartOffset.toPx() }
 
     LaunchedEffect(playKey, skip) {
         if (skip) lastPlayedKey = playKey
     }
 
-    MetroPagePivotSwing(
-        loadKey = playKey,
-        delayMs = when {
-            exiting -> exitDelayMs
-            skipEnter -> 0L
-            else -> delayMs
+    val atRest = exiting || skipEnter
+    val outerRotationY = remember(playKey) {
+        Animatable(if (atRest) 0f else TileEnterOuterStartDegrees)
+    }
+    val slideTranslationX = remember(playKey) {
+        Animatable(if (atRest) 0f else slideStartTxPx)
+    }
+    val alpha = remember(playKey) { Animatable(if (atRest) 1f else 0f) }
+    var exitPose by remember(playKey) { mutableStateOf(false) }
+
+    LaunchedEffect(playKey, exiting, delayMs, exitDelayMs, skipEnter, slideStartTxPx) {
+        if (skipEnter && !exiting) {
+            outerRotationY.snapTo(0f)
+            slideTranslationX.snapTo(0f)
+            alpha.snapTo(1f)
+            exitPose = false
+            return@LaunchedEffect
+        }
+        if (exiting) {
+            outerRotationY.snapTo(0f)
+            slideTranslationX.snapTo(0f)
+            alpha.snapTo(1f)
+            exitPose = true
+            if (exitDelayMs > 0L) delay(exitDelayMs)
+            coroutineScope {
+                launch { alpha.animateTo(0f, MetroTransitions.pagePivotExitTween()) }
+                launch {
+                    outerRotationY.animateTo(
+                        MetroTransitions.PagePivotExitEndDegrees,
+                        MetroTransitions.pagePivotExitTween(),
+                    )
+                }
+            }
+            onExitCompleteState.value?.invoke()
+        } else {
+            exitPose = false
+            outerRotationY.snapTo(TileEnterOuterStartDegrees)
+            slideTranslationX.snapTo(slideStartTxPx)
+            alpha.snapTo(0f)
+            if (delayMs > 0L) delay(delayMs)
+            alpha.snapTo(1f)
+            coroutineScope {
+                launch {
+                    outerRotationY.animateTo(
+                        0f,
+                        tween(TileEnterOuterMs, easing = TileEnterOuterEasing),
+                    )
+                }
+                launch {
+                    slideTranslationX.animateTo(
+                        0f,
+                        tween(TileEnterInnerMs, easing = TileEnterInnerEasing),
+                    )
+                }
+            }
+            lastPlayedKey = playKey
+        }
+    }
+
+    Box(
+        modifier = Modifier.graphicsLayer {
+            this.rotationY = outerRotationY.value
+            this.alpha = alpha.value
+            val layerWidth = size.width.coerceAtLeast(1f)
+            if (exitPose) {
+                val exitHingePageX =
+                    MetroTransitions.PagePivotExitOriginX * pageWidthPx.coerceAtLeast(1f)
+                transformOrigin = TransformOrigin(
+                    pivotFractionX = (exitHingePageX - tileLeftInPagePx) / layerWidth,
+                    pivotFractionY = 0.5f,
+                )
+                cameraDistance = metroPagePivotCameraDistance(
+                    widthPx = pageWidthPx,
+                    widthFactor = MetroTransitions.PagePivotExitCameraWidthFactor,
+                )
+            } else {
+                // Disco: `transform-origin: -offsetLeft 50%` — shared hinge on the
+                // padded tile-grid's left edge (not each tile's own left).
+                transformOrigin = TransformOrigin(
+                    pivotFractionX = -tileLeftInGridPx / layerWidth,
+                    pivotFractionY = 0.5f,
+                )
+                cameraDistance = metroPagePivotCameraDistance(
+                    widthPx = pageWidthPx,
+                    widthFactor = MetroTransitions.PagePivotSwingCameraWidthFactor,
+                )
+            }
+            clip = false
         },
-        exiting = exiting,
-        skipEnter = skipEnter,
-        cameraWidthPx = pageWidthPx,
-        hingeInsetPx = tileLeftInPagePx,
-        onEnterComplete = { lastPlayedKey = playKey },
-        onExitComplete = { onExitCompleteState.value?.invoke() },
-        content = content,
-    )
+    ) {
+        Box(
+            modifier = Modifier.graphicsLayer {
+                if (!exitPose) {
+                    translationX = slideTranslationX.value
+                }
+                clip = false
+            },
+        ) {
+            content()
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

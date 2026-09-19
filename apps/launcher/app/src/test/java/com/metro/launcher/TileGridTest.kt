@@ -323,13 +323,21 @@ class TileGridTest {
     }
 
     @Test
-    fun tileEnterWaveDuration_includesLastDiagonalAndSwing() {
+    fun tileEnterWaveDuration_includesLastDiagonalAndOuterSwing() {
         val placed = listOf(
             PlacedTile(displayTile("br", PinnedTileSize.OneByOne, col = 1, row = 1), 1, 1),
             PlacedTile(displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0), 0, 0),
         )
-        // Bottom-right diagonal 0; top-left diagonal 2 → 2×55 + 200
-        assertEquals(2L * 55L + 200L, tileEnterWaveDurationMs(placed))
+        // Bottom-right diagonal 0; top-left diagonal 2 → 2×55 + 500
+        assertEquals(2L * TileEnterStaggerMs + TileEnterOuterMs, tileEnterWaveDurationMs(placed))
+        assertEquals(TileEnterOuterMs.toLong(), tileEnterWaveDurationMs(emptyList()))
+    }
+
+    @Test
+    fun tileEnterStaggerDelay_isPerDiagonalStep() {
+        assertEquals(0L, tileEnterStaggerDelayMs(0))
+        assertEquals(TileEnterStaggerMs, tileEnterStaggerDelayMs(1))
+        assertEquals(2L * TileEnterStaggerMs, tileEnterStaggerDelayMs(2))
     }
 
     @Test
