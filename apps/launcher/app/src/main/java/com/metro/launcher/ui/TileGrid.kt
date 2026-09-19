@@ -83,6 +83,7 @@ import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.hasActiveCustomWidget
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
@@ -1416,7 +1417,9 @@ private fun LauncherTileCell(
                             )
                         }
                     }
-                    var peekIndex by remember(peekFaces) { mutableIntStateOf(0) }
+                    // Keep index across peek-queue refreshes (new WhatsApp messages, etc.)
+                    // so a live update does not remount flip state or jump the cycle.
+                    var peekIndex by remember(floatSeed) { mutableIntStateOf(0) }
                     LiveTileFlipFace(
                         flipSeed = floatSeed,
                         faceColor = tile.backgroundColor,
@@ -1441,7 +1444,9 @@ private fun LauncherTileCell(
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
-                                val peek = peekFaces.getOrNull(peekIndex.coerceIn(0, (peekFaces.size - 1).coerceAtLeast(0)))
+                                val peek = peekFaces.getOrNull(
+                                    peekIndex.mod(peekFaces.size.coerceAtLeast(1)),
+                                )
                                 NotificationPeekTileContent(
                                     title = peek?.title ?: tile.backFaceTitle,
                                     subtitle = peek?.subtitle ?: tile.backFaceSubtitle,
@@ -2104,6 +2109,10 @@ private fun NotificationPeekTileContent(
  * shows the next peek in order (WP8.1 multi-notification cycle). [onAdvanceBackFace] is
  * invoked after returning to the front so the next flip uses the following peek.
  *
+ * [backFaceCount] must not be a [LaunchedEffect] key — a live notification refresh (e.g. a new
+ * WhatsApp message) changes the peek queue size and would cancel mid-flip, leaving [rotation]
+ * stuck edge-on through the next stagger + hold (seconds to a long freeze under rapid updates).
+ *
  * When [edgeToEdge] is true (contact photo ↔ icon), the front fills the tile; inset is applied
  * only on the back face so the icon/title layout matches a normal Start tile.
  */
@@ -2125,15 +2134,23 @@ private fun LiveTileFlipFace(
     val density = LocalDensity.current.density
     val rotation = remember { Animatable(0f) }
     var showingBack by remember { mutableStateOf(false) }
-    var backIndex by remember(flipSeed, backFaceCount) { mutableIntStateOf(0) }
+    var backIndex by remember(flipSeed) { mutableIntStateOf(0) }
     val onAdvanceState = rememberUpdatedState(onAdvanceBackFace)
+    val backFaceCountState = rememberUpdatedState(backFaceCount)
 
-    LaunchedEffect(flipSeed, enabled, backFaceCount) {
+    // Keys: flipSeed + enabled only. Peek-queue size changes must not restart this loop.
+    LaunchedEffect(flipSeed, enabled) {
         if (!enabled) {
             rotation.snapTo(0f)
             showingBack = false
             backIndex = 0
             return@LaunchedEffect
+        }
+        // If a prior effect was cancelled mid-animate (enabled toggle), never sit edge-on
+        // through stagger + hold — snap flat first.
+        if (abs(rotation.value) > 0.01f) {
+            rotation.snapTo(0f)
+            showingBack = false
         }
         val rng = Random(flipSeed)
         delay(rng.nextLong(0L, TILE_FLIP_STAGGER_MAX_MS + 1))
@@ -2148,8 +2165,9 @@ private fun LiveTileFlipFace(
                 rotation.snapTo(90f)
                 rotation.animateTo(0f, animationSpec = TileFlipSettleAnimation)
                 // After each peek, advance so the next flip shows the following notification.
-                if (backFaceCount > 1) {
-                    backIndex = (backIndex + 1) % backFaceCount
+                val count = backFaceCountState.value.coerceAtLeast(1)
+                if (count > 1) {
+                    backIndex = (backIndex + 1) % count
                     onAdvanceState.value(backIndex)
                 }
             } else {
