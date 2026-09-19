@@ -42,6 +42,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.metro.system.MetroLockscreen
+import com.metro.system.MetroNavBar
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroSystemTheme
 /**
@@ -424,8 +425,9 @@ class LockscreenHostService :
             overlayMode = mode
             // Keep Compose effects (clock ticks, etc.) running while the fill is visible.
             lifecycleRegistry.currentState = Lifecycle.State.RESUMED
-            // Lock draws its own transparent tray; hide the opaque system Metro tray.
+            // Lock draws its own transparent tray; hide opaque Metro shell chrome.
             MetroStatusBar.requestFullscreen(this, fullscreen = true)
+            MetroNavBar.requestFullscreen(this, fullscreen = true)
             Log.i(TAG, "Lock overlay attached ($mode)")
             startUnlockWatcher()
         } catch (t: Throwable) {
@@ -496,6 +498,7 @@ class LockscreenHostService :
             runCatching { manager.removeView(root) }
                 .onFailure { Log.w(TAG, "removeView failed", it) }
             MetroStatusBar.requestFullscreen(this, fullscreen = false)
+            MetroNavBar.requestFullscreen(this, fullscreen = false)
         }
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
             lifecycleRegistry.currentState = Lifecycle.State.STARTED

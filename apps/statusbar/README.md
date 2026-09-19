@@ -15,19 +15,22 @@ use `WifiManager` RSSI (`0..3` bands, icon hidden when disconnected). When ringe
 (`STREAM_RING`) is 0, a mute glyph (speaker + X) appears after Wi-Fi and joins the expand/collapse
 stagger.
 
-The setup screen’s **Show status bar** master toggle starts and stops the overlay. **Statusbar
-background** (`MetroListPicker`) chooses **Default black background** (solid black tray; default),
-**Match app background** (Metro suite apps stay black; other apps use the launcher icon’s
-tile brand color — adaptive background — with glyphs flipped for contrast), or **Show accent color** (always the
-system accent). **Hide icons
-after** (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never**
-(stay expanded; WP default 5s). **Notch position** (`MetroListPicker`) chooses Center / Left / Right — Center keeps the default
-tray insets; Left/Right add side clearance so icons clear a corner punch-hole. On device rotate the tray
-slides out and back in from the new top of the screen. Boot auto-starts only
-when that toggle is on and permissions are granted. Per-app tray styling goes through `MetroStatusBar`
-in `metro-system-sdk`.
+The setup screen follows the lock-screen pattern: title **customisation**, then master toggle and
+ListPickers, then a live **preview**, then an accent **permissions** section. **Show status bar**
+starts and stops the overlay. **Statusbar background** (`MetroListPicker`) chooses **Default black
+background** (solid black tray; default), **Match app background** (Metro suite apps stay black;
+other apps use the launcher icon’s tile brand color — adaptive background — with glyphs flipped for
+contrast), or **Show accent color** (always the system accent). **Hide icons after**
+(`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never** (stay
+expanded; WP default 5s). **Notch position** (`MetroListPicker`) chooses Center / Left / Right —
+Center keeps the default tray insets; Left/Right add side clearance so icons clear a corner
+punch-hole. On device rotate the tray slides out and back in from the new top of the screen. Boot
+auto-starts only when that toggle is on and permissions are granted. Per-app tray styling goes
+through `MetroStatusBar` in `metro-system-sdk`.
 
 ### Permissions required
+
+Granted from the setup **permissions** section:
 
 1. **Display over other apps** (`SYSTEM_ALERT_WINDOW`) — granted from `MainActivity`.
 2. **Accessibility service** (`StatusBarAccessibilityService`) — enabled from `MainActivity` →

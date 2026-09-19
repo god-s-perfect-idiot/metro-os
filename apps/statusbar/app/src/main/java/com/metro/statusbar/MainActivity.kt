@@ -43,6 +43,7 @@ import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroDimens
 import com.metro.ui.MetroListPicker
 import com.metro.ui.MetroListPickerOption
 import com.metro.ui.MetroText
@@ -121,201 +122,226 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
                 ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .navigationBarsPadding()
-                        .metroNavBarPadding()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.Top,
-                ) {
-                    MetroAppTitle(title = stringResource(R.string.app_name))
-                    MetroText(
-                        text = stringResource(R.string.setup_title),
-                        style = MetroTextStyle.PivotTab,
+                    Column(
                         modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .padding(bottom = 12.dp),
-                    )
-                    MetroText(
-                        text = stringResource(R.string.permission_overlay_body),
-                        style = MetroTextStyle.DialogBody,
-                        modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 16.dp),
-                    )
-                    MetroBorderButton(
-                        text = stringResource(R.string.grant_overlay),
-                        enabled = !overlayGranted,
-                        onClick = {
-                            startActivity(
-                                Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    Uri.parse("package:$packageName"),
-                                ),
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    MetroBorderButton(
-                        text = stringResource(R.string.grant_phone_state),
-                        enabled = !phoneStateGranted,
-                        onClick = {
-                            phoneStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    MetroBorderButton(
-                        text = stringResource(R.string.grant_accessibility),
-                        enabled = !accessibilityEnabled,
-                        onClick = {
-                            startActivity(
-                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                },
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        fontSize = 15.sp,
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    MetroToggleSwitch(
-                        checked = trayEnabled,
-                        onCheckedChange = { enabled ->
-                            StatusBarOverlayService.applyMasterToggle(context, enabled)
-                            trayEnabled = trayPrefs.enabled
-                        },
-                        enabled = canToggleTray || trayEnabled,
-                        label = stringResource(R.string.show_status_tray),
-                        labelStyle = MetroTextStyle.DialogBody,
-                        statusStyle = MetroTextStyle.Body,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                    )
-                    if (!canToggleTray && !trayEnabled) {
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .metroNavBarPadding(),
+                        verticalArrangement = Arrangement.Top,
+                    ) {
+                        MetroAppTitle(title = stringResource(R.string.app_name))
                         MetroText(
-                            text = stringResource(R.string.show_status_tray_hint),
-                            style = MetroTextStyle.DialogBody,
-                            color = MetroTheme.colors.secondaryText,
+                            text = stringResource(R.string.setup_title),
+                            style = MetroTextStyle.PivotTab,
                             modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .padding(top = 8.dp),
+                                .padding(start = MetroDimens.ScreenHorizontalMargin)
+                                .padding(bottom = 12.dp),
                         )
+
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.Top,
+                        ) {
+                            MetroToggleSwitch(
+                                checked = trayEnabled,
+                                onCheckedChange = { enabled ->
+                                    StatusBarOverlayService.applyMasterToggle(context, enabled)
+                                    trayEnabled = trayPrefs.enabled
+                                },
+                                enabled = canToggleTray || trayEnabled,
+                                label = stringResource(R.string.show_status_tray),
+                                labelStyle = MetroTextStyle.DialogBody,
+                                statusStyle = MetroTextStyle.Body,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                            )
+                            if (!canToggleTray && !trayEnabled) {
+                                MetroText(
+                                    text = stringResource(R.string.show_status_tray_hint),
+                                    style = MetroTextStyle.DialogBody,
+                                    color = MetroTheme.colors.secondaryText,
+                                    modifier = Modifier
+                                        .padding(horizontal = 12.dp)
+                                        .padding(top = 8.dp),
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+                            MetroListPicker(
+                                selected = backgroundMode,
+                                options = listOf(
+                                    MetroListPickerOption(
+                                        StatusBarBackgroundMode.DefaultBlackBackground,
+                                        stringResource(R.string.statusbar_background_default_black),
+                                    ),
+                                    MetroListPickerOption(
+                                        StatusBarBackgroundMode.MatchAppBackground,
+                                        stringResource(R.string.statusbar_background_match_app),
+                                    ),
+                                    MetroListPickerOption(
+                                        StatusBarBackgroundMode.ShowAccentColor,
+                                        stringResource(R.string.statusbar_background_show_accent),
+                                    ),
+                                ),
+                                onSelectedChange = { mode ->
+                                    trayPrefs.backgroundMode = mode
+                                    backgroundMode = trayPrefs.backgroundMode
+                                    state.applyBackgroundModePreference()
+                                    StatusBarOverlayService.requestBackgroundModeRefresh()
+                                },
+                                label = stringResource(R.string.statusbar_background_label),
+                                labelStyle = MetroTextStyle.DialogBody,
+                                optionStyle = MetroTextStyle.DialogBody,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+                            MetroListPicker(
+                                selected = iconHideTimeoutMs,
+                                options = listOf(
+                                    MetroListPickerOption(
+                                        StatusTrayPreferences.TIMEOUT_3S_MS,
+                                        stringResource(R.string.icon_hide_timeout_3s),
+                                    ),
+                                    MetroListPickerOption(
+                                        StatusTrayPreferences.TIMEOUT_5S_MS,
+                                        stringResource(R.string.icon_hide_timeout_5s),
+                                    ),
+                                    MetroListPickerOption(
+                                        StatusTrayPreferences.TIMEOUT_10S_MS,
+                                        stringResource(R.string.icon_hide_timeout_10s),
+                                    ),
+                                    MetroListPickerOption(
+                                        StatusTrayPreferences.TIMEOUT_NEVER_MS,
+                                        stringResource(R.string.icon_hide_timeout_never),
+                                    ),
+                                ),
+                                onSelectedChange = { timeoutMs ->
+                                    trayPrefs.iconHideTimeoutMs = timeoutMs
+                                    iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
+                                    StatusBarOverlayService.requestIconHideTimeoutRefresh()
+                                },
+                                label = stringResource(R.string.icon_hide_timeout_label),
+                                labelStyle = MetroTextStyle.DialogBody,
+                                optionStyle = MetroTextStyle.DialogBody,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+                            MetroListPicker(
+                                selected = notchPosition,
+                                options = listOf(
+                                    MetroListPickerOption(
+                                        NotchPosition.Center,
+                                        stringResource(R.string.notch_position_center),
+                                    ),
+                                    MetroListPickerOption(
+                                        NotchPosition.Left,
+                                        stringResource(R.string.notch_position_left),
+                                    ),
+                                    MetroListPickerOption(
+                                        NotchPosition.Right,
+                                        stringResource(R.string.notch_position_right),
+                                    ),
+                                ),
+                                onSelectedChange = { position ->
+                                    trayPrefs.notchPosition = position
+                                    notchPosition = trayPrefs.notchPosition
+                                    StatusBarOverlayService.requestRehost()
+                                },
+                                label = stringResource(R.string.notch_position_label),
+                                labelStyle = MetroTextStyle.DialogBody,
+                                optionStyle = MetroTextStyle.DialogBody,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                            )
+
+                            Spacer(modifier = Modifier.height(28.dp))
+                            MetroText(
+                                text = stringResource(R.string.preview_section),
+                                style = MetroTextStyle.SectionHeader,
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = 8.dp),
+                            )
+                            val previewPadding = TraySpec.horizontalPaddingDp(notchPosition)
+                            StatusTray(
+                                snapshot = state.snapshot,
+                                onTrayTap = { state.toggleExpanded() },
+                                leftPaddingDp = previewPadding.left,
+                                rightPaddingDp = previewPadding.right,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp),
+                            )
+
+                            Spacer(modifier = Modifier.height(28.dp))
+                            MetroText(
+                                text = stringResource(R.string.permissions_section),
+                                style = MetroTextStyle.SectionHeader,
+                                color = MetroTheme.colors.accent,
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = 8.dp),
+                            )
+                            MetroText(
+                                text = stringResource(R.string.setup_body),
+                                style = MetroTextStyle.DialogBody,
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = 16.dp),
+                            )
+                            MetroBorderButton(
+                                text = stringResource(R.string.grant_overlay),
+                                enabled = !overlayGranted,
+                                onClick = {
+                                    startActivity(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:$packageName"),
+                                        ),
+                                    )
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                fontSize = 15.sp,
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            MetroBorderButton(
+                                text = stringResource(R.string.grant_accessibility),
+                                enabled = !accessibilityEnabled,
+                                onClick = {
+                                    startActivity(
+                                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        },
+                                    )
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                fontSize = 15.sp,
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            MetroBorderButton(
+                                text = stringResource(R.string.grant_phone_state),
+                                enabled = !phoneStateGranted,
+                                onClick = {
+                                    phoneStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                fontSize = 15.sp,
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    MetroListPicker(
-                        selected = backgroundMode,
-                        options = listOf(
-                            MetroListPickerOption(
-                                StatusBarBackgroundMode.DefaultBlackBackground,
-                                stringResource(R.string.statusbar_background_default_black),
-                            ),
-                            MetroListPickerOption(
-                                StatusBarBackgroundMode.MatchAppBackground,
-                                stringResource(R.string.statusbar_background_match_app),
-                            ),
-                            MetroListPickerOption(
-                                StatusBarBackgroundMode.ShowAccentColor,
-                                stringResource(R.string.statusbar_background_show_accent),
-                            ),
-                        ),
-                        onSelectedChange = { mode ->
-                            trayPrefs.backgroundMode = mode
-                            backgroundMode = trayPrefs.backgroundMode
-                            state.applyBackgroundModePreference()
-                            StatusBarOverlayService.requestBackgroundModeRefresh()
-                        },
-                        label = stringResource(R.string.statusbar_background_label),
-                        labelStyle = MetroTextStyle.DialogBody,
-                        optionStyle = MetroTextStyle.DialogBody,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    MetroListPicker(
-                        selected = iconHideTimeoutMs,
-                        options = listOf(
-                            MetroListPickerOption(
-                                StatusTrayPreferences.TIMEOUT_3S_MS,
-                                stringResource(R.string.icon_hide_timeout_3s),
-                            ),
-                            MetroListPickerOption(
-                                StatusTrayPreferences.TIMEOUT_5S_MS,
-                                stringResource(R.string.icon_hide_timeout_5s),
-                            ),
-                            MetroListPickerOption(
-                                StatusTrayPreferences.TIMEOUT_10S_MS,
-                                stringResource(R.string.icon_hide_timeout_10s),
-                            ),
-                            MetroListPickerOption(
-                                StatusTrayPreferences.TIMEOUT_NEVER_MS,
-                                stringResource(R.string.icon_hide_timeout_never),
-                            ),
-                        ),
-                        onSelectedChange = { timeoutMs ->
-                            trayPrefs.iconHideTimeoutMs = timeoutMs
-                            iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
-                            StatusBarOverlayService.requestIconHideTimeoutRefresh()
-                        },
-                        label = stringResource(R.string.icon_hide_timeout_label),
-                        labelStyle = MetroTextStyle.DialogBody,
-                        optionStyle = MetroTextStyle.DialogBody,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    MetroListPicker(
-                        selected = notchPosition,
-                        options = listOf(
-                            MetroListPickerOption(
-                                NotchPosition.Center,
-                                stringResource(R.string.notch_position_center),
-                            ),
-                            MetroListPickerOption(
-                                NotchPosition.Left,
-                                stringResource(R.string.notch_position_left),
-                            ),
-                            MetroListPickerOption(
-                                NotchPosition.Right,
-                                stringResource(R.string.notch_position_right),
-                            ),
-                        ),
-                        onSelectedChange = { position ->
-                            trayPrefs.notchPosition = position
-                            notchPosition = trayPrefs.notchPosition
-                            StatusBarOverlayService.requestRehost()
-                        },
-                        label = stringResource(R.string.notch_position_label),
-                        labelStyle = MetroTextStyle.DialogBody,
-                        optionStyle = MetroTextStyle.DialogBody,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    MetroText(
-                        text = "Preview",
-                        style = MetroTextStyle.SectionHeader,
-                        modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp),
-                    )
-                    val previewPadding = TraySpec.horizontalPaddingDp(notchPosition)
-                    StatusTray(
-                        snapshot = state.snapshot,
-                        onTrayTap = { state.toggleExpanded() },
-                        leftPaddingDp = previewPadding.left,
-                        rightPaddingDp = previewPadding.right,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
                 }
             }
         }

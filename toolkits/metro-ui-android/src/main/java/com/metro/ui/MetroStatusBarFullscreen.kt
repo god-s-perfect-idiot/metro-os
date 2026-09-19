@@ -11,14 +11,16 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.metro.system.MetroNavBar
 import com.metro.system.MetroStatusBar
 
 /**
- * While [active], hides the Metro system tray and the Android status bars — WP8.1 fullscreen
- * chrome (photo viewer, in-call, immersive media). Restores both on dispose / when [active]
- * becomes false.
+ * While [active], hides the Metro system tray, Metro soft keys, and Android system bars —
+ * WP8.1 fullscreen chrome (photo viewer, in-call, immersive media). Restores both on dispose /
+ * when [active] becomes false.
  *
- * Talks to the tray via [MetroStatusBar.requestFullscreen]; never import the statusbar app.
+ * Talks to the shell via [MetroStatusBar.requestFullscreen] and [MetroNavBar.requestFullscreen];
+ * never import the statusbar or navbar apps.
  */
 @Composable
 fun MetroStatusBarFullscreenEffect(active: Boolean) {
@@ -31,14 +33,16 @@ fun MetroStatusBarFullscreenEffect(active: Boolean) {
         }
 
         MetroStatusBar.requestFullscreen(context, fullscreen = true)
+        MetroNavBar.requestFullscreen(context, fullscreen = true)
         val controller = insetsController(context, view)
-        controller?.hide(WindowInsetsCompat.Type.statusBars())
+        controller?.hide(WindowInsetsCompat.Type.systemBars())
         controller?.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
         onDispose {
             MetroStatusBar.requestFullscreen(context, fullscreen = false)
-            controller?.show(WindowInsetsCompat.Type.statusBars())
+            MetroNavBar.requestFullscreen(context, fullscreen = false)
+            controller?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 }

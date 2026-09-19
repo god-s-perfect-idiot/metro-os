@@ -9,6 +9,11 @@
         <package android:name="com.metro.launcher" />
         <package android:name="com.google.android.googlequicksearchbox" />
         <package android:name="com.google.android.apps.bard" />
+        <!-- API 30+: see launcher apps so match-app bar fill can read icon brand colors. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <intent>
             <action android:name="android.search.action.GLOBAL_SEARCH" />
         </intent>
@@ -72,6 +77,8 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.metro.system.NAVBAR_QUERY" />
+                <action android:name="com.metro.navbar.action.REFRESH" />
+                <action android:name="com.metro.navbar.action.SET_VISIBILITY" />
             </intent-filter>
         </receiver>
     </application>

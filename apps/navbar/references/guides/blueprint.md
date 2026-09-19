@@ -11,8 +11,9 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Layout: full-width bottom strip, **48dp** tall, theme-colored background
 - Keys left → center → right: **Back** (chevron), **Start** (four-pane Windows logo), **Search** (magnifier)
 - Icons monochrome: white on dark bar, black on light bar; no circular outlines on soft keys
-- Background from `MetroPreferences.nav_bar_color` or accent fallback
+- Background from setup **Navbar background** ListPicker (default black / match app / accent)
 - Navigation: overlay service draws above all apps; setup activity grants overlay + accessibility permissions
+- Immersive / fullscreen: hide via `MetroNavBar.requestFullscreen` or when Android navigation bars are hidden; rotate slides the bar out and back in from the new bottom
 
 ### Page 2 — Hidden bar (swipe reveal)
 

@@ -2,6 +2,7 @@ package com.metro.navbar.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -20,9 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.metro.navbar.NavbarSpec
 import com.metro.navbar.NavbarThemeSnapshot
 import com.metro.navbar.R
+import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroSystemIcon
 import com.metro.ui.MetroSystemIconType
 
@@ -72,7 +75,12 @@ fun NavigationBar(
       contentDescription = stringResource(R.string.key_start),
       onClick = onStart,
     ) {
-      WindowsLogoIcon(color = theme.iconColor)
+      Image(
+        painter = painterResource(MetroAppGlyphs.Launcher),
+        contentDescription = null,
+        modifier = Modifier.size(NavbarSpec.START_KEY_ICON_SIZE_DP.dp),
+        colorFilter = ColorFilter.tint(theme.iconColor),
+      )
     }
     NavKey(
       modifier = Modifier.weight(1f),
@@ -162,26 +170,5 @@ private fun NavKey(
     contentAlignment = Alignment.Center,
   ) {
     content()
-  }
-}
-
-/** WP8.1 four-pane Windows logo for the Start key. */
-@Composable
-private fun WindowsLogoIcon(
-  color: Color,
-  modifier: Modifier = Modifier,
-) {
-  Canvas(modifier = modifier.size(NavbarSpec.START_KEY_ICON_SIZE_DP.dp)) {
-    val gap = size.minDimension * 0.08f
-    val pane = (size.minDimension - gap * 3f) / 2f
-    val offsets = listOf(
-      Offset(0f, 0f),
-      Offset(pane + gap, 0f),
-      Offset(0f, pane + gap),
-      Offset(pane + gap, pane + gap),
-    )
-    offsets.forEach { topLeft ->
-      drawRect(color = color, topLeft = topLeft, size = Size(pane, pane))
-    }
   }
 }

@@ -15,6 +15,12 @@ object NavbarActions {
       }
     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
     context.startActivity(launchIntent)
+    // Match-app fill: paint Start black immediately. Window probes often still report the
+    // previous app for a beat after CLEAR_TOP and would otherwise keep the old brand color.
+    NavbarOverlayService.onForegroundPackageChanged(
+      NavbarSpec.LAUNCHER_PACKAGE,
+      authoritative = true,
+    )
     // WP tray briefly reveals indicators when returning to Start.
     MetroStatusBar.requestExpand(context)
   }

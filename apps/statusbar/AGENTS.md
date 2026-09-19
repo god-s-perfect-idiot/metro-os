@@ -21,6 +21,7 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 | Collapsed tray | Clock only, right-aligned | `references/images/collapsed_dark.png` |
 | Expanded tray | All indicators then collapse (default 5s; 3/5/10s/never from setup) | `references/images/expanded_dark.png` |
 | Progress state | Accent spinner in tray | `references/images/progress_dark.png` |
+| Setup | `customisation` then accent **permissions** (same order as lockscreen) | `blueprint.md` § Page 4 |
 
 ## WP8.1 rules
 

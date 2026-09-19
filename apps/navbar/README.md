@@ -5,7 +5,30 @@
 
 ## Status
 
-**Scaffolded** — overlay service, WP8.1 three-key navigation bar UI, theme/back/start/search wiring, swipe hide/reveal. Requires overlay + accessibility permissions on device.
+**Implemented** — overlay service, WP8.1 three-key navigation bar UI, theme/background modes,
+fullscreen hide, rotation creep, back/start/search wiring, swipe hide/reveal. Requires overlay +
+accessibility permissions on device and Android **3-button** navigation.
+
+The setup screen’s **Navigation bar** master toggle starts and stops the overlay. **Navbar
+background** (`MetroListPicker`) chooses **Default black background** (solid black bar; default),
+**Match app background** (Metro suite apps stay black; other apps use the launcher icon’s tile
+brand color — adaptive background — with glyphs flipped for contrast), or **Show accent color**
+(always the system accent from Settings). On device rotate the bar slides out and back in from the
+new bottom of the screen.
+
+### Inter-app contract (`metro-system-sdk`)
+
+Other Metro apps drive the bar through `com.metro.system.MetroNavBar` — no classpath dependency on
+this app:
+
+```kotlin
+MetroNavBar.requestFullscreen(context, fullscreen = true)  // hide for fullscreen surfaces
+MetroNavBar.requestVisibility(context, MetroNavBar.MODE_HIDDEN)
+MetroNavBar.requestRefresh(context)                        // re-read theme / background mode
+```
+
+Fullscreen Compose surfaces should call `MetroStatusBarFullscreenEffect(active = true)` from
+`metro-ui-android` (hides Metro tray + soft keys + Android system bars; restores on dispose).
 
 ## App role
 
@@ -54,10 +77,16 @@ The navbar must feel like Windows Phone navigation chrome, not Android gesture n
 - Start always returns to `com.metro.launcher`
 - This should work as a shell action rather than merely launching a random activity
 
-### Theme behavior
+### Theme / background behavior
 
-- Source bar color from `MetroPreferences.nav_bar_color` or theme fallback
+- Setup ListPicker: default black / match app / show accent
+- Show-accent mode reads `MetroPreferences.accent_color` (suite accent), not a separate nav override
 - Observe `THEME_CHANGED` and redraw quickly
+
+### Fullscreen / rotation
+
+- Contract `MODE_HIDDEN` or immersive navigation-bar hide creeps the bar off-screen
+- Device rotate: slide out, then slide in from the new bottom (same creep tween as app bar)
 
 ### Android implementation seam
 
@@ -78,7 +107,7 @@ The navbar must feel like Windows Phone navigation chrome, not Android gesture n
 
 ## Data and state model
 
-- Persist user-selected nav bar color if supported by Settings
+- Persist user-selected background mode in app-local prefs
 - Maintain current visibility mode, theme snapshot, and latest foreground app state if needed
 - Do not let app-local code own global navbar state
 - Require Android **3-button** system navigation before enabling the overlay; auto-disable (and clear `navBarEnabled`) if the user switches to gesture / 2-button navigation
@@ -101,6 +130,7 @@ The navbar must feel like Windows Phone navigation chrome, not Android gesture n
 4. Long-press Back opens recent apps; long-press Search opens Gemini
 5. Theme/nav color changes update the bar immediately
 6. Swipe hide/reveal works or gracefully no-ops on unsupported profiles with documented exception
+7. Fullscreen / immersive hide creeps the bar away; rotate slides out and back in
 
 ## Reference and golden expectations
 
@@ -136,6 +166,7 @@ cd apps/navbar
 | Soft keys always present as OS chrome | Android gesture / edge-to-edge navigation conflicts with a 48dp overlay and cuts off app content | Metro navbar activates only when system navigation is **3-button**; gesture / 2-button modes keep the overlay disabled and `navBarEnabled=false` so apps keep full height |
 | System-level navbar injection behaves like OS chrome everywhere | Android implementations vary by OEM, permissions, and overlay capability | Ship the closest consistent shell overlay/accessibility implementation and document unsupported device classes |
 | Cortana / Bing search | No Cortana on Android | Tap Search opens Google Search; long press opens Gemini |
+| Fullscreen apps hide soft keys | Accessibility overlay would stay above immersive content | Apps call `MetroStatusBarFullscreenEffect` / `MetroNavBar.requestFullscreen`; shell also creeps away when `WindowInsets` reports navigation bars hidden (API 30+) |
 
 ## Agent postmortem
 

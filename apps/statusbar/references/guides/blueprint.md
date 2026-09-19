@@ -25,6 +25,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Layout: collapsed or expanded tray with accent indeterminate spinner left of clock row
 - Interactions: shell or app requests progress via service intent; clears when operation completes
 
+### Page 4 — Setup
+
+- **Layout:** Fixed `STATUS BAR` app overline + pivot title `customisation` (do not scroll). Scrollable body: master **Show status bar** toggle + **Statusbar background** / **Hide icons after** / **Notch position** ListPickers + **preview** tray + accent **permissions** section with body copy and overlay / accessibility / phone-state grants.
+- **Navigation:** Launcher → Status Bar app.
+- **Interactions:** Grant overlay + enable accessibility, then master toggle starts/stops the overlay FGS. Boot respects the same flag. Phone-state permission is optional (enables the mobile network label).
+
 ## System behavior
 
 | Signal | Behavior |
