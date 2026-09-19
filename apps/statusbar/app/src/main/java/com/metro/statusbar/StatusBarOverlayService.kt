@@ -6,18 +6,23 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
+import android.view.Display
 import android.view.Gravity
 import android.view.RoundedCorner
+import android.view.Surface
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
@@ -61,8 +66,11 @@ class StatusBarOverlayService :
     /** Cutout / corner / notch chrome padding. */
     private var leftPaddingDp by mutableStateOf(TraySpec.START_PADDING_DP)
     private var rightPaddingDp by mutableStateOf(TraySpec.END_PADDING_DP)
+    /** Covers the system status-bar inset (incl. notch); reactive for rotation. */
+    private var barHeightDp by mutableIntStateOf(TraySpec.TRAY_HEIGHT_DP)
     /** True while Android privacy dots sit near the clock — StatusTray animates a small nudge. */
     private var privacyDotsNearClock by mutableStateOf(false)
+    private var displayRotation by mutableIntStateOf(Surface.ROTATION_0)
     // Lazily created so it is only built after the service's base context is attached (onCreate),
     // never in the constructor where `this` is not yet a usable Context.
     private val trayState by lazy { TrayState(this) }
@@ -88,6 +96,7 @@ class StatusBarOverlayService :
         // Must run while the lifecycle is still INITIALIZED, before moving to CREATED.
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        displayRotation = readDisplayRotation()
         startForeground(NOTIFICATION_ID, buildNotification())
         rehostOverlay()
         trayState.registerReceivers(this)
@@ -99,6 +108,18 @@ class StatusBarOverlayService :
         handler.post(autoCollapseRunnable)
         trayState.ensureExpandedIfNeverHides()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val nextRotation = readDisplayRotation()
+        if (nextRotation != displayRotation) {
+            // StatusTray owns the transition when the compose tree is active.
+            displayRotation = nextRotation
+        }
+        // Always refresh height / cutout padding for the new metrics (even when the tray is
+        // hidden for the notification shade and cannot run its mid-transition callback).
+        refreshOverlayMetrics()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -173,8 +194,7 @@ class StatusBarOverlayService :
         removeOverlay()
 
         val manager = hostContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val barHeightDp = statusBarInsetDp(manager)
-        applyHorizontalInsets(manager, barHeightDp)
+        refreshOverlayMetrics(manager)
         val composeView = ComposeView(hostContext).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             suppressSystemBarInsets()
@@ -194,6 +214,8 @@ class StatusBarOverlayService :
                         leftPaddingDp = leftPaddingDp,
                         rightPaddingDp = rightPaddingDp,
                         privacyDotsNearClock = privacyDotsNearClock,
+                        displayRotation = displayRotation,
+                        onRotateRelayout = { refreshOverlayMetrics() },
                     )
                 }
             }
@@ -381,10 +403,23 @@ class StatusBarOverlayService :
         privacyDotsNearClock = readPrivacyDotsNearClock(wm)
     }
 
+    /** Re-reads cutout / privacy insets and tray height without rebuilding the overlay window. */
+    private fun refreshOverlayMetrics(manager: WindowManager? = overlayManager) {
+        val wm = manager ?: return
+        val height = statusBarInsetDp(wm)
+        barHeightDp = height
+        applyHorizontalInsets(wm, height)
+    }
+
     /** Re-reads cutout / privacy insets without rebuilding the overlay window. */
     private fun refreshHorizontalInsets() {
-        val manager = overlayManager ?: return
-        applyHorizontalInsets(manager, statusBarInsetDp(manager))
+        refreshOverlayMetrics()
+    }
+
+    private fun readDisplayRotation(): Int {
+        // Service Context is not display-associated — never call Context.display / getDisplay().
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        return displayManager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
     }
 
     /** Draw to the very top edge instead of being pushed below the status bar inset. */
@@ -491,11 +526,11 @@ class StatusBarOverlayService :
             }
         }
 
-        /** Re-reads match-app-background preference on the running overlay (setup toggle). */
-        fun requestMatchAppBackgroundRefresh() {
+        /** Re-reads status-bar background mode on the running overlay (setup ListPicker). */
+        fun requestBackgroundModeRefresh() {
             instance?.let { svc ->
                 svc.handler.post {
-                    svc.trayState.applyMatchAppBackgroundPreference()
+                    svc.trayState.applyBackgroundModePreference()
                 }
             }
         }

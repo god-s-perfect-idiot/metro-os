@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * Also watches interactive windows so the tray can hide while the Android notification shade is
  * open or while system status bars are immersive-hidden (fullscreen), and reports the foreground
- * package for match-app-background theme resolution.
+ * package for match-app icon-color resolution.
  */
 class StatusBarAccessibilityService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())

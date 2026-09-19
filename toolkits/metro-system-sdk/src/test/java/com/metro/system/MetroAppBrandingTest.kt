@@ -65,4 +65,36 @@ class MetroAppBrandingTest {
         )
         assertEquals(accent, fill)
     }
+
+    @Test
+    fun resolveIconForegroundColor_usesDrawableColorWhenNonAdaptive() {
+        val icon = ColorDrawable(android.graphics.Color.rgb(0xE5, 0x14, 0x00))
+        val fill = MetroAppBranding.resolveIconForegroundColor(
+            context = context,
+            packageName = "com.example.thirdparty.app",
+            drawable = icon,
+        )
+        assertEquals(Color(0xFFE51400), fill)
+    }
+
+    @Test
+    fun resolveIconForegroundColor_missingIcon_fallsBackToBlackNotAccent() {
+        val fill = MetroAppBranding.resolveIconForegroundColor(
+            context = context,
+            packageName = "com.example.missing.icon.app",
+        )
+        assertEquals(Color.Black, fill)
+    }
+
+    @Test
+    fun resolveIconForegroundColor_colorDrawableBackgroundWinsOverGlyph() {
+        // Non-adaptive solid brand (same path as adaptive background ColorDrawable).
+        val brand = ColorDrawable(android.graphics.Color.rgb(0x25, 0xD3, 0x66))
+        val fill = MetroAppBranding.resolveIconForegroundColor(
+            context = context,
+            packageName = "com.whatsapp",
+            drawable = brand,
+        )
+        assertEquals(Color(0xFF25D366), fill)
+    }
 }

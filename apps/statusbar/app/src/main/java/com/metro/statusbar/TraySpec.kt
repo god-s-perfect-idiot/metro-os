@@ -94,6 +94,36 @@ enum class NotchPosition {
     }
 }
 
+/** Setup ListPicker: how the tray fill is chosen for the foreground app. */
+enum class StatusBarBackgroundMode {
+    /** Solid black tray fill (default). */
+    DefaultBlackBackground,
+    /** Fill from the foreground app’s tile brand color (Metro suite stays black). */
+    MatchAppBackground,
+    /** Always use the system accent color. */
+    ShowAccentColor,
+    ;
+
+    fun toStorage(): String = when (this) {
+        DefaultBlackBackground -> STORAGE_DEFAULT_BLACK
+        MatchAppBackground -> STORAGE_MATCH_APP
+        ShowAccentColor -> STORAGE_SHOW_ACCENT
+    }
+
+    companion object {
+        const val STORAGE_DEFAULT_BLACK = "default_black"
+        const val STORAGE_MATCH_APP = "match_app"
+        const val STORAGE_SHOW_ACCENT = "show_accent"
+
+        fun fromStorage(value: String?): StatusBarBackgroundMode = when (value) {
+            STORAGE_MATCH_APP -> MatchAppBackground
+            STORAGE_SHOW_ACCENT -> ShowAccentColor
+            STORAGE_DEFAULT_BLACK -> DefaultBlackBackground
+            else -> DefaultBlackBackground
+        }
+    }
+}
+
 data class HorizontalPaddingDp(
     val left: Int,
     val right: Int,

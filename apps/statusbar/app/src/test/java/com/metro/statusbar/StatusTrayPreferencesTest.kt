@@ -104,15 +104,73 @@ class StatusTrayPreferencesTest {
     }
 
     @Test
-    fun matchAppBackground_defaultsToFalse() {
-        assertFalse(prefs.matchAppBackground)
+    fun backgroundMode_defaultsToDefaultBlackBackground() {
+        assertEquals(StatusBarBackgroundMode.DefaultBlackBackground, prefs.backgroundMode)
     }
 
     @Test
-    fun matchAppBackground_persistsAcrossInstances() {
-        prefs.matchAppBackground = true
-        assertTrue(StatusTrayPreferences(RuntimeEnvironment.getApplication()).matchAppBackground)
-        prefs.matchAppBackground = false
-        assertFalse(StatusTrayPreferences(RuntimeEnvironment.getApplication()).matchAppBackground)
+    fun backgroundMode_persistsAcrossInstances() {
+        prefs.backgroundMode = StatusBarBackgroundMode.MatchAppBackground
+        assertEquals(
+            StatusBarBackgroundMode.MatchAppBackground,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).backgroundMode,
+        )
+        prefs.backgroundMode = StatusBarBackgroundMode.ShowAccentColor
+        assertEquals(
+            StatusBarBackgroundMode.ShowAccentColor,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).backgroundMode,
+        )
+        prefs.backgroundMode = StatusBarBackgroundMode.DefaultBlackBackground
+        assertEquals(
+            StatusBarBackgroundMode.DefaultBlackBackground,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).backgroundMode,
+        )
+    }
+
+    @Test
+    fun backgroundMode_unknownStorageFallsBackToDefaultBlack() {
+        assertEquals(
+            StatusBarBackgroundMode.DefaultBlackBackground,
+            StatusBarBackgroundMode.fromStorage(null),
+        )
+        assertEquals(
+            StatusBarBackgroundMode.DefaultBlackBackground,
+            StatusBarBackgroundMode.fromStorage("theme"),
+        )
+        assertEquals(
+            StatusBarBackgroundMode.MatchAppBackground,
+            StatusBarBackgroundMode.fromStorage(StatusBarBackgroundMode.STORAGE_MATCH_APP),
+        )
+        assertEquals(
+            StatusBarBackgroundMode.ShowAccentColor,
+            StatusBarBackgroundMode.fromStorage(StatusBarBackgroundMode.STORAGE_SHOW_ACCENT),
+        )
+        assertEquals(
+            StatusBarBackgroundMode.DefaultBlackBackground,
+            StatusBarBackgroundMode.fromStorage(StatusBarBackgroundMode.STORAGE_DEFAULT_BLACK),
+        )
+    }
+
+    @Test
+    fun backgroundMode_migratesLegacyMatchBoolean() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("metro_statusbar", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .putBoolean("match_app_background", true)
+            .commit()
+        assertEquals(
+            StatusBarBackgroundMode.MatchAppBackground,
+            StatusTrayPreferences(context).backgroundMode,
+        )
+        context.getSharedPreferences("metro_statusbar", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .putBoolean("match_app_background", false)
+            .commit()
+        assertEquals(
+            StatusBarBackgroundMode.DefaultBlackBackground,
+            StatusTrayPreferences(context).backgroundMode,
+        )
     }
 }

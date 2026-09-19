@@ -15,13 +15,15 @@ use `WifiManager` RSSI (`0..3` bands, icon hidden when disconnected). When ringe
 (`STREAM_RING`) is 0, a mute glyph (speaker + X) appears after Wi-Fi and joins the expand/collapse
 stagger.
 
-The setup screen’s **Show status bar** master toggle starts and stops the overlay. **Match app
-background** uses the foreground app’s published `statusBarColor` / primary theme color for
-non-Metro apps (glyphs flip for contrast). Metro suite apps (`com.metro.*`) always keep the Metro
-page fill (black/white from system theme) and ignore match. **Hide icons
+The setup screen’s **Show status bar** master toggle starts and stops the overlay. **Statusbar
+background** (`MetroListPicker`) chooses **Default black background** (solid black tray; default),
+**Match app background** (Metro suite apps stay black; other apps use the launcher icon’s
+tile brand color — adaptive background — with glyphs flipped for contrast), or **Show accent color** (always the
+system accent). **Hide icons
 after** (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never**
 (stay expanded; WP default 5s). **Notch position** (`MetroListPicker`) chooses Center / Left / Right — Center keeps the default
-tray insets; Left/Right add side clearance so icons clear a corner punch-hole. Boot auto-starts only
+tray insets; Left/Right add side clearance so icons clear a corner punch-hole. On device rotate the tray
+slides out and back in from the new top of the screen. Boot auto-starts only
 when that toggle is on and permissions are granted. Per-app tray styling goes through `MetroStatusBar`
 in `metro-system-sdk`.
 
@@ -130,6 +132,7 @@ It does not host Action Center, toasts, or a notification shade.
 - Expand animation: staggered drop from above, **200ms**/icon, **90ms** R→L stagger
 - Collapse animation: staggered exit upward, same timing
 - Auto-collapse hold: **3s / 5s / 10s** after enter finishes, or **Never** (setup ListPicker; default **5000ms**)
+- Device rotate: slide out, then slide in from the new top (200ms each)
 - Swipe down opens the Android notification shade; Metro tray hides until the shade closes
 - No Material status bar styling, dropdown shade affordances, cards, or quick settings metaphors
 - Avoid oversized icons; keep glyphs minimal and monochrome per theme

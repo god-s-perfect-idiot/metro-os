@@ -117,6 +117,9 @@ private const val DataLabelTextSizeFactor = 0.98f
  * When Android privacy dots (camera / mic / location) appear near the clock,
  * [privacyDotsNearClock] adds a small animated end nudge so the clock slides a touch left.
  * The tray stays fully opaque — system dots paint on top of the overlay.
+ *
+ * On display rotation the strip slides out, [onRotateRelayout] refreshes insets, then the strip
+ * slides in from the new top of the screen.
  */
 @Composable
 fun StatusTray(
@@ -131,6 +134,10 @@ fun StatusTray(
     rightPaddingDp: Int = TraySpec.END_PADDING_DP,
     /** True while privacy dots sit on the right; animates a small clock nudge left. */
     privacyDotsNearClock: Boolean = false,
+    /** [android.view.Surface] rotation constant for the current display. */
+    displayRotation: Int = android.view.Surface.ROTATION_0,
+    /** Invoked after slide-out and before slide-in when the display rotates. */
+    onRotateRelayout: (() -> Unit)? = null,
 ) {
     // Shade still hides instantly (overlay must drop so SystemUI is not covered).
     if (snapshot.notificationShadeOpen) return
@@ -139,6 +146,7 @@ fun StatusTray(
         !snapshot.systemStatusBarsHidden
     var onScreen by remember { mutableStateOf(trayVisible) }
     val barOffset = remember { Animatable(if (trayVisible) 0f else 1f) }
+    var previousRotation by remember { mutableStateOf(displayRotation) }
 
     // Keep last opaque/translucent chrome while creeping out — Hidden resolves to Transparent.
     var paintTheme by remember { mutableStateOf(snapshot.theme) }
@@ -157,6 +165,19 @@ fun StatusTray(
             barOffset.animateTo(1f, MetroTransitions.statusTrayCreepTween())
             onScreen = false
         }
+    }
+
+    LaunchedEffect(displayRotation) {
+        val fromRotation = previousRotation
+        if (fromRotation == displayRotation) return@LaunchedEffect
+        previousRotation = displayRotation
+        if (!trayVisible || !onScreen) {
+            onRotateRelayout?.invoke()
+            return@LaunchedEffect
+        }
+        barOffset.animateTo(1f, MetroTransitions.statusTrayCreepTween())
+        onRotateRelayout?.invoke()
+        barOffset.animateTo(0f, MetroTransitions.statusTrayCreepTween())
     }
 
     if (!onScreen) return

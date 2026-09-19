@@ -89,6 +89,37 @@ class LockscreenHostService :
     @Volatile
     private var handedOffUntilScreenOff = false
 
+    /** Keeps Glance Compose drawing while a quick-status flip runs on AOD. */
+    private val glanceFlipPulse = object : Runnable {
+        private var remaining = 0
+        fun arm(frames: Int = 90) {
+            remaining = frames
+            handler.removeCallbacks(this)
+            handler.post(this)
+        }
+
+        override fun run() {
+            if (overlayMode != LockscreenPresentationMode.Glance) {
+                remaining = 0
+                return
+            }
+            overlayView?.invalidate()
+            overlayRoot?.invalidate()
+            remaining--
+            if (remaining > 0) {
+                handler.postDelayed(this, 16L)
+            }
+        }
+    }
+
+    private val glanceNotificationListener: () -> Unit = {
+        handler.post {
+            if (overlayMode == LockscreenPresentationMode.Glance) {
+                glanceFlipPulse.arm()
+            }
+        }
+    }
+
     /** Suppress requests from [MetroLockscreen] (incoming call UI, alarms, …). */
     private var criticalOverlaySuppressedByContract = false
 
@@ -200,6 +231,7 @@ class LockscreenHostService :
         registerPhoneReceiver()
         registerDisplayListener()
         registerPowerSaveReceiver()
+        LockscreenNotificationStore.addListener(glanceNotificationListener)
         handler.post(tickRunnable)
         handler.post(glanceSleepWatcher)
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
@@ -226,6 +258,7 @@ class LockscreenHostService :
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        LockscreenNotificationStore.removeListener(glanceNotificationListener)
         unregisterScreenReceiver()
         unregisterPhoneReceiver()
         unregisterDisplayListener()

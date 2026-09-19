@@ -115,19 +115,30 @@ fun LockscreenSurface(
             val pkg = packageName ?: return@mapIndexedNotNull null
             val icon = resolveQuickStatusIcon(context, pkg, quickStatusIconPx)
             if (!icon.hasIcon) return@mapIndexedNotNull null
-            val count = LockscreenNotificationStore.countFor(pkg)
-            if (!LockscreenQuickStatusLogic.shouldShowQuickStatus(count)) return@mapIndexedNotNull null
+            val status = LockscreenNotificationStore.statusFor(pkg)
+            if (!LockscreenQuickStatusLogic.shouldShowQuickStatus(status.count)) {
+                return@mapIndexedNotNull null
+            }
             LockscreenQuickStatusItem(
                 slotIndex = slotIndex,
                 packageName = pkg,
                 icon = icon,
-                count = count,
+                count = status.count,
+                flipGeneration = status.flipGeneration,
             )
         }
     }
 
     DisposableEffect(Unit) {
-        val listener: () -> Unit = { quickStatusTick++ }
+        val mainHandler = Handler(Looper.getMainLooper())
+        val listener: () -> Unit = {
+            // NotificationListener delivers on a binder thread — Compose state must bump on main.
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                quickStatusTick++
+            } else {
+                mainHandler.post { quickStatusTick++ }
+            }
+        }
         LockscreenNotificationStore.addListener(listener)
         onDispose { LockscreenNotificationStore.removeListener(listener) }
     }
@@ -378,6 +389,7 @@ fun LockscreenSurface(
             LockscreenQuickStatusBar(
                 items = quickStatusItems,
                 contentColor = contentColor,
+                flipOnNewNotification = isGlance,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()

@@ -17,11 +17,11 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppRegistry
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStatusBar
-import com.metro.ui.MetroColors
 import java.time.ZonedDateTime
 
 class TrayState(context: Context) {
@@ -38,11 +38,11 @@ class TrayState(context: Context) {
     var visibilityMode by mutableStateOf(TrayVisibilityMode.Opaque)
         private set
 
-    /** Foreground app package used when [StatusTrayPreferences.matchAppBackground] is on. */
+    /** Foreground app package used when matching app icon color for the tray fill. */
     var foregroundPackage by mutableStateOf<String?>(null)
         private set
 
-    /** Theme background for the foreground non-Metro app; null when matching is off. */
+    /** Icon / tile brand color for a non-Metro foreground app; black for Metro / unset. */
     var appBackgroundColor by mutableStateOf<Color?>(null)
         private set
 
@@ -182,51 +182,56 @@ class TrayState(context: Context) {
 
     fun refreshTheme() {
         preferences.pullThemeFromProvider()
-        if (!trayPrefs.matchAppBackground) {
-            appBackgroundColor = null
+        when (trayPrefs.backgroundMode) {
+            StatusBarBackgroundMode.MatchAppBackground -> Unit
+            StatusBarBackgroundMode.DefaultBlackBackground,
+            StatusBarBackgroundMode.ShowAccentColor,
+            -> appBackgroundColor = null
         }
         theme = resolveTheme()
     }
 
     /**
-     * Tracks the foreground package. Metro suite apps keep the Metro page fill; other apps may
-     * use their published status-bar / primary theme color when match-app-background is on.
+     * Tracks the foreground package. In match-app mode Metro suite apps stay black; other apps
+     * use their launcher-icon tile brand color (adaptive background). Accent / default-black
+     * modes ignore the package for fill.
      */
     fun applyForegroundPackage(packageName: String?) {
         val normalized = packageName?.takeUnless { ForegroundAppDetector.isIgnored(it) }
         if (foregroundPackage == normalized) {
-            if (trayPrefs.matchAppBackground && !isMetroSuiteForeground() && appBackgroundColor == null) {
-                resolveThemeBackgroundForForeground()
+            if (trayPrefs.backgroundMode == StatusBarBackgroundMode.MatchAppBackground &&
+                appBackgroundColor == null
+            ) {
+                resolveIconBackgroundForForeground()
             }
             return
         }
         foregroundPackage = normalized
-        if (isMetroSuiteForeground() || !trayPrefs.matchAppBackground) {
+        if (trayPrefs.backgroundMode != StatusBarBackgroundMode.MatchAppBackground) {
             appBackgroundColor = null
             theme = resolveTheme()
             return
         }
-        resolveThemeBackgroundForForeground()
+        resolveIconBackgroundForForeground()
     }
 
-    /** Re-reads the match-app-background toggle and resolves theme fill for the current app. */
-    fun applyMatchAppBackgroundPreference() {
-        if (!trayPrefs.matchAppBackground || isMetroSuiteForeground()) {
+    /** Re-reads the status-bar background ListPicker and resolves fill for the current app. */
+    fun applyBackgroundModePreference() {
+        if (trayPrefs.backgroundMode != StatusBarBackgroundMode.MatchAppBackground) {
             appBackgroundColor = null
             theme = resolveTheme()
             return
         }
-        resolveThemeBackgroundForForeground()
+        resolveIconBackgroundForForeground()
     }
 
-    private fun resolveThemeBackgroundForForeground() {
+    private fun resolveIconBackgroundForForeground() {
         val pkg = foregroundPackage
-        val resolved = if (pkg.isNullOrBlank()) {
-            null
-        } else {
-            AppThemeBackgroundResolver.resolve(appContext, pkg)
+        val next = when {
+            pkg.isNullOrBlank() -> Color.Black
+            MetroAppRegistry.isMetroSuite(pkg) -> Color.Black
+            else -> MetroAppBranding.resolveIconForegroundColor(appContext, pkg)
         }
-        val next = resolved ?: MetroColors.background(preferences.isDark)
         if (!AppThemeBackgroundResolver.isMateriallyDifferent(appBackgroundColor, next)) {
             theme = resolveTheme()
             return
@@ -370,17 +375,11 @@ class TrayState(context: Context) {
         TrayThemeResolver.resolve(
             preferences = preferences,
             visibilityMode = visibilityMode,
-            matchAppBackground = trayPrefs.matchAppBackground,
+            backgroundMode = trayPrefs.backgroundMode,
             appBackgroundColor = appBackgroundColor,
-            metroSuiteForeground = isMetroSuiteForeground(),
             shellFillColor = effectiveShellFill(),
             shellFillUnderlay = shellFillUnderlay(),
         )
-
-    private fun isMetroSuiteForeground(): Boolean {
-        val pkg = foregroundPackage ?: return false
-        return MetroAppRegistry.isMetroSuite(pkg)
-    }
 
     /** Hide the Metro tray while the Android notification shade is expanded. */
     fun applyNotificationShadeOpen(open: Boolean) {

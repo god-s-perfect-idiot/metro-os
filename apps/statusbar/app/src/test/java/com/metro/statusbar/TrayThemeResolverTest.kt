@@ -3,7 +3,6 @@ package com.metro.statusbar
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.ui.graphics.Color
 import com.metro.system.MetroPreferences
-import com.metro.ui.MetroColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,17 +25,17 @@ class TrayThemeResolverTest {
     }
 
     @Test
-    fun resolve_defaultsToThemeBackgroundAndForeground() {
+    fun resolve_defaultsToBlackBackgroundAndWhiteForeground() {
         val snapshot = TrayThemeResolver.resolve(preferences)
-        assertEquals(MetroColors.DarkBackground, snapshot.backgroundColor)
-        assertEquals(MetroColors.DarkPrimaryText, snapshot.foregroundColor)
+        assertEquals(Color.Black, snapshot.backgroundColor)
+        assertEquals(Color.White, snapshot.foregroundColor)
     }
 
     @Test
     fun resolve_matchAppBackground_usesAppFillAndInvertsLight() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,
-            matchAppBackground = true,
+            backgroundMode = StatusBarBackgroundMode.MatchAppBackground,
             appBackgroundColor = Color(0xFFF2F2F2), // light gray
         )
         assertEquals(Color(0xFFF2F2F2), snapshot.backgroundColor)
@@ -47,7 +46,7 @@ class TrayThemeResolverTest {
     fun resolve_matchAppBackground_keepsWhiteOnDarkFill() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,
-            matchAppBackground = true,
+            backgroundMode = StatusBarBackgroundMode.MatchAppBackground,
             appBackgroundColor = Color(0xFF0050EF), // cobalt
         )
         assertEquals(Color(0xFF0050EF), snapshot.backgroundColor)
@@ -55,34 +54,43 @@ class TrayThemeResolverTest {
     }
 
     @Test
-    fun resolve_matchDisabled_ignoresAppBackground() {
+    fun resolve_showAccent_ignoresAppBackground() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,
-            matchAppBackground = false,
+            backgroundMode = StatusBarBackgroundMode.ShowAccentColor,
             appBackgroundColor = Color(0xFFF0A30A),
         )
-        assertEquals(MetroColors.DarkBackground, snapshot.backgroundColor)
-        assertEquals(MetroColors.DarkPrimaryText, snapshot.foregroundColor)
+        assertEquals(preferences.accentColor, snapshot.backgroundColor)
+        assertEquals(Color.White, snapshot.foregroundColor)
     }
 
     @Test
-    fun resolve_metroSuite_usesMetroPageFillNotMatchedColor() {
-        preferences.themeMode = com.metro.system.MetroThemeMode.Light
+    fun resolve_defaultBlack_ignoresAppBackground() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,
-            matchAppBackground = true,
+            backgroundMode = StatusBarBackgroundMode.DefaultBlackBackground,
             appBackgroundColor = Color(0xFFF0A30A),
-            metroSuiteForeground = true,
         )
-        assertEquals(MetroColors.LightBackground, snapshot.backgroundColor)
-        assertEquals(MetroColors.LightPrimaryText, snapshot.foregroundColor)
+        assertEquals(Color.Black, snapshot.backgroundColor)
+        assertEquals(Color.White, snapshot.foregroundColor)
+    }
+
+    @Test
+    fun resolve_matchAppBackground_fallsBackToBlackWhenAppColorMissing() {
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            backgroundMode = StatusBarBackgroundMode.MatchAppBackground,
+            appBackgroundColor = null,
+        )
+        assertEquals(Color.Black, snapshot.backgroundColor)
+        assertEquals(Color.White, snapshot.foregroundColor)
     }
 
     @Test
     fun resolve_shellFill_overridesThemeAndMatchApp() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,
-            matchAppBackground = true,
+            backgroundMode = StatusBarBackgroundMode.MatchAppBackground,
             appBackgroundColor = Color(0xFFF2F2F2),
             shellFillColor = Color(0xFF1BA1E2),
         )

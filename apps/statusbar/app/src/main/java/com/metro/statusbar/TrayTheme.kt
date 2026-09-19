@@ -7,7 +7,6 @@ import android.os.BatteryManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.metro.system.MetroPreferences
-import com.metro.ui.MetroColors
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -19,16 +18,11 @@ object TrayThemeResolver {
     fun resolve(
         preferences: MetroPreferences,
         visibilityMode: TrayVisibilityMode = TrayVisibilityMode.Opaque,
-        matchAppBackground: Boolean = false,
+        backgroundMode: StatusBarBackgroundMode = StatusBarBackgroundMode.DefaultBlackBackground,
         appBackgroundColor: Color? = null,
         /**
-         * Metro suite apps ignore match-mode third-party theme colors and always use the Metro
-         * page fill ([MetroColors.background]) — black in dark theme, white in light.
-         */
-        metroSuiteForeground: Boolean = false,
-        /**
          * Temporary fill from a top shell overlay (toast accent / volume charcoal). Wins over
-         * theme and match-app background so the tray and overlay read as one band.
+         * theme and status-bar background mode so the tray and overlay read as one band.
          */
         shellFillColor: Color? = null,
         /**
@@ -39,11 +33,12 @@ object TrayThemeResolver {
         shellFillUnderlay: Boolean = false,
     ): TrayThemeSnapshot {
         val darkTheme = preferences.isDark
-        val themeBackground = MetroColors.background(darkTheme)
-        val matchedBackground = when {
-            metroSuiteForeground -> themeBackground
-            matchAppBackground && appBackgroundColor != null -> appBackgroundColor
-            else -> themeBackground
+        val accentBackground = preferences.accentColor
+        val matchedBackground = when (backgroundMode) {
+            StatusBarBackgroundMode.DefaultBlackBackground -> Color.Black
+            StatusBarBackgroundMode.ShowAccentColor -> accentBackground
+            StatusBarBackgroundMode.MatchAppBackground ->
+                appBackgroundColor ?: Color.Black
         }
         val logicalShell = shellFillColor
         val baseBackground = when {
@@ -63,9 +58,7 @@ object TrayThemeResolver {
         }
         val foregroundColor = when {
             logicalShell != null -> foregroundForBackground(logicalShell)
-            metroSuiteForeground -> MetroColors.primaryText(darkTheme)
-            matchAppBackground && appBackgroundColor != null -> foregroundForBackground(matchedBackground)
-            else -> MetroColors.primaryText(darkTheme)
+            else -> foregroundForBackground(matchedBackground)
         }
         return TrayThemeSnapshot(
             backgroundColor = backgroundColor,

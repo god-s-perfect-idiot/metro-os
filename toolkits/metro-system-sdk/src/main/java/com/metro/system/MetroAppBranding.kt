@@ -111,6 +111,39 @@ object MetroAppBranding {
         return resolveTileBackgroundColor(context, packageName)
     }
 
+    /**
+     * Brand / tile fill color from a launcher icon — the color Start uses behind the glyph.
+     *
+     * Adaptive icons: prefer the **background** layer (solid brand), not the foreground glyph
+     * (often white/transparent). Non-adaptive: dominant opaque color. Falls back to
+     * `ic_launcher_background`, then black — never the system accent.
+     */
+    fun resolveIconForegroundColor(
+        context: Context,
+        packageName: String,
+        drawable: Drawable? = null,
+    ): Color {
+        val icon = drawable ?: try {
+            val packageManager = context.packageManager
+            packageManager.getApplicationIcon(packageManager.getApplicationInfo(packageName, 0))
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
+
+        if (icon is AdaptiveIconDrawable) {
+            // Tile fill = adaptive background (WhatsApp green, etc.). Foreground is the glyph.
+            sampleLayerColor(icon.background)?.let { return it }
+            loadLauncherBackgroundColor(context, packageName)?.let { return it }
+            sampleDominantOpaqueColor(icon.foreground)?.let { return it }
+        } else if (icon != null) {
+            sampleLayerColor(icon)?.let { return it }
+            sampleDominantOpaqueColor(icon)?.let { return it }
+        }
+
+        loadLauncherBackgroundColor(context, packageName)?.let { return it }
+        return Color.Black
+    }
+
     private fun resolveThirdPartyIconBackgroundColor(
         context: Context,
         packageName: String,
@@ -136,6 +169,16 @@ object MetroAppBranding {
         return MetroPreferences(context).accentColor
     }
 
+    private fun sampleLayerColor(drawable: Drawable?): Color? {
+        if (drawable == null) return null
+        if (drawable is ColorDrawable) {
+            val color = Color(drawable.color)
+            return color.takeIf { it.alpha > 0f }?.copy(alpha = 1f)
+        }
+        return sampleDrawableColor(drawable) ?: sampleDominantOpaqueColor(drawable)
+    }
+
+    /** Center-pixel sample — fast path for solid / near-solid layers. */
     private fun sampleDrawableColor(drawable: Drawable): Color? {
         val size = 64
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -145,7 +188,52 @@ object MetroAppBranding {
         val center = bitmap.getPixel(size / 2, size / 2)
         bitmap.recycle()
         val color = Color(center)
-        return color.takeIf { it.alpha > 0f }
+        return color.takeIf { it.alpha > 0.15f }?.copy(alpha = 1f)
+    }
+
+    /**
+     * Average of opaque pixels, preferring saturated (chromatic) samples so white glyphs and
+     * transparent padding do not win over a colored brand field.
+     */
+    private fun sampleDominantOpaqueColor(drawable: Drawable?): Color? {
+        if (drawable == null) return null
+        val size = 48
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, size, size)
+        drawable.draw(canvas)
+        var sumR = 0.0
+        var sumG = 0.0
+        var sumB = 0.0
+        var weight = 0.0
+        val pixels = IntArray(size * size)
+        bitmap.getPixels(pixels, 0, size, 0, 0, size, size)
+        bitmap.recycle()
+        for (pixel in pixels) {
+            val a = (pixel ushr 24) and 0xFF
+            if (a < 40) continue
+            val r = (pixel shr 16) and 0xFF
+            val g = (pixel shr 8) and 0xFF
+            val b = pixel and 0xFF
+            val max = maxOf(r, g, b)
+            val min = minOf(r, g, b)
+            val saturation = if (max == 0) 0f else (max - min).toFloat() / max
+            // Down-weight near-white / near-black monochrome glyph pixels.
+            val chromaWeight = (0.25f + saturation).toDouble()
+            val alphaWeight = a / 255.0
+            val w = chromaWeight * alphaWeight
+            sumR += r * w
+            sumG += g * w
+            sumB += b * w
+            weight += w
+        }
+        if (weight < 1e-3) return null
+        return Color(
+            red = (sumR / weight / 255.0).toFloat().coerceIn(0f, 1f),
+            green = (sumG / weight / 255.0).toFloat().coerceIn(0f, 1f),
+            blue = (sumB / weight / 255.0).toFloat().coerceIn(0f, 1f),
+            alpha = 1f,
+        )
     }
 
     private fun loadLauncherBackgroundColor(context: Context, packageName: String): Color? {

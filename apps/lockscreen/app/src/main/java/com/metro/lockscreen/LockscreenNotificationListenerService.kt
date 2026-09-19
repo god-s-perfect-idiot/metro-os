@@ -4,7 +4,8 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
 /**
- * Reads active notifications so the lock quick-status row can show WP8.1-style counts.
+ * Reads active notifications so the lock quick-status row can show WP8.1-style counts
+ * and Glance can flip a configured tile when a new notification arrives while locked.
  */
 class LockscreenNotificationListenerService : NotificationListenerService() {
     override fun onListenerConnected() {
@@ -18,7 +19,8 @@ class LockscreenNotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        publishAll()
+        val active = runCatching { activeNotifications }.getOrNull()
+        LockscreenNotificationStore.onNotificationPosted(sbn, active)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
