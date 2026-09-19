@@ -571,10 +571,11 @@ WP8.1 lock-screen settings — pick an app from a full-page list; empty quick-st
 | Status tray | 200ms/icon staggered R→L | Hold 5000ms then staggered exit up |
 | Page pivot load | 200ms enter / 280ms exit | Ease-out; enter `rotateY` 22.5° → 0°, translate x +15% → 0 (hinge x 0); exit tilt-back `rotateY` 0° → −28°, translate x 0 → −15%, hinge x +15%, softer camera, fade. **App open:** Start owns [MetroAppOpenSplash] (accent + package glyph) for every launch; suite apps do not re-play this on their activity. |
 | Page pivot swing | 200ms enter / 280ms exit | Hinge `rotateY` 50° → 0° + fade, **no** X slide; closer camera (0.55× width). `MetroPagePivotSwing` — Start tile enter/exit. `skipEnter` holds rest without disposing content |
+| Panorama hub intro | Brand 600ms / body 800ms | Soft ease-out (`cubic-bezier(0.25, 0.46, 0.45, 0.94)`). Brand: slide from +100% width + fade (200ms delay). Body: left-hinge `rotateY` 30° → 0°, slide +80% → 0, fade (50ms delay). `MetroPanoramaBrandEnter` + `MetroPanoramaBodyEnter` |
 
 Show progress for operations **> 500ms**. No Material shared-element transitions.
 
-**Toolkit:** `MetroTransitions`, `MetroPagePivotLoad`, `MetroPagePivotSwing`, `Modifier.metroTiltOnPress()`.
+**Toolkit:** `MetroTransitions`, `MetroPagePivotLoad`, `MetroPagePivotSwing`, `MetroPanoramaBrandEnter`, `MetroPanoramaBodyEnter`, `Modifier.metroTiltOnPress()`.
 
 **Animation suite** (decorative / feedback, not page chrome): `MetroAnimationSuite` + named composables such as `MetroBiometricAnimation` (`biometric` — Windows Hello–style face success).
 

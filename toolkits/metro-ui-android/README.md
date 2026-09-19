@@ -125,6 +125,21 @@ MetroPagePivotSwing(
 }
 ```
 
+### Panorama hub intro
+
+```kotlin
+Column(Modifier.fillMaxSize()) {
+    MetroPanoramaBrandEnter {
+        // Giant panoramic brand title
+    }
+    MetroPanoramaBodyEnter(Modifier.weight(1f).fillMaxWidth()) {
+        MetroPanorama(/* … */)
+    }
+}
+```
+
+Brand slides from +100% width (600ms, 200ms delay). Body left-hinge `rotateY` 30° → 0° with +80% slide (800ms, 50ms delay). Soft ease-out matching Metro Spotify’s carousel enter. Pass `skipEnter = true` when returning to an in-memory hub so the intro only plays on cold open.
+
 ### App pivot shell
 
 ```kotlin

@@ -7,8 +7,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -33,13 +35,18 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        MetroSplash.install(this)
+        val splash = MetroSplash.install(this)
+        // Hold the system splash until Compose draws its matching loader (avoids a black gap
+        // while MusicState / first library pass come up).
+        var composeSplashReady = false
+        splash.setKeepOnScreenCondition { !composeSplashReady }
         super.onCreate(savedInstanceState)
         MetroActivities.applyLaunchTransition(this)
         enableEdgeToEdge()
         setContent {
             val state = remember { MusicState(this) }
             var permissionTick by remember { mutableIntStateOf(0) }
+            var handoffDone by remember { mutableStateOf(false) }
 
             DisposableEffect(this) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -70,6 +77,13 @@ class MainActivity : ComponentActivity() {
                     onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
                 ) {
                     if (!state.hasAudioPermission) {
+                        // Permission gate — lift the platform splash so the grant UI is visible.
+                        LaunchedEffect(Unit) {
+                            if (!handoffDone) {
+                                handoffDone = true
+                                composeSplashReady = true
+                            }
+                        }
                         PermissionScreen(
                             onGrant = {
                                 permissionCallback = { granted ->
@@ -80,7 +94,15 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        MusicShell(state = state)
+                        MusicShell(
+                            state = state,
+                            onComposeSplashReady = {
+                                if (!handoffDone) {
+                                    handoffDone = true
+                                    composeSplashReady = true
+                                }
+                            },
+                        )
                     }
                 }
             }

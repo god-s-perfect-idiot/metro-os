@@ -38,6 +38,8 @@ fun HubShell(
 
     var exitingRoute by remember { mutableStateOf<HubRoute?>(null) }
     var suppressEnterFor by remember { mutableStateOf<HubRoute?>(null) }
+    // Panorama intro once per process — not when returning to hub in-app.
+    var panoramaIntroPlayed by remember { mutableStateOf(false) }
     val isExiting = exitingRoute != null
 
     LaunchedEffect(Unit) {
@@ -107,6 +109,8 @@ fun HubShell(
                     state = state,
                     pagerState = pagerState,
                     modifier = Modifier.fillMaxSize(),
+                    skipIntro = panoramaIntroPlayed,
+                    onIntroPlayed = { panoramaIntroPlayed = true },
                 )
                 MetroAppBar(
                     icons = listOf(

@@ -86,6 +86,13 @@ class MusicState(context: Context) {
         private set
     var libraryLoading by mutableStateOf(true)
         private set
+    /**
+     * First MediaStore pass finished (or skipped). Cold-start splash waits on this so the hub
+     * does not mount mid-scan and stutter through brand/panorama enter.
+     * Later "sync now" refreshes keep this true.
+     */
+    var hasCompletedInitialLoad by mutableStateOf(false)
+        private set
     var localSongs by mutableStateOf<List<Song>>(emptyList())
         private set
     var localPlaylists by mutableStateOf<List<Playlist>>(emptyList())
@@ -213,7 +220,10 @@ class MusicState(context: Context) {
                     localSongs = withContext(Dispatchers.IO) { localRepo.loadSongs() }
                     localPlaylists = withContext(Dispatchers.IO) { localRepo.loadPlaylists() }
                 } finally {
-                    if (isActive) libraryLoading = false
+                    if (isActive) {
+                        libraryLoading = false
+                        hasCompletedInitialLoad = true
+                    }
                 }
                 // Library was empty when the controller first connected; re-bind now playing.
                 syncFromPlayer()

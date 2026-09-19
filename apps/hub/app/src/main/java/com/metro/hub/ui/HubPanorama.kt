@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +43,8 @@ import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroPanorama
+import com.metro.ui.MetroPanoramaBodyEnter
+import com.metro.ui.MetroPanoramaBrandEnter
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -75,63 +78,78 @@ fun HubPanorama(
     state: HubState,
     pagerState: PagerState,
     modifier: Modifier = Modifier,
+    skipIntro: Boolean = false,
+    onIntroPlayed: () -> Unit = {},
 ) {
     val density = LocalDensity.current
 
-    Column(modifier = modifier.fillMaxSize()) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clipToBounds()
-                .padding(bottom = 4.dp),
-            contentAlignment = Alignment.BottomStart,
-        ) {
-            val measurer = rememberTextMeasurer()
-            val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
-            val brandWidthPx = remember(measurer, density) {
-                measurer.measure(
-                    text = HubBrandText,
-                    style = HubBrandStyle,
-                    softWrap = false,
-                    maxLines = 1,
-                    density = density,
-                ).size.width.toFloat()
-            }
-            val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
-            val lastPage = (pagerState.pageCount - 1).coerceAtLeast(1)
-            val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                .coerceIn(0f, lastPage.toFloat()) / lastPage
-            val brandOffsetPx = (progress * hiddenPx).roundToInt()
+    // Remember after this hub visit so in-app return skips the intro (not mid-animation).
+    DisposableEffect(Unit) {
+        onDispose { onIntroPlayed() }
+    }
 
-            BasicText(
-                text = HubBrandText,
-                style = HubBrandStyle.copy(color = MetroTheme.colors.primaryText),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Clip,
+    Column(modifier = modifier.fillMaxSize()) {
+        MetroPanoramaBrandEnter(skipEnter = skipIntro) {
+            BoxWithConstraints(
                 modifier = Modifier
-                    .offset { IntOffset(-brandOffsetPx, 0) }
-                    .padding(start = HubBrandInset)
-                    .wrapContentWidth(align = Alignment.Start, unbounded = true),
-            )
+                    .fillMaxWidth()
+                    .clipToBounds()
+                    .padding(bottom = 4.dp),
+                contentAlignment = Alignment.BottomStart,
+            ) {
+                val measurer = rememberTextMeasurer()
+                val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
+                val brandWidthPx = remember(measurer, density) {
+                    measurer.measure(
+                        text = HubBrandText,
+                        style = HubBrandStyle,
+                        softWrap = false,
+                        maxLines = 1,
+                        density = density,
+                    ).size.width.toFloat()
+                }
+                val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
+                val lastPage = (pagerState.pageCount - 1).coerceAtLeast(1)
+                val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                    .coerceIn(0f, lastPage.toFloat()) / lastPage
+                val brandOffsetPx = (progress * hiddenPx).roundToInt()
+
+                BasicText(
+                    text = HubBrandText,
+                    style = HubBrandStyle.copy(color = MetroTheme.colors.primaryText),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier
+                        .offset { IntOffset(-brandOffsetPx, 0) }
+                        .padding(start = HubBrandInset)
+                        .wrapContentWidth(align = Alignment.Start, unbounded = true),
+                )
+            }
         }
 
-        MetroPanorama(
-            // Brand-only hub — no pane HubTitles (`home` / `apps` / `featured`).
-            titles = listOf("", "", ""),
-            pagerState = pagerState,
+        MetroPanoramaBodyEnter(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .padding(bottom = MetroAppBarDefaults.BarHeight),
-            pageContent = { page ->
-                when (page) {
-                    HubState.HUB_HOME -> HomePane(state = state)
-                    HubState.HUB_APPS -> QuickLinksPane(state = state)
-                    else -> FeaturedAppsPane(state = state)
-                }
-            },
-        )
+                .fillMaxWidth(),
+            skipEnter = skipIntro,
+        ) {
+            MetroPanorama(
+                // Brand-only hub — no pane HubTitles (`home` / `apps` / `featured`).
+                titles = listOf("", "", ""),
+                pagerState = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = MetroAppBarDefaults.BarHeight),
+                pageContent = { page ->
+                    when (page) {
+                        HubState.HUB_HOME -> HomePane(state = state)
+                        HubState.HUB_APPS -> QuickLinksPane(state = state)
+                        else -> FeaturedAppsPane(state = state)
+                    }
+                },
+            )
+        }
     }
 }
 

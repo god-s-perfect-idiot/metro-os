@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +59,8 @@ import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroListItem
 import com.metro.ui.MetroPanorama
+import com.metro.ui.MetroPanoramaBodyEnter
+import com.metro.ui.MetroPanoramaBrandEnter
 import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -96,74 +99,89 @@ fun MusicHub(
     onOpenCollection: (pivotPage: Int) -> Unit,
     onOpenExplore: () -> Unit,
     onOpenSettings: () -> Unit,
+    skipIntro: Boolean = false,
+    onIntroPlayed: () -> Unit = {},
 ) {
     val density = LocalDensity.current
 
+    // Remember after this hub visit so in-app return skips the intro (not mid-animation).
+    DisposableEffect(Unit) {
+        onDispose { onIntroPlayed() }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Giant panoramic brand — not the small MUSIC app overline
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clipToBounds()
-                .padding(bottom = 4.dp),
-            contentAlignment = Alignment.BottomStart,
-        ) {
-            val measurer = rememberTextMeasurer()
-            val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
-            val brandWidthPx = remember(measurer, density) {
-                measurer.measure(
-                    text = HubBrandText,
-                    style = MetroMusicBrandStyle,
-                    softWrap = false,
-                    maxLines = 1,
-                    density = density,
-                ).size.width.toFloat()
-            }
-            // Spread the off-screen remainder across the panorama so the last pane
-            // ends with the tail of the brand flush at the right edge.
-            val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
-            val lastPage = (pagerState.pageCount - 1).coerceAtLeast(1)
-            val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                .coerceIn(0f, lastPage.toFloat()) / lastPage
-            val brandOffsetPx = (progress * hiddenPx).roundToInt()
-
-            BasicText(
-                text = HubBrandText,
-                style = MetroMusicBrandStyle.copy(color = MetroTheme.colors.primaryText),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Clip,
+        MetroPanoramaBrandEnter(skipEnter = skipIntro) {
+            BoxWithConstraints(
                 modifier = Modifier
-                    .offset { IntOffset(-brandOffsetPx, 0) }
-                    .padding(start = HubBrandInset)
-                    // Measure at full text width; the parent Box does the clipping, so the
-                    // part that starts off-screen still exists and slides into view.
-                    .wrapContentWidth(align = Alignment.Start, unbounded = true),
-            )
+                    .fillMaxWidth()
+                    .clipToBounds()
+                    .padding(bottom = 4.dp),
+                contentAlignment = Alignment.BottomStart,
+            ) {
+                val measurer = rememberTextMeasurer()
+                val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
+                val brandWidthPx = remember(measurer, density) {
+                    measurer.measure(
+                        text = HubBrandText,
+                        style = MetroMusicBrandStyle,
+                        softWrap = false,
+                        maxLines = 1,
+                        density = density,
+                    ).size.width.toFloat()
+                }
+                // Spread the off-screen remainder across the panorama so the last pane
+                // ends with the tail of the brand flush at the right edge.
+                val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
+                val lastPage = (pagerState.pageCount - 1).coerceAtLeast(1)
+                val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                    .coerceIn(0f, lastPage.toFloat()) / lastPage
+                val brandOffsetPx = (progress * hiddenPx).roundToInt()
+
+                BasicText(
+                    text = HubBrandText,
+                    style = MetroMusicBrandStyle.copy(color = MetroTheme.colors.primaryText),
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier
+                        .offset { IntOffset(-brandOffsetPx, 0) }
+                        .padding(start = HubBrandInset)
+                        // Measure at full text width; the parent Box does the clipping, so the
+                        // part that starts off-screen still exists and slides into view.
+                        .wrapContentWidth(align = Alignment.Start, unbounded = true),
+                )
+            }
         }
 
-        MetroPanorama(
-            titles = listOf("collection", "get music", "now playing"),
-            pagerState = pagerState,
+        MetroPanoramaBodyEnter(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .padding(bottom = 72.dp),
-            pageContent = { page ->
-                when (page) {
-                    MusicState.HUB_COLLECTION -> CollectionHubPane(
-                        state = state,
-                        onOpenPivot = onOpenCollection,
-                    )
-                    MusicState.HUB_GET_MUSIC -> GetMusicPane(
-                        state = state,
-                        onOpenExplore = onOpenExplore,
-                        onOpenSettings = onOpenSettings,
-                    )
-                    else -> NowPlayingPane(state = state)
-                }
-            },
-        )
+                .fillMaxWidth(),
+            skipEnter = skipIntro,
+        ) {
+            MetroPanorama(
+                titles = listOf("collection", "get music", "now playing"),
+                pagerState = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 72.dp),
+                pageContent = { page ->
+                    when (page) {
+                        MusicState.HUB_COLLECTION -> CollectionHubPane(
+                            state = state,
+                            onOpenPivot = onOpenCollection,
+                        )
+                        MusicState.HUB_GET_MUSIC -> GetMusicPane(
+                            state = state,
+                            onOpenExplore = onOpenExplore,
+                            onOpenSettings = onOpenSettings,
+                        )
+                        else -> NowPlayingPane(state = state)
+                    }
+                },
+            )
+        }
     }
 }
 

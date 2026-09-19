@@ -88,8 +88,28 @@ object MetroTransitions {
     /** Exit slide — fraction of viewport width; negative pushes the left hinge off-screen. */
     const val PagePivotExitTranslationXFraction = -0.15f
 
+    /**
+     * Panorama hub intro (Metro Spotify carousel language) — brand slides in from the right;
+     * body swings in with left-hinge `rotateY` + a larger X slide than [PagePivotLoad].
+     */
+    const val PanoramaBrandEnterMs = 600
+    /** Delay before brand starts so the body swing leads. */
+    const val PanoramaBrandEnterDelayMs = 200L
+    /** Brand start — full viewport width off to the right. */
+    const val PanoramaBrandStartTranslationXFraction = 1f
+    const val PanoramaBodyEnterMs = 800
+    /** Short lead-in so layout has a frame before the body swing. */
+    const val PanoramaBodyEnterDelayMs = 50L
+    /** Body enter start angle — deeper than [PagePivotLoadStartDegrees]. */
+    const val PanoramaBodyStartDegrees = 30f
+    /** Body enter slide start — +80% of width (nearly off-screen). */
+    const val PanoramaBodyStartTranslationXFraction = 0.8f
+
     /** WP NavigationThemeTransition ease-out cubic approximation. */
     val PageEasing: Easing = CubicBezierEasing(0.0f, 0.0f, 0.0f, 1.0f)
+
+    /** Soft ease-out used by panorama hub intro (Metro Spotify). */
+    val PanoramaIntroEasing: Easing = CubicBezierEasing(0.25f, 0.46f, 0.45f, 0.94f)
 
     val PivotEasing: Easing = CubicBezierEasing(0.42f, 0.0f, 0.58f, 1.0f)
 
@@ -132,6 +152,16 @@ object MetroTransitions {
     fun <T> pagePivotExitTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = PagePivotExitMs,
         easing = PageEasing,
+    )
+
+    fun <T> panoramaBrandEnterTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = PanoramaBrandEnterMs,
+        easing = PanoramaIntroEasing,
+    )
+
+    fun <T> panoramaBodyEnterTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = PanoramaBodyEnterMs,
+        easing = PanoramaIntroEasing,
     )
 
     fun <T> appBarCreepTween(): FiniteAnimationSpec<T> = tween(

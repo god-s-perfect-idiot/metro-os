@@ -126,4 +126,23 @@ class MetroTransitionsTest {
         assertEquals(9f, metroPagePivotCameraDistance(720f), 0.01f)
         assertEquals(8f, metroPagePivotCameraDistance(0f), 0f)
     }
+
+    @Test
+    fun panoramaIntro_matchesMetroSpotifyCarousel() {
+        assertEquals(600, MetroTransitions.PanoramaBrandEnterMs)
+        assertEquals(200L, MetroTransitions.PanoramaBrandEnterDelayMs)
+        assertEquals(1f, MetroTransitions.PanoramaBrandStartTranslationXFraction, 0f)
+        assertEquals(800, MetroTransitions.PanoramaBodyEnterMs)
+        assertEquals(50L, MetroTransitions.PanoramaBodyEnterDelayMs)
+        assertEquals(30f, MetroTransitions.PanoramaBodyStartDegrees, 0f)
+        assertEquals(0.8f, MetroTransitions.PanoramaBodyStartTranslationXFraction, 0f)
+        assertTrue(
+            MetroTransitions.PanoramaBodyStartDegrees >
+                MetroTransitions.PagePivotLoadStartDegrees,
+        )
+        assertTrue(
+            MetroTransitions.PanoramaBodyStartTranslationXFraction >
+                MetroTransitions.PagePivotLoadStartTranslationXFraction,
+        )
+    }
 }

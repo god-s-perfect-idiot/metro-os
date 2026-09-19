@@ -328,7 +328,7 @@ class TileGridTest {
             PlacedTile(displayTile("br", PinnedTileSize.OneByOne, col = 1, row = 1), 1, 1),
             PlacedTile(displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0), 0, 0),
         )
-        // Bottom-right diagonal 0; top-left diagonal 2 → 2×55 + 500
+        // Bottom-right diagonal 0; top-left diagonal 2 → 2×40 + 500
         assertEquals(2L * TileEnterStaggerMs + TileEnterOuterMs, tileEnterWaveDurationMs(placed))
         assertEquals(TileEnterOuterMs.toLong(), tileEnterWaveDurationMs(emptyList()))
     }
@@ -359,13 +359,14 @@ class TileGridTest {
     }
 
     @Test
-    fun tileExitWaveDuration_includesTappedTileAfterLastDiagonal() {
+    fun tileExitWaveDuration_tappedTileIsLastDiagonalStep() {
         val placed = listOf(
             PlacedTile(displayTile("br", PinnedTileSize.OneByOne, col = 1, row = 1), 1, 1),
             PlacedTile(displayTile("tl", PinnedTileSize.OneByOne, col = 0, row = 0), 0, 0),
         )
-        // maxEnterDiagonal 2 → tapped step 3 → 3×40 + 280
-        assertEquals(3L * 40L + 280L, tileExitWaveDurationMs(placed))
+        // maxDiag 2 → tapped step 3 → 3×40 + selected duration
+        assertEquals(3L * 40L + TileExitSelectedMs, tileExitWaveDurationMs(placed))
+        assertEquals(TileExitSelectedMs.toLong(), tileExitWaveDurationMs(emptyList()))
     }
 
     @Test
