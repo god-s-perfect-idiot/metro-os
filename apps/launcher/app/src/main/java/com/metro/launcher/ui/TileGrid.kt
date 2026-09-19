@@ -91,6 +91,7 @@ import kotlin.random.Random
 import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroTheme
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTransitions
 import com.metro.ui.metroPagePivotCameraDistance
@@ -1734,6 +1735,7 @@ private fun SmallTileIconBadgeContent(
         val countBudgetPx = with(density) {
             (availableW - gapV - preferredGlyph).coerceAtLeast(1f).dp.toPx()
         }
+        val fontFamily = MetroTheme.fontFamily
 
         val (fontSp, glyphDp) = remember(
             display,
@@ -1745,9 +1747,10 @@ private fun SmallTileIconBadgeContent(
             minFont,
             minGlyph,
             density,
+            fontFamily,
         ) {
             val measureStyle = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = fontFamily,
                 fontWeight = FontWeight.Bold,
                 platformStyle = PlatformTextStyle(includeFontPadding = false),
             )
@@ -1798,7 +1801,7 @@ private fun SmallTileIconBadgeContent(
                 softWrap = false,
                 overflow = TextOverflow.Clip,
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = fontSp.sp,
                     lineHeight = fontSp.sp,
@@ -1881,7 +1884,7 @@ private fun BoxScope.TileNotificationBadge(
             softWrap = false,
             overflow = TextOverflow.Clip,
             style = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = MetroTheme.fontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = fontSp.sp,
                 lineHeight = fontSp.sp,
@@ -1991,7 +1994,7 @@ private fun AgendaTileContent(
                 BasicText(
                     text = dayNumber,
                     style = TextStyle(
-                        fontFamily = MetroFontFamily,
+                        fontFamily = MetroTheme.fontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = if (wide) {
                             chrome.agendaDateWideSp.sp
@@ -2114,7 +2117,7 @@ private fun MessagingUnreadTileContent(
             BasicText(
                 text = count.toString(),
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.Light,
                     fontSize = countSp.sp,
                     color = contentColor,

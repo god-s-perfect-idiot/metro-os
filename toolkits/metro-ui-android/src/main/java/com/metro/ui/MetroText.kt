@@ -33,9 +33,10 @@ fun MetroText(
     overflow: TextOverflow = TextOverflow.Clip,
     softWrap: Boolean = true,
 ) {
-    val textStyle = style.toTextStyle().copy(
+    val baseStyle = style.toTextStyle(MetroTheme.fontFamily)
+    val textStyle = baseStyle.copy(
         color = color,
-        textAlign = textAlign ?: style.toTextStyle().textAlign,
+        textAlign = textAlign ?: baseStyle.textAlign,
     )
     val layout = resolveMetroTitleOverflow(style, modifier, maxLines, overflow, softWrap)
     BasicText(
@@ -59,9 +60,10 @@ fun MetroText(
     overflow: TextOverflow = TextOverflow.Clip,
     softWrap: Boolean = true,
 ) {
-    val textStyle = style.toTextStyle().copy(
+    val baseStyle = style.toTextStyle(MetroTheme.fontFamily)
+    val textStyle = baseStyle.copy(
         color = color,
-        textAlign = textAlign ?: style.toTextStyle().textAlign,
+        textAlign = textAlign ?: baseStyle.textAlign,
     )
     val layout = resolveMetroTitleOverflow(style, modifier, maxLines, overflow, softWrap)
     BasicText(

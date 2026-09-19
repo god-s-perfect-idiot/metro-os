@@ -207,7 +207,7 @@ fun MetroLoadingScreen(
             BasicText(
                 text = message,
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.Light,
                     fontSize = 18.sp,
                     lineHeight = 24.sp,

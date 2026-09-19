@@ -159,7 +159,7 @@ internal fun MetroPanoramaTitleRow(
                 // instead of measuring at unbounded width and overlapping neighbours.
                 BasicText(
                     text = title,
-                    style = MetroTextStyle.HubTitle.toTextStyle().copy(
+                    style = MetroTextStyle.HubTitle.toTextStyle(MetroTheme.fontFamily).copy(
                         color = if (index == activeIndex) {
                             MetroTheme.colors.primaryText
                         } else {

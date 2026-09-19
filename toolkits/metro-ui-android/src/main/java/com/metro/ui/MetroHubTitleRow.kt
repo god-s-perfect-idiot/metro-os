@@ -67,7 +67,7 @@ private fun ScrollingTitleRow(
 ) {
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val textStyle = style.toTextStyle()
+    val textStyle = style.toTextStyle(MetroTheme.fontFamily)
     val spacingPx = remember(density, spacing) { with(density) { spacing.roundToPx() } }
     val tabContentWidthsPx = remember(titles, textStyle, textMeasurer) {
         titles.map { title ->

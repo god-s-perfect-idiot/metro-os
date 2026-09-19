@@ -41,8 +41,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.metro.settings.R
 import com.metro.system.MetroStartBackground
+import com.metro.system.MetroTypeface
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroDimens
+import com.metro.ui.MetroListPicker
+import com.metro.ui.MetroListPickerOption
 import com.metro.ui.MetroSettingsHeader
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -124,6 +127,29 @@ fun StartThemeScreen(
                 style = MetroTextStyle.Body,
             )
         }
+
+        SettingsSpacer(height = 28)
+
+        MetroListPicker(
+            selected = state.typeface,
+            options = listOf(
+                MetroListPickerOption(
+                    value = MetroTypeface.MetroNoto,
+                    label = stringResource(R.string.settings_font_metro_noto),
+                ),
+                MetroListPickerOption(
+                    value = MetroTypeface.SourceSans3,
+                    label = stringResource(R.string.settings_font_source_sans_3),
+                ),
+                MetroListPickerOption(
+                    value = MetroTypeface.AlegreyaSans,
+                    label = stringResource(R.string.settings_font_alegreya_sans),
+                ),
+            ),
+            onSelectedChange = state::applyTypeface,
+            label = stringResource(R.string.settings_font_label),
+            modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+        )
 
         SettingsSpacer(height = 28)
 

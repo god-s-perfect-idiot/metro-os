@@ -1,29 +1,15 @@
 package com.metro.ui
 
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.metro.ui.R
 
 /**
- * Noto Sans (Segoe WP stand-in) typography roles from scope.md §1.
+ * Typography roles from scope.md §1.
  *
- * Static faces from DiscoLauncher NotoCustom (OFL), not the Google Fonts VF.
+ * Face comes from [fontFamily] (suite preference via [LocalMetroFontFamily] / [MetroTheme.fontFamily]).
  */
-val MetroFontFamily = FontFamily(
-    Font(R.font.noto_sans_thin, FontWeight.Thin),
-    Font(R.font.noto_sans_extralight, FontWeight.ExtraLight),
-    Font(R.font.noto_sans_light, FontWeight.Light),
-    Font(R.font.noto_sans_regular, FontWeight.Normal),
-    Font(R.font.noto_sans_medium, FontWeight.Medium),
-    Font(R.font.noto_sans_semibold, FontWeight.SemiBold),
-    Font(R.font.noto_sans_bold, FontWeight.Bold),
-    Font(R.font.noto_sans_extrabold, FontWeight.ExtraBold),
-    Font(R.font.noto_sans_black, FontWeight.Black),
-)
-
 enum class MetroTextStyle {
     PageTitle,
     /** Panorama / pivot hub titles — thinner than [PageTitle]. */
@@ -53,77 +39,81 @@ enum class MetroTextStyle {
         else -> false
     }
 
-    fun toTextStyle(): TextStyle = when (this) {
+    /**
+     * @param fontFamily Suite chrome face; defaults to Noto for non-composable / test callers.
+     * Prefer resolving via [LocalMetroFontFamily] in UI.
+     */
+    fun toTextStyle(fontFamily: FontFamily = MetroFontFamily): TextStyle = when (this) {
         PageTitle -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Light,
             fontSize = 64.sp,
             lineHeight = 72.sp,
         )
         HubTitle -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Light,
             fontSize = 56.sp,
             lineHeight = 64.sp,
             letterSpacing = (-0.5).sp,
         )
         PivotTab -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Light,
             fontSize = 48.sp,
             lineHeight = 56.sp,
             letterSpacing = (-0.5).sp,
         )
         AppTitle -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Medium,
             fontSize = 16.sp,
             lineHeight = 20.sp,
         )
         HubLink -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Light,
             fontSize = 38.sp,
             lineHeight = 44.sp,
         )
         SectionHeader -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.SemiBold,
             fontSize = 20.sp,
             lineHeight = 24.sp,
         )
         ListItemTitle -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Normal,
             fontSize = 24.sp,
             lineHeight = 28.sp,
         )
         ListItemSubtitle -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Normal,
             fontSize = 18.sp,
             lineHeight = 22.sp,
         )
         Body -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Normal,
             fontSize = 18.sp,
             lineHeight = 24.sp,
         )
         DialogTitle -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Normal,
             fontSize = 24.sp,
             lineHeight = 28.sp,
         )
         DialogBody -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Normal,
             fontSize = 16.sp,
             lineHeight = 22.sp,
         )
         AppBarIconHint -> TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = fontFamily,
             fontWeight = FontWeight.Normal,
             fontSize = 15.sp,
             lineHeight = 18.sp,

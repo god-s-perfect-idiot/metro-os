@@ -19,6 +19,7 @@ Cross-app system contracts: shared preferences, intents, broadcasts, content pro
 | `theme_mode` | `enum { dark, light }` | `dark` | System theme |
 | `accent_color` | `String` (hex) | `#1BA1E2` | Accent from palette |
 | `font_scale` | `Float` | `1.0` | Font scaling |
+| `font_family` | `String` (`metro_noto` / `source_sans_3` / `alegreya_sans`) | `metro_noto` | Suite chrome typeface |
 | `nav_bar_color` | `String?` | null | Nav bar override |
 | `show_more_columns` | `Boolean` | `false` | Start 6-col grid (3 medium tiles across) when true; 4-col when false |
 | `start_background_enabled` | `Boolean` | `false` | Start background photo active; image at `/start_background` |
@@ -31,7 +32,7 @@ then fall back to a mirrored local cache (never gate reads on `resolveContentPro
 Android 11+ package visibility makes that unreliable). SDK manifest declares `<queries>` for
 the provider + `com.metro.settings` so visibility merges into every dependent app.
 
-Theme keys (`theme_mode`, `accent_color`, `font_scale`) use `SharedPreferences.Editor.commit`
+Theme keys (`theme_mode`, `accent_color`, `font_scale`, `font_family`) use `SharedPreferences.Editor.commit`
 for the local mirror and Settings host writes so cold starts survive process death. Clients
 should call `pullThemeFromProvider()` (or use `MetroSystemTheme`, which retries on cold open)
 before painting accent-dependent UI when Settings may still be waking.
@@ -50,7 +51,7 @@ before painting accent-dependent UI when Settings may still be waking.
 
 | Action | Payload |
 |--------|---------|
-| `com.metro.system.THEME_CHANGED` | `theme_mode`, `accent_color`, `font_scale` |
+| `com.metro.system.THEME_CHANGED` | `theme_mode`, `accent_color`, `font_scale`, `font_family` |
 
 ### ContentProvider
 

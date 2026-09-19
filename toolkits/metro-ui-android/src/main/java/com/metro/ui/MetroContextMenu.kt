@@ -164,7 +164,7 @@ fun MetroContextMenuPanel(
             ) {
                 BasicText(
                     text = item.label,
-                    style = MetroTextStyle.ListItemTitle.toTextStyle().copy(
+                    style = MetroTextStyle.ListItemTitle.toTextStyle(MetroTheme.fontFamily).copy(
                         fontSize = ContextMenuLabelSize,
                         lineHeight = ContextMenuLabelLineHeight,
                         color = if (item.enabled) {

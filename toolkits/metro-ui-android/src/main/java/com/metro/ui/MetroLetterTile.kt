@@ -70,7 +70,7 @@ fun MetroLetterTile(
     ) {
         BasicText(
             text = display,
-            style = MetroTextStyle.ListItemTitle.toTextStyle().copy(
+            style = MetroTextStyle.ListItemTitle.toTextStyle(MetroTheme.fontFamily).copy(
                 color = Color.White,
                 fontSize = fontSize,
             ),

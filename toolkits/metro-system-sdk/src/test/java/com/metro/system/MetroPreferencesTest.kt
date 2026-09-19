@@ -86,6 +86,22 @@ class MetroPreferencesTest {
     }
 
     @Test
+    fun typeface_defaultsToMetroNotoAndRoundTrips() {
+        assertEquals(MetroTypeface.MetroNoto, prefs.typeface)
+        prefs.typeface = MetroTypeface.SourceSans3
+        assertEquals(MetroTypeface.SourceSans3, prefs.typeface)
+        prefs.typeface = MetroTypeface.AlegreyaSans
+        assertEquals(MetroTypeface.AlegreyaSans, prefs.typeface)
+    }
+
+    @Test
+    fun cacheThemeSnapshot_includesTypeface() {
+        prefs.cacheThemeSnapshot(typeface = MetroTypeface.SourceSans3)
+        assertEquals(MetroTypeface.SourceSans3, prefs.typeface)
+        assertEquals(MetroTypeface.SourceSans3, prefs.peekCachedTypeface())
+    }
+
+    @Test
     fun showMoreColumns_defaultsOffAndRoundTrips() {
         assertFalse(prefs.showMoreColumns)
         prefs.showMoreColumns = true

@@ -72,7 +72,7 @@ fun MetroTextBox(
     val accent = MetroTheme.colors.accent
     val fill = MetroTextBoxDefaults.fill(focused = focused && enabled)
     val border = MetroTextBoxDefaults.borderColor(focused = focused && enabled, accent = accent)
-    val textStyle = MetroTextStyle.Body.toTextStyle().copy(color = MetroTextBoxDefaults.TextColor)
+    val textStyle = MetroTextStyle.Body.toTextStyle(MetroTheme.fontFamily).copy(color = MetroTextBoxDefaults.TextColor)
     val selectionColors = remember(accent) {
         TextSelectionColors(
             handleColor = accent,

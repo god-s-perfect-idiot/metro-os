@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroTheme
 import com.metro.ui.MetroTransitions
 
 private val QuickStatusIconSize = 22.dp
@@ -148,7 +149,7 @@ private fun QuickStatusFront(
         if (countLabel.isNotEmpty()) {
             BasicText(
                 text = countLabel,
-                style = QuickStatusCountStyle.copy(color = contentColor),
+                style = QuickStatusCountStyle.copy(fontFamily = MetroTheme.fontFamily, color = contentColor),
             )
         }
     }

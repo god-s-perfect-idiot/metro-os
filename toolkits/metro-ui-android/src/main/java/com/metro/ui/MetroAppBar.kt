@@ -462,7 +462,7 @@ private fun AppBarIconButton(
             BasicText(
                 text = item.label,
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.Normal,
                     fontSize = 13.sp,
                     lineHeight = 16.sp,
@@ -532,7 +532,7 @@ private fun AppBarTextButton(
         BasicText(
             text = item.text,
             style = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = MetroTheme.fontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
                 lineHeight = 22.sp,
@@ -607,7 +607,7 @@ private fun AppBarMenuRow(
         BasicText(
             text = item.text,
             style = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = MetroTheme.fontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 19.sp,
                 lineHeight = 24.sp,

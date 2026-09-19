@@ -331,7 +331,7 @@ private fun MusicTransportBody(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     lineHeight = 22.sp,
@@ -344,7 +344,7 @@ private fun MusicTransportBody(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.Light,
                     fontSize = 18.sp,
                     lineHeight = 22.sp,
@@ -605,7 +605,7 @@ private fun ActionLabelText(
         text = text,
         modifier = modifier,
         style = TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = MetroTheme.fontFamily,
             fontWeight = FontWeight.Medium,
             fontSize = VolumeHudSpec.ACTION_LABEL_FONT_SP.sp,
             lineHeight = 18.sp,

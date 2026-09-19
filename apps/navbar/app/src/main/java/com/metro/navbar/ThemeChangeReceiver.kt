@@ -7,6 +7,7 @@ import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroThemeMode
+import com.metro.system.MetroTypeface
 
 class ThemeChangeReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent?) {
@@ -20,6 +21,8 @@ class ThemeChangeReceiver : BroadcastReceiver() {
       } else {
         null
       },
+      typeface = intent.getStringExtra(MetroBroadcasts.EXTRA_FONT_FAMILY)
+        ?.let { MetroTypeface.fromStorage(it) },
     )
     NavbarOverlayService.requestRefresh(context)
   }

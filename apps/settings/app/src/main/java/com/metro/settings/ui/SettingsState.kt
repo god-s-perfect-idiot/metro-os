@@ -17,6 +17,7 @@ import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStartBackground
+import com.metro.system.MetroTypeface
 
 enum class SettingsRoute {
     Root,
@@ -80,6 +81,9 @@ class SettingsState(
         private set
 
     var fontScale by mutableFloatStateOf(prefs.fontScale)
+        private set
+
+    var typeface by mutableStateOf(prefs.typeface)
         private set
 
     var showMoreColumns by mutableStateOf(prefs.showMoreColumns)
@@ -176,6 +180,11 @@ class SettingsState(
     fun applyFontScaleIndex(index: Int) {
         fontScale = MetroFontScale.fromIndex(index)
         prefs.applyThemeChange(fontScale = fontScale)
+    }
+
+    fun applyTypeface(value: MetroTypeface) {
+        typeface = value
+        prefs.applyThemeChange(typeface = typeface)
     }
 
     fun applyShowMoreColumns(enabled: Boolean) {
@@ -303,6 +312,7 @@ class SettingsState(
         brightness = system.brightnessFraction()
         accentHex = prefs.accentColorHex
         fontScale = prefs.fontScale
+        typeface = prefs.typeface
         showMoreColumns = prefs.showMoreColumns
         startBackgroundEnabled = prefs.startBackgroundEnabled
         galleryAppPackages = prefs.galleryAppPackages

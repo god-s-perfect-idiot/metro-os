@@ -61,6 +61,7 @@ class MetroPreferences(context: Context) {
         val accentRemote = queryProvider(MetroPreferenceKeys.ACCENT_COLOR)
         val themeRemote = queryProvider(MetroPreferenceKeys.THEME_MODE)
         val fontRemote = queryProvider(MetroPreferenceKeys.FONT_SCALE)
+        val typefaceRemote = queryProvider(MetroPreferenceKeys.FONT_FAMILY)
         var reached = false
         accentRemote?.let {
             reached = true
@@ -74,6 +75,10 @@ class MetroPreferences(context: Context) {
             reached = true
             cacheFloatLocally(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.coerceToStep(it), durable = true)
         }
+        typefaceRemote?.let {
+            reached = true
+            cacheStringLocally(MetroPreferenceKeys.FONT_FAMILY, it, durable = true)
+        }
         return reached
     }
 
@@ -82,6 +87,21 @@ class MetroPreferences(context: Context) {
             readFloat(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.DEFAULT),
         )
         set(value) = writeFloat(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.coerceToStep(value))
+
+    /**
+     * Suite chrome typeface (Settings → start+theme). Default [MetroTypeface.MetroNoto].
+     */
+    var typeface: MetroTypeface
+        get() = MetroTypeface.fromStorage(
+            readString(MetroPreferenceKeys.FONT_FAMILY, MetroTypeface.DEFAULT.storageValue),
+        )
+        set(value) = writeString(MetroPreferenceKeys.FONT_FAMILY, value.storageValue)
+
+    /** Local mirror of typeface; null when this process has never cached one. */
+    fun peekCachedTypeface(): MetroTypeface? =
+        localPrefs.getString(MetroPreferenceKeys.FONT_FAMILY, null)?.let {
+            MetroTypeface.fromStorage(it)
+        }
 
     var navBarColorHex: String?
         get() = readString(MetroPreferenceKeys.NAV_BAR_COLOR, null)
@@ -149,11 +169,13 @@ class MetroPreferences(context: Context) {
         themeMode: MetroThemeMode? = null,
         accentColorHex: String? = null,
         fontScale: Float? = null,
+        typeface: MetroTypeface? = null,
         broadcast: Boolean = true,
     ) {
         themeMode?.let { this.themeMode = it }
         accentColorHex?.let { this.accentColorHex = it }
         fontScale?.let { this.fontScale = it }
+        typeface?.let { this.typeface = it }
         if (broadcast) {
             broadcastThemeChanged()
         }
@@ -171,6 +193,7 @@ class MetroPreferences(context: Context) {
         themeMode: MetroThemeMode? = null,
         accentColorHex: String? = null,
         fontScale: Float? = null,
+        typeface: MetroTypeface? = null,
     ) {
         val editor = localPrefs.edit()
         themeMode?.let { editor.putString(MetroPreferenceKeys.THEME_MODE, it.storageValue) }
@@ -181,6 +204,9 @@ class MetroPreferences(context: Context) {
         fontScale?.let {
             editor.putFloat(MetroPreferenceKeys.FONT_SCALE, MetroFontScale.coerceToStep(it))
         }
+        typeface?.let {
+            editor.putString(MetroPreferenceKeys.FONT_FAMILY, it.storageValue)
+        }
         editor.commit()
     }
 
@@ -189,6 +215,7 @@ class MetroPreferences(context: Context) {
             putExtra(MetroBroadcasts.EXTRA_THEME_MODE, themeMode.storageValue)
             putExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR, this@MetroPreferences.accentColorHex)
             putExtra(MetroBroadcasts.EXTRA_FONT_SCALE, fontScale)
+            putExtra(MetroBroadcasts.EXTRA_FONT_FAMILY, typeface.storageValue)
             putExtra(
                 MetroBroadcasts.EXTRA_START_BACKGROUND_ENABLED,
                 this@MetroPreferences.startBackgroundEnabled,
@@ -327,7 +354,8 @@ class MetroPreferences(context: Context) {
     private fun isThemeKey(key: String): Boolean =
         key == MetroPreferenceKeys.THEME_MODE ||
             key == MetroPreferenceKeys.ACCENT_COLOR ||
-            key == MetroPreferenceKeys.FONT_SCALE
+            key == MetroPreferenceKeys.FONT_SCALE ||
+            key == MetroPreferenceKeys.FONT_FAMILY
 
     private fun rawAsFloat(raw: Any?): Float? = when (raw) {
         is Float -> raw

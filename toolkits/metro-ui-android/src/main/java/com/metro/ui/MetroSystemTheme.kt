@@ -24,12 +24,13 @@ import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroThemeMode
+import com.metro.system.MetroTypeface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * Applies suite-wide theme, accent, and font scale from [MetroPreferences].
+ * Applies suite-wide theme, accent, typeface, and font scale from [MetroPreferences].
  * Observes [MetroBroadcasts.ACTION_THEME_CHANGED] so Settings writes recompose all apps.
  * Also reloads on resume and mirrors broadcast extras into the local prefs cache so cold
  * starts keep the last suite accent even if the Settings provider is briefly unreachable.
@@ -54,11 +55,15 @@ fun MetroSystemTheme(
         )
     }
     var fontScale by remember { mutableFloatStateOf(prefs.fontScale) }
+    var typeface by remember {
+        mutableStateOf(prefs.peekCachedTypeface() ?: prefs.typeface)
+    }
 
     fun reload() {
         darkTheme = prefs.isDark
         accent = prefs.accentColor
         fontScale = prefs.fontScale
+        typeface = prefs.typeface
     }
 
     // Wake Settings and pull theme; first-frame provider misses are common on cold start.
@@ -83,20 +88,26 @@ fun MetroSystemTheme(
                 } else {
                     null
                 }
+                val typefaceExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_FONT_FAMILY)
+                    ?.let { MetroTypeface.fromStorage(it) }
                 prefs.cacheThemeSnapshot(
                     themeMode = modeExtra?.let { MetroThemeMode.fromStorage(it) },
                     accentColorHex = accentExtra,
                     fontScale = fontExtra,
+                    typeface = typefaceExtra,
                 )
+                // Prefer broadcast extras for this frame; fall back to the mirror we just wrote.
                 modeExtra?.let { mode ->
                     darkTheme = MetroThemeMode.fromStorage(mode) == MetroThemeMode.Dark
                 }
                 accentExtra?.let { hex ->
                     accent = MetroPreferences.parseAccentHex(hex)
                 }
-                if (fontExtra != null) {
-                    fontScale = MetroFontScale.coerceToStep(fontExtra)
-                } else {
+                fontExtra?.let { fontScale = MetroFontScale.coerceToStep(it) }
+                typefaceExtra?.let { typeface = it }
+                if (modeExtra == null || accentExtra == null ||
+                    fontExtra == null || typefaceExtra == null
+                ) {
                     reload()
                 }
             }
@@ -129,9 +140,15 @@ fun MetroSystemTheme(
             fontScale = fontScale,
         )
     }
+    val fontFamily = remember(typeface) { metroFontFamilyFor(typeface) }
 
     CompositionLocalProvider(LocalDensity provides scaledDensity) {
-        MetroTheme(darkTheme = darkTheme, accent = accent, content = content)
+        MetroTheme(
+            darkTheme = darkTheme,
+            accent = accent,
+            fontFamily = fontFamily,
+            content = content,
+        )
     }
 }
 

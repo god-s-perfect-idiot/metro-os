@@ -121,10 +121,11 @@ fun MusicHub(
             ) {
                 val measurer = rememberTextMeasurer()
                 val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
-                val brandWidthPx = remember(measurer, density) {
+                val fontFamily = MetroTheme.fontFamily
+                val brandWidthPx = remember(measurer, density, fontFamily) {
                     measurer.measure(
                         text = HubBrandText,
-                        style = MetroMusicBrandStyle,
+                        style = MetroMusicBrandStyle.copy(fontFamily = fontFamily),
                         softWrap = false,
                         maxLines = 1,
                         density = density,
@@ -140,7 +141,7 @@ fun MusicHub(
 
                 BasicText(
                     text = HubBrandText,
-                    style = MetroMusicBrandStyle.copy(color = MetroTheme.colors.primaryText),
+                    style = MetroMusicBrandStyle.copy(fontFamily = MetroTheme.fontFamily, color = MetroTheme.colors.primaryText),
                     maxLines = 1,
                     softWrap = false,
                     overflow = TextOverflow.Clip,

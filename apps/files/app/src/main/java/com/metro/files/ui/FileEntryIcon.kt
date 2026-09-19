@@ -101,7 +101,7 @@ private fun FolderTile(
                     color = content,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                 ),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -141,7 +141,7 @@ private fun FileTypeTile(
                     color = Color.White,
                     fontSize = if (badge.label.length > 1) 7.sp else 10.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                 ),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)

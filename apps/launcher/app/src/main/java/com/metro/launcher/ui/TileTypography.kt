@@ -11,6 +11,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroTheme
 
 /**
  * Live-tile face typography.
@@ -63,7 +64,7 @@ internal fun TileText(
     BasicText(
         text = text,
         modifier = modifier,
-        style = style.copy(color = color),
+        style = style.copy(color = color, fontFamily = MetroTheme.fontFamily),
         maxLines = maxLines,
         overflow = overflow,
         softWrap = softWrap,

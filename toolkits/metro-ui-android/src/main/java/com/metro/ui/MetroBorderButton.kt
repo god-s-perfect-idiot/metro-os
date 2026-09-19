@@ -72,7 +72,7 @@ fun MetroBorderButton(
             BasicText(
                 text = text,
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = fontSize,
                     lineHeight = (fontSize.value * 22f / 16f).sp,

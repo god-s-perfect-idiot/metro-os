@@ -46,6 +46,7 @@ import com.metro.system.MetroPreferenceKeys
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStartBackground
 import com.metro.system.MetroThemeMode
+import com.metro.system.MetroTypeface
 import com.metro.system.MetroTileContract
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -212,6 +213,8 @@ class LauncherState(context: Context) {
             metroPrefs.cacheThemeSnapshot(
                 themeMode = modeExtra?.let { MetroThemeMode.fromStorage(it) },
                 accentColorHex = accentExtra,
+                typeface = intent.getStringExtra(MetroBroadcasts.EXTRA_FONT_FAMILY)
+                    ?.let { MetroTypeface.fromStorage(it) },
             )
             modeExtra?.let { mode ->
                 darkTheme = MetroThemeMode.fromStorage(mode) == MetroThemeMode.Dark

@@ -124,7 +124,7 @@ private fun ViewTypeRow(
         BasicText(
             text = label,
             style = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = MetroTheme.fontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 19.sp,
                 lineHeight = 24.sp,

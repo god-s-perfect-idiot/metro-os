@@ -122,11 +122,11 @@ These rules are **non-negotiable** unless a documented Android platform limitati
 
 ### 1. Typography
 
-> **Font stand-in (v1):** Use **Noto Sans** in place of WP8.1 Segoe WP. Keep the same size and weight roles below so a future Segoe swap is drop-in.
+> **Font stand-in (v1):** Default chrome face is **Noto Sans** (Segoe WP stand-in). Settings → start+theme may switch the suite to Source Sans 3 or Alegreya Sans; keep the same size and weight roles below.
 
 | Rule | Value |
 |------|-------|
-| Primary typeface | **Noto Sans** static faces (Thin–Black, DiscoLauncher NotoCustom). SIL Open Font License — ship in `metro-ui-android`. Never Roboto in Metro chrome |
+| Primary typeface | Suite preference (`MetroTypeface`): **Metro Noto** (default), Source Sans 3, or Alegreya Sans — bundled in `metro-ui-android` (OFL). Never Roboto in Metro chrome |
 | Minimum body size | **15sp** — no smaller text in interactive UI |
 | Page title | 64sp Noto Sans Light, flush left |
 | Section header | 20sp Noto Sans SemiBold |
@@ -378,7 +378,7 @@ Reusable scaffolding so animations and UX stay consistent across apps.
 
 ### `metro-system-sdk`
 
-- `MetroPreferences`: read/write `accent_color`, `theme_mode`, `font_scale`, `nav_bar_color`, `show_more_columns`
+- `MetroPreferences`: read/write `accent_color`, `theme_mode`, `font_scale`, `font_family`, `nav_bar_color`, `show_more_columns`
 - Intent contracts: `MetroIntents.LAUNCH_APP`, `MetroIntents.SEARCH`, `MetroIntents.SHARE`
 - `ContentProvider` URI scheme: `content://com.metro.system/...`
 - Broadcast: `com.metro.system.THEME_CHANGED`

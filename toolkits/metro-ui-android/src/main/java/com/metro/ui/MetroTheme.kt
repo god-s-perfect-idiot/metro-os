@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 
 @Immutable
 data class MetroThemeColors(
@@ -27,15 +28,22 @@ val LocalMetroThemeColors = staticCompositionLocalOf {
     )
 }
 
+/** Suite chrome typeface from Settings → start+theme (via [MetroSystemTheme]). */
+val LocalMetroFontFamily = staticCompositionLocalOf { MetroFontFamily }
+
 object MetroTheme {
     val colors: MetroThemeColors
         @Composable get() = LocalMetroThemeColors.current
+
+    val fontFamily: FontFamily
+        @Composable get() = LocalMetroFontFamily.current
 }
 
 @Composable
 fun MetroTheme(
     darkTheme: Boolean = true,
     accent: Color = MetroColors.AccentBlue,
+    fontFamily: FontFamily = MetroFontFamily,
     content: @Composable () -> Unit,
 ) {
     val colors = MetroThemeColors(
@@ -46,5 +54,9 @@ fun MetroTheme(
         accent = accent,
         chromeBackground = MetroColors.chromeBackground(darkTheme),
     )
-    CompositionLocalProvider(LocalMetroThemeColors provides colors, content = content)
+    CompositionLocalProvider(
+        LocalMetroThemeColors provides colors,
+        LocalMetroFontFamily provides fontFamily,
+        content = content,
+    )
 }

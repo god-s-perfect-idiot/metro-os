@@ -342,8 +342,9 @@ private fun AutoScaleDialNumberText(
     BoxWithConstraints(modifier = modifier) {
         val maxWidthPx = constraints.maxWidth
         val lineHeightRatio = baseStyle.lineHeight.value / baseStyle.fontSize.value
-        val style = remember(text, maxWidthPx, baseStyle, color) {
-            val tinted = baseStyle.copy(color = color)
+        val fontFamily = MetroTheme.fontFamily
+        val style = remember(text, maxWidthPx, baseStyle, color, fontFamily) {
+            val tinted = baseStyle.copy(fontFamily = fontFamily, color = color)
             if (text.isEmpty() || maxWidthPx <= 0) {
                 tinted
             } else {
@@ -517,7 +518,7 @@ private fun DialKey(
         if (centered) {
             BasicText(
                 text = digit,
-                style = DialKeyDigitStyle.copy(color = digitColor),
+                style = DialKeyDigitStyle.copy(fontFamily = MetroTheme.fontFamily, color = digitColor),
             )
         } else {
             Row(
@@ -526,7 +527,7 @@ private fun DialKey(
             ) {
                 BasicText(
                     text = digit,
-                    style = DialKeyDigitStyle.copy(color = digitColor),
+                    style = DialKeyDigitStyle.copy(fontFamily = MetroTheme.fontFamily, color = digitColor),
                 )
                 if (hint.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(6.dp))
@@ -534,9 +535,9 @@ private fun DialKey(
                         text = hint,
                         // "+" sits beside "0" — match digit size; letter hints stay secondary.
                         style = if (hint == "+") {
-                            DialKeyDigitStyle.copy(color = hintColor)
+                            DialKeyDigitStyle.copy(fontFamily = MetroTheme.fontFamily, color = hintColor)
                         } else {
-                            DialKeyHintStyle.copy(color = hintColor)
+                            DialKeyHintStyle.copy(fontFamily = MetroTheme.fontFamily, color = hintColor)
                         },
                     )
                 }

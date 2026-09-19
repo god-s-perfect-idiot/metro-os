@@ -134,7 +134,7 @@ fun PreviewKeyboardField(
                     onValueChange = { controller.text = it },
                     singleLine = true,
                     textStyle = TextStyle(
-                        fontFamily = MetroFontFamily,
+                        fontFamily = MetroTheme.fontFamily,
                         fontSize = 18.sp,
                         color = fieldTextColor,
                         textDirection = TextDirection.ContentOrLtr,
@@ -150,7 +150,7 @@ fun PreviewKeyboardField(
                                 BasicText(
                                     text = hint,
                                     style = TextStyle(
-                                        fontFamily = MetroFontFamily,
+                                        fontFamily = MetroTheme.fontFamily,
                                         fontSize = 18.sp,
                                         color = placeholderColor,
                                     ),

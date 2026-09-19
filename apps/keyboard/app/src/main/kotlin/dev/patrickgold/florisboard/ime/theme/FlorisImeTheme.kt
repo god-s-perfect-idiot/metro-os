@@ -38,7 +38,9 @@ import androidx.compose.ui.text.TextStyle
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroThemeMode
-import com.metro.ui.MetroFontFamily
+import com.metro.system.MetroTypeface
+import com.metro.ui.LocalMetroFontFamily
+import com.metro.ui.metroFontFamilyFor
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.ime.window.LocalWindowController
 import dev.patrickgold.florisboard.keyboardManager
@@ -78,11 +80,13 @@ fun FlorisImeTheme(content: @Composable () -> Unit) {
         FlorisImeUi.Attr.Mode to state.keyboardMode.toString(),
         FlorisImeUi.Attr.ShiftState to state.inputShiftState.toString(),
     )
+    val metroFontFamily = rememberMetroFontFamily()
 
     MaterialTheme {
-        // Suite Noto Sans (metro-ui-android) — Segoe WP stand-in for all SIP chrome text.
+        // Suite chrome typeface from Settings → start+theme.
         CompositionLocalProvider(
-            LocalTextStyle provides TextStyle.Default.copy(fontFamily = MetroFontFamily),
+            LocalTextStyle provides TextStyle.Default.copy(fontFamily = metroFontFamily),
+            LocalMetroFontFamily provides metroFontFamily,
         ) {
             ProvideSnyggTheme(
                 snyggTheme = snyggTheme,
@@ -92,7 +96,7 @@ fun FlorisImeTheme(content: @Composable () -> Unit) {
                 rootAttributes = attributes,
                 content = content,
                 materialYouFlags = activeThemeInfo.config.materialYouFlags,
-                defaultFontFamily = MetroFontFamily,
+                defaultFontFamily = metroFontFamily,
             )
         }
     }
@@ -136,6 +140,52 @@ private fun rememberMetroAccentColor(): Color {
     }
 
     return accent
+}
+
+/**
+ * Reads the suite typeface from [MetroPreferences] and keeps SIP chrome live when Settings
+ * broadcasts [MetroBroadcasts.ACTION_THEME_CHANGED].
+ */
+@Composable
+private fun rememberMetroFontFamily(): androidx.compose.ui.text.font.FontFamily {
+    val context = LocalContext.current
+    val prefs = remember(context) { MetroPreferences(context) }
+    var typeface by remember {
+        mutableStateOf(prefs.peekCachedTypeface() ?: prefs.typeface)
+    }
+
+    fun reload() {
+        typeface = prefs.typeface
+    }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action != MetroBroadcasts.ACTION_THEME_CHANGED) return
+                val typefaceExtra = intent.getStringExtra(MetroBroadcasts.EXTRA_FONT_FAMILY)
+                    ?.let { MetroTypeface.fromStorage(it) }
+                prefs.cacheThemeSnapshot(
+                    themeMode = intent.getStringExtra(MetroBroadcasts.EXTRA_THEME_MODE)
+                        ?.let { MetroThemeMode.fromStorage(it) },
+                    accentColorHex = intent.getStringExtra(MetroBroadcasts.EXTRA_ACCENT_COLOR),
+                    typeface = typefaceExtra,
+                )
+                typefaceExtra?.let { typeface = it } ?: reload()
+            }
+        }
+        context.registerReceiver(
+            receiver,
+            IntentFilter(MetroBroadcasts.ACTION_THEME_CHANGED),
+            Context.RECEIVER_EXPORTED,
+        )
+        val observer = prefs.registerObserver { reload() }
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+            prefs.unregisterObserver(observer)
+        }
+    }
+
+    return remember(typeface) { metroFontFamilyFor(typeface) }
 }
 
 private fun dev.patrickgold.florisboard.lib.ext.ExtensionComponentName.isMetroWp81Theme(): Boolean {

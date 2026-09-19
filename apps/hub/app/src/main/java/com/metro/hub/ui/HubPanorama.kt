@@ -99,10 +99,11 @@ fun HubPanorama(
             ) {
                 val measurer = rememberTextMeasurer()
                 val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
-                val brandWidthPx = remember(measurer, density) {
+                val fontFamily = MetroTheme.fontFamily
+                val brandWidthPx = remember(measurer, density, fontFamily) {
                     measurer.measure(
                         text = HubBrandText,
-                        style = HubBrandStyle,
+                        style = HubBrandStyle.copy(fontFamily = fontFamily),
                         softWrap = false,
                         maxLines = 1,
                         density = density,
@@ -116,7 +117,7 @@ fun HubPanorama(
 
                 BasicText(
                     text = HubBrandText,
-                    style = HubBrandStyle.copy(color = MetroTheme.colors.primaryText),
+                    style = HubBrandStyle.copy(fontFamily = MetroTheme.fontFamily, color = MetroTheme.colors.primaryText),
                     maxLines = 1,
                     softWrap = false,
                     overflow = TextOverflow.Clip,
@@ -223,7 +224,7 @@ private fun HubLinkRow(
     ) {
         BasicText(
             text = title,
-            style = HubMenuLinkStyle.copy(color = color),
+            style = HubMenuLinkStyle.copy(fontFamily = MetroTheme.fontFamily, color = color),
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Clip,

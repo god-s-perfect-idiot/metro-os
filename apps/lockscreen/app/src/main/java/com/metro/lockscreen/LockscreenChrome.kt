@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroTheme
 
 /** Tight metrics so lock chrome stacks like WP8.1 (no extra font padding gap). */
 private val LockChromeLineHeightStyle = LineHeightStyle(
@@ -122,8 +123,8 @@ fun LockscreenChrome(
     contentColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val timeStyle = LockTimeStyle.copy(color = contentColor)
-    val dayStyle = LockDayDateStyle.copy(color = contentColor)
+    val timeStyle = LockTimeStyle.copy(fontFamily = MetroTheme.fontFamily, color = contentColor)
+    val dayStyle = LockDayDateStyle.copy(fontFamily = MetroTheme.fontFamily, color = contentColor)
     val timeStartNudge = rememberLockTimeStartNudge(timeStyle, dayStyle)
 
     Column(
@@ -162,7 +163,7 @@ fun LockscreenChrome(
             Spacer(modifier = Modifier.height(28.dp + LockClockToDayOverlap))
             BasicText(
                 text = event.title,
-                style = LockEventStyle.copy(color = contentColor),
+                style = LockEventStyle.copy(fontFamily = MetroTheme.fontFamily, color = contentColor),
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 1,
                 softWrap = false,
@@ -172,7 +173,7 @@ fun LockscreenChrome(
             if (!location.isNullOrBlank()) {
                 BasicText(
                     text = location,
-                    style = LockEventStyle.copy(color = contentColor),
+                    style = LockEventStyle.copy(fontFamily = MetroTheme.fontFamily, color = contentColor),
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 1,
                     softWrap = false,
@@ -181,7 +182,7 @@ fun LockscreenChrome(
             }
             BasicText(
                 text = event.timeLabel,
-                style = LockEventStyle.copy(color = contentColor),
+                style = LockEventStyle.copy(fontFamily = MetroTheme.fontFamily, color = contentColor),
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 1,
                 softWrap = false,

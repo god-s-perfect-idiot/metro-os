@@ -164,6 +164,8 @@ class MetroSystemPreferencesProvider : ContentProvider() {
             prefs.getString(key, MetroPreferences.DEFAULT_ACCENT_HEX)
         MetroPreferenceKeys.FONT_SCALE ->
             prefs.getFloat(key, MetroFontScale.DEFAULT)
+        MetroPreferenceKeys.FONT_FAMILY ->
+            prefs.getString(key, MetroTypeface.DEFAULT.storageValue)
         MetroPreferenceKeys.NAV_BAR_COLOR ->
             prefs.getString(key, null)
         MetroPreferenceKeys.NAV_BAR_ENABLED ->
@@ -191,6 +193,7 @@ class MetroSystemPreferencesProvider : ContentProvider() {
             MetroPreferenceKeys.THEME_MODE,
             MetroPreferenceKeys.ACCENT_COLOR,
             MetroPreferenceKeys.FONT_SCALE,
+            MetroPreferenceKeys.FONT_FAMILY,
             MetroPreferenceKeys.NAV_BAR_COLOR,
             MetroPreferenceKeys.NAV_BAR_ENABLED,
             MetroPreferenceKeys.SHOW_MORE_COLUMNS,

@@ -201,13 +201,13 @@ internal fun StoreAppRow(
             )
             BasicText(
                 text = asset.description,
-                style = StoreMetaStyle.copy(color = secondary),
+                style = StoreMetaStyle.copy(fontFamily = MetroTheme.fontFamily, color = secondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             BasicText(
                 text = "By: ${asset.publisher}",
-                style = StoreMetaStyle.copy(color = secondary),
+                style = StoreMetaStyle.copy(fontFamily = MetroTheme.fontFamily, color = secondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -340,7 +340,7 @@ private fun StoreAppLetter(
     BasicText(
         text = title.firstOrNull()?.uppercaseChar()?.toString().orEmpty(),
         style = TextStyle(
-            fontFamily = MetroFontFamily,
+            fontFamily = MetroTheme.fontFamily,
             fontWeight = FontWeight.Light,
             fontSize = fontSize,
             color = color,

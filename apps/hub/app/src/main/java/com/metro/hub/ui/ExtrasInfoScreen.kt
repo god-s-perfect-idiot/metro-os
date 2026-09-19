@@ -107,7 +107,7 @@ fun ExtrasInfoScreen(
             ) {
                 BasicText(
                     text = stringResource(R.string.extras_metro_ruby),
-                    style = ReleaseNameStyle.copy(color = MetroRubyColor),
+                    style = ReleaseNameStyle.copy(fontFamily = MetroTheme.fontFamily, color = MetroRubyColor),
                     maxLines = 1,
                 )
                 RubyInfoGlyph(color = MetroRubyColor)
@@ -115,7 +115,7 @@ fun ExtrasInfoScreen(
 
             BasicText(
                 text = stringResource(R.string.extras_source_on_github),
-                style = UnderlineLinkStyle.copy(color = primary),
+                style = UnderlineLinkStyle.copy(fontFamily = MetroTheme.fontFamily, color = primary),
                 modifier = Modifier
                     .clickable { state.openExternalUrl(HubState.GITHUB_URL) }
                     .padding(vertical = 4.dp),
@@ -125,7 +125,7 @@ fun ExtrasInfoScreen(
 
             BasicText(
                 text = stringResource(R.string.extras_intro),
-                style = ComponentLineStyle.copy(color = primary),
+                style = ComponentLineStyle.copy(fontFamily = MetroTheme.fontFamily, color = primary),
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -183,7 +183,7 @@ private fun ComponentLine(
 ) {
     BasicText(
         text = text,
-        style = ComponentLineStyle.copy(color = color),
+        style = ComponentLineStyle.copy(fontFamily = MetroTheme.fontFamily, color = color),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
@@ -204,7 +204,7 @@ private fun RubyInfoGlyph(
         BasicText(
             text = "i",
             style = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = MetroTheme.fontFamily,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 12.sp,
                 lineHeight = 12.sp,

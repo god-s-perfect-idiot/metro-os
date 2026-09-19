@@ -64,19 +64,13 @@ Named decorative / feedback animations (not page chrome). Prefer these over app-
 
 ## Fonts
 
-Bundle **Noto Sans** static faces in `src/main/res/font/` (DiscoLauncher [NotoCustom](https://github.com/cherryhoax/DiscoLauncher/tree/main/www/assets/fonts/NotoCustom), OFL):
+Bundle chrome faces in `src/main/res/font/`:
 
-- `noto_sans_thin.ttf`
-- `noto_sans_extralight.ttf`
-- `noto_sans_light.ttf`
-- `noto_sans_regular.ttf`
-- `noto_sans_medium.ttf`
-- `noto_sans_semibold.ttf`
-- `noto_sans_bold.ttf`
-- `noto_sans_extrabold.ttf`
-- `noto_sans_black.ttf`
+- **Metro Noto** (default) — DiscoLauncher NotoCustom static Thin–Black (OFL)
+- **Source Sans 3** — variable `source_sans_3.ttf` (OFL)
+- **Alegreya Sans** — static Thin/Light/Regular/Medium/Bold/ExtraBold/Black (OFL)
 
-Mapped via `MetroFontFamily` in `MetroTextStyle.kt`. Weight roles: Light → page titles; Medium → app titles; Regular → body/list titles; SemiBold → section headers; Bold/Black sparingly.
+Mapped via `metroFontFamilyFor(MetroTypeface)` / `LocalMetroFontFamily` (Settings → start+theme). Weight roles: Light → page titles; Medium → app titles; Regular → body/list titles; SemiBold → section headers; Bold/Black sparingly.
 
 ## Rules
 

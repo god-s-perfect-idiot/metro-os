@@ -128,7 +128,7 @@ private fun CalculatorDisplay(
             BasicText(
                 text = operation,
                 style = TextStyle(
-                    fontFamily = MetroFontFamily,
+                    fontFamily = MetroTheme.fontFamily,
                     fontWeight = FontWeight.Light,
                     fontSize = operationSize,
                     color = MetroTheme.colors.secondaryText,
@@ -142,7 +142,7 @@ private fun CalculatorDisplay(
         BasicText(
             text = value,
             style = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = MetroTheme.fontFamily,
                 fontWeight = FontWeight.Light,
                 fontSize = valueSize,
                 color = if (isError) MetroColors.AccentRed else MetroTheme.colors.primaryText,
@@ -364,7 +364,7 @@ private fun CalcButton(
         BasicText(
             text = spec.label,
             style = TextStyle(
-                fontFamily = MetroFontFamily,
+                fontFamily = MetroTheme.fontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = fontSize,
                 color = textColor,

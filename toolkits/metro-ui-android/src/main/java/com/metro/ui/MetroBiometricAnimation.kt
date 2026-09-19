@@ -191,7 +191,10 @@ fun MetroBiometricAnimation(
 
         BasicText(
             text = greeting,
-            style = BiometricGreetingStyle.copy(color = color),
+            style = BiometricGreetingStyle.copy(
+                color = color,
+                fontFamily = MetroTheme.fontFamily,
+            ),
             modifier = Modifier
                 .padding(top = 16.dp)
                 .graphicsLayer { alpha = helloAlpha.value },

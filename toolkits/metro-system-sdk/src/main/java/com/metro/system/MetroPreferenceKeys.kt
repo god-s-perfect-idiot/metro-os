@@ -5,6 +5,8 @@ object MetroPreferenceKeys {
     const val THEME_MODE = "theme_mode"
     const val ACCENT_COLOR = "accent_color"
     const val FONT_SCALE = "font_scale"
+    /** Suite chrome typeface — see [MetroTypeface]. */
+    const val FONT_FAMILY = "font_family"
     const val NAV_BAR_COLOR = "nav_bar_color"
     const val NAV_BAR_ENABLED = "nav_bar_enabled"
     /** When true, Start uses a 6-column grid (3 medium tiles across) instead of 4 (2 across). */
