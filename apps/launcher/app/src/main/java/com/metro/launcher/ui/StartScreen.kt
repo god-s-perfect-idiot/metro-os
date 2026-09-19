@@ -63,6 +63,8 @@ fun StartScreen(
     onReorderCommit: () -> Unit = {},
     enterWaveKey: Int = 0,
     consumedEnterWaveKey: Int = 0,
+    /** Bump to snap tiles out of a launch-exit pose without replaying the enter wave. */
+    restPoseRequestId: Int = 0,
     pendingPinReveal: TileKey? = null,
     onPinRevealConsumed: () -> Unit = {},
     /**
@@ -164,6 +166,7 @@ fun StartScreen(
                     onReorderCommit = onReorderCommit,
                     enterWaveKey = enterWaveKey,
                     consumedEnterWaveKey = consumedEnterWaveKey,
+                    restPoseRequestId = restPoseRequestId,
                     suspendEditMotion = suspendEditMotion,
                 )
 

@@ -73,6 +73,8 @@ cd apps/notifications
 | System toast peek | No public pre-peek API | `heads_up_notifications_enabled=0` + Metro toast overlay |
 | Heads-up off on all OEMs | Samsung/MIUI may ignore the global setting | Documented; AOSP/emulator is the v1 target |
 | Overlay vs Metro tray | Two a11y overlays have undefined z-order | Attach toast first, then raise Metro tray (opaque accent) above so the flip runs behind glyphs |
+| VoIP / doorbell call UI | Cannot hijack WhatsApp/MyGate into Metro dialer | Detect call/alarm/FSI posts → briefly restore stock heads-up + fire `fullScreenIntent` |
+| Group "N new messages" | Summary extras often lack body copy | Resolve MessagingStyle / newest group child / text lines before toasting |
 
 ## Agent postmortem
 

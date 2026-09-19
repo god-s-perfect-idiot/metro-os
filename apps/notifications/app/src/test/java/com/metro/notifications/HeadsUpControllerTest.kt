@@ -3,6 +3,7 @@ package com.metro.notifications
 import android.content.Context
 import android.provider.Settings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -75,5 +76,38 @@ class HeadsUpControllerTest {
                 0,
             ),
         )
+    }
+
+    @Test
+    fun criticalStockPeek_temporarilyReenablesHeadsUp() {
+        NotificationsPreferences(context).enabled = true
+        HeadsUpController.disableStockHeadsUp(context)
+        assertTrue(HeadsUpController.isStockHeadsUpDisabled(context))
+
+        HeadsUpController.beginCriticalStockPeek(context, "whatsapp|0|call")
+        assertEquals(
+            1,
+            Settings.Global.getInt(
+                context.contentResolver,
+                HeadsUpController.HEADS_UP_NOTIFICATIONS_ENABLED,
+                0,
+            ),
+        )
+        assertTrue(HeadsUpController.isCriticalStockPeekActive())
+
+        // Re-entrant disable while a call is live must not kill stock HU.
+        HeadsUpController.disableStockHeadsUp(context)
+        assertEquals(
+            1,
+            Settings.Global.getInt(
+                context.contentResolver,
+                HeadsUpController.HEADS_UP_NOTIFICATIONS_ENABLED,
+                0,
+            ),
+        )
+
+        HeadsUpController.endCriticalStockPeek(context, "whatsapp|0|call")
+        assertTrue(HeadsUpController.isStockHeadsUpDisabled(context))
+        assertFalse(HeadsUpController.isCriticalStockPeekActive())
     }
 }

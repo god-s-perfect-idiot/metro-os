@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
-import android.os.Bundle
 import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -15,6 +14,10 @@ import android.util.Log
 
 /**
  * Watches posted notifications and asks the overlay to raise a WP toast for peek-class posts.
+ *
+ * Critical interrupts (calls / alarms / full-screen intents) temporarily restore stock heads-up
+ * and fire [Notification.fullScreenIntent] when present so WhatsApp calls and similar peeks
+ * are not swallowed by Metro's global heads-up suppress.
  */
 class ActionNotificationListenerService : NotificationListenerService() {
     override fun onListenerConnected() {
@@ -34,8 +37,10 @@ class ActionNotificationListenerService : NotificationListenerService() {
     private fun syncHeadsUpSuppression() {
         if (NotificationsPreferences(this).enabled) {
             HeadsUpController.disableStockHeadsUp(this)
-            runCatching {
-                requestListenerHints(HINT_HOST_DISABLE_NOTIFICATION_EFFECTS)
+            if (!HeadsUpController.isCriticalStockPeekActive()) {
+                runCatching {
+                    requestListenerHints(HINT_HOST_DISABLE_NOTIFICATION_EFFECTS)
+                }
             }
         } else {
             runCatching { requestListenerHints(0) }
@@ -55,16 +60,44 @@ class ActionNotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        sbn?.let { NotificationsOverlayService.onNotificationRemoved(it.key, it.groupKeyOrNull()) }
+        if (sbn == null) return
+        HeadsUpController.endCriticalStockPeek(this, sbn.key)
+        NotificationsOverlayService.onNotificationRemoved(sbn.key, sbn.groupKeyOrNull())
     }
 
     private fun considerToast(sbn: StatusBarNotification, rankingMap: RankingMap) {
+        if (ToastContent.isCriticalInterrupt(sbn)) {
+            handleCriticalInterrupt(sbn)
+            return
+        }
+
+        if (ToastContent.isSelfReply(sbn)) {
+            NotificationsOverlayService.markSeenQuietly(
+                key = sbn.key,
+                groupKey = sbn.groupKeyOrNull(),
+                contentSignature = contentSignature(sbn, null),
+            )
+            return
+        }
+
         val ranking = Ranking()
         val ranked = rankingMap.getRanking(sbn.key, ranking)
         val importance = if (ranked) ranking.importance else NotificationManager.IMPORTANCE_DEFAULT
         val matches = if (ranked) ranking.matchesInterruptionFilter() else true
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive != false
         val onlyAlertOnce = sbn.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0
+        val active = runCatching { activeNotifications }.getOrNull()
+        val copy = ToastContent.resolve(sbn, active)
+        // Group summaries that only carry "N new messages" with no resolvable child copy —
+        // remember them quietly; do not toast the placeholder.
+        if (ToastContent.isCountSummary(copy.title, copy.body)) {
+            NotificationsOverlayService.markSeenQuietly(
+                key = sbn.key,
+                groupKey = sbn.groupKeyOrNull(),
+                contentSignature = contentSignature(sbn, copy),
+            )
+            return
+        }
         NotificationsOverlayService.considerToast(
             packageName = sbn.packageName,
             key = sbn.key,
@@ -75,16 +108,33 @@ class ActionNotificationListenerService : NotificationListenerService() {
             screenInteractive = interactive,
             isActiveCall = isActiveCall(sbn),
             onlyAlertOnce = onlyAlertOnce,
-            title = extraTitle(sbn),
-            body = extraBody(sbn),
-            contentSignature = contentSignature(sbn),
+            title = copy.title,
+            body = copy.body,
+            contentSignature = contentSignature(sbn, copy),
+        )
+    }
+
+    /**
+     * Temporarily restore stock heads-up and fire full-screen intent when present.
+     * Metro toast is skipped — the app's own call / alarm UI owns the interrupt.
+     */
+    private fun handleCriticalInterrupt(sbn: StatusBarNotification) {
+        HeadsUpController.beginCriticalStockPeek(this, sbn.key)
+        val fsi = sbn.notification.fullScreenIntent
+        if (fsi != null) {
+            runCatching { sendContentIntent(this, fsi) }
+                .onFailure { Log.w(TAG, "Failed to launch fullScreenIntent for ${sbn.key}", it) }
+        }
+        // Mark seen so a later non-critical update of the same key does not double-toast.
+        NotificationsOverlayService.markSeenQuietly(
+            key = sbn.key,
+            groupKey = sbn.groupKeyOrNull(),
+            contentSignature = "critical:${sbn.key}",
         )
     }
 
     companion object {
         private const val TAG = "ActionNotificationListener"
-        private const val DIALER_PACKAGE = "com.metro.dialer"
-        private const val ACTIVE_CALL_TAG = "active_call"
 
         @Volatile
         private var instance: ActionNotificationListenerService? = null
@@ -92,6 +142,7 @@ class ActionNotificationListenerService : NotificationListenerService() {
         /** Ask SystemUI to suppress notification effects while Metro toasts are enabled. */
         fun requestHeadsUpSuppression() {
             val service = instance ?: return
+            if (HeadsUpController.isCriticalStockPeekActive()) return
             HeadsUpController.disableStockHeadsUp(service)
             runCatching {
                 service.requestListenerHints(HINT_HOST_DISABLE_NOTIFICATION_EFFECTS)
@@ -176,50 +227,14 @@ class ActionNotificationListenerService : NotificationListenerService() {
 private fun isActiveCall(sbn: StatusBarNotification): Boolean =
     sbn.packageName == "com.metro.dialer" && sbn.tag == "active_call"
 
-/** Stable group id for debounce; null when the post is not part of an Android group. */
-private fun StatusBarNotification.groupKeyOrNull(): String? {
-    val key = groupKey ?: return null
-    // Lone posts still get a synthetic groupKey from the system — only debounce real groups.
-    val hasGroup = !notification.group.isNullOrEmpty() ||
-        notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
-    return key.takeIf { hasGroup }
-}
-
-private fun extraTitle(sbn: StatusBarNotification): String {
-    val extras = sbn.notification.extras
-    lastMessagingMessage(extras)?.first?.let { return it }
-    return extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        .ifEmpty { extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim().orEmpty() }
-}
-
-private fun extraBody(sbn: StatusBarNotification): String? {
-    val extras = sbn.notification.extras
-    lastMessagingMessage(extras)?.second?.let { return it }
-    return extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
-        ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
-        ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim()
-}
-
 /** Detect MessagingStyle / text updates so the same key can re-toast on new content. */
-private fun contentSignature(sbn: StatusBarNotification): String {
-    val title = extraTitle(sbn)
-    val body = extraBody(sbn).orEmpty()
+private fun contentSignature(sbn: StatusBarNotification, copy: ToastContent.Copy?): String {
+    val title = copy?.title ?: ""
+    val body = copy?.body.orEmpty()
     val extras = sbn.notification.extras
     @Suppress("DEPRECATION")
     val messageCount = extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.size ?: 0
-    return "$title\u0000$body\u0000$messageCount"
-}
-
-/**
- * MessagingStyle (SMS, WhatsApp, etc.): last message sender + text.
- * Bundle keys match [Notification.MessagingStyle.Message] ("sender" / "text").
- */
-private fun lastMessagingMessage(extras: Bundle): Pair<String?, String?>? {
     @Suppress("DEPRECATION")
-    val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return null
-    val last = messages.lastOrNull() as? Bundle ?: return null
-    val sender = last.getCharSequence("sender")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-    val text = last.getCharSequence("text")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-    if (sender == null && text == null) return null
-    return sender to text
+    val historyCount = extras.getCharSequenceArray(Notification.EXTRA_REMOTE_INPUT_HISTORY)?.size ?: 0
+    return "$title\u0000$body\u0000$messageCount\u0000$historyCount"
 }

@@ -111,8 +111,18 @@ fun LauncherShell(
     var consumedEnterWaveKey by remember { mutableIntStateOf(0) }
     // Debounce enter-wave bumps when onNewIntent + ON_RESUME both fire for Home.
     var lastEnterWaveBumpElapsed by remember { mutableStateOf(0L) }
-    // Screen-off / keyguard — unlock must not replay the enter wave (ANR + black Start).
+    // Screen-off / keyguard — unlock onto an already-painted Start must not replay the
+    // enter wave (tiles go alpha 0 → black). Cleared on resume; see [pausedAfterAppLaunch].
     var stoppedBehindLock by remember { mutableStateOf(false) }
+    // Set when Start pauses after a tile/app-list open splash. Returning Home must restore
+    // tiles (enter wave) even if the screen was locked while that app was in front —
+    // otherwise exit-pose tiles stay at alpha 0 until a later Home bumps the wave.
+    var pausedAfterAppLaunch by remember { mutableStateOf(false) }
+    // Bump to clear tile exit pose and snap pivot layers to rest without a new enter wave.
+    var restPoseRequestId by remember { mutableIntStateOf(0) }
+    fun snapTilesToRest() {
+        restPoseRequestId++
+    }
     fun bumpEnterWave() {
         if (stoppedBehindLock) return
         val now = SystemClock.elapsedRealtime()
@@ -269,6 +279,7 @@ fun LauncherShell(
                     // Target is in front — drop the open splash so it is not stuck on return.
                     if (state.appOpenSplash?.launched == true) {
                         state.clearAppOpenSplash()
+                        pausedAfterAppLaunch = true
                     }
                 }
                 Lifecycle.Event.ON_RESUME -> {
@@ -281,6 +292,8 @@ fun LauncherShell(
                         stoppedBehindLock = true
                     }
                     val fromLock = stoppedBehindLock || stillLocked
+                    val fromAppLaunch = pausedAfterAppLaunch
+                    pausedAfterAppLaunch = false
                     // Edit / tile-customize: Home returns to Start with the enter wave, not
                     // the in-place edit chrome. Unlock skips the wave so tiles stay painted.
                     if (state.onHomeRequested()) {
@@ -296,10 +309,15 @@ fun LauncherShell(
                         if (fromLock && !stillLocked) stoppedBehindLock = false
                         return@LifecycleEventObserver
                     }
-                    if (fromLock) {
+                    // Unlock onto Start that was already showing: keep painted tiles, but snap
+                    // out of any leftover launch-exit pose (alpha 0) without replaying the wave.
+                    if (fromLock && !fromAppLaunch) {
                         if (!stillLocked) stoppedBehindLock = false
+                        snapTilesToRest()
                         return@LifecycleEventObserver
                     }
+                    // Home from an app (lock or not) — clear the lock gate then play enter.
+                    stoppedBehindLock = false
                     bumpEnterWave()
                 }
                 else -> Unit
@@ -322,6 +340,7 @@ fun LauncherShell(
             if (keyguardManager?.isKeyguardLocked != true) {
                 stoppedBehindLock = false
             }
+            snapTilesToRest()
             return@LaunchedEffect
         }
         bumpEnterWave()
@@ -340,6 +359,7 @@ fun LauncherShell(
                 showSplashLoader = showSplashLoader,
                 enterWaveKey = enterWaveKey,
                 consumedEnterWaveKey = consumedEnterWaveKey,
+                restPoseRequestId = restPoseRequestId,
                 suspendEditMotion = customizeSuspendStart,
                 coveredByCustomize = startCoveredByCustomize,
                 startPageModifier = startPageModifier,
@@ -425,6 +445,7 @@ private fun LauncherPagerHost(
     showSplashLoader: Boolean,
     enterWaveKey: Int,
     consumedEnterWaveKey: Int,
+    restPoseRequestId: Int,
     suspendEditMotion: State<Boolean>,
     coveredByCustomize: State<Boolean>,
     startPageModifier: Modifier,
@@ -516,6 +537,7 @@ private fun LauncherPagerHost(
                         onReorderCommit = onReorderCommit,
                         enterWaveKey = enterWaveKey,
                         consumedEnterWaveKey = consumedEnterWaveKey,
+                        restPoseRequestId = restPoseRequestId,
                         pendingPinReveal = state.pendingPinReveal,
                         onPinRevealConsumed = onPinRevealConsumed,
                         suspendEditMotion = suspendEditMotion,

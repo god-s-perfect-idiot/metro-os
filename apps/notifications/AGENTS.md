@@ -29,7 +29,12 @@ statusbar, and not Action Center.
 - Overlay window exists **only** while a toast is visible
 - Stock Android heads-up disabled while **Show notifications** is on
   (`heads_up_notifications_enabled=0` + listener hints; restore when toggle off)
-- Group peeks: allow summaries (often the only HIGH alert); debounce identical group-burst copy; skip shade replay on listener connect
+- Critical interrupts (CATEGORY_CALL / ALARM, CallStyle, fullScreenIntent, FLAG_INSISTENT)
+  temporarily restore stock heads-up and fire `fullScreenIntent` so WhatsApp calls and
+  similar peeks are not swallowed
+- Group peeks: resolve real MessagingStyle / child copy over "N new messages" summaries;
+  debounce identical group-burst copy; suppress shade RemoteInput self-reply echoes;
+  skip shade replay on listener connect
 - No Action Center, no tray hide/show, no shade contract
 
 ## Primary flows

@@ -449,6 +449,11 @@ fun TileGrid(
     /** Waves at or below this key already ran — skip after Start remounts (e.g. app list). */
     consumedEnterWaveKey: Int = 0,
     /**
+     * Bump to clear launch-exit pose and snap pivot layers to rest without a new enter wave
+     * (unlock onto Start after a tile open left tiles at alpha 0).
+     */
+    restPoseRequestId: Int = 0,
+    /**
      * Customize page covers Start — freeze jiggle without recomposing the grid on open
      * (clock reads this [State] inside its frame loop). Snap-clears edit exit while covered.
      */
@@ -488,6 +493,14 @@ fun TileGrid(
 
     // Home-resume bumps enterWaveKey — clear any leftover exit pose so enter can replay.
     LaunchedEffect(enterWaveKey) {
+        bounceThenExitKey = null
+        exitingTileKey = null
+    }
+
+    // Unlock / lock-skip path: drop exit pose and let MetroPagePivotSwing snap to rest
+    // (skipEnter + !exiting) without starting a new alpha-0 enter wave.
+    LaunchedEffect(restPoseRequestId) {
+        if (restPoseRequestId <= 0) return@LaunchedEffect
         bounceThenExitKey = null
         exitingTileKey = null
     }
@@ -547,6 +560,11 @@ fun TileGrid(
         // is never cut short by a wall-clock race.
         LaunchedEffect(bounceThenExitKey, exitingTileKey) {
             if (bounceThenExitKey != null || exitingTileKey != null) liveMotionEnabled = false
+        }
+        // Unlock snap clears exit without bumping enterWaveKey — re-enable live faces.
+        LaunchedEffect(restPoseRequestId) {
+            if (restPoseRequestId <= 0) return@LaunchedEffect
+            liveMotionEnabled = true
         }
         val contentHeight = gridContentHeight(unit, placed)
         val editBottomReserveDp =

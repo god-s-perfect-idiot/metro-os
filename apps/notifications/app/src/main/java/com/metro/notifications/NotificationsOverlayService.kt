@@ -572,6 +572,29 @@ class NotificationsOverlayService :
             }
         }
 
+        /**
+         * Remember a key without raising a toast (self-reply echoes, count-only summaries,
+         * critical interrupts handled by stock SystemUI).
+         */
+        fun markSeenQuietly(key: String, groupKey: String?, contentSignature: String) {
+            val svc = instance
+            if (svc == null) {
+                synchronized(pendingSeenLock) {
+                    pendingSeenKeys += key
+                    groupKey?.let { pendingSeenGroups += it }
+                }
+                return
+            }
+            svc.handler.post {
+                svc.toastedKeys += key
+                svc.toastedContent[key] = contentSignature
+                if (groupKey != null) {
+                    svc.recentGroupToastAt[groupKey] = SystemClock.elapsedRealtime()
+                    svc.recentGroupContent[groupKey] = contentSignature
+                }
+            }
+        }
+
         fun considerToast(
             packageName: String,
             key: String,
