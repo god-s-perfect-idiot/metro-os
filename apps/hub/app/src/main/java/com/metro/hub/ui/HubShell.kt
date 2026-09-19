@@ -1,6 +1,5 @@
 package com.metro.hub.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -20,7 +19,7 @@ import com.metro.hub.data.ApkInstaller
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarTextButton
-import com.metro.ui.MetroPagePivotLoad
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroNavBarPadding
@@ -36,11 +35,8 @@ fun HubShell(
     @Suppress("UNUSED_VARIABLE")
     val observe = generation
 
-    var exitingRoute by remember { mutableStateOf<HubRoute?>(null) }
-    var suppressEnterFor by remember { mutableStateOf<HubRoute?>(null) }
     // Panorama intro once per process — not when returning to hub in-app.
     var panoramaIntroPlayed by remember { mutableStateOf(false) }
-    val isExiting = exitingRoute != null
 
     LaunchedEffect(Unit) {
         state.ensureReleaseLoaded()
@@ -56,43 +52,19 @@ fun HubShell(
         context.startActivity(ApkInstaller.installIntent(context, apk))
     }
 
-    LaunchedEffect(state.route, suppressEnterFor) {
-        if (suppressEnterFor != null && state.route != suppressEnterFor) {
-            suppressEnterFor = null
-        }
-    }
-
-    BackHandler(enabled = state.route != HubRoute.Hub && !isExiting) {
-        exitingRoute = state.route
-    }
-
-    BackHandler(enabled = isExiting) {
-        // Hold the stack until the flip-out finishes.
-    }
-
-    Box(
+    MetroSubpageHost(
+        route = state.route,
+        isRoot = { it == HubRoute.Hub },
+        parentOf = { it.parentRoute(state) },
+        loadKeyOf = { subpageLoadKey(it, state) },
+        onGoBack = state::goBack,
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
             .metroNavBarPadding()
             .background(MetroTheme.colors.background),
-    ) {
-        when {
-            isExiting -> {
-                HubSubpage(
-                    route = exitingRoute!!,
-                    state = state,
-                    loadKey = subpageLoadKey(exitingRoute!!, state),
-                    exiting = true,
-                    onExitComplete = {
-                        suppressEnterFor = exitingRoute!!.parentRoute(state)
-                        state.goBack()
-                        exitingRoute = null
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            state.route == HubRoute.Hub -> {
+        rootContent = {
+            Box(modifier = Modifier.fillMaxSize()) {
                 val pagerState = rememberPagerState(
                     initialPage = state.hubPage,
                     pageCount = { 3 },
@@ -123,102 +95,82 @@ fun HubShell(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
-            else -> {
-                val route = state.route
-                HubSubpage(
-                    route = route,
-                    state = state,
-                    loadKey = subpageLoadKey(route, state),
-                    skipEnter = route == suppressEnterFor,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-    }
+        },
+        subpageContent = { route ->
+            HubSubpageContent(route = route, state = state)
+        },
+    )
 }
 
 @Composable
-private fun HubSubpage(
+private fun HubSubpageContent(
     route: HubRoute,
     state: HubState,
-    loadKey: Any,
-    modifier: Modifier = Modifier,
-    exiting: Boolean = false,
-    skipEnter: Boolean = false,
-    onExitComplete: () -> Unit = {},
 ) {
-    MetroPagePivotLoad(
-        modifier = modifier.background(MetroTheme.colors.background),
-        loadKey = loadKey,
-        exiting = exiting,
-        skipEnter = skipEnter,
-        onExitComplete = onExitComplete,
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (route) {
-                HubRoute.AppList -> {
-                    AppListScreen(
-                        state = state,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                    MetroAppBar(
-                        minimized = false,
-                        icons = listOf(
-                            MetroAppBarIcon(
-                                type = MetroSystemIconType.Refresh,
-                                label = "refresh",
-                                onClick = state::refreshRelease,
-                            ),
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (route) {
+            HubRoute.AppList -> {
+                AppListScreen(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                MetroAppBar(
+                    minimized = false,
+                    icons = listOf(
+                        MetroAppBarIcon(
+                            type = MetroSystemIconType.Refresh,
+                            label = "refresh",
+                            onClick = state::refreshRelease,
                         ),
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
-                }
-                HubRoute.AppDetail -> {
-                    val asset = state.selectedAsset
-                    val downloading = asset != null && state.downloadingAssetName == asset.name
-                    AppDetailScreen(
-                        state = state,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                    MetroAppBar(
-                        minimized = false,
-                        textButtons = listOf(
-                            MetroAppBarTextButton(
-                                text = "download",
-                                enabled = asset != null && !downloading && asset.downloadUrl.isNotBlank(),
-                                onClick = {
-                                    val selected = state.selectedAsset ?: return@MetroAppBarTextButton
-                                    if (state.downloadingAssetName == null) {
-                                        state.downloadAndInstall(selected)
-                                    }
-                                },
-                            ),
-                            MetroAppBarTextButton(
-                                text = "share",
-                                enabled = asset != null,
-                                onClick = {
-                                    val selected = state.selectedAsset ?: return@MetroAppBarTextButton
-                                    state.shareApp(selected)
-                                },
-                            ),
-                        ),
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
-                }
-                HubRoute.ExtrasInfo -> {
-                    ExtrasInfoScreen(
-                        state = state,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                HubRoute.Search -> {
-                    SearchScreen(
-                        state = state,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                HubRoute.Hub -> Unit
+                    ),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
+            HubRoute.AppDetail -> {
+                val asset = state.selectedAsset
+                val downloading = asset != null && state.downloadingAssetName == asset.name
+                AppDetailScreen(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                MetroAppBar(
+                    minimized = false,
+                    textButtons = listOf(
+                        MetroAppBarTextButton(
+                            text = "download",
+                            enabled = asset != null && !downloading && asset.downloadUrl.isNotBlank(),
+                            onClick = {
+                                val selected = state.selectedAsset ?: return@MetroAppBarTextButton
+                                if (state.downloadingAssetName == null) {
+                                    state.downloadAndInstall(selected)
+                                }
+                            },
+                        ),
+                        MetroAppBarTextButton(
+                            text = "share",
+                            enabled = asset != null,
+                            onClick = {
+                                val selected = state.selectedAsset ?: return@MetroAppBarTextButton
+                                state.shareApp(selected)
+                            },
+                        ),
+                    ),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
+            HubRoute.ExtrasInfo -> {
+                ExtrasInfoScreen(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            HubRoute.Search -> {
+                SearchScreen(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            HubRoute.Hub -> Unit
         }
     }
 }

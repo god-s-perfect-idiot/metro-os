@@ -28,12 +28,14 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.people.R
+import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroJumpList
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -57,7 +59,7 @@ fun PeopleShell(
     var scrollToLetter by remember { mutableStateOf<Char?>(null) }
     val searching = state.searchVisible
 
-    BackHandler(enabled = searching) {
+    BackHandler(enabled = searching && state.route == PeopleRoute.Hub) {
         state.dismissSearch()
     }
 
@@ -68,8 +70,14 @@ fun PeopleShell(
             .metroNavBarPadding()
             .background(Color.Black),
     ) {
-        when (state.route) {
-            PeopleRoute.Hub -> {
+        MetroSubpageHost(
+            route = state.route,
+            isRoot = { it == PeopleRoute.Hub },
+            parentOf = { PeopleRoute.Hub },
+            loadKeyOf = { subpageLoadKey(it) },
+            onGoBack = state::closeOverlay,
+            modifier = Modifier.fillMaxSize(),
+            rootContent = {
                 Column(modifier = Modifier.fillMaxSize()) {
                     MetroAppTitle(
                         title = stringResource(
@@ -111,39 +119,49 @@ fun PeopleShell(
                         ),
                     )
                 }
-            }
-            PeopleRoute.Filter -> FilterScreen(
-                initial = state.filter,
-                accounts = state.knownAccounts(),
-                onSave = state::saveFilter,
-                onCancel = state::closeOverlay,
-            )
-            PeopleRoute.Accounts -> AccountsScreen(
-                options = state.accountOptions,
-                onBack = state::closeOverlay,
-                onSelect = {
-                    state.showExternalStub("${it.label} account setup not available in v1")
-                    state.closeOverlay()
-                },
-            )
-            is PeopleRoute.Detail -> {
-                state.selectedDetail?.let { detail ->
-                    ContactDetailScreen(
-                        detail = detail,
-                        onBack = state::closeOverlay,
-                        onCall = { state.callContact(detail.summary) },
-                        onText = { state.textContact(detail.summary) },
-                        onWhatsAppCall = {
-                            detail.whatsApp?.let(state::whatsAppCall)
+            },
+            subpageContent = { route ->
+                val requestExit = LocalMetroSubpageExit.current
+                val onBack = { requestExit?.invoke() }
+                when (route) {
+                    PeopleRoute.Filter -> FilterScreen(
+                        initial = state.filter,
+                        accounts = state.knownAccounts(),
+                        onSave = { filter ->
+                            state.saveFilter(filter)
+                            onBack()
                         },
-                        onWhatsAppText = {
-                            detail.whatsApp?.let(state::whatsAppText)
-                        },
-                        onEmail = state::emailContact,
+                        onCancel = { onBack() },
                     )
+                    PeopleRoute.Accounts -> AccountsScreen(
+                        options = state.accountOptions,
+                        onBack = { onBack() },
+                        onSelect = {
+                            state.showExternalStub("${it.label} account setup not available in v1")
+                            onBack()
+                        },
+                    )
+                    is PeopleRoute.Detail -> {
+                        state.selectedDetail?.let { detail ->
+                            ContactDetailScreen(
+                                detail = detail,
+                                onBack = { onBack() },
+                                onCall = { state.callContact(detail.summary) },
+                                onText = { state.textContact(detail.summary) },
+                                onWhatsAppCall = {
+                                    detail.whatsApp?.let(state::whatsAppCall)
+                                },
+                                onWhatsAppText = {
+                                    detail.whatsApp?.let(state::whatsAppText)
+                                },
+                                onEmail = state::emailContact,
+                            )
+                        }
+                    }
+                    PeopleRoute.Hub -> Unit
                 }
-            }
-        }
+            },
+        )
 
         val appBarVisible = state.route == PeopleRoute.Hub && !searching
         MetroAppBar(
@@ -159,7 +177,7 @@ fun PeopleShell(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
-        if (state.jumpListVisible && !searching) {
+        if (state.jumpListVisible && !searching && state.route == PeopleRoute.Hub) {
             MetroJumpList(
                 activeLetters = state.groupedContacts.keys,
                 onLetterSelected = { scrollToLetter = it },
@@ -216,4 +234,11 @@ private fun ContactSearchBar(
             }
         },
     )
+}
+
+private fun subpageLoadKey(route: PeopleRoute): Any = when (route) {
+    PeopleRoute.Filter -> "Filter"
+    PeopleRoute.Accounts -> "Accounts"
+    is PeopleRoute.Detail -> "Detail:${route.contactId}"
+    PeopleRoute.Hub -> "Hub"
 }

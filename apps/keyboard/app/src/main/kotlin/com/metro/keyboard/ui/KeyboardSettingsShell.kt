@@ -13,11 +13,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.navigation.compose.rememberNavController
+import com.metro.ui.LocalMetroSubpageExit
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroNavBarPadding
+import androidx.activity.compose.BackHandler
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
@@ -47,51 +49,51 @@ fun KeyboardSettingsShell(
     var route by remember { mutableStateOf(KeyboardSettingsRoute.Root) }
     var languageLabel by remember { mutableStateOf("english (united states)") }
 
-    when (route) {
-        KeyboardSettingsRoute.FlorisSettings -> {
-            FlorisSettingsHost(
-                modifier = modifier,
-                onExitToMetroRoot = { route = KeyboardSettingsRoute.Root },
+    MetroSubpageHost(
+        route = route,
+        isRoot = { it == KeyboardSettingsRoute.Root },
+        parentOf = { KeyboardSettingsRoute.Root },
+        onGoBack = { route = KeyboardSettingsRoute.Root },
+        modifier = modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .metroNavBarPadding()
+            .background(MetroTheme.colors.background),
+        rootContent = {
+            KeyboardRootScreen(
+                modifier = Modifier.fillMaxSize(),
+                showWelcomeIntro = showWelcomeIntro,
+                showFinishAction = showFinishAction,
+                notificationPermissionState = notificationPermissionState,
+                onRequestNotification = onRequestNotification,
+                onSetupComplete = onSetupComplete,
+                onOpenLanguage = { label ->
+                    languageLabel = label
+                    route = KeyboardSettingsRoute.Language
+                },
+                onOpenAddKeyboards = { route = KeyboardSettingsRoute.AddKeyboards },
+                onOpenAdvanced = { route = KeyboardSettingsRoute.FlorisSettings },
             )
-        }
-        else -> {
-            BackHandler(enabled = route != KeyboardSettingsRoute.Root) {
-                route = KeyboardSettingsRoute.Root
-            }
-
-            val contentModifier = modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .metroNavBarPadding()
-                .background(MetroTheme.colors.background)
-
-            when (route) {
-                KeyboardSettingsRoute.Root -> KeyboardRootScreen(
-                    modifier = contentModifier,
-                    showWelcomeIntro = showWelcomeIntro,
-                    showFinishAction = showFinishAction,
-                    notificationPermissionState = notificationPermissionState,
-                    onRequestNotification = onRequestNotification,
-                    onSetupComplete = onSetupComplete,
-                    onOpenLanguage = { label ->
-                        languageLabel = label
-                        route = KeyboardSettingsRoute.Language
-                    },
-                    onOpenAddKeyboards = { route = KeyboardSettingsRoute.AddKeyboards },
-                    onOpenAdvanced = { route = KeyboardSettingsRoute.FlorisSettings },
-                )
+        },
+        subpageContent = { current ->
+            val requestExit = LocalMetroSubpageExit.current
+            when (current) {
                 KeyboardSettingsRoute.Language -> KeyboardLanguageScreen(
                     languageLabel = languageLabel,
-                    modifier = contentModifier,
+                    modifier = Modifier.fillMaxSize(),
                 )
                 KeyboardSettingsRoute.AddKeyboards -> KeyboardAddKeyboardsScreen(
-                    modifier = contentModifier,
+                    modifier = Modifier.fillMaxSize(),
                 )
-                KeyboardSettingsRoute.FlorisSettings -> Unit
+                KeyboardSettingsRoute.FlorisSettings -> FlorisSettingsHost(
+                    modifier = Modifier.fillMaxSize(),
+                    onExitToMetroRoot = { requestExit?.invoke() },
+                )
+                KeyboardSettingsRoute.Root -> Unit
             }
-        }
-    }
+        },
+    )
 }
 
 /**

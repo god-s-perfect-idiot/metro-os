@@ -159,7 +159,6 @@ class PeopleState(context: Context) {
 
     fun saveFilter(newFilter: PeopleFilter) {
         filter = newFilter
-        route = PeopleRoute.Hub
         notifyChanged()
     }
 

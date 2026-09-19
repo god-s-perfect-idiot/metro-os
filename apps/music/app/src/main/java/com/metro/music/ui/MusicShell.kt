@@ -26,12 +26,14 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import com.metro.music.ytmusic.YtMusicConnectActivity
+import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
 import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroJumpList
 import com.metro.ui.MetroSplashLoadingScreen
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroTransitions
@@ -95,8 +97,14 @@ fun MusicShell(
             .background(background),
     ) {
         if (!coldSplashActive) {
-            when (state.route) {
-                MusicRoute.Hub -> {
+            MetroSubpageHost(
+                route = state.route,
+                isRoot = { it == MusicRoute.Hub },
+                parentOf = { it.parentRoute() },
+                loadKeyOf = { subpageLoadKey(it, state) },
+                onGoBack = { state.route = state.route.parentRoute() },
+                modifier = Modifier.fillMaxSize(),
+                rootContent = {
                     val pagerState = rememberPagerState(
                         initialPage = state.hubPage,
                         pageCount = { 3 },
@@ -124,59 +132,68 @@ fun MusicShell(
                         skipIntro = panoramaIntroPlayed,
                         onIntroPlayed = { panoramaIntroPlayed = true },
                     )
-                }
-                MusicRoute.Collection -> CollectionScreen(
-                    state = state,
-                    onBack = { state.route = MusicRoute.Hub },
-                )
-                MusicRoute.AlbumDetail -> {
-                    val album = state.selectedAlbum
-                    if (album == null) {
-                        state.route = MusicRoute.Collection
-                    } else {
-                        AlbumDetailScreen(
+                },
+                subpageContent = { route ->
+                    val requestExit = LocalMetroSubpageExit.current
+                    val onBack = { requestExit?.invoke() }
+                    when (route) {
+                        MusicRoute.Collection -> CollectionScreen(
                             state = state,
-                            album = album,
-                            onBack = { state.route = MusicRoute.Collection },
+                            onBack = { onBack() },
                         )
-                    }
-                }
-                MusicRoute.ArtistDetail -> {
-                    val artist = state.selectedArtist
-                    if (artist == null) {
-                        state.route = MusicRoute.Collection
-                    } else {
-                        ArtistDetailScreen(
+                        MusicRoute.AlbumDetail -> {
+                            val album = state.selectedAlbum
+                            if (album == null) {
+                                state.route = MusicRoute.Collection
+                            } else {
+                                AlbumDetailScreen(
+                                    state = state,
+                                    album = album,
+                                    onBack = { onBack() },
+                                )
+                            }
+                        }
+                        MusicRoute.ArtistDetail -> {
+                            val artist = state.selectedArtist
+                            if (artist == null) {
+                                state.route = MusicRoute.Collection
+                            } else {
+                                ArtistDetailScreen(
+                                    state = state,
+                                    artist = artist,
+                                    onBack = { onBack() },
+                                )
+                            }
+                        }
+                        MusicRoute.PlaylistDetail -> {
+                            val playlist = state.selectedPlaylist
+                            if (playlist == null) {
+                                state.route = MusicRoute.Collection
+                            } else {
+                                PlaylistDetailScreen(
+                                    state = state,
+                                    playlist = playlist,
+                                    onBack = { onBack() },
+                                )
+                            }
+                        }
+                        MusicRoute.Settings -> SettingsScreen(
                             state = state,
-                            artist = artist,
-                            onBack = { state.route = MusicRoute.Collection },
+                            onBack = { onBack() },
+                            onConnect = {
+                                connectLauncher.launch(
+                                    Intent(context, YtMusicConnectActivity::class.java),
+                                )
+                            },
                         )
-                    }
-                }
-                MusicRoute.PlaylistDetail -> {
-                    val playlist = state.selectedPlaylist
-                    if (playlist == null) {
-                        state.route = MusicRoute.Collection
-                    } else {
-                        PlaylistDetailScreen(
+                        MusicRoute.Explore -> ExploreScreen(
                             state = state,
-                            playlist = playlist,
-                            onBack = { state.route = MusicRoute.Collection },
+                            onBack = { onBack() },
                         )
+                        MusicRoute.Hub -> Unit
                     }
-                }
-                MusicRoute.Settings -> SettingsScreen(
-                    state = state,
-                    onBack = { state.route = MusicRoute.Hub },
-                    onConnect = {
-                        connectLauncher.launch(Intent(context, YtMusicConnectActivity::class.java))
-                    },
-                )
-                MusicRoute.Explore -> ExploreScreen(
-                    state = state,
-                    onBack = { state.route = MusicRoute.Hub },
-                )
-            }
+                },
+            )
 
             val jumpListOpen = state.route == MusicRoute.Collection && state.jumpListVisible
             val appBarVisible = (state.route == MusicRoute.Hub || state.route == MusicRoute.Collection) &&
@@ -226,4 +243,26 @@ fun MusicShell(
             )
         }
     }
+}
+
+private fun MusicRoute.parentRoute(): MusicRoute = when (this) {
+    MusicRoute.AlbumDetail,
+    MusicRoute.ArtistDetail,
+    MusicRoute.PlaylistDetail,
+    -> MusicRoute.Collection
+    MusicRoute.Collection,
+    MusicRoute.Settings,
+    MusicRoute.Explore,
+    MusicRoute.Hub,
+    -> MusicRoute.Hub
+}
+
+private fun subpageLoadKey(route: MusicRoute, state: MusicState): Any = when (route) {
+    MusicRoute.Collection -> "Collection"
+    MusicRoute.AlbumDetail -> "Album:${state.selectedAlbum?.id.orEmpty()}"
+    MusicRoute.ArtistDetail -> "Artist:${state.selectedArtist?.id.orEmpty()}"
+    MusicRoute.PlaylistDetail -> "Playlist:${state.selectedPlaylist?.id.orEmpty()}"
+    MusicRoute.Settings -> "Settings"
+    MusicRoute.Explore -> "Explore"
+    MusicRoute.Hub -> "Hub"
 }

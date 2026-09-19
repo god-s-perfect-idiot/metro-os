@@ -22,11 +22,13 @@ import androidx.compose.ui.unit.dp
 import com.metro.messaging.data.ConversationThread
 import com.metro.messaging.data.DefaultSmsApp
 import com.metro.system.MetroNavBar
+import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
 import com.metro.ui.MetroLoadingScreen
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -52,8 +54,14 @@ fun MessagingShell(
             .then(if (composing) Modifier.composerBottomClearance() else Modifier.metroNavBarPadding())
             .background(Color.Black),
     ) {
-        when (val route = state.route) {
-            MessagingRoute.Threads -> {
+        MetroSubpageHost(
+            route = state.route,
+            isRoot = { it is MessagingRoute.Threads },
+            parentOf = { MessagingRoute.Threads },
+            loadKeyOf = { subpageLoadKey(it) },
+            onGoBack = state::backToThreads,
+            modifier = Modifier.fillMaxSize(),
+            rootContent = {
                 if (state.isLoadingThreads && state.threads.isEmpty()) {
                     MetroLoadingScreen()
                 } else {
@@ -74,44 +82,51 @@ fun MessagingShell(
                         )
                     }
                 }
-            }
-            MessagingRoute.NewMessage -> {
-                NewMessageScreen(
-                    recipient = state.newRecipient,
-                    body = state.newBody,
-                    contactSuggestions = state.contactSuggestions,
-                    onRecipientChange = state::updateNewRecipient,
-                    onBodyChange = state::updateNewBody,
-                    onSelectContact = state::selectContactSuggestion,
-                    onSend = state::sendNewMessage,
-                    onBack = state::backToThreads,
-                )
-            }
-            is MessagingRoute.Conversation -> {
-                if (state.isLoadingMessages) {
-                    BackHandler(onBack = state::backToThreads)
-                    MetroLoadingScreen()
-                } else {
-                    val thread = state.threads.firstOrNull { it.id == route.threadId }
-                        ?: ConversationThread(
-                            id = route.threadId,
-                            address = route.threadId.toString(),
-                            displayName = null,
-                            preview = "",
-                            timestamp = 0L,
-                            unreadCount = 0,
+            },
+            subpageContent = { route ->
+                val requestExit = LocalMetroSubpageExit.current
+                val onBack = { requestExit?.invoke() }
+                when (route) {
+                    MessagingRoute.NewMessage -> {
+                        NewMessageScreen(
+                            recipient = state.newRecipient,
+                            body = state.newBody,
+                            contactSuggestions = state.contactSuggestions,
+                            onRecipientChange = state::updateNewRecipient,
+                            onBodyChange = state::updateNewBody,
+                            onSelectContact = state::selectContactSuggestion,
+                            onSend = state::sendNewMessage,
+                            onBack = { onBack() },
                         )
-                    ConversationScreen(
-                        thread = thread,
-                        messages = state.messages,
-                        composerText = state.composerText,
-                        onBack = state::backToThreads,
-                        onComposerChange = state::updateComposer,
-                        onSend = state::sendMessage,
-                    )
+                    }
+                    is MessagingRoute.Conversation -> {
+                        if (state.isLoadingMessages) {
+                            BackHandler { onBack() }
+                            MetroLoadingScreen()
+                        } else {
+                            val thread = state.threads.firstOrNull { it.id == route.threadId }
+                                ?: ConversationThread(
+                                    id = route.threadId,
+                                    address = route.threadId.toString(),
+                                    displayName = null,
+                                    preview = "",
+                                    timestamp = 0L,
+                                    unreadCount = 0,
+                                )
+                            ConversationScreen(
+                                thread = thread,
+                                messages = state.messages,
+                                composerText = state.composerText,
+                                onBack = { onBack() },
+                                onComposerChange = state::updateComposer,
+                                onSend = state::sendMessage,
+                            )
+                        }
+                    }
+                    MessagingRoute.Threads -> Unit
                 }
-            }
-        }
+            },
+        )
 
         val appBarVisible = state.route is MessagingRoute.Threads &&
             !(state.isLoadingThreads && state.threads.isEmpty())
@@ -177,4 +192,10 @@ private fun ThreadListAppBar(
         menuItems = menuItems,
         modifier = modifier,
     )
+}
+
+private fun subpageLoadKey(route: MessagingRoute): Any = when (route) {
+    MessagingRoute.Threads -> "Threads"
+    MessagingRoute.NewMessage -> "NewMessage"
+    is MessagingRoute.Conversation -> "Conversation:${route.threadId}"
 }

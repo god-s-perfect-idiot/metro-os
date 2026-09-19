@@ -63,6 +63,7 @@ Import from `metro-ui-android`: `MetroAppBar`, `MetroBorderButton`, `MetroIconBu
 
 - Pivot = filter/categorize (max 7 items)
 - Panorama = hub/overview only
+- In-app drill-ins = `MetroSubpageHost` (page pivot enter/exit). Skip Start, panorama roots with intro, shell overlays, in-call.
 - No drawer, no bottom nav, no FAB
 
 ## Checklist

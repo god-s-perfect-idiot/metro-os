@@ -29,7 +29,7 @@ You are building a **1:1 Windows Phone 8.1 experience on Android**. Read this fi
 ## Hard rules
 
 1. **No Material Design** in app UI. Banned: `com.google.android.material`, Material 3 components, FAB, snackbars, bottom sheets, navigation drawer/rail, elevation cards.
-2. **Toolkit first**. If a control exists in `toolkits/metro-ui-android`, import it. Add to toolkit only when reused by ≥ 2 apps.
+2. **Toolkit first**. If a control exists in `toolkits/metro-ui-android`, import it. Add to toolkit only when reused by ≥ 2 apps. In-app drill-ins use `MetroSubpageHost` (page pivot enter/exit) unless the surface already owns motion (Start, panorama intro) or is a shell overlay / in-call UI.
 3. **No cross-app imports**. Apps talk via `metro-system-sdk` intents and preferences only.
 4. **Reference-driven UI**. Every screen implements `apps/<name>/references/guides/blueprint.md` first; use `references/images/` for visual polish only.
 5. **Reference-first (research before code)**. Before writing ANY app UI code, the references must be prefilled: `references/guides/blueprint.md` written, `references/web-resources.md` populated with real WP8.1 sources, and `references/images/` containing actual reference captures for every blueprint page (or a `references/known-gaps.md` documenting each missing/low-fidelity image with a workaround). Do not start development against an empty `images/` folder. See **Reference research (Phase 0)** below.

@@ -37,7 +37,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroSplashLoadingScreen` | Accent splash + app glyph + white dancing dots (no label) |
 | `MetroPagePivotLoad` | Page enter — left-hinge 3D pivot + X slide + fade |
 | `MetroPagePivotSwing` | Same hinge `rotateY` + fade as page pivot load, **no** X slide (Start tiles) |
-| `MetroAppPivotShell` | Activity wrapper — pivot enter on launch, flip-out on Back then `finish()` |
+| `MetroSubpageHost` | Suite-standard in-app stack — root stays put; drill-ins use `MetroPagePivotLoad` |
+| `MetroAppPivotShell` | Activity wrapper — flip-out on Back then `finish()` (open splash owned by Start) |
 | `MetroAnimationSuite` | Named decorative / feedback animations catalog |
 | `MetroBiometricAnimation` | Windows Hello–style biometric success (`biometric`) |
 
@@ -110,6 +111,27 @@ MetroPagePivotLoad(
 ```
 
 Enter: `rotateY` 22.5° → 0°, `translationX` +15% width → 0, with fade-in (200ms ease-out). Exit tilt-back: `rotateY` 0° → −28°, `translationX` 0 → −15% width (hinge x +15%, softer camera), fade (280ms ease-out). Set `exiting = true` and `onExitComplete` before pop.
+
+### In-app subpage stack (suite standard)
+
+Prefer `MetroSubpageHost` for every drill-in page so enter/exit stay consistent:
+
+```kotlin
+MetroSubpageHost(
+    route = state.route,
+    isRoot = { it == AppRoute.Hub },
+    parentOf = { it.parent() },
+    onGoBack = state::goBack,
+    rootContent = { HubPage() }, // no page pivot — panorama/pivot roots keep their own motion
+    subpageContent = { route ->
+        val requestExit = LocalMetroSubpageExit.current
+        DetailPage(onBack = { requestExit?.invoke() })
+    },
+)
+```
+
+**Use for:** settings rows → detail, list → detail, messaging thread, music album, lockscreen setup crop/picker, keyboard settings children, etc.  
+**Do not use for:** Start/launcher, panorama hub roots that already play intro, shell overlays (lock/volume/tray/toast/navbar), incoming/in-call.
 
 For hinge-only motion (no X slide) — e.g. Start tile enter with a shared page hinge:
 

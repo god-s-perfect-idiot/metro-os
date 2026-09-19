@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,6 +38,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.metro.system.MetroAppDiscovery
+import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroActivities
 import com.metro.ui.MetroAppPickerEntry
 import com.metro.ui.MetroAppPickerScreen
@@ -49,6 +49,7 @@ import com.metro.ui.MetroDimens
 import com.metro.ui.MetroListPicker
 import com.metro.ui.MetroListPickerOption
 import com.metro.ui.MetroSplash
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroSystemTheme
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -161,51 +162,25 @@ class MainActivity : ComponentActivity() {
             val canToggle = accessibilityEnabled
 
             MetroSystemTheme {
-                when (val current = route) {
-                    is SetupRoute.Crop -> {
-                        BackHandler { route = SetupRoute.Main }
-                        LockscreenBackgroundCropScreen(
-                            sourceUri = current.uri,
-                            onSaved = {
-                                customEnabled = prefs.customBackgroundEnabled
-                                customEpoch++
-                                LockscreenHostService.requestRehost()
-                                route = SetupRoute.Main
-                            },
-                            onCancel = { route = SetupRoute.Main },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    is SetupRoute.PickQuickStatusApp -> {
-                        BackHandler { route = SetupRoute.Main }
-                        MetroAppPivotShell(
-                            modifier = Modifier.fillMaxSize(),
-                            onExit = { route = SetupRoute.Main },
-                            skipEnter = false,
-                        ) {
-                            MetroAppPickerScreen(
-                                apps = launchableApps,
-                                selectedPackageName = quickStatusSlots[current.slotIndex],
-                                headerTitle = stringResource(R.string.choose_app_header),
-                                onSelected = { packageName ->
-                                    prefs.setQuickStatusSlot(current.slotIndex, packageName)
-                                    quickStatusEpoch++
-                                    LockscreenHostService.requestRehost()
-                                    route = SetupRoute.Main
-                                },
-                                onBack = { route = SetupRoute.Main },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .statusBarsPadding()
-                                    .metroNavBarPadding(),
-                            )
-                        }
-                    }
-                    SetupRoute.Main -> {
-                        MetroAppPivotShell(
-                            modifier = Modifier.fillMaxSize(),
-                            onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
-                        ) {
+                MetroAppPivotShell(
+                    modifier = Modifier.fillMaxSize(),
+                    onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
+                ) {
+                    MetroSubpageHost(
+                        route = route,
+                        isRoot = { it is SetupRoute.Main },
+                        parentOf = { SetupRoute.Main },
+                        loadKeyOf = { current ->
+                            when (current) {
+                                is SetupRoute.Crop -> "Crop:${current.uri}"
+                                is SetupRoute.PickQuickStatusApp ->
+                                    "PickQuickStatus:${current.slotIndex}"
+                                SetupRoute.Main -> "Main"
+                            }
+                        },
+                        onGoBack = { route = SetupRoute.Main },
+                        modifier = Modifier.fillMaxSize(),
+                        rootContent = {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -479,8 +454,45 @@ class MainActivity : ComponentActivity() {
                                 Spacer(modifier = Modifier.height(24.dp))
                                 }
                             }
-                        }
-                    }
+                        },
+                        subpageContent = { current ->
+                            val requestExit = LocalMetroSubpageExit.current
+                            when (current) {
+                                is SetupRoute.Crop -> {
+                                    LockscreenBackgroundCropScreen(
+                                        sourceUri = current.uri,
+                                        onSaved = {
+                                            customEnabled = prefs.customBackgroundEnabled
+                                            customEpoch++
+                                            LockscreenHostService.requestRehost()
+                                            route = SetupRoute.Main
+                                        },
+                                        onCancel = { requestExit?.invoke() },
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                }
+                                is SetupRoute.PickQuickStatusApp -> {
+                                    MetroAppPickerScreen(
+                                        apps = launchableApps,
+                                        selectedPackageName = quickStatusSlots[current.slotIndex],
+                                        headerTitle = stringResource(R.string.choose_app_header),
+                                        onSelected = { packageName ->
+                                            prefs.setQuickStatusSlot(current.slotIndex, packageName)
+                                            quickStatusEpoch++
+                                            LockscreenHostService.requestRehost()
+                                            route = SetupRoute.Main
+                                        },
+                                        onBack = { requestExit?.invoke() },
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .statusBarsPadding()
+                                            .metroNavBarPadding(),
+                                    )
+                                }
+                                SetupRoute.Main -> Unit
+                            }
+                        },
+                    )
                 }
             }
         }

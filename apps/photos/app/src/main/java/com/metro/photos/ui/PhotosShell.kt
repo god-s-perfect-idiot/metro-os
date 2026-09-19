@@ -1,6 +1,5 @@
 package com.metro.photos.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +18,7 @@ import com.metro.photos.R
 import com.metro.photos.data.ViewerCollection
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroPivot
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -31,31 +31,55 @@ fun PhotosShell(
     state: PhotosState,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(enabled = state.route != PhotosRoute.Collection) {
-        state.navigateBack()
-    }
-
-    when (state.route) {
-        PhotosRoute.Collection -> CollectionScreen(state, modifier)
-        PhotosRoute.AlbumDetail -> {
-            val album = state.selectedAlbum
-            if (album == null) {
-                LaunchedEffect(Unit) { state.navigateBack() }
-            } else {
-                AlbumDetailScreen(
-                    album = album,
-                    onPhotoClick = { photo ->
-                        state.openViewer(ViewerCollection.Album, photo.id, album.bucketId)
-                    },
-                    modifier = modifier.testTag("metro_page_album"),
-                )
+    MetroSubpageHost(
+        route = state.route,
+        isRoot = { it == PhotosRoute.Collection },
+        parentOf = { route ->
+            when (route) {
+                PhotosRoute.Viewer -> if (state.viewerContext.collection == ViewerCollection.Album) {
+                    PhotosRoute.AlbumDetail
+                } else {
+                    PhotosRoute.Collection
+                }
+                PhotosRoute.AlbumDetail,
+                PhotosRoute.Collection,
+                -> PhotosRoute.Collection
             }
-        }
-        PhotosRoute.Viewer -> ViewerScreen(
-            state = state,
-            modifier = modifier.testTag("metro_page_viewer"),
-        )
-    }
+        },
+        loadKeyOf = { subpageLoadKey(it, state) },
+        onGoBack = { state.navigateBack() },
+        modifier = modifier.fillMaxSize(),
+        rootContent = {
+            CollectionScreen(state = state, modifier = Modifier.fillMaxSize())
+        },
+        subpageContent = { route ->
+            when (route) {
+                PhotosRoute.AlbumDetail -> {
+                    val album = state.selectedAlbum
+                    if (album == null) {
+                        LaunchedEffect(Unit) { state.navigateBack() }
+                    } else {
+                        AlbumDetailScreen(
+                            album = album,
+                            onPhotoClick = { photo ->
+                                state.openViewer(ViewerCollection.Album, photo.id, album.bucketId)
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("metro_page_album"),
+                        )
+                    }
+                }
+                PhotosRoute.Viewer -> ViewerScreen(
+                    state = state,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("metro_page_viewer"),
+                )
+                PhotosRoute.Collection -> Unit
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -137,4 +161,10 @@ private fun CollectionScreen(
             )
         }
     }
+}
+
+private fun subpageLoadKey(route: PhotosRoute, state: PhotosState): Any = when (route) {
+    PhotosRoute.Collection -> "Collection"
+    PhotosRoute.AlbumDetail -> "Album:${state.selectedAlbum?.bucketId.orEmpty()}"
+    PhotosRoute.Viewer -> "Viewer:${state.viewerContext.collection}:${state.viewerIndex}"
 }

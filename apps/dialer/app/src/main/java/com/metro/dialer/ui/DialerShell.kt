@@ -19,9 +19,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.dialer.R
+import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroHubTitleMode
 import com.metro.ui.MetroHubTitleRow
+import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -34,8 +36,24 @@ fun DialerShell(
     state: DialerState,
     modifier: Modifier = Modifier,
 ) {
-    when (state.route) {
-        DialerRoute.Main -> {
+    MetroSubpageHost(
+        route = state.route,
+        isRoot = { it == DialerRoute.Main },
+        parentOf = { DialerRoute.Main },
+        loadKeyOf = { route ->
+            when (route) {
+                DialerRoute.Main -> "Main"
+                DialerRoute.CallDetail -> "CallDetail:${state.selectedGroup?.phoneNumber.orEmpty()}"
+            }
+        },
+        onGoBack = state::closeOverlay,
+        modifier = modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .metroNavBarPadding()
+            .background(Color.Black),
+        rootContent = {
             val pagerState = rememberPagerState(
                 initialPage = when (state.pivot) {
                     PhonePivot.History -> 0
@@ -62,14 +80,7 @@ fun DialerShell(
                 state.setPivot(pagerState.currentPage)
             }
 
-            Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .metroNavBarPadding()
-                    .background(Color.Black),
-            ) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 if (state.searchVisible) {
                     SearchBar(
                         query = state.searchQuery,
@@ -138,20 +149,26 @@ fun DialerShell(
                     }
                 }
             }
-        }
-        DialerRoute.CallDetail -> state.selectedGroup?.let { group ->
-            CallDetailScreen(
-                group = group,
-                onBack = state::closeOverlay,
-                onCall = {
-                    state.placeCall(group.phoneNumber, group.displayName)
-                },
-                onMessage = {
-                    state.sendMessage(group.phoneNumber)
-                },
-            )
-        }
-    }
+        },
+        subpageContent = { route ->
+            val requestExit = LocalMetroSubpageExit.current
+            when (route) {
+                DialerRoute.CallDetail -> state.selectedGroup?.let { group ->
+                    CallDetailScreen(
+                        group = group,
+                        onBack = { requestExit?.invoke() },
+                        onCall = {
+                            state.placeCall(group.phoneNumber, group.displayName)
+                        },
+                        onMessage = {
+                            state.sendMessage(group.phoneNumber)
+                        },
+                    )
+                }
+                DialerRoute.Main -> Unit
+            }
+        },
+    )
 }
 
 @Composable

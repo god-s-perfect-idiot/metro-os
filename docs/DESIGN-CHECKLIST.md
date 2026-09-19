@@ -59,11 +59,13 @@ Use before marking any UI task complete. Every item must pass or be documented a
 - [ ] Pivot for filtering (max 7 items)
 - [ ] Panorama for hub/overview only
 - [ ] Back navigates page stack (not backspace in text fields)
+- [ ] Drill-in subpages use `MetroSubpageHost` page-pivot enter/exit (not Start, not panorama roots with intro, not shell overlays / in-call)
 - [ ] No drawer navigation
 
 ## Motion
 
 - [ ] Page transition 300ms ease-out
+- [ ] Subpage pivot load 200ms enter / 280ms exit (`MetroSubpageHost` / `MetroPagePivotLoad`)
 - [ ] Pivot switch 250ms
 - [ ] Progress shown for operations > 500ms
 - [ ] No Material shared-element transitions
