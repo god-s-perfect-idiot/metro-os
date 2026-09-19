@@ -106,6 +106,21 @@ class LockscreenLogicTest {
     }
 
     @Test
+    fun handedOff_suppressesRelockUntilScreenOff() {
+        // After swipe commit the fill stays suppressed even while keyguard is still locked
+        // (SystemUI bouncer showing). Prevents a translucent overlay from reappearing and
+        // eating taps over the credential UI / Start.
+        assertFalse(
+            LockscreenLogic.shouldPresentLock(
+                enabled = true,
+                keyguardLocked = true,
+                displayAwake = true,
+                handedOff = true,
+            ),
+        )
+    }
+
+    @Test
     fun shouldPresentLock_suppressedForCriticalOverlay() {
         assertFalse(
             LockscreenLogic.shouldPresentLock(

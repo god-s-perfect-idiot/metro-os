@@ -83,6 +83,9 @@ class LockscreenHostService :
     private var overlayView: ComposeView? = null
     private var overlayManager: WindowManager? = null
     private var overlayMode: LockscreenPresentationMode? = null
+    /** Retained after a failed [WindowManager.removeView] so we can scrub the orphan. */
+    private var orphanRoot: View? = null
+    private var orphanManager: WindowManager? = null
     private var receiverRegistered = false
     private var phoneReceiverRegistered = false
     private var displayListenerRegistered = false
@@ -155,6 +158,39 @@ class LockscreenHostService :
                 return
             }
             handler.postDelayed(this, UNLOCK_WATCH_MS)
+        }
+    }
+
+    /** Retries [WindowManager.removeView] when teardown left an attached orphan. */
+    private val orphanScrubber = object : Runnable {
+        override fun run() {
+            val root = orphanRoot ?: return
+            val manager = orphanManager
+            if (manager == null || !root.isAttachedToWindow) {
+                orphanRoot = null
+                orphanManager = null
+                return
+            }
+            // Keep pass-through while retrying — never re-enable touches on an orphan.
+            val params = root.layoutParams as? WindowManager.LayoutParams
+            if (params != null) {
+                val flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                if (flags != params.flags) {
+                    params.flags = flags
+                    runCatching { manager.updateViewLayout(root, params) }
+                }
+            }
+            val ok = runCatching {
+                manager.removeView(root)
+                true
+            }.onFailure { Log.w(TAG, "orphan scrub removeView failed", it) }.getOrDefault(false)
+            if (ok && !root.isAttachedToWindow) {
+                Log.i(TAG, "orphan overlay scrubbed")
+                orphanRoot = null
+                orphanManager = null
+            } else {
+                handler.postDelayed(this, ORPHAN_SCRUB_MS)
+            }
         }
     }
 
@@ -391,6 +427,15 @@ class LockscreenHostService :
     }
 
     private fun attachOverlayLocked(mode: LockscreenPresentationMode) {
+        // Never stack a new fill on top of a failed prior removeView.
+        if (orphanRoot?.isAttachedToWindow == true) {
+            orphanScrubber.run()
+            if (orphanRoot?.isAttachedToWindow == true) {
+                Log.w(TAG, "refusing attach — orphan overlay still present")
+                handler.postDelayed(orphanScrubber, ORPHAN_SCRUB_MS)
+                return
+            }
+        }
         val accessibilityHost = LockscreenAccessibilityService.getInstance()
         if (accessibilityHost == null) {
             Log.w(TAG, "Accessibility service not connected — cannot draw over keyguard")
@@ -477,6 +522,9 @@ class LockscreenHostService :
             MetroSystemTheme {
                 LockscreenSurface(
                     mode = mode,
+                    onExitStarted = { reason ->
+                        handler.post { onSurfaceExitStarted(reason) }
+                    },
                     onExitFinished = { reason ->
                         handler.post { onSurfaceExitFinished(reason) }
                     },
@@ -488,41 +536,96 @@ class LockscreenHostService :
     }
 
     private fun applyOverlayTouchPolicy(mode: LockscreenPresentationMode) {
+        val notTouchable = mode == LockscreenPresentationMode.Glance
+        setOverlayTouchable(!notTouchable)
+    }
+
+    /**
+     * Accessibility overlays keep window-level hit testing even when content is translated
+     * off-screen. Drop touch ownership as soon as an exit starts so Start is usable.
+     */
+    private fun setOverlayTouchable(touchable: Boolean) {
         val manager = overlayManager ?: return
         val root = overlayRoot ?: return
         val params = root.layoutParams as? WindowManager.LayoutParams ?: return
-        val notTouchable = mode == LockscreenPresentationMode.Glance
         var flags = params.flags
-        flags = if (notTouchable) {
-            flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        } else {
+        flags = if (touchable) {
             flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        } else {
+            flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
         if (flags == params.flags) return
         params.flags = flags
-        manager.updateViewLayout(root, params)
+        runCatching { manager.updateViewLayout(root, params) }
+            .onFailure { Log.w(TAG, "updateViewLayout touch policy failed", it) }
     }
 
     private fun removeOverlayLocked() {
         stopUnlockWatcher()
         exitAnimating = false
+        handler.removeCallbacks(orphanScrubber)
         val root = overlayRoot
         val manager = overlayManager
+        // Pass touches through before teardown — a failed removeView must not leave a sink.
+        if (root != null && manager != null) {
+            val params = root.layoutParams as? WindowManager.LayoutParams
+            if (params != null) {
+                val flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                if (flags != params.flags) {
+                    params.flags = flags
+                    runCatching { manager.updateViewLayout(root, params) }
+                }
+            }
+            root.animate().cancel()
+            runCatching {
+                if (root.isAttachedToWindow) {
+                    manager.removeView(root)
+                }
+            }.onFailure { Log.w(TAG, "removeView failed", it) }
+            if (root.isAttachedToWindow) {
+                Log.w(TAG, "overlay still attached after remove — scheduling scrub")
+                orphanRoot = root
+                orphanManager = manager
+                handler.postDelayed(orphanScrubber, ORPHAN_SCRUB_MS)
+            } else {
+                orphanRoot = null
+                orphanManager = null
+            }
+            MetroStatusBar.requestFullscreen(this, fullscreen = false)
+            MetroNavBar.requestFullscreen(this, fullscreen = false)
+        }
         overlayRoot = null
         overlayBlackCover = null
         overlayView = null
         overlayManager = null
         overlayMode = null
-        if (root != null && manager != null) {
-            root.animate().cancel()
-            runCatching { manager.removeView(root) }
-                .onFailure { Log.w(TAG, "removeView failed", it) }
-            MetroStatusBar.requestFullscreen(this, fullscreen = false)
-            MetroNavBar.requestFullscreen(this, fullscreen = false)
-        }
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
             lifecycleRegistry.currentState = Lifecycle.State.STARTED
         }
+    }
+
+    private fun onSurfaceExitStarted(reason: LockscreenExitReason) {
+        // Outer Compose hit target stays full-screen while the fill slides — drop WM touches now.
+        setOverlayTouchable(false)
+        when (reason) {
+            LockscreenExitReason.SwipeCommit -> {
+                handedOffUntilScreenOff = true
+                exitAnimating = true
+            }
+            LockscreenExitReason.BiometricUnlock -> {
+                exitAnimating = true
+            }
+        }
+        // Failsafe — cancelled Compose exits must not leave an untouchable-but-attached fill.
+        // Never finish the bouncer trampoline here: that cancels SystemUI lock input.
+        handler.postDelayed({
+            if (overlayRoot != null && exitAnimating) {
+                Log.w(TAG, "surface exit timeout — force remove")
+                exitAnimating = false
+                overlayRoot?.animate()?.cancel()
+                removeOverlay(reason = "surface_exit_timeout")
+            }
+        }, SURFACE_EXIT_TIMEOUT_MS)
     }
 
     private fun onSurfaceExitFinished(reason: LockscreenExitReason) {
@@ -548,7 +651,11 @@ class LockscreenHostService :
             LockscreenBouncerActivity.finishIfShowing()
             return
         }
-        if (exitAnimating) return
+        if (exitAnimating) {
+            // Already exiting — still ensure taps pass through while the fill slides.
+            setOverlayTouchable(false)
+            return
+        }
         stopUnlockWatcher()
         // Glance has no swipe chrome — remove immediately.
         if (overlayMode == LockscreenPresentationMode.Glance) {
@@ -557,6 +664,9 @@ class LockscreenHostService :
             return
         }
         exitAnimating = true
+        // Drop touch ownership before translating — translated content still leaves a
+        // MATCH_PARENT accessibility window that would otherwise eat all taps.
+        setOverlayTouchable(false)
         Log.i(TAG, "biometric exit: animating overlay root off-screen")
         animateOverlayRootOffScreen {
             exitAnimating = false
@@ -565,7 +675,7 @@ class LockscreenHostService :
         }
         // Failsafe — never leave Start covered if the animator is cancelled.
         handler.postDelayed({
-            if (overlayRoot != null && exitAnimating) {
+            if (overlayRoot != null && !LockscreenKeyguard.isLocked(this@LockscreenHostService)) {
                 Log.w(TAG, "biometric exit timeout — force remove")
                 exitAnimating = false
                 overlayRoot?.animate()?.cancel()
@@ -592,7 +702,7 @@ class LockscreenHostService :
         root.animate()
             .translationY(-distance)
             .setDuration(BIOMETRIC_EXIT_MS)
-            .setInterpolator(android.view.animation.AccelerateInterpolator(1.2f))
+            .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
             .withEndAction { handler.post(onEnd) }
             .start()
     }
@@ -602,9 +712,10 @@ class LockscreenHostService :
      * pattern / password bouncer) — not the decorative lock wallpaper — and keep Metro
      * suppressed until the next screen-off.
      *
-     * Sequence: accessibility full-height swipe-up on the uncovered SystemUI lock, then
-     * [requestDismissKeyguard] trampoline so a partial gesture cannot leave the user on
-     * the decorative lock screen.
+     * Prefer an accessibility swipe-up on the uncovered SystemUI lock. Only fall back to
+     * the [LockscreenBouncerActivity] trampoline when the gesture cannot run or is
+     * cancelled — launching `requestDismissKeyguard` after a successful gesture cancels
+     * the keypad SystemUI just opened.
      */
     private fun commitSwipeUnlock() {
         handedOffUntilScreenOff = true
@@ -618,21 +729,19 @@ class LockscreenHostService :
         }
 
         val a11y = LockscreenAccessibilityService.getInstance()
-        val gestured = a11y?.injectSwipeUpToBouncer() == true
+        val gestured = a11y?.injectSwipeUpToBouncer { completed ->
+            handler.post {
+                if (!LockscreenKeyguard.isLocked(this@LockscreenHostService)) return@post
+                if (completed) {
+                    Log.i(TAG, "lock input: gesture completed — leave SystemUI keypad alone")
+                    return@post
+                }
+                Log.w(TAG, "lock input: gesture cancelled — dismiss trampoline")
+                launchBouncerActivity()
+            }
+        } == true
         if (gestured) {
             Log.i(TAG, "lock input: accessibility swipe-up dispatched")
-            // Let the full stroke finish, then raise lock input if still needed.
-            handler.postDelayed({
-                if (LockscreenKeyguard.isLocked(this@LockscreenHostService)) {
-                    a11y.injectSwipeUpToBouncer()
-                }
-            }, 560L)
-            handler.postDelayed({
-                if (LockscreenKeyguard.isLocked(this@LockscreenHostService)) {
-                    Log.i(TAG, "lock input: dismiss trampoline after gesture")
-                    launchBouncerActivity()
-                }
-            }, 620L)
             return
         }
 
@@ -920,10 +1029,14 @@ class LockscreenHostService :
         private const val GLANCE_SLEEP_WATCH_IDLE_MS = 500L
         /** Poll while Metro fill is up so biometric unlock does not wait on USER_PRESENT. */
         private const val UNLOCK_WATCH_MS = 16L
-        /** View slide-off duration when keyguard clears under the Metro fill. */
-        private const val BIOMETRIC_EXIT_MS = 280L
+        /** View / Compose slide-off duration when unlocking (swipe commit or biometric). */
+        private const val BIOMETRIC_EXIT_MS = 420L
         /** Force-remove if the biometric exit animator never ends. */
-        private const val BIOMETRIC_EXIT_TIMEOUT_MS = 500L
+        private const val BIOMETRIC_EXIT_TIMEOUT_MS = 700L
+        /** Force-remove if a Compose surface exit never finishes. */
+        private const val SURFACE_EXIT_TIMEOUT_MS = 700L
+        /** Retry interval when [WindowManager.removeView] leaves an attached orphan. */
+        private const val ORPHAN_SCRUB_MS = 50L
         private val PRESENT_TOKEN = Any()
 
         @Volatile

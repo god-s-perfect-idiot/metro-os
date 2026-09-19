@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -67,8 +68,9 @@ enum class LockscreenPresentationMode {
  * swipe session:
  * - Drag tracks the finger upward only (offset updated synchronously — no async snap race).
  * - Release below threshold (and without a qualifying fling) → spring bounce back.
- * - Release at/above threshold, or a decisive upward fling → animate fully off-screen,
- *   then [onExitFinished] with [LockscreenExitReason.SwipeCommit].
+ * - Release at/above threshold, or a decisive upward fling → [onExitStarted] immediately
+ *   (so the host can drop WM touch ownership), animate fully off-screen, then
+ *   [onExitFinished] with [LockscreenExitReason.SwipeCommit].
  * - [exitController] can request the same slide-off for biometric unlock
  *   ([LockscreenExitReason.BiometricUnlock]).
  *
@@ -77,6 +79,10 @@ enum class LockscreenPresentationMode {
  * gap opens at the bottom — never sinks under the status bar, never scale/squash.
  *
  * Never arms SystemUI mid-drag — swipe unlock is only requested after a committed slide-off.
+ *
+ * The outer hit target stays full-screen while only the inner fill translates. Without an
+ * immediate [onExitStarted] → FLAG_NOT_TOUCHABLE hand-off, that empty outer layer eats taps
+ * over Start after unlock.
  */
 @Composable
 fun LockscreenSurface(
@@ -87,6 +93,8 @@ fun LockscreenSurface(
     /** System status-bar / cutout band height in px — tray icons are centered in this region. */
     topInsetPx: Int = 0,
     exitController: LockscreenExitController? = null,
+    /** Fired at the start of a committed exit so the host can stop eating touches. */
+    onExitStarted: (LockscreenExitReason) -> Unit = {},
 ) {
     val isGlance = mode == LockscreenPresentationMode.Glance
     val density = LocalDensity.current
@@ -259,7 +267,11 @@ fun LockscreenSurface(
 
     fun commitExit(reason: LockscreenExitReason) {
         if (unlockCommitted) return
+        unlockCommitted = true
         phase.value = LockscreenLogic.SwipePhase.Committing
+        // Drop WM touch ownership before the fill slides away — the outer Box stays
+        // full-screen and would otherwise hijack taps over the app underneath.
+        onExitStarted(reason)
         cancelOffsetJob()
         offsetJob = scope.launch {
             val measured = size.height.toFloat()
@@ -269,18 +281,19 @@ fun LockscreenSurface(
             try {
                 offsetAnim.animateTo(
                     targetValue = offscreen,
-                    animationSpec = tween(durationMillis = 280),
+                    // Ease-out so the fill decelerates off-screen instead of snapping away.
+                    animationSpec = tween(
+                        durationMillis = COMMIT_EXIT_MS,
+                        easing = CommitExitEasing,
+                    ),
                 ) {
                     rawOffsetY = value
                 }
             } finally {
-                // Always hand off — cancelled animations must not leave a half-slid fill.
-                if (!unlockCommitted) {
-                    unlockCommitted = true
-                    rawOffsetY = offscreen
-                    phase.value = LockscreenLogic.SwipePhase.HandedOff
-                    onExitFinished(reason)
-                }
+                // Always finish — cancelled animations must not leave a half-slid fill.
+                rawOffsetY = offscreen
+                phase.value = LockscreenLogic.SwipePhase.HandedOff
+                onExitFinished(reason)
             }
         }
     }
@@ -418,3 +431,9 @@ fun LockscreenSurface(
 }
 
 private const val TAG = "LockscreenSurface"
+
+/** Commit slide-off duration — slightly longer than the old 280ms snap for a WP-like ease. */
+private const val COMMIT_EXIT_MS = 420
+
+/** Decelerate into off-screen rest (ease-out). */
+private val CommitExitEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)

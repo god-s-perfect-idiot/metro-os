@@ -35,8 +35,12 @@ class LockscreenAccessibilityService : AccessibilityService() {
      *
      * Travel must be nearly full-screen and unhurried — short strokes leave SystemUI mid-swipe
      * on the decorative lock wallpaper instead of opening lock input.
+     *
+     * @param onResult invoked on the main thread when the stroke completes or is cancelled.
+     *   Do **not** start [LockscreenBouncerActivity] after a completed gesture — that
+     *   `requestDismissKeyguard` call cancels the keypad SystemUI just opened.
      */
-    fun injectSwipeUpToBouncer(): Boolean {
+    fun injectSwipeUpToBouncer(onResult: ((completed: Boolean) -> Unit)? = null): Boolean {
         val dm = resources.displayMetrics
         val w = dm.widthPixels.toFloat()
         val h = dm.heightPixels.toFloat()
@@ -52,16 +56,19 @@ class LockscreenAccessibilityService : AccessibilityService() {
                 object : GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
                         Log.i(TAG, "swipe-up gesture completed")
+                        onResult?.invoke(true)
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
                         Log.w(TAG, "swipe-up gesture cancelled")
+                        onResult?.invoke(false)
                     }
                 },
                 null,
             )
         } catch (t: Throwable) {
             Log.e(TAG, "dispatchGesture failed", t)
+            onResult?.invoke(false)
             false
         }
     }

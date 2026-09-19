@@ -16,6 +16,9 @@ import androidx.core.view.WindowCompat
  * [KeyguardManager.requestDismissKeyguard] so **SystemUI** shows its biometric / PIN
  * bouncer. Finishing (cancel / error / success) must not restore the Metro lock fill —
  * that stays suppressed until the next screen-off.
+ *
+ * The window is [WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE] so a lingering trampoline
+ * cannot sit empty over Start and eat taps after unlock.
  */
 class LockscreenBouncerActivity : ComponentActivity() {
 
@@ -29,6 +32,8 @@ class LockscreenBouncerActivity : ComponentActivity() {
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setBackgroundDrawableResource(android.R.color.transparent)
+        // Pass taps through — this activity is only a dismiss request carrier.
+        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         setContentView(android.view.View(this).apply {
             setBackgroundColor(Color.TRANSPARENT)
         })
@@ -114,6 +119,14 @@ class LockscreenBouncerActivity : ComponentActivity() {
                 }
             },
         )
+        // If SystemUI never delivers a callback after unlock, do not leave this trampoline.
+        window.decorView.postDelayed({
+            val kg = getSystemService(KeyguardManager::class.java)
+            if (!isFinishing && kg != null && !kg.isKeyguardLocked) {
+                Log.w(TAG, "keyguard clear without dismiss callback — finishing trampoline")
+                finish()
+            }
+        }, 1_500L)
     }
 
     companion object {
