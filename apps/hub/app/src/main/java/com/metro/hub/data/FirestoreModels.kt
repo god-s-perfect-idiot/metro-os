@@ -11,11 +11,21 @@ data class FirestoreHubApp(
     val description: String,
     val versionName: String?,
     val versionCode: Int?,
-    /** core | shell (first-party); free-form for others. */
+    /**
+     * First-party subtype: `core` | `shell` (quick-link filter).
+     * Second/third-party may also set this as a free-form label — catalog
+     * membership still comes from [party] / collection, not [type].
+     */
     val type: String,
     val creator: String,
+    /**
+     * Inline Android vector drawable XML, or a remote `https://…` PNG/image URL
+     * when vector XML is unavailable (second-party apps often use the URL form).
+     */
     val logoXml: String?,
     val logoPngBase64: String?,
+    /** Optional remote logo URL (PNG). Preferred over [logoXml] when both are set. */
+    val iconUrl: String?,
     /** App tile / icon square fill as `#RRGGBB` (from launcher bg / brand). */
     val backgroundColor: String?,
     val apkName: String?,

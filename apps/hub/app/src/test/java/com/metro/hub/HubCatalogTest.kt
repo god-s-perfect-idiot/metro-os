@@ -4,9 +4,11 @@ import com.metro.hub.data.FirestoreHubApp
 import com.metro.hub.data.GitHubReleaseClient
 import com.metro.hub.data.HubAppCatalog
 import com.metro.hub.data.HubAppCategory
+import com.metro.hub.data.HubLogoDecoder
 import com.metro.hub.data.ReleaseApkAsset
 import com.metro.hub.data.toReleaseApkAsset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -118,6 +120,7 @@ class HubCatalogTest {
             creator = "Entropy",
             logoXml = null,
             logoPngBase64 = null,
+            iconUrl = null,
             backgroundColor = "#D34829",
             apkName = "people-debug.apk",
             apkUrl = "https://example.com/people-debug.apk",
@@ -145,6 +148,7 @@ class HubCatalogTest {
             creator = "Entropy",
             logoXml = null,
             logoPngBase64 = null,
+            iconUrl = null,
             backgroundColor = "#1BA1E2",
             apkName = "wordle-debug.apk",
             apkUrl = "https://example.com/wordle-debug.apk",
@@ -160,6 +164,143 @@ class HubCatalogTest {
     }
 
     @Test
+    fun secondPartyShellTypeMapsToSecondPartyNotShell() {
+        // metro-keyboard / disco-launcher use type=shell inside second-party.
+        val keyboard = FirestoreHubApp(
+            id = "metro-keyboard",
+            name = "Metro Keyboard",
+            packageName = "dev.patrickgold.metroboard",
+            description = "Metroboard",
+            versionName = "0.6.0-alpha02",
+            versionCode = 119,
+            type = "shell",
+            creator = "Cyanexani",
+            logoXml = null,
+            logoPngBase64 = null,
+            iconUrl = null,
+            backgroundColor = "#1BA1E2",
+            apkName = "metroboard-universal.apk",
+            apkUrl = "https://example.com/metroboard.apk",
+            releaseUrl = null,
+            githubRepo = "https://github.com/Cyanexani/metrokeyboard",
+            sizeBytes = 1L,
+            party = "second",
+        )
+        assertEquals(HubAppCategory.SecondParty, keyboard.toReleaseApkAsset().category)
+    }
+
+    @Test
+    fun thirdPartyCoreTypeMapsToThirdPartyNotCore() {
+        val app = FirestoreHubApp(
+            id = "fan-app",
+            name = "Fan App",
+            packageName = "com.example.fan",
+            description = "Unofficial",
+            versionName = "1.0",
+            versionCode = 1,
+            type = "core",
+            creator = "Community",
+            logoXml = null,
+            logoPngBase64 = null,
+            iconUrl = null,
+            backgroundColor = "#0078D7",
+            apkName = "fan.apk",
+            apkUrl = "https://example.com/fan.apk",
+            releaseUrl = null,
+            githubRepo = null,
+            sizeBytes = 1L,
+            party = "third-party",
+        )
+        assertEquals(HubAppCategory.ThirdParty, app.toReleaseApkAsset().category)
+    }
+
+    @Test
+    fun firstPartyShellTypeStillMapsToShell() {
+        val app = FirestoreHubApp(
+            id = "launcher",
+            name = "Launcher",
+            packageName = "com.metro.launcher",
+            description = "Start",
+            versionName = "1.0",
+            versionCode = 1,
+            type = "shell",
+            creator = "Entropy",
+            logoXml = null,
+            logoPngBase64 = null,
+            iconUrl = null,
+            backgroundColor = "#1BA1E2",
+            apkName = "launcher-debug.apk",
+            apkUrl = "https://example.com/launcher-debug.apk",
+            releaseUrl = null,
+            githubRepo = null,
+            sizeBytes = 1L,
+            party = "first",
+        )
+        assertEquals(HubAppCategory.Shell, app.toReleaseApkAsset().category)
+    }
+
+    @Test
+    fun remoteLogoUrlDetection() {
+        assertTrue(HubLogoDecoder.isRemoteLogoUrl("https://cdn.example.com/logo.png"))
+        assertTrue(HubLogoDecoder.isRemoteLogoUrl("  HTTP://cdn.example.com/logo.png  "))
+        assertFalse(HubLogoDecoder.isRemoteLogoUrl("<vector xmlns:android="))
+        assertFalse(HubLogoDecoder.isRemoteLogoUrl(""))
+    }
+
+    @Test
+    fun firestoreAppMapsIconUrlOntoAsset() {
+        val app = FirestoreHubApp(
+            id = "metro-wordle",
+            name = "Metro Wordle",
+            packageName = "com.metrowordle.app",
+            description = "Puzzle",
+            versionName = "1.0.0",
+            versionCode = 1,
+            type = "core",
+            creator = "Entropy",
+            logoXml = null,
+            logoPngBase64 = null,
+            iconUrl = "https://cdn.example.com/wordle.png",
+            backgroundColor = "#000000",
+            apkName = "metro-wordle.apk",
+            apkUrl = "https://example.com/metro-wordle.apk",
+            releaseUrl = null,
+            githubRepo = null,
+            sizeBytes = 1L,
+            party = "second",
+        )
+        assertEquals("https://cdn.example.com/wordle.png", app.toReleaseApkAsset().iconUrl)
+    }
+
+    @Test
+    fun firestoreLogoXmlHttpUrlMapsToIconUrl() {
+        val png = "https://cdn.example.com/weather.png"
+        val app = FirestoreHubApp(
+            id = "metro-weather",
+            name = "Metro Weather",
+            packageName = "com.metro.weather",
+            description = "Weather",
+            versionName = "1.0.0",
+            versionCode = 1,
+            type = "core",
+            creator = "Entropy",
+            logoXml = png,
+            logoPngBase64 = null,
+            iconUrl = null,
+            backgroundColor = "#00b1de",
+            apkName = "metro-weather.apk",
+            apkUrl = "https://example.com/metro-weather.apk",
+            releaseUrl = null,
+            githubRepo = null,
+            sizeBytes = 1L,
+            party = "second",
+        )
+        val asset = app.toReleaseApkAsset()
+        assertEquals(png, asset.iconUrl)
+        assertNull(asset.logoXml)
+    }
+
+    @Test
     fun firestoreAppFallsBackToRegistryBrandWhenBackgroundMissing() {
         val app = FirestoreHubApp(
             id = "music",
@@ -172,6 +313,7 @@ class HubCatalogTest {
             creator = "Entropy",
             logoXml = null,
             logoPngBase64 = null,
+            iconUrl = null,
             backgroundColor = null,
             apkName = "music-debug.apk",
             apkUrl = "https://example.com/music-debug.apk",
@@ -213,5 +355,84 @@ class HubCatalogTest {
         assertEquals(listOf(launcher), HubAppCatalog.filterByQuery(assets, "live tiles"))
         assertEquals(listOf(music, launcher), HubAppCatalog.filterByQuery(assets, "entropy"))
         assertTrue(HubAppCatalog.filterByQuery(assets, "zzzz").isEmpty())
+    }
+
+    @Test
+    fun pickFeaturedTakesUpToCountFromMixedPool() {
+        val pool = (1..10).map { i ->
+            ReleaseApkAsset(
+                name = "app-$i.apk",
+                displayName = "App $i",
+                downloadUrl = "https://example.com/app-$i.apk",
+                sizeBytes = 1L,
+                category = when (i % 3) {
+                    0 -> HubAppCategory.Core
+                    1 -> HubAppCategory.SecondParty
+                    else -> HubAppCategory.ThirdParty
+                },
+                packageName = "com.example.app$i",
+                description = "Desc $i",
+                publisher = "Pub",
+            )
+        }
+        val picks = HubAppCatalog.pickFeatured(pool, count = 4, force = true)
+        assertEquals(4, picks.size)
+        assertTrue(picks.all { pick -> pool.any { it.name == pick.name } })
+        assertEquals(picks.toSet().size, picks.size)
+    }
+
+    @Test
+    fun pickFeaturedReturnsEmptyWhenPoolEmpty() {
+        assertTrue(
+            HubAppCatalog.pickFeatured(emptyList(), count = 4, force = true).isEmpty(),
+        )
+    }
+
+    @Test
+    fun pickFeaturedKeepsExistingWhenNotForced() {
+        val pool = listOf(
+            ReleaseApkAsset(
+                name = "a.apk",
+                displayName = "A",
+                downloadUrl = "https://example.com/a.apk",
+                sizeBytes = 2L,
+                category = HubAppCategory.Core,
+                packageName = "com.example.a",
+                description = "updated",
+                publisher = "Entropy",
+            ),
+            ReleaseApkAsset(
+                name = "b.apk",
+                displayName = "B",
+                downloadUrl = "https://example.com/b.apk",
+                sizeBytes = 1L,
+                category = HubAppCategory.SecondParty,
+                packageName = "com.example.b",
+                description = "B",
+                publisher = "Entropy",
+            ),
+        )
+        val existing = listOf(
+            ReleaseApkAsset(
+                name = "a.apk",
+                displayName = "A",
+                downloadUrl = "https://example.com/a.apk",
+                sizeBytes = 1L,
+                category = HubAppCategory.Core,
+                packageName = "com.example.a",
+                description = "stale",
+                publisher = "Entropy",
+            ),
+        )
+        val refreshed = HubAppCatalog.pickFeatured(
+            pool = pool,
+            count = 4,
+            existing = existing,
+            force = false,
+        )
+        assertEquals(1, refreshed.size)
+        assertEquals("a.apk", refreshed.single().name)
+        assertEquals("updated", refreshed.single().description)
+        assertEquals(2L, refreshed.single().sizeBytes)
     }
 }

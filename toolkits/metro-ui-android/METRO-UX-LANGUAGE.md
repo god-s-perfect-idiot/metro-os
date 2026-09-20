@@ -605,7 +605,7 @@ All Metro apps use the same icon catalog from `metro-ui-android`. Do not ship du
 | Smartbar / extra actions (undo, redo, settings, clipboard, …) | `MetroSystemIconType.Undo` / `Redo` / `Settings` / `Clipboard` / `Copy` / `Cut` / `Paste` / `SelectAll` / `Language` / `KeyboardHide` / `Send` / `Autocorrect` / `Chevron*` (`showCircle = false`) |
 | Status tray Wi-Fi (hub + 3 quarter-arcs, outer clips box) | `MetroSystemIconType.Wifi` / `drawMetroWifiGlyph` (live bands via `filledBands`) |
 | Media transport (play, shuffle, queue, …) | `MetroMediaGlyph` / `MetroMediaGlyphIcon` |
-| Suite app identity (Phone, Mail, Photos, …) | `MetroAppGlyphs` (`metro_app_*` drawables) |
+| Suite app identity (Phone, Mail, Photos, Hub, …) | `MetroAppGlyphs` (`metro_app_*` drawables) |
 | Third-party WP tile overrides (Gmail, WhatsApp, …) | `MetroAppGlyphs.tileOverride` (`metro_tile_*`) |
 | Notification small icons | `MetroAppGlyphs.notificationForPackage` (`metro_notification_*`) |
 

@@ -40,6 +40,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
 - Firestore collections: `first-party`, `second-party`, `third-party`, `explore`
 - App docs include `backgroundColor` (`#RRGGBB`) from `ic_launcher_background` / brand fallback
+- Logos: `logoXml` (vector XML **or** `https://…` PNG URL), `iconUrl` (https PNG), or `logoPngBase64`
 - GitHub latest release remains the APK download source; Firestore caches metadata
 - `HubAppCategory`, `ReleaseApkAsset`, `FirestoreHubApp`
 
@@ -69,7 +70,7 @@ cd apps/hub
 |----------------|-------------------|------------|
 | No WP8.1 Hub inbox app | N/A | Music-style panorama for metro-os catalog |
 | Silent sideload | Package installer confirmation required | Request unknown-sources install permission + user prompt |
-| Store CDN icons | Logos cached in Firestore as vector XML / PNG | Render via `HubLogoDecoder` |
+| Store CDN icons | Logos as vector XML, base64 PNG, or https PNG URL (`iconUrl` / `logoXml`); modern Android rejects string-backed `Drawable.createFromXml` | Rasterize `<vector>`/`<group>`/`<path>` (incl. evenOdd + fillAlpha) via `HubLogoDecoder` + Coil for remote PNGs |
 
 ## Agent postmortem
 

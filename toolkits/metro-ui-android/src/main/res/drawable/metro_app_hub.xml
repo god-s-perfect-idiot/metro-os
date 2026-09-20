@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- metro-os Hub glyph: square Lumia-style phone with Windows Start flag on-screen.
+     Scaled into the adaptive-icon safe zone (~72% of the 108dp canvas). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.70"
+        android:scaleY="0.70">
+        <!-- Phone body (outer) with hollow screen -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M30,18h48v72h-48zM36,30h36v44h-36z" />
+        <!-- Speaker slit -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M46,22h16v3h-16z" />
+        <!-- Home button -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M58,82A4,4 0 1,1 50,82A4,4 0 1,1 58,82Z" />
+        <!-- Windows Start flag — same pane proportions as metro_app_launcher, ~half screen -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M45.13,45.53 L52.31,44.51 L52.31,51.66 L45.13,51.66 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M53.18,44.42 L62.87,43.04 L62.87,51.57 L53.27,51.66 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M45.13,52.34 L52.40,52.52 L52.40,59.49 L45.13,58.54 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M53.18,52.43 L62.87,52.43 L62.87,60.96 L53.18,59.58 Z" />
+    </group>
+</vector>

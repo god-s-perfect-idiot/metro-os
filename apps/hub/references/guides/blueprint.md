@@ -50,11 +50,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 ### Page 4 — Suite apps list (drill-in, not a panorama pane)
 
 - **Pattern:** Full page with `MetroAppTitle` + page title (e.g. `metro os apps` or category name).
+- **Section header:** Suite release tag (e.g. `alpha-8`, accent `SectionHeader`) on **first-party** lists only (`metro os apps`, core, shell). Related / unofficial (second/third party) lists omit it.
 - **Data:** Fetch `GET https://api.github.com/repos/god-s-perfect-idiot/metro-os/releases/latest`, map `.apk` assets to list rows (Firestore catalog preferred when present).
 - **Row:** Store-style icon + **title**, **description**, and **By:** publisher only (no version / size on the list).
 - **Tap:** Opens **Page 5 — App detail**.
 - **App bar:** Refresh.
-- **Loading / error:** full-page `MetroLoadingScreen` only while the catalog is empty and a blocking load is in flight (`CatalogLoadMode.Loading`). Refresh / navigation / foreground soft-sync over an already-populated list must stay silent — never overlay dots or a loader on existing rows. Body error copy — no Material snackbars.
+- **Loading / error:** full-page `MetroLoadingScreen` whenever a blocking catalog load is in flight (`CatalogLoadMode.Loading`), including app-bar refresh of any hub group (first / second / third party). Foreground soft-sync may stay silent. Body error copy — no Material snackbars.
 - **Back:** Returns to panorama hub.
 
 ### Page 5 — App detail (drill-in)

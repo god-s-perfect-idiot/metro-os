@@ -42,6 +42,7 @@ import com.metro.hub.data.HubAppCategory
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
@@ -284,21 +285,20 @@ private fun FeaturedAppsPane(state: HubState) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp)
-            .padding(top = 24.dp, bottom = 24.dp),
+            .padding(top = 24.dp),
     ) {
         MetroText(
             text = stringResource(R.string.featured_apps).uppercase(),
             style = MetroTextStyle.SectionHeader,
-            modifier = Modifier.padding(bottom = 16.dp),
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
         )
         when {
             state.catalogLoadMode == CatalogLoadMode.Loading && state.featuredAssets.isEmpty() -> {
-                MetroText(
-                    text = stringResource(R.string.apps_loading),
-                    style = MetroTextStyle.Body,
-                    color = MetroTheme.colors.secondaryText,
+                MetroLoadingScreen(
+                    message = stringResource(R.string.apps_loading),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(bottom = MetroAppBarDefaults.BarHeight),
                 )
             }
             state.featuredAssets.isEmpty() -> {
@@ -306,10 +306,18 @@ private fun FeaturedAppsPane(state: HubState) {
                     text = stringResource(R.string.apps_empty),
                     style = MetroTextStyle.Body,
                     color = MetroTheme.colors.secondaryText,
+                    modifier = Modifier.padding(horizontal = 12.dp),
                 )
             }
             else -> {
-                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
                     state.featuredAssets.forEach { asset ->
                         StoreAppRow(
                             asset = asset,

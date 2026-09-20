@@ -40,10 +40,8 @@ enum class HubRoute {
 /**
  * Catalog fetch UI phase.
  *
- * - [Idle] — no in-flight fetch, or a silent refresh over an already-populated list.
- * - [Loading] — blocking wait; list should show [com.metro.ui.MetroLoadingScreen] when empty.
- *
- * Never overlay a loader on existing app rows — refresh in place with no chrome.
+ * - [Idle] — no in-flight fetch, or a silent background sync (foreground / ensure).
+ * - [Loading] — blocking wait; AppList shows [com.metro.ui.MetroLoadingScreen] for the duration.
  */
 enum class CatalogLoadMode {
     Idle,
@@ -109,6 +107,13 @@ class HubState(
     var listFilter by mutableStateOf<HubAppCategory?>(null)
         private set
 
+    /**
+     * Suite release tag (e.g. `alpha-8`) as the app-list section header.
+     * First-party catalogs only — second/third party lists omit it.
+     */
+    val showListReleaseSection: Boolean
+        get() = catalogSnapshot == CatalogSnapshot.FirstParty
+
     var searchQuery by mutableStateOf("")
         private set
 
@@ -140,8 +145,21 @@ class HubState(
     var featuredAssets by mutableStateOf<List<ReleaseApkAsset>>(emptyList())
         private set
 
+    /**
+     * Durable 3-party mix for featured picks. Survives party-only list loads that
+     * replace [firestoreAssets] with a single collection.
+     */
+    private var combinedCatalogAssets: List<ReleaseApkAsset> = emptyList()
+
     private val hasCatalogData: Boolean
         get() = firestoreAssets.isNotEmpty() || release != null
+
+    private val featuredPool: List<ReleaseApkAsset>
+        get() = when {
+            combinedCatalogAssets.isNotEmpty() -> combinedCatalogAssets
+            catalogSnapshot == CatalogSnapshot.Full && firestoreAssets.isNotEmpty() -> firestoreAssets
+            else -> release?.assets.orEmpty()
+        }
 
     val allAssets: List<ReleaseApkAsset>
         get() = when {
@@ -175,6 +193,8 @@ class HubState(
         get() {
             val name = selectedAssetName ?: return null
             return allAssets.find { it.name == name }
+                ?: featuredAssets.find { it.name == name }
+                ?: combinedCatalogAssets.find { it.name == name }
         }
 
     /** Home link: first-party suite apps only (Firestore `first-party`, GitHub fallback). */
@@ -190,15 +210,25 @@ class HubState(
 
     fun openCategory(category: HubAppCategory, title: String? = null) {
         listTitle = title ?: category.label
-        listFilter = category
         selectedAssetName = null
         downloadError = null
         route = HubRoute.AppList
         when (category) {
-            HubAppCategory.SecondParty -> loadPartyCollection(HubFirestorePaths.SecondParty)
-            HubAppCategory.ThirdParty -> loadPartyCollection(HubFirestorePaths.ThirdParty)
-            // Core / shell are first-party subtypes — do not mix in second/third party.
-            HubAppCategory.Core, HubAppCategory.Shell -> loadFirstPartyCatalog()
+            // Entire second/third collection — no further category filter (docs may
+            // still carry type=core|shell as a free-form subtype).
+            HubAppCategory.SecondParty -> {
+                listFilter = null
+                loadPartyCollection(HubFirestorePaths.SecondParty)
+            }
+            HubAppCategory.ThirdParty -> {
+                listFilter = null
+                loadPartyCollection(HubFirestorePaths.ThirdParty)
+            }
+            // Core / shell quick links: first-party only, then subtype filter.
+            HubAppCategory.Core, HubAppCategory.Shell -> {
+                listFilter = category
+                loadFirstPartyCatalog()
+            }
         }
         bump()
     }
@@ -275,23 +305,36 @@ class HubState(
 
     /**
      * Load the catalog once if missing. Does not flash a loader over an already-populated list.
+     * Also ensures the featured pane can draw from the combined 3-party mix.
      */
     fun ensureReleaseLoaded(force: Boolean = false) {
-        if (!force && (hasCatalogData || catalogLoadMode != CatalogLoadMode.Idle)) return
+        if (!force && catalogLoadMode != CatalogLoadMode.Idle) return
+        if (!force && featuredAssets.isEmpty() && featuredPool.isNotEmpty()) {
+            refreshFeaturedPicks(force = true)
+            bump()
+            return
+        }
+        val needFullMix = featuredAssets.isEmpty() || combinedCatalogAssets.isEmpty()
+        if (!force && hasCatalogData && !needFullMix) return
         startFullCatalogFetch(
-            mode = if (hasCatalogData) CatalogLoadMode.Idle else CatalogLoadMode.Loading,
+            mode = when {
+                featuredAssets.isEmpty() -> CatalogLoadMode.Loading
+                hasCatalogData -> CatalogLoadMode.Idle
+                else -> CatalogLoadMode.Loading
+            },
         )
     }
 
-    /** App-bar refresh — keep existing rows visible with no loader overlay. */
+    /** App-bar refresh — reload the current hub group and show the list loader while it runs. */
     fun refreshRelease() {
-        startFullCatalogFetch(
-            mode = if (visibleAssets.isEmpty()) {
-                CatalogLoadMode.Loading
-            } else {
-                CatalogLoadMode.Idle
-            },
-        )
+        when (catalogSnapshot) {
+            CatalogSnapshot.FirstParty -> loadFirstPartyCatalog(force = true)
+            CatalogSnapshot.SecondParty -> loadPartyCollection(HubFirestorePaths.SecondParty)
+            CatalogSnapshot.ThirdParty -> loadPartyCollection(HubFirestorePaths.ThirdParty)
+            CatalogSnapshot.Full, CatalogSnapshot.None -> {
+                startFullCatalogFetch(mode = CatalogLoadMode.Loading)
+            }
+        }
     }
 
     fun onForeground() {
@@ -340,11 +383,11 @@ class HubState(
     fun iconPathFor(asset: ReleaseApkAsset): String? = iconPaths[asset.name]
 
     fun ensureIcon(asset: ReleaseApkAsset) {
-        // Metro catalog tiles use Firestore bg + logo/glyph — skip adaptive APK icons.
+        // Metro catalog tiles use Firestore bg + logo/glyph/URL — skip adaptive APK icons.
         if (!asset.logoXml.isNullOrBlank() || !asset.logoPngBase64.isNullOrBlank()) return
+        if (!asset.iconUrl.isNullOrBlank()) return
         if (!asset.backgroundColor.isNullOrBlank() || asset.glyphResId != null) return
         if (iconPaths.containsKey(asset.name)) return
-        if (asset.iconUrl != null) return
         val cached = iconResolver.cachedIconFile(asset)
         if (cached.exists() && cached.length() > 0L) {
             iconPaths = iconPaths + (asset.name to cached.absolutePath)
@@ -435,8 +478,8 @@ class HubState(
      * First-party suite only — used by `metro os apps` and core/shell quick links.
      * Prefers Firestore `first-party`; falls back to GitHub latest-release APKs.
      */
-    private fun loadFirstPartyCatalog() {
-        if (catalogSnapshot == CatalogSnapshot.FirstParty && hasCatalogData) {
+    private fun loadFirstPartyCatalog(force: Boolean = false) {
+        if (!force && catalogSnapshot == CatalogSnapshot.FirstParty && hasCatalogData) {
             return
         }
         fetchJob?.cancel()
@@ -531,12 +574,16 @@ class HubState(
         exploreEntries = fsExplore.await()
         val gh = github.await()
 
-        if (first.isNotEmpty()) {
-            firestoreAssets = mergeFirestoreWithGitHub(first + second + third, gh)
+        val combinedDocs = first + second + third
+        if (combinedDocs.isNotEmpty()) {
+            val merged = mergeFirestoreWithGitHub(combinedDocs, gh)
+            firestoreAssets = merged
+            combinedCatalogAssets = merged
             release = gh
             catalogSource = "firestore"
         } else if (gh != null) {
             firestoreAssets = emptyList()
+            combinedCatalogAssets = gh.assets
             release = gh
             catalogSource = "github"
         } else {
@@ -565,35 +612,22 @@ class HubState(
     }
 
     /**
-     * Pick [FEATURED_COUNT] random apps from the full combined catalog.
+     * Pick [FEATURED_COUNT] random apps from the durable 3-party mix.
      * When [force] is false and picks already exist, refresh metadata only.
      */
     private fun refreshFeaturedPicks(force: Boolean) {
-        val pool = when {
-            firestoreAssets.isNotEmpty() -> firestoreAssets
-            else -> release?.assets.orEmpty()
-        }
-        if (pool.isEmpty()) {
-            if (force) featuredAssets = emptyList()
-            return
-        }
-        if (!force && featuredAssets.isNotEmpty()) {
-            val refreshed = featuredAssets.mapNotNull { pick ->
-                pool.find { it.name == pick.name }
-            }
-            featuredAssets = if (refreshed.size == featuredAssets.size) {
-                refreshed
-            } else {
-                pool.shuffled().take(FEATURED_COUNT)
-            }
-            return
-        }
-        featuredAssets = pool.shuffled().take(FEATURED_COUNT)
+        featuredAssets = HubAppCatalog.pickFeatured(
+            pool = featuredPool,
+            count = FEATURED_COUNT,
+            existing = featuredAssets,
+            force = force,
+        )
     }
 
     private fun prefetchVisibleIcons(assets: List<ReleaseApkAsset>) {
         assets.forEach { asset ->
             if (!asset.logoXml.isNullOrBlank() || !asset.logoPngBase64.isNullOrBlank()) return@forEach
+            if (!asset.iconUrl.isNullOrBlank()) return@forEach
             if (!asset.backgroundColor.isNullOrBlank() || asset.glyphResId != null) return@forEach
             val cached = iconResolver.cachedIconFile(asset)
             if (cached.exists() && cached.length() > 0L) {
@@ -606,6 +640,16 @@ class HubState(
     private fun patchAsset(name: String, transform: (ReleaseApkAsset) -> ReleaseApkAsset) {
         if (firestoreAssets.isNotEmpty()) {
             firestoreAssets = firestoreAssets.map { asset ->
+                if (asset.name == name) transform(asset) else asset
+            }
+        }
+        if (combinedCatalogAssets.isNotEmpty()) {
+            combinedCatalogAssets = combinedCatalogAssets.map { asset ->
+                if (asset.name == name) transform(asset) else asset
+            }
+        }
+        if (featuredAssets.any { it.name == name }) {
+            featuredAssets = featuredAssets.map { asset ->
                 if (asset.name == name) transform(asset) else asset
             }
         }

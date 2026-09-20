@@ -30,7 +30,7 @@ data class ReleaseApkAsset(
     val iconUrl: String? = null,
     /** Local glyph fallback from metro-ui-android. */
     val glyphResId: Int? = null,
-    /** Vector drawable XML from Firestore (preferred logo when present). */
+    /** Vector drawable XML from Firestore (preferred logo when present). May also hold an https PNG URL. */
     val logoXml: String? = null,
     /** PNG logo as base64 from Firestore (e.g. People). */
     val logoPngBase64: String? = null,
@@ -173,6 +173,26 @@ object HubAppCatalog {
         val needle = query.trim()
         if (needle.isEmpty()) return emptyList()
         return assets.filter { matchesQuery(it, needle) }
+    }
+
+    /**
+     * Featured pane: up to [count] random apps from the combined first/second/third pool.
+     * When [force] is false and [existing] still resolve in [pool], refresh metadata only.
+     */
+    fun pickFeatured(
+        pool: List<ReleaseApkAsset>,
+        count: Int,
+        existing: List<ReleaseApkAsset> = emptyList(),
+        force: Boolean = true,
+    ): List<ReleaseApkAsset> {
+        if (pool.isEmpty()) return if (force) emptyList() else existing
+        if (!force && existing.isNotEmpty()) {
+            val refreshed = existing.mapNotNull { pick ->
+                pool.find { it.name == pick.name }
+            }
+            return if (refreshed.size == existing.size) refreshed else pool.shuffled().take(count)
+        }
+        return pool.shuffled().take(count)
     }
 
     fun gradlePathForAsset(assetName: String): String {

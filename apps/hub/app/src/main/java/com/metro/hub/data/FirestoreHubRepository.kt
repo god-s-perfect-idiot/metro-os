@@ -28,6 +28,7 @@ class FirestoreHubRepository(
                 creator = data.string("creator") ?: "Entropy",
                 logoXml = data.string("logoXml"),
                 logoPngBase64 = data.string("logoPngBase64"),
+                iconUrl = data.string("iconUrl"),
                 backgroundColor = data.string("backgroundColor"),
                 apkName = data.string("apkName"),
                 apkUrl = data.string("apkUrl"),
@@ -82,15 +83,23 @@ private fun Map<String, Any?>.longOrNull(key: String): Long? =
     }
 
 fun FirestoreHubApp.toReleaseApkAsset(): ReleaseApkAsset {
-    val category = when (type.lowercase()) {
-        "shell" -> HubAppCategory.Shell
-        else -> when (party.lowercase()) {
-            "second", "second-party" -> HubAppCategory.SecondParty
-            "third", "third-party" -> HubAppCategory.ThirdParty
+    // Party (collection) wins over type. Second/third-party docs often use type
+    // "core"/"shell" as a free-form subtype; those must still list under related /
+    // unofficial, not under first-party core/shell quick links.
+    val category = when (party.lowercase()) {
+        "second", "second-party" -> HubAppCategory.SecondParty
+        "third", "third-party" -> HubAppCategory.ThirdParty
+        else -> when (type.lowercase()) {
+            "shell" -> HubAppCategory.Shell
             else -> HubAppCategory.Core
         }
     }
     val apk = apkName ?: "$id-debug.apk"
+    // logoXml may be inline vector XML or a remote PNG URL pasted in Firestore.
+    val logoIsUrl = !logoXml.isNullOrBlank() && HubLogoDecoder.isRemoteLogoUrl(logoXml)
+    val resolvedIconUrl = iconUrl
+        ?: logoXml?.takeIf { logoIsUrl }?.trim()
+    val resolvedLogoXml = logoXml?.takeUnless { logoIsUrl }
     return ReleaseApkAsset(
         name = apk,
         displayName = name,
@@ -102,9 +111,9 @@ fun FirestoreHubApp.toReleaseApkAsset(): ReleaseApkAsset {
         publisher = creator,
         versionName = versionName,
         versionCode = versionCode,
-        iconUrl = null,
+        iconUrl = resolvedIconUrl,
         glyphResId = HubAppCatalog.glyphResIdForAsset(apk),
-        logoXml = logoXml,
+        logoXml = resolvedLogoXml,
         logoPngBase64 = logoPngBase64,
         backgroundColor = backgroundColor
             ?: HubAppCatalog.backgroundColorForPackage(packageName),

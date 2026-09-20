@@ -20,8 +20,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
@@ -42,6 +45,7 @@ import coil.request.ImageRequest
 import com.metro.hub.R
 import com.metro.hub.data.HubLogoDecoder
 import com.metro.hub.data.ReleaseApkAsset
+import com.metro.system.MetroAppBranding
 import com.metro.system.MetroPreferences
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppTitle
@@ -56,8 +60,19 @@ import java.io.File
 internal val StoreIconSize = 72.dp
 /** Larger catalog tiles for the panorama featured pane. */
 internal val FeaturedStoreIconSize = 108.dp
-internal val StoreIconGlyphScale = 0.72f
+/** Inset shared by glyphs, vector logos, and remote PNGs so first- and second-party icons match. */
+internal val StoreIconInsetFraction = 0.12f
 private val StoreRowSpacing = 16.dp
+
+/** Suite glyphs are 108dp adaptive foregrounds; scale the 72dp safe zone to fill like second-party logos. */
+private fun Modifier.storeIconContent(iconSize: Dp, suiteAdaptiveGlyph: Boolean): Modifier {
+    val base = fillMaxSize().padding(iconSize * StoreIconInsetFraction)
+    return if (suiteAdaptiveGlyph) {
+        base.scale(MetroAppBranding.ADAPTIVE_SAFE_ZONE_SCALE)
+    } else {
+        base
+    }
+}
 /** Extra space under the last row so it clears the overlay app bar with room to breathe. */
 internal val ListBottomExtraPadding = 64.dp
 
@@ -86,8 +101,9 @@ fun AppListScreen(
             modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp),
         )
 
+        // Suite channel tag (e.g. alpha-8) only on first-party lists.
         val tag = state.release?.tagName
-        if (tag != null) {
+        if (tag != null && state.showListReleaseSection) {
             MetroText(
                 text = tag,
                 style = MetroTextStyle.SectionHeader,
@@ -97,7 +113,7 @@ fun AppListScreen(
         }
 
         when {
-            state.catalogLoadMode == CatalogLoadMode.Loading && state.visibleAssets.isEmpty() -> {
+            state.catalogLoadMode == CatalogLoadMode.Loading -> {
                 MetroLoadingScreen(
                     message = stringResource(R.string.apps_loading),
                     modifier = Modifier
@@ -235,16 +251,28 @@ internal fun StoreAppIcon(
             ?.let { runCatching { MetroPreferences.parseAccentHex(it) }.getOrNull() }
     } ?: MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
+    val remoteLogoUrl = remember(iconUrl, logoXml) {
+        when {
+            !iconUrl.isNullOrBlank() -> iconUrl.trim()
+            !logoXml.isNullOrBlank() && HubLogoDecoder.isRemoteLogoUrl(logoXml) -> logoXml.trim()
+            else -> null
+        }
+    }
     val firestorePng = remember(logoPngBase64) {
         logoPngBase64?.let { HubLogoDecoder.bitmapFromPngBase64(it) }
     }
     val firestoreVector = remember(logoXml) {
-        logoXml?.let { xml -> HubLogoDecoder.bitmapFromLogoXml(context, xml) }
+        logoXml
+            ?.takeUnless { HubLogoDecoder.isRemoteLogoUrl(it) }
+            ?.let { xml -> HubLogoDecoder.bitmapFromLogoXml(context, xml) }
     }
     val letterSp = (42f * (iconSize / StoreIconSize)).sp
+    // First-party suite logos use adaptive-icon safe-zone padding; second-party art is full-bleed.
+    val suiteAdaptiveGlyph = glyphResId != null
     Box(
         modifier = Modifier
             .size(iconSize)
+            .clip(RectangleShape)
             .background(background),
         contentAlignment = Alignment.Center,
     ) {
@@ -254,9 +282,7 @@ internal fun StoreAppIcon(
                     painter = BitmapPainter(firestorePng.asImageBitmap()),
                     contentDescription = title,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(iconSize * 0.12f),
+                    modifier = Modifier.storeIconContent(iconSize, suiteAdaptiveGlyph = false),
                 )
             }
             firestoreVector != null -> {
@@ -265,7 +291,21 @@ internal fun StoreAppIcon(
                     contentDescription = title,
                     colorFilter = ColorFilter.tint(content),
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(iconSize * StoreIconGlyphScale),
+                    modifier = Modifier.storeIconContent(iconSize, suiteAdaptiveGlyph),
+                )
+            }
+            // Remote PNG/image URL (Firestore iconUrl, or logoXml holding an https link).
+            // Drawn on the catalog tile color — ahead of glyph/letter so second-party
+            // apps with only a backgroundColor still show the provided logo.
+            !remoteLogoUrl.isNullOrBlank() -> {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(remoteLogoUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = title,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.storeIconContent(iconSize, suiteAdaptiveGlyph = false),
                 )
             }
             // Prefer flat Metro glyph/letter on the catalog tile color — never nest a
@@ -280,22 +320,12 @@ internal fun StoreAppIcon(
                         painter = painterResource(glyphResId),
                         contentDescription = title,
                         colorFilter = if (tintVectors) ColorFilter.tint(content) else null,
-                        modifier = Modifier.size(iconSize * StoreIconGlyphScale),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.storeIconContent(iconSize, suiteAdaptiveGlyph = true),
                     )
                 } else {
                     StoreAppLetter(title = title, color = content, fontSize = letterSp)
                 }
-            }
-            !iconUrl.isNullOrBlank() -> {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(iconUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
             }
             !iconPath.isNullOrBlank() -> {
                 AsyncImage(

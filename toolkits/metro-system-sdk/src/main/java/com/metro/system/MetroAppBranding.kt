@@ -37,8 +37,8 @@ data class AppIconAsset(
  */
 object MetroAppBranding {
 
-    /** Adaptive icon viewport (108) / safe zone (72). */
-    internal const val ADAPTIVE_SAFE_ZONE_SCALE = 108f / 72f
+    /** Adaptive icon viewport (108) / safe zone (72). Public for Hub store tiles etc. */
+    const val ADAPTIVE_SAFE_ZONE_SCALE = 108f / 72f
 
     fun loadAppIcon(context: Context, packageName: String): Drawable? =
         loadAppIconAsset(context, packageName).drawable
