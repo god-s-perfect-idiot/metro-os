@@ -86,6 +86,31 @@ class MetroTransitionsTest {
     }
 
     @Test
+    fun listPivotStagger_is50msWithCap() {
+        assertEquals(50, MetroTransitions.ListPivotStaggerMs)
+        assertEquals(15, MetroTransitions.ListPivotStaggerMaxIndex)
+        assertEquals(20, MetroTransitions.ListPivotExitStaggerMs)
+        assertEquals(8, MetroTransitions.ListPivotExitStaggerMaxIndex)
+        assertEquals(160, MetroTransitions.ListPivotExitMs)
+        assertEquals(0L, metroListPivotEnterDelayMs(0))
+        assertEquals(50L, metroListPivotEnterDelayMs(1))
+        assertEquals(100L, metroListPivotEnterDelayMs(2))
+        assertEquals(
+            MetroTransitions.ListPivotStaggerMaxIndex.toLong() *
+                MetroTransitions.ListPivotStaggerMs,
+            metroListPivotEnterDelayMs(100),
+        )
+        assertEquals(
+            50L * 3 + MetroTransitions.TilePivotEnterOuterMs,
+            metroListPivotWaveDurationMs(lastStaggerIndex = 3),
+        )
+        assertEquals(
+            20L * 3 + MetroTransitions.ListPivotExitMs,
+            metroListPivotExitWaveDurationMs(lastStaggerIndex = 3),
+        )
+    }
+
+    @Test
     fun pagePivotLoad_is200msWithHalfOpenSwing() {
         assertEquals(200, MetroTransitions.PagePivotLoadMs)
         assertEquals(22.5f, MetroTransitions.PagePivotLoadStartDegrees, 0f)
@@ -118,6 +143,23 @@ class MetroTransitionsTest {
         assertEquals(0.15f, MetroTransitions.PagePivotExitOriginX, 0f)
         assertEquals(1.45f, MetroTransitions.PagePivotExitCameraWidthFactor, 0f)
         assertEquals(-0.15f, MetroTransitions.PagePivotExitTranslationXFraction, 0f)
+    }
+
+    @Test
+    fun tilePivotContinuum_matchesDiscoAppLaunch() {
+        assertEquals(500, MetroTransitions.TilePivotEnterOuterMs)
+        assertEquals(350, MetroTransitions.TilePivotEnterInnerMs)
+        assertEquals(70f, MetroTransitions.TilePivotEnterStartDegrees, 0f)
+        assertEquals(280, MetroTransitions.TilePivotExitMs)
+        assertEquals(420, MetroTransitions.TilePivotExitSelectedMs)
+        assertEquals(-40f, MetroTransitions.TilePivotExitEndDegrees, 0f)
+        assertEquals(-0.25f, MetroTransitions.TilePivotExitSlideFraction, 0f)
+        assertTrue(MetroTransitions.TilePivotEnterStartDegrees >
+            MetroTransitions.PagePivotLoadStartDegrees)
+        assertTrue(
+            MetroTransitions.TilePivotExitEndDegrees <
+                MetroTransitions.PagePivotExitEndDegrees,
+        )
     }
 
     @Test

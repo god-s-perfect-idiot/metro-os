@@ -8,7 +8,9 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 
 /**
  * WP8.1 motion constants from scope.md §9.
@@ -87,6 +89,44 @@ object MetroTransitions {
     const val PagePivotExitCameraWidthFactor = 1.45f
     /** Exit slide — fraction of viewport width; negative pushes the left hinge off-screen. */
     const val PagePivotExitTranslationXFraction = -0.15f
+    /**
+     * Delay between successive [MetroStaggeredPivotEnter] slots on enter
+     * (chrome → first row → next…).
+     */
+    const val ListPivotStaggerMs = 50
+    /**
+     * Cap on enter stagger index so long lists do not wait seconds before
+     * off-screen rows start (LazyColumn items past their slot time skip enter).
+     */
+    const val ListPivotStaggerMaxIndex = 15
+    /** Tighter cascade on list exit — snappier than enter. */
+    const val ListPivotExitStaggerMs = 20
+    /** Cap exit stagger so navigation is not held for off-screen rows. */
+    const val ListPivotExitStaggerMaxIndex = 8
+    /** List exit swing — faster than Start-tile [TilePivotExitMs]. */
+    const val ListPivotExitMs = 160
+
+    /**
+     * Disco Start-tile / app-launch continuum — shared by Start tile enter/exit and
+     * [MetroAppOpenSplash] / [MetroAppPivotShell]. Distinct from mild [PagePivotLoad]
+     * (in-app drill-ins stay 200ms / 22.5°).
+     *
+     * Enter: Disco `tileListAppTransitionAnim1` — outer `rotateY` 70°→0 (500ms) +
+     * inner `translateX(60dp)`→0 (350ms). Exit: `tileListAppTransitionAnim0` —
+     * `rotateY` 0°→−40°, slide −25% width, opacity holds then drops.
+     */
+    const val TilePivotEnterOuterMs = 500
+    const val TilePivotEnterInnerMs = 350
+    const val TilePivotEnterStartDegrees = 70f
+    val TilePivotEnterInnerStartOffset: Dp = 60.dp
+    val TilePivotEnterOuterEasing: Easing = CubicBezierEasing(0.3f, 1f, 0.2f, 1f)
+    val TilePivotEnterInnerEasing: Easing = CubicBezierEasing(0.2f, 0.25f, 0.25f, 1f)
+    const val TilePivotExitMs = 280
+    /** Tapped tile on Start exit weave — longer than [TilePivotExitMs]. */
+    const val TilePivotExitSelectedMs = 420
+    const val TilePivotExitEndDegrees = -40f
+    const val TilePivotExitSlideFraction = -0.25f
+    val TilePivotExitEasing: Easing = CubicBezierEasing(0.75f, 0f, 1f, 0f)
 
     /**
      * Panorama hub intro (Metro Spotify carousel language) — brand slides in from the right;
@@ -152,6 +192,23 @@ object MetroTransitions {
     fun <T> pagePivotExitTween(): FiniteAnimationSpec<T> = tween(
         durationMillis = PagePivotExitMs,
         easing = PageEasing,
+    )
+
+    fun <T> tilePivotEnterOuterTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = TilePivotEnterOuterMs,
+        easing = TilePivotEnterOuterEasing,
+    )
+
+    fun <T> tilePivotEnterInnerTween(): FiniteAnimationSpec<T> = tween(
+        durationMillis = TilePivotEnterInnerMs,
+        easing = TilePivotEnterInnerEasing,
+    )
+
+    fun <T> tilePivotExitTween(
+        durationMs: Int = TilePivotExitMs,
+    ): FiniteAnimationSpec<T> = tween(
+        durationMillis = durationMs,
+        easing = TilePivotExitEasing,
     )
 
     fun <T> panoramaBrandEnterTween(): FiniteAnimationSpec<T> = tween(

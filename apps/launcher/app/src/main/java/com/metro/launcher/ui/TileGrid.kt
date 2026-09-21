@@ -2,7 +2,6 @@ package com.metro.launcher.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -15,6 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -130,25 +131,26 @@ internal val START_EDIT_EXTRA_BOTTOM_PADDING = 32.dp
 /**
  * Disco `tileListAppTransitionAnim1` — outer shell swing duration
  * (`calc(.5s * var(--animation-duration-scale))`, scale default 1).
+ * Shared with [MetroTransitions.TilePivotEnterOuterMs] / app-open splash.
  */
-internal const val TileEnterOuterMs = 500
+internal const val TileEnterOuterMs = MetroTransitions.TilePivotEnterOuterMs
 /**
  * Disco `innerTileListAppTransitionAnim0` — inner face duration (`.35s`).
  */
-internal const val TileEnterInnerMs = 350
+internal const val TileEnterInnerMs = MetroTransitions.TilePivotEnterInnerMs
 /**
  * Delay between successive BR→TL diagonals on Start enter. Slightly under the
  * prior 55ms step so the wave stays readable without feeling gated.
  */
 internal const val TileEnterStaggerMs = 40L
 /** Disco compound enter angle: `rotateY(60deg)` + nested `rotateY(10deg)`. */
-private const val TileEnterOuterStartDegrees = 70f
+private val TileEnterOuterStartDegrees = MetroTransitions.TilePivotEnterStartDegrees
 /** Disco inner face start: `translateX(60px)`. */
-private val TileEnterInnerStartOffset = 60.dp
+private val TileEnterInnerStartOffset = MetroTransitions.TilePivotEnterInnerStartOffset
 /** Disco outer easing: `cubic-bezier(.3, 1, .2, 1)`. */
-private val TileEnterOuterEasing = CubicBezierEasing(0.3f, 1f, 0.2f, 1f)
+private val TileEnterOuterEasing = MetroTransitions.TilePivotEnterOuterEasing
 /** Disco inner easing: `cubic-bezier(.2, .25, 0.25, 1)`. */
-private val TileEnterInnerEasing = CubicBezierEasing(0.2f, 0.25f, 0.25f, 1f)
+private val TileEnterInnerEasing = MetroTransitions.TilePivotEnterInnerEasing
 /**
  * Delay between successive diagonals on Start exit (BR→TL), same step as enter.
  */
@@ -158,21 +160,19 @@ private const val TileExitStaggerMs = 40L
  * durations eased up from Disco's `.175s` / `.3s` so the weave reads on device
  * (was too snappy at stock CSS times). Easing stays `cubic-bezier(.75, 0, 1, 0)`.
  */
-internal const val TileExitDefaultMs = 280
-internal const val TileExitSelectedMs = 420
+internal const val TileExitDefaultMs = MetroTransitions.TilePivotExitMs
+internal const val TileExitSelectedMs = MetroTransitions.TilePivotExitSelectedMs
 /** Disco end angle: `rotateY(-30deg)` + nested `rotateY(-10deg)`. */
-private const val TileExitEndDegrees = -40f
+private val TileExitEndDegrees = MetroTransitions.TilePivotExitEndDegrees
 /** Disco end slide: `translateX(-25vw)`. */
-private const val TileExitSlideFraction = -0.25f
-private val TileExitEasing = CubicBezierEasing(0.75f, 0f, 1f, 0f)
-/**
- * Subtle press-in on the tapped tile (WP8.1 PointerDown). Plays in parallel with the
- * exit weave — same 100ms dip as before; weave does not wait for it to finish.
- */
-private const val TileTapBounceMs = 100
-private const val TileTapBounceDipScale = 0.97f
-private val TileTapBounceDownAnimation = tween<Float>(
-    durationMillis = TileTapBounceMs,
+private val TileExitSlideFraction = MetroTransitions.TilePivotExitSlideFraction
+private val TileExitEasing = MetroTransitions.TilePivotExitEasing
+private val TilePressTiltDownAnimation = tween<Float>(
+    durationMillis = TILE_PRESS_TILT_DOWN_MS,
+    easing = FastOutSlowInEasing,
+)
+private val TilePressTiltUpAnimation = tween<Float>(
+    durationMillis = TILE_PRESS_TILT_UP_MS,
     easing = FastOutSlowInEasing,
 )
 private val TileResizeAnimation: AnimationSpec<Dp> = tween(
@@ -505,11 +505,10 @@ fun TileGrid(
     var dragSlotCol by remember { mutableIntStateOf(0) }
     var dragSlotRow by remember { mutableIntStateOf(0) }
     var dragBaselinePositions by remember { mutableStateOf<Map<TileKey, Pair<Int, Int>>?>(null) }
-    // Package launch: tap bounce on the pressed tile, then exit wave (tapped tile last).
-    var bounceThenExitKey by remember { mutableStateOf<TileKey?>(null) }
+    // Package launch: exit wave (tapped tile last). Press tilt is finger-down feedback.
     var exitingTileKey by remember { mutableStateOf<TileKey?>(null) }
     val isDragging = draggingKey != null
-    val launchInProgress = bounceThenExitKey != null || exitingTileKey != null
+    val launchInProgress = exitingTileKey != null
     val tilesState = rememberUpdatedState(tiles)
     val onDragLayoutState = rememberUpdatedState(onDragLayout)
     val onReorderCommitState = rememberUpdatedState(onReorderCommit)
@@ -531,7 +530,6 @@ fun TileGrid(
 
     // Home-resume bumps enterWaveKey — clear any leftover exit pose so enter can replay.
     LaunchedEffect(enterWaveKey) {
-        bounceThenExitKey = null
         exitingTileKey = null
     }
 
@@ -539,7 +537,6 @@ fun TileGrid(
     // (skipEnter + !exiting) without starting a new alpha-0 enter wave.
     LaunchedEffect(restPoseRequestId) {
         if (restPoseRequestId <= 0) return@LaunchedEffect
-        bounceThenExitKey = null
         exitingTileKey = null
     }
 
@@ -593,11 +590,11 @@ fun TileGrid(
             delay(enterWaveDurationMs)
             liveMotionEnabled = true
         }
-        // Freeze live motion for the tap bounce + exit wave. Launch only when the tapped
-        // tile's exit swing finishes (see TilePivotEnter onExitComplete) so the weave
-        // is never cut short by a wall-clock race.
-        LaunchedEffect(bounceThenExitKey, exitingTileKey) {
-            if (bounceThenExitKey != null || exitingTileKey != null) liveMotionEnabled = false
+        // Freeze live motion for the exit wave. Launch only when the tapped tile's exit
+        // swing finishes (see TilePivotEnter onExitComplete) so the weave is never cut
+        // short by a wall-clock race.
+        LaunchedEffect(exitingTileKey) {
+            if (exitingTileKey != null) liveMotionEnabled = false
         }
         // Unlock snap clears exit without bumping enterWaveKey — re-enable live faces.
         LaunchedEffect(restPoseRequestId) {
@@ -912,23 +909,13 @@ fun TileGrid(
                                 editProgress = editProgress,
                                 floatTimeSec = floatTimeSec,
                                 liveMotionEnabled = liveMotionEnabled,
-                                playTapBounce = bounceThenExitKey == tileKey,
-                                onTapBounceComplete = {
-                                    if (bounceThenExitKey == tileKey) {
-                                        bounceThenExitKey = null
-                                    }
-                                },
                                 onClick = {
                                     when {
                                         editMode && isActive -> Unit
                                         editMode -> onDismissEdit()
                                         launchInProgress -> Unit
                                         !tileClickUsesExitWave(tile) -> onTileClick(tile)
-                                        else -> {
-                                            // Bounce + weave together — bounce does not gate the weave.
-                                            bounceThenExitKey = tileKey
-                                            exitingTileKey = tileKey
-                                        }
+                                        else -> exitingTileKey = tileKey
                                     }
                                 },
                                 onLongClick = {
@@ -1106,8 +1093,6 @@ private fun LauncherTileCell(
     editProgress: Float,
     floatTimeSec: State<Float>,
     liveMotionEnabled: Boolean,
-    playTapBounce: Boolean,
-    onTapBounceComplete: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onResize: () -> Unit,
@@ -1210,16 +1195,40 @@ private fun LauncherTileCell(
         unpinAlpha.snapTo(1f)
         unpinScale.snapTo(1f)
     }
-    val bounceScale = remember { Animatable(1f) }
-    val onTapBounceCompleteState = rememberUpdatedState(onTapBounceComplete)
-    LaunchedEffect(playTapBounce) {
-        if (!playTapBounce) {
-            bounceScale.snapTo(1f)
+    val interactionSource = remember { MutableInteractionSource() }
+    var pressTiltPose by remember { mutableStateOf(TilePressTiltPose.Rest) }
+    val pressTiltAmount = remember { Animatable(0f) }
+    val widthPx = with(density) { width.toPx() }
+    val heightPx = with(density) { height.toPx() }
+    LaunchedEffect(interactionSource, editMode, isDragging, widthPx, heightPx) {
+        if (editMode || isDragging) {
+            pressTiltAmount.snapTo(0f)
+            pressTiltPose = TilePressTiltPose.Rest
             return@LaunchedEffect
         }
-        bounceScale.snapTo(1f)
-        bounceScale.animateTo(TileTapBounceDipScale, animationSpec = TileTapBounceDownAnimation)
-        onTapBounceCompleteState.value()
+        try {
+            interactionSource.interactions.collect { interaction ->
+                when (interaction) {
+                    is PressInteraction.Press -> {
+                        pressTiltPose = tilePressTiltAt(
+                            localX = interaction.pressPosition.x,
+                            localY = interaction.pressPosition.y,
+                            widthPx = widthPx,
+                            heightPx = heightPx,
+                        )
+                        pressTiltAmount.animateTo(1f, TilePressTiltDownAnimation)
+                    }
+                    is PressInteraction.Release,
+                    is PressInteraction.Cancel,
+                    -> {
+                        pressTiltAmount.animateTo(0f, TilePressTiltUpAnimation)
+                    }
+                }
+            }
+        } finally {
+            pressTiltAmount.snapTo(0f)
+            pressTiltPose = TilePressTiltPose.Rest
+        }
     }
     val chrome = LocalTileChrome.current
     val iconSize = chrome.iconSize(width, height, tile.entry.size)
@@ -1319,6 +1328,8 @@ private fun LauncherTileCell(
                 clip = false
             }
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
                 onClick = onClick,
                 onLongClick = {
                     // WP8.1 Start: short buzz when long-press enters tile edit / resize mode.
@@ -1333,11 +1344,17 @@ private fun LauncherTileCell(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
+                    val tilt = pressTiltAmount.value
                     alpha = tileAlpha * unpinAlpha.value
-                    val scale = tileScale * activeFocusBounce.value * bounceScale.value *
+                    val pressScale = 1f + (pressTiltPose.scale - 1f) * tilt
+                    val scale = tileScale * activeFocusBounce.value * pressScale *
                         unpinScale.value * resizeOvershoot.value
                     scaleX = scale
                     scaleY = scale
+                    rotationX = pressTiltPose.rotationXDegrees * tilt
+                    rotationY = pressTiltPose.rotationYDegrees * tilt
+                    cameraDistance = TILE_PRESS_TILT_CAMERA_DISTANCE * this.density
+                    transformOrigin = TransformOrigin(0.5f, 0.5f)
                     translationX = resizeTranslateX.value * size.width
                     translationY = resizeTranslateY.value * size.height
                     clip = false

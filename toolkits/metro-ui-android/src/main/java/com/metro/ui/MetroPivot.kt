@@ -14,6 +14,12 @@ import androidx.compose.ui.unit.dp
 
 /**
  * WP8.1 pivot — filter/categorize similar content (max 7 headers).
+ *
+ * When [chromeStaggerLoadKey] is non-null, the app header + page titles enter together via
+ * [MetroStaggeredPivotEnter] at stagger index 0 (Start-tile continuum). Wrap each list row
+ * with [MetroStaggeredPivotEnter] starting at index 1 using the **same stable** [loadKey] —
+ * do not change it when the user switches pivot pages. Set [chromeStaggerExiting] to play the
+ * top-down exit cascade with the list rows.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -23,20 +29,40 @@ fun MetroPivot(
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit = {},
     belowTitleRow: @Composable () -> Unit = {},
+    chromeStaggerLoadKey: Any? = null,
+    chromeStaggerExiting: Boolean = false,
+    chromeStaggerSkipEnter: Boolean = false,
     onTitleClick: ((Int) -> Unit)? = null,
     userScrollEnabled: Boolean = true,
     pageContent: @Composable (Int) -> Unit,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        header()
-        MetroHubTitleRow(
-            titles = titles,
-            selectedIndex = pagerState.currentPage,
-            mode = MetroHubTitleMode.Pivot,
-            onTitleClick = onTitleClick,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
-        belowTitleRow()
+        val chrome: @Composable () -> Unit = {
+            header()
+            MetroHubTitleRow(
+                titles = titles,
+                selectedIndex = pagerState.currentPage,
+                mode = MetroHubTitleMode.Pivot,
+                onTitleClick = onTitleClick,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            belowTitleRow()
+        }
+        if (chromeStaggerLoadKey != null) {
+            MetroStaggeredPivotEnter(
+                staggerIndex = 0,
+                loadKey = chromeStaggerLoadKey,
+                exiting = chromeStaggerExiting,
+                skipEnter = chromeStaggerSkipEnter,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    chrome()
+                }
+            }
+        } else {
+            chrome()
+        }
         HorizontalPager(
             state = pagerState,
             modifier = Modifier

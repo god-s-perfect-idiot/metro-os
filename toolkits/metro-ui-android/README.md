@@ -37,6 +37,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroSplashLoadingScreen` | Accent splash + app glyph + white dancing dots (no label) |
 | `MetroPagePivotLoad` | Page enter — left-hinge 3D pivot + X slide + fade |
 | `MetroPagePivotSwing` | Same hinge `rotateY` + fade as page pivot load, **no** X slide (Start tiles) |
+| `MetroStaggeredPivotEnter` | Cascading Start-tile continuum enter for list hubs (chrome → row → row) |
 | `MetroSubpageHost` | Suite-standard in-app stack — root stays put; drill-ins use `MetroPagePivotLoad` |
 | `MetroAppPivotShell` | Activity wrapper — flip-out on Back then `finish()` (open splash owned by Start) |
 | `MetroAnimationSuite` | Named decorative / feedback animations catalog |
@@ -111,6 +112,42 @@ MetroPagePivotLoad(
 ```
 
 Enter: `rotateY` 22.5° → 0°, `translationX` +15% width → 0, with fade-in (200ms ease-out). Exit tilt-back: `rotateY` 0° → −28°, `translationX` 0 → −15% width (hinge x +15%, softer camera), fade (280ms ease-out). Set `exiting = true` and `onExitComplete` before pop.
+
+### Staggered list pivot enter
+
+Cascading Continuum-style enter/exit for list hubs — same motion as Start tiles /
+`MetroAppLaunchPivot`. Enter cascades top-down; tap a row and `requestExit` plays the
+opposite exit cascade, then runs your navigation:
+
+```kotlin
+val listPivot = rememberMetroListPivotController(lastStaggerIndex = rows.size)
+
+MetroPivot(
+    titles = listOf("system", "applications"),
+    pagerState = pagerState,
+    chromeStaggerLoadKey = listPivot.loadKey,
+    chromeStaggerExiting = listPivot.exiting,
+    chromeStaggerSkipEnter = listPivot.skipEnterFor(0),
+    header = { MetroAppTitle(title = "SETTINGS") },
+) { page ->
+    LazyColumn {
+        itemsIndexed(rows) { index, row ->
+            MetroStaggeredPivotEnter(
+                staggerIndex = index + 1,
+                loadKey = listPivot.loadKey,
+                exiting = listPivot.exiting,
+                skipEnter = listPivot.skipEnterFor(index + 1),
+                enterDelayMs = listPivot.enterDelayMsFor(index + 1),
+            ) {
+                MetroListItem(
+                    title = row.title,
+                    onClick = { listPivot.requestExit(row.onClick) },
+                )
+            }
+        }
+    }
+}
+```
 
 ### In-app subpage stack (suite standard)
 

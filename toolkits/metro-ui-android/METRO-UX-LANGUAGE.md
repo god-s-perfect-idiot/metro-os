@@ -179,7 +179,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Title position | Bottom-left, 8dp inset, max 2 lines |
 | Counter | Content color, Noto Sans Bold; naked numeral (no circle/pill); cap `99+`. 1×1/2×2: center-right; 4×2: bottom-right (app icon left of count on notification peek) |
 | Background | App-provided; **never** pure `#000000` or `#FFFFFF` |
-| Press | No tilt; optional subtle scale only if matching launcher ref |
+| Press | **Position tilt** on Start (`tilePressTiltAt`): pressed side into screen, opposite edge anchored; center shrinks more. Toolkit `MetroTile` preview may stay scale-only. |
 | Long press | Pin / resize / unpin (launcher) |
 
 **Don't:** Rounded corners, drop shadows, Material card elevation, gradient overlays.
@@ -569,13 +569,15 @@ WP8.1 lock-screen settings — pick an app from a full-page list; empty quick-st
 | App bar show/hide | 200ms | Slide from bottom |
 | Live tile flip | 600ms | Turnstile |
 | Status tray | 200ms/icon staggered R→L | Hold 5000ms then staggered exit up |
-| Page pivot load | 200ms enter / 280ms exit | Ease-out; enter `rotateY` 22.5° → 0°, translate x +15% → 0 (hinge x 0); exit tilt-back `rotateY` 0° → −28°, translate x 0 → −15%, hinge x +15%, softer camera, fade. **App open:** Start owns [MetroAppOpenSplash] (accent + package glyph) for every launch; suite apps do not re-play this on their activity. **In-app drill-ins:** every non-root page uses `MetroSubpageHost` + `MetroPagePivotLoad` (enter + exit). Do **not** apply to Start/launcher tile motion, panorama hub roots that already own intro motion, or shell overlay surfaces (lock screen, volume HUD, status tray, toast, soft keys, incoming/in-call). Shell **setup/config** activities and their subpages **do** use it. |
-| Page pivot swing | 200ms enter / 280ms exit | Hinge `rotateY` 50° → 0° + fade, **no** X slide; closer camera (0.55× width). `MetroPagePivotSwing` — Start tile enter/exit. `skipEnter` holds rest without disposing content |
+| Page pivot load | 200ms enter / 280ms exit | Ease-out; enter `rotateY` 22.5° → 0°, translate x +15% → 0 (hinge x 0); exit tilt-back `rotateY` 0° → −28°, translate x 0 → −15%, hinge x +15%, softer camera, fade. **In-app drill-ins:** every non-root page uses `MetroSubpageHost` + `MetroPagePivotLoad` (enter + exit). Do **not** apply to Start/launcher tile motion, panorama hub roots that already own intro motion, or shell overlay surfaces (lock screen, volume HUD, status tray, toast, soft keys, incoming/in-call). Shell **setup/config** activities and their subpages **do** use it. |
+| App launch continuum | 500ms outer / 350ms inner enter; 280ms exit | Disco Start-tile match via `MetroAppLaunchPivot`: enter outer `rotateY` 70° → 0° + inner `translateX(60dp)` → 0 (alpha snaps on); exit `rotateY` 0° → −40°, slide −25% width, opacity holds then drops, left-edge hinge. **App open:** Start owns [MetroAppOpenSplash]; suite apps flip out with [MetroAppPivotShell]. Constants: `MetroTransitions.TilePivot*`. |
+| Page pivot swing | 200ms enter / 280ms exit | Hinge `rotateY` 50° → 0° + fade, **no** X slide; closer camera (0.55× width). `MetroPagePivotSwing` — shared-hinge swings (not Start tiles; those use Disco continuum / `MetroAppLaunchPivot`). `skipEnter` holds rest without disposing content |
+| Staggered list pivot | 500ms/350ms enter; 160ms exit; 50ms enter / 20ms exit stagger | Same Disco continuum as Start tiles (`MetroAppLaunchPivot`). Chrome at index 0; rows cascade in. Tap → snappy top-down exit via `MetroListPivotController.requestExit` (exit stagger cap 8). Scroll-ins past their slot time appear at rest (no blink). |
 | Panorama hub intro | Brand 600ms / body 800ms | Soft ease-out (`cubic-bezier(0.25, 0.46, 0.45, 0.94)`). Brand: slide from +100% width + fade (200ms delay). Body: left-hinge `rotateY` 30° → 0°, slide +80% → 0, fade (50ms delay). `MetroPanoramaBrandEnter` + `MetroPanoramaBodyEnter` |
 
 Show progress for operations **> 500ms**. No Material shared-element transitions.
 
-**Toolkit:** `MetroTransitions`, `MetroPagePivotLoad`, `MetroPagePivotSwing`, `MetroSubpageHost`, `MetroPanoramaBrandEnter`, `MetroPanoramaBodyEnter`, `Modifier.metroTiltOnPress()`.
+**Toolkit:** `MetroTransitions`, `MetroPagePivotLoad`, `MetroPagePivotSwing`, `MetroStaggeredPivotEnter`, `MetroAppLaunchPivot`, `MetroAppOpenSplash`, `MetroAppPivotShell`, `MetroSubpageHost`, `MetroPanoramaBrandEnter`, `MetroPanoramaBodyEnter`, `Modifier.metroTiltOnPress()`.
 
 **Animation suite** (decorative / feedback, not page chrome): `MetroAnimationSuite` + named composables such as `MetroBiometricAnimation` (`biometric` — Windows Hello–style face success).
 

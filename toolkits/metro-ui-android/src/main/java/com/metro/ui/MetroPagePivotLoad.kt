@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.coroutineScope
@@ -44,8 +45,8 @@ fun metroPagePivotCameraDistance(
 }
 
 /**
- * Full-screen app wrapper — content at rest on open; Back runs the flip-out then invokes
- * [onExit] (typically [MetroActivities.finishWithExitTransition]).
+ * Full-screen app wrapper — content at rest on open; Back runs the Disco tile-matched
+ * flip-out then invokes [onExit] (typically [MetroActivities.finishWithExitTransition]).
  *
  * App **open** splash pivot is owned by the Start launcher ([MetroAppOpenSplash]), not by
  * individual activities — so every package (suite + third-party) gets the same open motion.
@@ -71,7 +72,7 @@ fun MetroAppPivotShell(
         // Hold the activity until the flip-out finishes.
     }
 
-    MetroPagePivotLoad(
+    MetroAppLaunchPivot(
         modifier = modifier.background(MetroTheme.colors.background),
         exiting = exiting,
         skipEnter = skipEnter,
@@ -85,6 +86,9 @@ fun MetroAppPivotShell(
  * Full-screen splash chrome that page-pivots in — used by the Start launcher as the
  * system-wide app-open animation (covers Start while the target activity starts underneath).
  *
+ * Motion matches Start tile continuum ([MetroTransitions.TilePivotEnterStartDegrees] outer
+ * swing + inner slide), not the milder in-app [MetroPagePivotLoad].
+ *
  * [icon] is optional (accent-only splash when null). Prefer a raster/vector [Painter] from the
  * package’s launcher glyph — do not pass adaptive-icon XML via [painterResource].
  */
@@ -95,7 +99,7 @@ fun MetroAppOpenSplash(
     icon: Painter? = null,
     backgroundColor: Color = MetroTheme.colors.accent,
 ) {
-    MetroPagePivotLoad(
+    MetroAppLaunchPivot(
         modifier = modifier.fillMaxSize(),
         skipEnter = false,
         onEnterComplete = onEnterComplete,
@@ -116,6 +120,130 @@ fun MetroAppOpenSplash(
 }
 
 /**
+ * Full-screen Disco continuum pivot — same outer `rotateY` + inner slide language as
+ * Start tiles ([MetroTransitions.TilePivotEnter*] / [MetroTransitions.TilePivotExit*]).
+ *
+ * Enter: stay hidden through [delayMs], then alpha snaps visible and outer swing + inner
+ * slide settle. Exit: opacity holds through the swing, then drops; left-edge hinge for both
+ * directions. Prefer this for staggered list / chrome cascades ([MetroStaggeredPivotEnter]).
+ */
+@Composable
+fun MetroAppLaunchPivot(
+    modifier: Modifier = Modifier,
+    loadKey: Any? = Unit,
+    delayMs: Long = 0L,
+    exiting: Boolean = false,
+    skipEnter: Boolean = false,
+    exitDurationMs: Int = MetroTransitions.TilePivotExitMs,
+    onExitComplete: (() -> Unit)? = null,
+    onEnterComplete: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    val slideStartTxPx = with(density) {
+        MetroTransitions.TilePivotEnterInnerStartOffset.toPx()
+    }
+    val atRest = exiting || skipEnter
+    val outerRotationY = remember(loadKey) {
+        Animatable(if (atRest) 0f else MetroTransitions.TilePivotEnterStartDegrees)
+    }
+    val enterSlideTxPx = remember(loadKey) {
+        Animatable(if (atRest) 0f else slideStartTxPx)
+    }
+    val exitSlideFraction = remember(loadKey) { Animatable(0f) }
+    val alpha = remember(loadKey) { Animatable(if (atRest) 1f else 0f) }
+    var exitPose by remember(loadKey) { mutableStateOf(false) }
+    val exitTween = MetroTransitions.tilePivotExitTween<Float>(exitDurationMs)
+
+    LaunchedEffect(loadKey, exiting, delayMs, skipEnter, slideStartTxPx, exitDurationMs) {
+        if (skipEnter && !exiting) {
+            outerRotationY.snapTo(0f)
+            enterSlideTxPx.snapTo(0f)
+            exitSlideFraction.snapTo(0f)
+            alpha.snapTo(1f)
+            exitPose = false
+            return@LaunchedEffect
+        }
+        if (exiting) {
+            outerRotationY.snapTo(0f)
+            enterSlideTxPx.snapTo(0f)
+            exitSlideFraction.snapTo(0f)
+            alpha.snapTo(1f)
+            exitPose = true
+            if (delayMs > 0L) delay(delayMs)
+            coroutineScope {
+                launch {
+                    outerRotationY.animateTo(
+                        MetroTransitions.TilePivotExitEndDegrees,
+                        exitTween,
+                    )
+                }
+                launch {
+                    exitSlideFraction.animateTo(
+                        MetroTransitions.TilePivotExitSlideFraction,
+                        exitTween,
+                    )
+                }
+            }
+            alpha.snapTo(0f)
+            onExitComplete?.invoke()
+        } else {
+            exitPose = false
+            outerRotationY.snapTo(MetroTransitions.TilePivotEnterStartDegrees)
+            enterSlideTxPx.snapTo(slideStartTxPx)
+            exitSlideFraction.snapTo(0f)
+            // Stay hidden until stagger delay ends (matches Start tile continuum).
+            alpha.snapTo(0f)
+            if (delayMs > 0L) delay(delayMs)
+            alpha.snapTo(1f)
+            coroutineScope {
+                launch {
+                    outerRotationY.animateTo(0f, MetroTransitions.tilePivotEnterOuterTween())
+                }
+                launch {
+                    enterSlideTxPx.animateTo(0f, MetroTransitions.tilePivotEnterInnerTween())
+                }
+            }
+            onEnterComplete?.invoke()
+        }
+    }
+
+    Box(
+        modifier = modifier.graphicsLayer {
+            this.rotationY = outerRotationY.value
+            this.alpha = alpha.value
+            transformOrigin = TransformOrigin(
+                pivotFractionX = MetroTransitions.PagePivotLoadOriginX,
+                pivotFractionY = 0.5f,
+            )
+            if (exitPose) {
+                translationX = exitSlideFraction.value * size.width
+            }
+            cameraDistance = metroPagePivotCameraDistance(
+                widthPx = size.width,
+                widthFactor = if (exitPose) {
+                    MetroTransitions.PagePivotExitCameraWidthFactor
+                } else {
+                    MetroTransitions.PagePivotSwingCameraWidthFactor
+                },
+            )
+            clip = false
+        },
+    ) {
+        Box(
+            modifier = Modifier.graphicsLayer {
+                if (!exitPose) {
+                    translationX = enterSlideTxPx.value
+                }
+                clip = false
+            },
+        ) {
+            content()
+        }
+    }
+}
+
+/**
  * WP8.1 page pivot load — enter finishes a short left-hinge swing
  * (`rotateY` [MetroTransitions.PagePivotLoadStartDegrees]° → 0°) and slide from
  * [MetroTransitions.PagePivotLoadStartTranslationXFraction]× width to rest. Exit tilts back into
@@ -127,6 +255,7 @@ fun MetroAppOpenSplash(
  * Set [exiting] for the flip-out; [onExitComplete] runs once that outro finishes.
  * [onEnterComplete] runs after the enter swing finishes (not on exit / [skipEnter]).
  * [skipEnter] keeps content at rest (no swing) without disposing [content].
+ * [delayMs] waits before enter or exit starts (list stagger — prefer [MetroStaggeredPivotEnter]).
  *
  * For a hinge-only swing with no X slide (e.g. Start tiles), use [MetroPagePivotSwing].
  */
@@ -134,6 +263,7 @@ fun MetroAppOpenSplash(
 fun MetroPagePivotLoad(
     modifier: Modifier = Modifier,
     loadKey: Any? = Unit,
+    delayMs: Long = 0L,
     exiting: Boolean = false,
     skipEnter: Boolean = false,
     onExitComplete: (() -> Unit)? = null,
@@ -143,6 +273,7 @@ fun MetroPagePivotLoad(
     MetroPagePivotMotion(
         modifier = modifier,
         loadKey = loadKey,
+        delayMs = delayMs,
         exiting = exiting,
         skipEnter = skipEnter,
         onExitComplete = onExitComplete,

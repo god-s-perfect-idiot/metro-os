@@ -53,7 +53,9 @@ Constants from `scope.md` §9 — export as `Duration` and easing objects:
 - `AppBarSlide`: 200ms from bottom
 - `TileFlip`: 600ms turnstile
 - `JumpListFlip`: 300ms `rotationX` with 40ms diagonal stagger
+- **List staggered pivot:** `MetroStaggeredPivotEnter` + `MetroListPivotController` — Start-tile continuum cascaded by `ListPivotStaggerMs` (50ms); chrome at index 0; `requestExit` plays top-down exit then navigates
 - **In-app drill-ins:** `MetroSubpageHost` + `MetroPagePivotLoad` (200ms enter / 280ms exit) for every non-root page. Roots that already animate (panorama intro, Start tiles) and shell overlays / in-call UIs are excluded; shell **setup** screens and their children are included.
+- **App open / Back exit:** `MetroAppOpenSplash` + `MetroAppPivotShell` use Disco continuum (`MetroAppLaunchPivot` / `MetroTransitions.TilePivot*`) — same 70° outer + 60dp inner enter and −40° / −25% exit as Start tiles.
 
 ## Animation suite (`MetroAnimationSuite`)
 

@@ -855,6 +855,38 @@ class TileGridTest {
         assertTrue(scrolled > 0)
     }
 
+    @Test
+    fun tilePressTilt_centerPressShrinksWithoutRotation() {
+        val pose = tilePressTiltAt(localX = 50f, localY = 50f, widthPx = 100f, heightPx = 100f)
+        assertEquals(0f, pose.rotationXDegrees, 0.01f)
+        assertEquals(0f, pose.rotationYDegrees, 0.01f)
+        assertEquals(1f - TILE_PRESS_TILT_MAX_SHRINK, pose.scale, 0.001f)
+    }
+
+    @Test
+    fun tilePressTilt_leftEdgePushesLeftSideAway() {
+        val pose = tilePressTiltAt(localX = 0f, localY = 50f, widthPx = 100f, heightPx = 100f)
+        assertEquals(0f, pose.rotationXDegrees, 0.01f)
+        assertTrue(pose.rotationYDegrees < 0f)
+        assertEquals(-TILE_PRESS_TILT_MAX_DEGREES * 0.5f, pose.rotationYDegrees, 0.01f)
+    }
+
+    @Test
+    fun tilePressTilt_topEdgePushesTopAway() {
+        val pose = tilePressTiltAt(localX = 50f, localY = 0f, widthPx = 100f, heightPx = 100f)
+        assertTrue(pose.rotationXDegrees > 0f)
+        assertEquals(0f, pose.rotationYDegrees, 0.01f)
+        assertEquals(TILE_PRESS_TILT_MAX_DEGREES * 0.5f, pose.rotationXDegrees, 0.01f)
+    }
+
+    @Test
+    fun tilePressTilt_bottomRightCornerUsesBothAxes() {
+        val pose = tilePressTiltAt(localX = 100f, localY = 100f, widthPx = 100f, heightPx = 100f)
+        assertTrue(pose.rotationXDegrees < 0f)
+        assertTrue(pose.rotationYDegrees > 0f)
+        assertEquals(1f, pose.scale, 0.001f)
+    }
+
     private fun displayTile(
         packageName: String,
         size: PinnedTileSize,
