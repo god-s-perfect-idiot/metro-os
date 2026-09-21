@@ -44,7 +44,7 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 5. Tap `unofficial metro apps` or third-party tile → `third-party` Firestore catalog (may be empty)
 6. Swipe to featured → 4 random apps from combined catalogs → tap opens detail
 7. App-bar search → filter suite catalog → open app detail
-8. Tap `extras+info` → Metro Ruby about page (latest release + buy me a coffee)
+8. Tap `extras+info` → Metro Ruby about page (latest release + support tiles)
 9. Swipe to local → `updater` / `device` icon tiles → OS update status or installed-apps list with update buttons
 
 ## Golden screenshots

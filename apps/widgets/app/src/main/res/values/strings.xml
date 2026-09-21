@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">widgets</string>
     <string name="widgets_app_title">widgets</string>
+    <string name="notification_listener_label">Notifier live tile</string>
 </resources>

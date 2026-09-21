@@ -39,9 +39,51 @@ class WidgetLogicTest {
         assertEquals(4, WidgetCatalog.COLUMNS)
         assertEquals(WidgetTileSize.TwoByFour, WidgetKind.Time.size)
         assertEquals(WidgetTileSize.OneByOne, WidgetKind.Battery.size)
+        assertEquals(WidgetTileSize.TwoByTwo, WidgetKind.Notifier.size)
         assertEquals(WidgetTileSize.TwoByFour, WidgetKind.StorageSense.size)
         assertEquals(false, WidgetKind.Time.showTitle)
         assertEquals(false, WidgetKind.Battery.showTitle)
+        assertEquals(false, WidgetKind.Notifier.showTitle)
+    }
+
+    @Test
+    fun notifierQueue_newestFirstDistinct() {
+        fun peek(
+            title: String,
+            body: String?,
+            post: Long,
+            pkg: String = "com.example.app",
+        ) = NotifierPeekLines(
+            title = title,
+            subtitle = null,
+            body = body,
+            appLabel = "Example",
+            packageName = pkg,
+            postTimeMs = post,
+        )
+        val queue = NotifierPeekLogic.buildTrayQueue(
+            listOf(
+                peek("A", "one", 1L),
+                peek("B", "two", 3L),
+                peek("A", "one", 2L),
+                peek("C", null, 4L),
+            ),
+        )
+        assertEquals(listOf("C", "B", "A"), queue.map { it.title })
+    }
+
+    @Test
+    fun notifierPeek_normalizedPromotesBody() {
+        val normalized = NotifierPeekLines(
+            title = null,
+            subtitle = null,
+            body = "Only body",
+            appLabel = "Mail",
+            packageName = "com.metro.mail",
+            postTimeMs = 1L,
+        ).normalizedForFlip()
+        assertEquals("Only body", normalized.title)
+        assertTrue(normalized.hasContent)
     }
 
     @Test

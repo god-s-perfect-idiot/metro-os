@@ -19,7 +19,7 @@ enum class WidgetKind(
     val size: WidgetTileSize,
     val gridCol: Int,
     val gridRow: Int,
-    /** Start hides titles on 1×1; Time wide face is title-free like the reference clock. */
+    /** Start hides titles on 1×1; Time / Battery / Notifier faces own their chrome. */
     val showTitle: Boolean,
 ) {
     Time(
@@ -38,12 +38,20 @@ enum class WidgetKind(
         gridRow = 2,
         showTitle = false,
     ),
+    Notifier(
+        id = "notifier",
+        title = "notifier",
+        size = WidgetTileSize.TwoByTwo,
+        gridCol = 1,
+        gridRow = 2,
+        showTitle = false,
+    ),
     StorageSense(
         id = "storage_sense",
         title = "storage sense",
         size = WidgetTileSize.TwoByFour,
         gridCol = 0,
-        gridRow = 3,
+        gridRow = 4,
         showTitle = true,
     ),
 }

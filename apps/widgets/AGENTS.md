@@ -8,7 +8,7 @@
 
 ## App role
 
-Homescreen **widget catalog** — Start-style **4-column** grid of custom live tiles (Time, Battery, Storage Sense). Preview only in v1 (no pin yet).
+Homescreen **widget catalog** — Start-style **4-column** grid of custom live tiles (Time, Battery, Notifier, Storage Sense). Preview only in v1 (no pin yet).
 
 ## Build phase gate
 

@@ -9,7 +9,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.metro.widgets.data.BatterySnapshot
-import com.metro.widgets.data.ClockFaceParts
+import com.metro.widgets.data.NotifierAccess
+import com.metro.widgets.data.NotifierTraySnapshot
+import com.metro.widgets.data.NotifierTrayStore
 import com.metro.widgets.data.TimeFaceLogic
 import com.metro.widgets.data.WidgetTelemetry
 import java.time.LocalDateTime
@@ -21,8 +23,17 @@ class WidgetsState(private val appContext: Context) {
         private set
     var storage by mutableStateOf(WidgetTelemetry.readStorage())
         private set
+    var notifierAccessGranted by mutableStateOf(NotifierAccess.isEnabled(appContext))
+        private set
+    var notifierTray by mutableStateOf(NotifierTrayStore.snapshot())
+        private set
 
     private var started = false
+
+    private val notifierListener: () -> Unit = {
+        notifierTray = NotifierTrayStore.snapshot()
+        notifierAccessGranted = NotifierAccess.isEnabled(appContext)
+    }
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -51,8 +62,11 @@ class WidgetsState(private val appContext: Context) {
         if (started) return
         started = true
         refreshClock()
+        refreshNotifierAccess()
         battery = WidgetTelemetry.readBattery(appContext)
         storage = WidgetTelemetry.readStorage()
+        notifierTray = NotifierTrayStore.snapshot()
+        NotifierTrayStore.addListener(notifierListener)
         appContext.registerReceiver(
             batteryReceiver,
             IntentFilter(Intent.ACTION_BATTERY_CHANGED),
@@ -68,11 +82,21 @@ class WidgetsState(private val appContext: Context) {
     fun stop() {
         if (!started) return
         started = false
+        NotifierTrayStore.removeListener(notifierListener)
         runCatching { appContext.unregisterReceiver(batteryReceiver) }
         runCatching { appContext.unregisterReceiver(timeReceiver) }
     }
 
     fun refreshClock(now: LocalDateTime = LocalDateTime.now()) {
         clock = TimeFaceLogic.parts(now)
+    }
+
+    fun refreshNotifierAccess() {
+        notifierAccessGranted = NotifierAccess.isEnabled(appContext)
+        notifierTray = NotifierTrayStore.snapshot()
+    }
+
+    fun openNotifierAccessSettings() {
+        NotifierAccess.openSettings(appContext)
     }
 }

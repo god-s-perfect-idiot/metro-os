@@ -17,9 +17,8 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   1. `metro os apps` → opens **first-party** only (`first-party` Firestore; GitHub latest-release fallback)
   2. `related apps` → opens the second-party Firestore catalog (`second-party`)
   3. `unofficial metro apps` → opens the third-party Firestore catalog (`third-party`)
-  4. `get started with os` → **disabled / greyed** (v1)
-  5. `metro os github` → opens the public GitHub repo
-  6. `extras+info` → opens **Page 6 — extras+info**
+  4. `metro os github` → opens the public GitHub repo
+  5. `extras+info` → opens **Page 6 — extras+info**
 - **App bar:** Minimized (ellipsis only) on panorama; expand reveals **search** (opens Page 7).
 - **Background:** Theme background (dark/light). No Material cards.
 
@@ -72,7 +71,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Software release:** Section header `Software release`; large accent name **`Metro Ruby`** in **ruby / crimson** (`MetroColors.AccentCrimson`) with a circular `i` glyph — alphas for metro-os are branded Metro Ruby.
 - **Link:** Underlined `source on github` → GitHub repo.
 - **Body:** Short project blurb (metro-os / WP8.1 on Android / Metro Ruby channel).
-- **List:** First action is a bordered **`buy me a coffee`** button → `https://buymeacoffee.com/godsperfectidiot`. Following lines are plain “Name value” rows: latest GitHub release tag, channel, suite app count, publisher, platform.
+- **Support:** Section header `support` + Start-menu–style **2×2** tile grid (square tiles, 0dp corners, title bottom-start). Enter animation: slide in from the right in order (1,1) → (1,2) → (2,1) → (2,2) with a short stagger.
+  1. `Entropy` — GitHub avatar bg, green face, **black** title → `https://buymeacoffee.com/godsperfectidiot`
+  2. `Alexthew1` — People user icon, cobalt (midnight blue) face → `https://buymeacoffee.com/alexthew`
+  3. `Cherryhoax` — GitHub avatar bg, purple face → `https://buymeacoffee.com/cherryhoax`
+  4. `Cyanexani` — People user icon, red face → `https://buymeacoffee.com/anikethpani`
+- **List:** Plain “Name value” rows after the tiles: latest GitHub release tag, channel, suite app count, publisher, platform.
 - **Footer:** Bordered **`more info`** button → latest release tag URL (or repo if tag unknown).
 - **App bar:** None (content + buttons only).
 - **Back:** Returns to panorama hub.
@@ -125,7 +129,6 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ## Out of scope (v1)
 
-- Enabling get started
 - Empty 3rd-party catalog until curated docs exist
 - In-app update of Hub itself mid-session UX polish beyond install intent
 - Curated Firestore `explore` docs driving featured (v1 uses random picks from combined catalogs)

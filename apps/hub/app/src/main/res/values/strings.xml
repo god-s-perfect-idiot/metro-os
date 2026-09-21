@@ -9,7 +9,6 @@
     <string name="link_metro_os_apps">metro os apps</string>
     <string name="link_related_apps">related apps</string>
     <string name="link_unofficial_metro_apps">unofficial metro apps</string>
-    <string name="link_get_started_with_os">get started with os</string>
     <string name="link_metro_os_github">metro os github</string>
     <string name="link_extras_info">extras+info</string>
     <string name="extras_info_title">extras+info</string>
@@ -17,7 +16,11 @@
     <string name="extras_metro_ruby">Metro Ruby</string>
     <string name="extras_source_on_github">source on github</string>
     <string name="extras_intro">Detailed here are extras for metro-os — a 1:1 Windows Phone 8.1 experience on Android. Alphas ship under the Metro Ruby channel.</string>
-    <string name="extras_buy_me_a_coffee">buy me a coffee</string>
+    <string name="extras_support_section">support</string>
+    <string name="extras_support_mine">Entropy</string>
+    <string name="extras_support_alexthew">Alexthew1</string>
+    <string name="extras_support_cherryhoax">Cherryhoax</string>
+    <string name="extras_support_cyanexani">Cyanexani</string>
     <string name="extras_line_latest_release">metro-os %1$s</string>
     <string name="extras_line_channel">Metro Ruby channel</string>
     <string name="extras_line_suite_apps">Suite apps %1$d</string>

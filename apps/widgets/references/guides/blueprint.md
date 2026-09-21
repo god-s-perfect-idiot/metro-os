@@ -19,14 +19,15 @@ Homescreen widget picker surface. Opens immediately on launch — no pivots, no 
 
   | Widget | Default size | Face content |
   |--------|--------------|--------------|
-  | Time | 2×4 (wide) | Centered 12-hour digital clock: small AM/PM left of hour, large Light digits, square colon dots. No weather / location / temperature. Accent fill; no bottom title |
+  | Time | 2×4 (wide) | Centered 12-hour digital clock: small AM/PM left of hour, large Thin digits, square colon dots. No weather / location / temperature. Accent fill; no bottom title |
   | Battery | 1×1 | Vertical battery glyph (fill from bottom) + digits only (no `%`). Accent fill; no bottom title |
+  | Notifier | 2×2 | Cycles tray notification peeks only (600ms flip, ~5s hold) — no static `notifier` front face. Peek = title/body + app-name footer + count badge. Idle copy when access denied / tray empty. Requires notification-listener access. Accent fill |
   | Storage Sense | 2×4 (wide) | Phone free / used storage in GB (and SD row when secondary volume exists). Accent fill |
 
 - **Tile chrome:** Square 0dp corners; bottom-start title only when `showTitle` (Storage Sense). Content color from `MetroColors.tileContentColor`
-- **Layout packing (v1 fixed):** Time at (0,0) 2×4; Battery at (0,2) 1×1; Storage Sense at (0,3) 2×4
-- **Interactions (v1):** Tiles are display-only — no pin-to-Start, no resize, no long-press edit. Tap may no-op
-- **Live updates:** Time ticks every minute; Battery from `ACTION_BATTERY_CHANGED`; Storage from `StatFs` on primary (and secondary when present)
+- **Layout packing (v1 fixed):** Time at (0,0) 2×4; Battery at (0,2) 1×1; Notifier at (1,2) 2×2; Storage Sense at (0,4) 2×4
+- **Interactions (v1):** Tiles are display-only except Notifier taps open notification-listener settings when access is denied. No pin-to-Start yet
+- **Live updates:** Time ticks every minute; Battery from `ACTION_BATTERY_CHANGED`; Storage from `StatFs`; Notifier from `NotificationListenerService` (hold ~5s, flip 600ms — same as Start)
 
 ## Images
 
@@ -50,9 +51,14 @@ Official **Battery Saver** app tile in WP8.1: pinable from the app list; live fa
 
 Official **Storage Sense** settings app tile in WP8.1: pinable; live face shows **phone (and SD) space usage as numbers** (used / free). Catalog defaults to **2×4** so phone + optional SD rows fit Start-wide proportions.
 
+### Notifier
+
+Metro-os catalog widget (not a stock WP8.1 app). Mirrors Start live-tile **notification peeks**: when multiple notifications are active, the tile flips through each peek one by one (600ms turnstile, ~5s hold). Front face shows a naked count badge like Start; back face shows title/body with the source app name as footer.
+
 ## Out of scope (v1)
 
 - Pinning widgets to the launcher Start grid / Android App Widget host
 - Resize cycle, edit mode, reorder
 - Additional Sense / third-party widget faces
 - 6-column density
+- Opening a specific notification from a Notifier peek tap

@@ -42,6 +42,7 @@ import com.metro.ui.metroNavBarPadding
 import com.metro.widgets.R
 import com.metro.widgets.data.BatterySnapshot
 import com.metro.widgets.data.ClockFaceParts
+import com.metro.widgets.data.NotifierTraySnapshot
 import com.metro.widgets.data.StorageSnapshot
 import com.metro.widgets.data.WidgetCatalog
 import com.metro.widgets.data.WidgetFormatters
@@ -77,6 +78,9 @@ fun WidgetsShell(
             clock = state.clock,
             battery = state.battery,
             storage = state.storage,
+            notifierTray = state.notifierTray,
+            notifierAccessGranted = state.notifierAccessGranted,
+            onRequestNotifierAccess = state::openNotifierAccessSettings,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(48.dp))
@@ -88,6 +92,9 @@ private fun WidgetTileGrid(
     clock: ClockFaceParts,
     battery: BatterySnapshot,
     storage: StorageSnapshot,
+    notifierTray: NotifierTraySnapshot,
+    notifierAccessGranted: Boolean,
+    onRequestNotifierAccess: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier.padding(horizontal = WidgetGridPadding)) {
@@ -115,6 +122,9 @@ private fun WidgetTileGrid(
                         clock = clock,
                         battery = battery,
                         storage = storage,
+                        notifierTray = notifierTray,
+                        notifierAccessGranted = notifierAccessGranted,
+                        onRequestNotifierAccess = onRequestNotifierAccess,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -135,8 +145,23 @@ private fun WidgetTileFace(
     clock: ClockFaceParts,
     battery: BatterySnapshot,
     storage: StorageSnapshot,
+    notifierTray: NotifierTraySnapshot,
+    notifierAccessGranted: Boolean,
+    onRequestNotifierAccess: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    when (kind) {
+        WidgetKind.Notifier -> {
+            NotifierTileFace(
+                snapshot = notifierTray,
+                accessGranted = notifierAccessGranted,
+                onRequestAccess = onRequestNotifierAccess,
+                modifier = modifier,
+            )
+            return
+        }
+        else -> Unit
+    }
     val background = MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
     Box(
@@ -162,6 +187,7 @@ private fun WidgetTileFace(
                     .fillMaxSize()
                     .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 28.dp),
             )
+            WidgetKind.Notifier -> Unit
         }
         if (kind.showTitle) {
             BasicText(
@@ -222,7 +248,7 @@ private fun TimeFace(
                 text = clock.period,
                 style = periodStyle,
                 maxLines = 1,
-                modifier = Modifier.padding(end = 8.dp, bottom = (timeSize.value * 0.06f).dp),
+                modifier = Modifier.padding(end = 8.dp, bottom = (timeSize.value * 0.30f).dp),
             )
             BasicText(
                 text = clock.hour,

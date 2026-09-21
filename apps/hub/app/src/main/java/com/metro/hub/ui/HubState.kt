@@ -971,6 +971,11 @@ class HubState(
         const val GITHUB_RELEASES_LATEST_URL =
             "https://github.com/god-s-perfect-idiot/metro-os/releases/latest"
         const val BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/godsperfectidiot"
+        const val SUPPORT_URL_ALEXTHEW = "https://buymeacoffee.com/alexthew"
+        const val SUPPORT_URL_CHERRYHOAX = "https://buymeacoffee.com/cherryhoax"
+        const val SUPPORT_URL_CYANEXANI = "https://buymeacoffee.com/anikethpani"
+        const val SUPPORT_AVATAR_MINE = "https://avatars.githubusercontent.com/u/33544311?v=4"
+        const val SUPPORT_AVATAR_CHERRYHOAX = "https://avatars.githubusercontent.com/u/83873781?v=4"
 
         fun releaseUrlForTag(tag: String): String =
             "https://github.com/god-s-perfect-idiot/metro-os/releases/tag/$tag"

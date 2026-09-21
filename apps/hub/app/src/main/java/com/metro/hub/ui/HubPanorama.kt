@@ -189,11 +189,6 @@ private fun HomePane(state: HubState) {
             },
         )
         HubLinkRow(
-            title = stringResource(R.string.link_get_started_with_os),
-            enabled = false,
-            onClick = null,
-        )
-        HubLinkRow(
             title = stringResource(R.string.link_metro_os_github),
             onClick = { state.openExternalUrl(HubState.GITHUB_URL) },
         )

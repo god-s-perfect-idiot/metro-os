@@ -16,6 +16,7 @@ Catalog of custom homescreen widgets rendered as live tiles. Opens to a black St
 1. **Widget catalog** — `MetroAppTitle` `widgets` + packed tile grid  
    - Time (2×4 digital clock — AM/PM + square colon; no weather)  
    - Battery (1×1 vertical glyph + digits)  
+   - Notifier (2×2 Start-style flip through tray notifications)  
    - Storage Sense (2×4 free/used)
 
 See [`references/guides/blueprint.md`](references/guides/blueprint.md).
@@ -25,6 +26,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 - Theme via `MetroSystemTheme` / `MetroPreferences`
 - Battery: `ACTION_BATTERY_CHANGED`
 - Storage: `StatFs` on primary / secondary volumes
+- Notifier: `NotificationListenerService` → tray peek queue (Start flip timing)
 - No launcher pin contract in v1
 
 ## UI guardrails
