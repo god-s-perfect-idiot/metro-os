@@ -110,6 +110,11 @@ fun UpdaterScreen(
                 style = StatusBodyStyle.copy(fontFamily = MetroTheme.fontFamily, color = primary),
             )
 
+            if (loading && tag == null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                MetroLoadingDots()
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             BasicText(
