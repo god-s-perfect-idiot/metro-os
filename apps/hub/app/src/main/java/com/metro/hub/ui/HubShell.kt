@@ -67,7 +67,7 @@ fun HubShell(
             Box(modifier = Modifier.fillMaxSize()) {
                 val pagerState = rememberPagerState(
                     initialPage = state.hubPage,
-                    pageCount = { 3 },
+                    pageCount = { 4 },
                 )
                 LaunchedEffect(pagerState.currentPage) {
                     state.hubPage = pagerState.currentPage
@@ -164,6 +164,29 @@ private fun HubSubpageContent(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+            HubRoute.Updater -> {
+                UpdaterScreen(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            HubRoute.Device -> {
+                DeviceScreen(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                MetroAppBar(
+                    minimized = false,
+                    icons = listOf(
+                        MetroAppBarIcon(
+                            type = MetroSystemIconType.Refresh,
+                            label = "refresh",
+                            onClick = { state.refreshDeviceApps() },
+                        ),
+                    ),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
             HubRoute.Search -> {
                 SearchScreen(
                     state = state,
@@ -180,6 +203,8 @@ private fun HubRoute.parentRoute(state: HubState): HubRoute = when (this) {
     HubRoute.AppList -> HubRoute.Hub
     HubRoute.Search -> HubRoute.Hub
     HubRoute.ExtrasInfo -> HubRoute.Hub
+    HubRoute.Updater -> HubRoute.Hub
+    HubRoute.Device -> HubRoute.Hub
     HubRoute.Hub -> HubRoute.Hub
 }
 
@@ -188,5 +213,7 @@ private fun subpageLoadKey(route: HubRoute, state: HubState): Any = when (route)
     HubRoute.AppDetail -> "AppDetail:${state.selectedAssetName.orEmpty()}"
     HubRoute.Search -> "Search"
     HubRoute.ExtrasInfo -> "ExtrasInfo"
+    HubRoute.Updater -> "Updater"
+    HubRoute.Device -> "Device"
     HubRoute.Hub -> "Hub"
 }

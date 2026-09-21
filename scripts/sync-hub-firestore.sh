@@ -119,7 +119,7 @@ const shell = new Set([
 ]);
 const core = new Set([
   "browser", "notes", "music", "calculator", "clock", "files", "settings", "store", "hub",
-  "photos", "calendar", "mail", "messaging", "people", "dialer",
+  "photos", "calendar", "mail", "messaging", "people", "dialer", "widgets",
 ]);
 
 const descriptions = {
@@ -145,6 +145,7 @@ const descriptions = {
   clock: "Alarms, world clock, timer, and stopwatch.",
   files: "File explorer with pivot filters.",
   hub: "About metro-os and suite app downloads.",
+  widgets: "Homescreen widget catalog with Start-style live tiles.",
 };
 
 const glyphFiles = {
@@ -170,6 +171,7 @@ const glyphFiles = {
   launcher: "metro_app_launcher.xml",
   keyboard: "metro_app_keyboard.xml",
   hub: "metro_app_hub.xml",
+  widgets: "metro_app_widgets.xml",
 };
 
 /** Catalog brand fills (MetroAppRegistry.brandHex) when launcher bg is missing. */
@@ -189,6 +191,7 @@ const brandHexFallback = {
   clock: "#0078D7",
   files: "#0078D7",
   hub: "#1BA1E2",
+  widgets: "#1BA1E2",
 };
 
 const DEFAULT_BACKGROUND_COLOR = "#1BA1E2";

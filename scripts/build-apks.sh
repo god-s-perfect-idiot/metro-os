@@ -25,7 +25,7 @@ source "$ROOT/scripts/lib/metro-common.sh"
 APP_ORDER=(
   launcher statusbar notifications navbar volume lockscreen
   browser notes music
-  photos calendar mail messaging people dialer store settings calculator clock files hub
+  photos calendar mail messaging people dialer store settings calculator clock files hub widgets
 )
 
 BUILD_VARIANT="debug"

@@ -10,7 +10,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ### Page 1 — Hub panorama / home
 
-- **Control model:** `MetroPanorama` with **3 panes** (`home` → `apps` → `featured`).
+- **Control model:** `MetroPanorama` with **4 panes** (`home` → `apps` → `featured` → `local`).
 - **Brand:** Giant panoramic title `hub` (same ExtraLight treatment as Music’s `metro music` brand) — not a small app overline.
 - **Pane title:** lowercase HubTitle `home` (next title peeks ~40dp).
 - **Content:** HubLink-style list (`MetroListItem` + `MetroTextStyle.HubLink`):
@@ -87,12 +87,41 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **App bar:** None on the search page (textbox is the chrome).
 - **Back:** Returns to panorama hub.
 
+### Page 8 — Local (panorama pane)
+
+- **Pane:** Fourth panorama page after featured.
+- **In-pane header:** Small section title `local` (`MetroTextStyle.SectionHeader`).
+- **Tiles:** Music get-music–style accent tiles (0dp corners, accent fill, **centered icon**, label bottom-start), two-up row:
+  1. `updater` → **Page 9 — Updater**
+  2. `device` → **Page 10 — Device**
+- **Suite list:** Below the tiles, section header `metro os apps` + installed **first-party** suite packages (Core/Shell catalog / `com.metro.*`). Same row language as Device (square icon, name, version/update description, circular download when an update is available).
+- **App bar:** Minimized.
+
+### Page 9 — Updater (drill-in)
+
+- **Pattern:** Full page mirroring WP8.1 **Settings → phone update** (`references/images/phone_update_dark_red.png`): `MetroAppTitle` overline `SETTINGS` + large page title `updater`.
+- **Section:** `Update status` (`SectionHeader`) + body copy naming the latest metro-os release tag and whether every first-party suite APK is installed at that release’s versions (missing or older count).
+- **Link:** Underlined `Learn more.` → GitHub release page for that tag (or `/releases/latest` if unknown).
+- **Action:** Bordered `update all` (`MetroBorderButton`) — enabled when any suite app is missing or outdated; **greyed** when all are installed and current. Downloads and installs every missing/outdated APK (one package-installer confirmation at a time).
+- **Omit:** Notification checkboxes and preferred install time (out of scope).
+- **App bar:** None.
+- **Back:** Returns to panorama hub.
+
+### Page 10 — Device (drill-in)
+
+- **Pattern:** Full page with `MetroAppTitle` + page title `device`.
+- **Content:** Only **installed** packages that appear in Hub first-party / second-party / third-party catalogs **and** have a catalog `versionName` or `versionCode`. Store-style square icon, name + version/update description, circular download when a catalog APK URL exists.
+- **Tap update:** Downloads and installs that APK (same install pipeline as app detail).
+- **App bar:** Refresh (re-scan installed packages against the catalog).
+- **Back:** Returns to panorama hub.
+
 ## Images
 
 | Image | Page | Notes |
 |-------|------|-------|
 | `panorama_dark_teal.png` | Hub panorama | Layout reference copied from Music hub (panorama + brand + pane peek). Hub is metro-os original — see `known-gaps.md`. |
 | `extras_info_dark_cyan.png` | extras+info | Authentic Lumia extras+info capture (cyan accent stand-in; Hub uses Metro Ruby crimson). |
+| `phone_update_dark_red.png` | updater | Authentic WP8.1 Settings → phone update capture (omit toggles / install time in Hub). |
 
 ## Out of scope (v1)
 
@@ -100,3 +129,4 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Empty 3rd-party catalog until curated docs exist
 - In-app update of Hub itself mid-session UX polish beyond install intent
 - Curated Firestore `explore` docs driving featured (v1 uses random picks from combined catalogs)
+- Batch silent install of every outdated APK in one tap (platform requires per-APK confirmation)

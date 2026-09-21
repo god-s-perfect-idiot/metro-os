@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 2×2 tile grid mark for the widgets catalog app -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,30h20v20h-20z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,30h20v20h-20z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,58h20v20h-20z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,58h48v20h-48z" />
+</vector>

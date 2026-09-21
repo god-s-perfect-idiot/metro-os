@@ -435,4 +435,77 @@ class HubCatalogTest {
         assertEquals("updated", refreshed.single().description)
         assertEquals(2L, refreshed.single().sizeBytes)
     }
+
+    @Test
+    fun isNewerThanInstalledPrefersVersionCode() {
+        assertTrue(
+            HubAppCatalog.isNewerThanInstalled(
+                catalogVersionCode = 5,
+                catalogVersionName = "1.0.0",
+                installedVersionCode = 4L,
+                installedVersionName = "9.9.9",
+            ),
+        )
+        assertFalse(
+            HubAppCatalog.isNewerThanInstalled(
+                catalogVersionCode = 4,
+                catalogVersionName = "9.9.9",
+                installedVersionCode = 5L,
+                installedVersionName = "1.0.0",
+            ),
+        )
+        // Installed ahead of release — must not mark update.
+        assertFalse(
+            HubAppCatalog.isNewerThanInstalled(
+                catalogVersionCode = 1,
+                catalogVersionName = "1.0.0",
+                installedVersionCode = 10L,
+                installedVersionName = "1.2.0",
+            ),
+        )
+    }
+
+    @Test
+    fun isNewerThanInstalledFallsBackToVersionName() {
+        assertTrue(
+            HubAppCatalog.isNewerThanInstalled(
+                catalogVersionCode = null,
+                catalogVersionName = "1.2.1",
+                installedVersionCode = 0L,
+                installedVersionName = "1.2.0",
+            ),
+        )
+        assertFalse(
+            HubAppCatalog.isNewerThanInstalled(
+                catalogVersionCode = null,
+                catalogVersionName = "1.2.0",
+                installedVersionCode = 0L,
+                installedVersionName = "1.2.0",
+            ),
+        )
+        assertEquals(1, HubAppCatalog.compareVersionNames("1.2.1", "1.2.0"))
+    }
+
+    @Test
+    fun isNewerThanInstalledDoesNotFlagLocalAheadOfRelease() {
+        // Catalog has no versionCode; installed sideload has a real code — no update.
+        assertFalse(
+            HubAppCatalog.isNewerThanInstalled(
+                catalogVersionCode = null,
+                catalogVersionName = "alpha-9",
+                installedVersionCode = 12L,
+                installedVersionName = "1.0.0",
+            ),
+        )
+        // Release tag must not beat a dotted installed version via digit scraping.
+        assertTrue(HubAppCatalog.compareVersionNames("alpha-8", "1.0.0") < 0)
+        assertFalse(
+            HubAppCatalog.isNewerThanInstalled(
+                catalogVersionCode = null,
+                catalogVersionName = "alpha-8",
+                installedVersionCode = 0L,
+                installedVersionName = "1.0.0",
+            ),
+        )
+    }
 }

@@ -176,6 +176,69 @@ object HubAppCatalog {
     }
 
     /**
+     * True when the catalog entry is strictly newer than the installed package.
+     *
+     * Prefers [versionCode] when both sides have one — never marks an update when the
+     * installed code is greater or equal. Falls back to [versionName] only when codes
+     * cannot decide; refuses to treat non-semver tags (e.g. `alpha-8`) as newer than a
+     * dotted app version.
+     */
+    fun isNewerThanInstalled(
+        catalogVersionCode: Int?,
+        catalogVersionName: String?,
+        installedVersionCode: Long,
+        installedVersionName: String?,
+    ): Boolean {
+        val catalogCode = catalogVersionCode?.takeIf { it > 0 }?.toLong()
+        val installedCode = installedVersionCode.takeIf { it > 0L }
+
+        if (catalogCode != null && installedCode != null) {
+            return catalogCode > installedCode
+        }
+
+        val remote = catalogVersionName?.trim().orEmpty()
+        val local = installedVersionName?.trim().orEmpty()
+        if (remote.isEmpty() || local.isEmpty()) return false
+
+        // Installed build has a real versionCode but catalog only has a name — do not
+        // claim the catalog APK is newer (local sideloads are often ahead of release).
+        if (catalogCode == null && installedCode != null) {
+            return false
+        }
+
+        return compareVersionNames(remote, local) > 0
+    }
+
+    /**
+     * Compare dotted / tagged version names. Positive if [a] is newer than [b].
+     * Non-semver tags (not starting with a digit) never beat a dotted app version.
+     */
+    fun compareVersionNames(a: String, b: String): Int {
+        val aSemver = a.firstOrNull()?.isDigit() == true
+        val bSemver = b.firstOrNull()?.isDigit() == true
+        if (aSemver != bSemver) {
+            return when {
+                aSemver && !bSemver -> 1
+                !aSemver && bSemver -> -1
+                else -> 0
+            }
+        }
+        val left = versionParts(a)
+        val right = versionParts(b)
+        if (left.isEmpty() && right.isEmpty()) return 0
+        val n = maxOf(left.size, right.size)
+        for (i in 0 until n) {
+            val l = left.getOrElse(i) { 0 }
+            val r = right.getOrElse(i) { 0 }
+            if (l != r) return l.compareTo(r)
+        }
+        return 0
+    }
+
+    private fun versionParts(value: String): List<Int> =
+        Regex("""\d+""").findAll(value).map { it.value.toIntOrNull() ?: 0 }.toList()
+
+    /**
      * Featured pane: up to [count] random apps from the combined first/second/third pool.
      * When [force] is false and [existing] still resolve in [pool], refresh metadata only.
      */
@@ -228,4 +291,26 @@ object HubAppCatalog {
         "lockscreen" to "#1BA1E2",
         "keyboard" to "#1BA1E2",
     )
+}
+
+/** Installed launchable / suite app row for Hub → local → device. */
+data class DeviceAppRow(
+    val packageName: String,
+    val label: String,
+    val installedVersionName: String?,
+    val installedVersionCode: Long,
+    /** Matching Hub/GitHub catalog row when this package is in the suite catalog. */
+    val catalogAsset: ReleaseApkAsset? = null,
+    /** Catalog asset when a newer build is available (subset of [catalogAsset]). */
+    val updateAsset: ReleaseApkAsset? = null,
+) {
+    val hasUpdate: Boolean get() = updateAsset != null
+
+    /** Download / reinstall from Hub when a catalog APK URL exists. */
+    val canDownload: Boolean
+        get() = catalogAsset?.downloadUrl?.isNotBlank() == true
+
+    /** Asset to download — prefer the update when present. */
+    val downloadAsset: ReleaseApkAsset?
+        get() = updateAsset ?: catalogAsset?.takeIf { it.downloadUrl.isNotBlank() }
 }

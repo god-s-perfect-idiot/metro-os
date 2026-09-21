@@ -1,8 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Device pane lists every installed launchable / suite package (API 30+). -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <package android:name="com.metro.launcher" />
+        <package android:name="com.metro.keyboard" />
+        <package android:name="com.metro.navbar" />
+        <package android:name="com.metro.statusbar" />
+        <package android:name="com.metro.notifications" />
+        <package android:name="com.metro.volume" />
+        <package android:name="com.metro.lockscreen" />
+        <package android:name="com.metro.browser" />
+        <package android:name="com.metro.notes" />
+        <package android:name="com.metro.music" />
+        <package android:name="com.metro.settings" />
+        <package android:name="com.metro.store" />
+        <package android:name="com.metro.photos" />
+        <package android:name="com.metro.calendar" />
+        <package android:name="com.metro.mail" />
+        <package android:name="com.metro.messaging" />
+        <package android:name="com.metro.people" />
+        <package android:name="com.metro.dialer" />
+        <package android:name="com.metro.calculator" />
+        <package android:name="com.metro.clock" />
+        <package android:name="com.metro.files" />
+        <package android:name="com.metro.hub" />
+    </queries>
 
     <application
         android:name=".HubApp"

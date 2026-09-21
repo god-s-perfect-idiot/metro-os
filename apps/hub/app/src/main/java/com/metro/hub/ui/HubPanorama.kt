@@ -1,5 +1,6 @@
 package com.metro.hub.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,11 +22,14 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -42,6 +46,7 @@ import com.metro.hub.data.HubAppCategory
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroFontFamily
+import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
@@ -137,8 +142,8 @@ fun HubPanorama(
             skipEnter = skipIntro,
         ) {
             MetroPanorama(
-                // Brand-only hub — no pane HubTitles (`home` / `apps` / `featured`).
-                titles = listOf("", "", ""),
+                // Brand-only hub — no pane HubTitles (`home` / `apps` / `featured` / `local`).
+                titles = listOf("", "", "", ""),
                 pagerState = pagerState,
                 modifier = Modifier
                     .fillMaxSize()
@@ -147,7 +152,8 @@ fun HubPanorama(
                     when (page) {
                         HubState.HUB_HOME -> HomePane(state = state)
                         HubState.HUB_APPS -> QuickLinksPane(state = state)
-                        else -> FeaturedAppsPane(state = state)
+                        HubState.HUB_FEATURED -> FeaturedAppsPane(state = state)
+                        else -> LocalPane(state = state)
                     }
                 },
             )
@@ -354,6 +360,142 @@ private fun QuickLinkTile(
             color = content,
             maxLines = 2,
             modifier = Modifier.align(Alignment.TopStart),
+        )
+    }
+}
+
+/**
+ * Music get-music–style icon tiles for on-device tools, plus installed first-party
+ * suite apps with per-app update controls.
+ */
+@Composable
+private fun LocalPane(state: HubState) {
+    val generation = state.generation
+    @Suppress("UNUSED_VARIABLE")
+    val observe = generation
+
+    LaunchedEffect(Unit) {
+        state.ensureReleaseLoaded()
+        state.refreshDeviceApps()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp)
+            .padding(top = 24.dp, bottom = 24.dp),
+    ) {
+        MetroText(
+            text = stringResource(R.string.local_section).uppercase(),
+            style = MetroTextStyle.SectionHeader,
+            modifier = Modifier.padding(bottom = 16.dp),
+        )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val tileSize = ((maxWidth - 8.dp) / 2) * QuickLinkTileWidthScale
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LocalHubTile(
+                    title = stringResource(R.string.local_updater),
+                    glyph = LocalTileGlyph.Updater,
+                    onClick = state::openUpdater,
+                    modifier = Modifier.size(tileSize),
+                )
+                LocalHubTile(
+                    title = stringResource(R.string.local_device),
+                    glyph = LocalTileGlyph.Device,
+                    onClick = state::openDevice,
+                    modifier = Modifier.size(tileSize),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+        MetroText(
+            text = stringResource(R.string.local_suite_apps).uppercase(),
+            style = MetroTextStyle.SectionHeader,
+            modifier = Modifier.padding(bottom = 16.dp),
+        )
+
+        when {
+            state.deviceAppsLoading && state.localSuiteApps.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    MetroLoadingDots()
+                }
+            }
+            state.localSuiteApps.isEmpty() -> {
+                MetroText(
+                    text = stringResource(R.string.local_suite_empty),
+                    style = MetroTextStyle.Body,
+                    color = MetroTheme.colors.secondaryText,
+                )
+            }
+            else -> {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    state.localSuiteApps.forEach { app ->
+                        DeviceAppRowItem(
+                            app = app,
+                            iconPath = app.catalogAsset?.let { state.iconPathFor(it) },
+                            downloading = state.downloadingAssetName == app.updateAsset?.name,
+                            onVisible = {
+                                app.catalogAsset?.let { state.ensureIcon(it) }
+                            },
+                            onUpdate = {
+                                val asset = app.updateAsset ?: return@DeviceAppRowItem
+                                state.updateDeviceApp(asset)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private enum class LocalTileGlyph {
+    Updater,
+    Device,
+}
+
+@Composable
+private fun LocalHubTile(
+    title: String,
+    glyph: LocalTileGlyph,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val background = MetroTheme.colors.accent
+    val content = MetroColors.tileContentColor(background)
+    val glyphRes = when (glyph) {
+        LocalTileGlyph.Updater -> R.drawable.hub_local_updater
+        LocalTileGlyph.Device -> R.drawable.hub_local_device
+    }
+    BoxWithConstraints(
+        modifier = modifier
+            .background(background)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = title }
+            .padding(QuickLinkTileInset),
+    ) {
+        val iconSize = minOf(maxWidth, maxHeight) * 0.54f
+        Image(
+            painter = painterResource(id = glyphRes),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(content),
+            modifier = Modifier
+                .size(iconSize)
+                .align(Alignment.Center),
+        )
+        MetroText(
+            text = title,
+            style = MetroTextStyle.ListItemTitle,
+            color = content,
+            maxLines = 1,
+            modifier = Modifier.align(Alignment.BottomStart),
         )
     }
 }

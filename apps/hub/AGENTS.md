@@ -6,7 +6,7 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 
 ## App role
 
-**metro-os about / suite catalog** — panoramic hub (`home` + `apps`), GitHub latest-release APK list, download + install. Not a WP8.1 inbox clone; Music panorama language.
+**metro-os about / suite catalog** — panoramic hub (`home` + `apps` + `featured` + `local`), GitHub latest-release APK list, download + install, on-device updater. Not a WP8.1 inbox clone; Music panorama language.
 
 ## Build phase gate
 
@@ -24,18 +24,20 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 | App detail | Full page + download/share text app-bar buttons | Blueprint § Page 5 |
 | Search | Full page + `MetroTextBox` catalog filter | Blueprint § Page 7 / Music explore |
 | extras+info | Full page (Lumia extras+info language) | Blueprint § Page 6 / `extras_info_dark_cyan.png` |
+| Updater | Full page (WP8.1 phone update) | Blueprint § Page 9 / `phone_update_dark_red.png` |
+| Device | Full page installed-apps list + update | Blueprint § Page 10 |
 
 ## WP8.1 rules
 
-- Hub = panorama only (3 panes: home / apps / featured); drill-ins = full page
+- Hub = panorama only (4 panes: home / apps / featured / local); drill-ins = full page
 - Minimized app bar on panorama
-- HubLinks for home links; accent squares for quick-link tiles
+- HubLinks for home links; accent squares for quick-link tiles; local uses Music-style icon tiles
 - No Material cards / snackbars / FAB
 - `Modifier.metroNavBarPadding()` on shell roots
 
 ## Primary flows
 
-1. Launch → panorama brand `hub`, swipe `home` ↔ `apps` ↔ `featured`
+1. Launch → panorama brand `hub`, swipe `home` ↔ `apps` ↔ `featured` ↔ `local`
 2. Tap `metro os apps` → first-party catalog only (`first-party` / GitHub suite fallback)
 3. Tap list row → app detail → download / share text buttons → install or share GitHub link
 4. Tap `related apps` or second-party tile → `second-party` Firestore catalog
@@ -43,6 +45,7 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 6. Swipe to featured → 4 random apps from combined catalogs → tap opens detail
 7. App-bar search → filter suite catalog → open app detail
 8. Tap `extras+info` → Metro Ruby about page (latest release + buy me a coffee)
+9. Swipe to local → `updater` / `device` icon tiles → OS update status or installed-apps list with update buttons
 
 ## Golden screenshots
 

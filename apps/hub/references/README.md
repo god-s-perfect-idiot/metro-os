@@ -14,7 +14,9 @@ references/
 ├── guides/
 │   └── blueprint.md
 └── images/
-    └── panorama_dark_teal.png
+    ├── panorama_dark_teal.png
+    ├── extras_info_dark_cyan.png
+    └── phone_update_dark_red.png
 ```
 
 ## Reading order
@@ -30,6 +32,7 @@ references/
 |------|----------------|-------------|
 | `panorama_dark_teal.png` | Dark / teal (Music source) | Panorama chrome stand-in for Hub home + apps panes |
 | `extras_info_dark_cyan.png` | Dark / cyan (Lumia extras+info) | Title, Software release accent name + info glyph, underlined link, component list, more info border button |
+| `phone_update_dark_red.png` | Dark / red (WP phone update) | SETTINGS overline, phone update title, Update status, Learn more, bordered check-for-updates button |
 
 See `known-gaps.md` for missing Hub-specific captures.
 

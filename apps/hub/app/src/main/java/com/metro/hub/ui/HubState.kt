@@ -2,13 +2,16 @@ package com.metro.hub.ui
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.metro.hub.data.ApkIconResolver
 import com.metro.hub.data.ApkInstaller
+import com.metro.hub.data.DeviceAppRow
 import com.metro.hub.data.FirestoreExploreEntry
 import com.metro.hub.data.FirestoreHubApp
 import com.metro.hub.data.FirestoreHubRepository
@@ -19,6 +22,7 @@ import com.metro.hub.data.HubAppCategory
 import com.metro.hub.data.HubFirestorePaths
 import com.metro.hub.data.ReleaseApkAsset
 import com.metro.hub.data.toReleaseApkAsset
+import com.metro.system.MetroAppRegistry
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +39,8 @@ enum class HubRoute {
     AppDetail,
     Search,
     ExtrasInfo,
+    Updater,
+    Device,
 }
 
 /**
@@ -67,6 +73,7 @@ class HubState(
     private val iconResolver = ApkIconResolver(appContext, client)
     private var fetchJob: Job? = null
     private var downloadJob: Job? = null
+    private var deviceScanJob: Job? = null
     private val iconJobs = ConcurrentHashMap<String, Job>()
     private var catalogSnapshot = CatalogSnapshot.None
 
@@ -145,6 +152,13 @@ class HubState(
     var featuredAssets by mutableStateOf<List<ReleaseApkAsset>>(emptyList())
         private set
 
+    /** Launchable + installed suite packages for Hub → local → device. */
+    var deviceApps by mutableStateOf<List<DeviceAppRow>>(emptyList())
+        private set
+
+    var deviceAppsLoading by mutableStateOf(false)
+        private set
+
     /**
      * Durable 3-party mix for featured picks. Survives party-only list loads that
      * replace [firestoreAssets] with a single collection.
@@ -196,6 +210,81 @@ class HubState(
                 ?: featuredAssets.find { it.name == name }
                 ?: combinedCatalogAssets.find { it.name == name }
         }
+
+    /** Full catalog used to detect per-app updates on the device page. */
+    private val updateCatalogPool: List<ReleaseApkAsset>
+        get() = when {
+            combinedCatalogAssets.isNotEmpty() -> combinedCatalogAssets
+            firestoreAssets.isNotEmpty() -> firestoreAssets
+            else -> release?.assets.orEmpty()
+        }
+
+    val outdatedDeviceApps: List<DeviceAppRow>
+        get() = deviceApps.filter { it.hasUpdate }
+
+    /**
+     * Installed catalog apps limited to first-party (Core/Shell) — local panorama pane.
+     */
+    val localSuiteApps: List<DeviceAppRow>
+        get() = deviceApps.filter { app ->
+            val category = app.catalogAsset?.category ?: return@filter false
+            category == HubAppCategory.Core || category == HubAppCategory.Shell
+        }
+
+    val outdatedSuiteApps: List<DeviceAppRow>
+        get() = localSuiteApps.filter { it.hasUpdate }
+
+    /**
+     * First-party suite catalog for the updater — prefers GitHub latest-release APKs
+     * (authoritative versions), else Firestore Core/Shell rows.
+     */
+    val suiteCatalogAssets: List<ReleaseApkAsset>
+        get() {
+            val fromRelease = release?.assets.orEmpty()
+                .filter { asset ->
+                    asset.category == HubAppCategory.Core ||
+                        asset.category == HubAppCategory.Shell
+                }
+                .distinctBy { it.packageName.lowercase() }
+            if (fromRelease.isNotEmpty()) return fromRelease
+            return updateCatalogPool
+                .filter { asset ->
+                    asset.category == HubAppCategory.Core ||
+                        asset.category == HubAppCategory.Shell
+                }
+                .distinctBy { it.packageName.lowercase() }
+        }
+
+    /**
+     * Suite APKs that are missing on-device or older than the latest GitHub/catalog build.
+     */
+    val suiteAppsNeedingUpdate: List<ReleaseApkAsset>
+        get() {
+            val installedByPackage = deviceApps.associateBy { it.packageName.lowercase() }
+            return suiteCatalogAssets.mapNotNull { asset ->
+                if (asset.downloadUrl.isBlank()) return@mapNotNull null
+                val installed = installedByPackage[asset.packageName.lowercase()]
+                when {
+                    installed == null -> asset
+                    HubAppCatalog.isNewerThanInstalled(
+                        catalogVersionCode = asset.versionCode,
+                        catalogVersionName = asset.versionName,
+                        installedVersionCode = installed.installedVersionCode,
+                        installedVersionName = installed.installedVersionName,
+                    ) -> asset
+                    else -> null
+                }
+            }
+        }
+
+    val suiteUpdateReady: Boolean
+        get() = suiteAppsNeedingUpdate.isNotEmpty()
+
+    /** True while update-all is downloading / installing a queue of suite APKs. */
+    var suiteBatchUpdating by mutableStateOf(false)
+        private set
+
+    private val suiteInstallQueue: ArrayDeque<ReleaseApkAsset> = ArrayDeque()
 
     /** Home link: first-party suite apps only (Firestore `first-party`, GitHub fallback). */
     fun openAllApps(title: String) {
@@ -293,12 +382,92 @@ class HubState(
         bump()
     }
 
+    fun openUpdater() {
+        selectedAssetName = null
+        downloadError = null
+        route = HubRoute.Updater
+        ensureReleaseLoaded()
+        refreshDeviceApps()
+        bump()
+    }
+
+    fun closeUpdater() {
+        route = HubRoute.Hub
+        bump()
+    }
+
+    fun openDevice() {
+        selectedAssetName = null
+        downloadError = null
+        route = HubRoute.Device
+        ensureReleaseLoaded()
+        refreshDeviceApps()
+        bump()
+    }
+
+    fun closeDevice() {
+        route = HubRoute.Hub
+        bump()
+    }
+
+    /**
+     * Verify every first-party suite APK against the latest GitHub release, then
+     * download + install all missing / outdated packages (one install prompt at a time).
+     */
+    fun updateAll() {
+        if (suiteBatchUpdating || downloadingAssetName != null) return
+        downloadError = null
+        bump()
+        startFullCatalogFetch(mode = CatalogLoadMode.Loading) {
+            refreshDeviceApps {
+                val needed = suiteAppsNeedingUpdate
+                if (needed.isEmpty()) {
+                    suiteBatchUpdating = false
+                    suiteInstallQueue.clear()
+                    bump()
+                    return@refreshDeviceApps
+                }
+                suiteInstallQueue.clear()
+                suiteInstallQueue.addAll(needed)
+                suiteBatchUpdating = true
+                bump()
+                startNextSuiteInstall()
+            }
+        }
+    }
+
+    /** @deprecated Prefer [updateAll]. */
+    fun updateNow() = updateAll()
+
+    fun updateDeviceApp(asset: ReleaseApkAsset) {
+        cancelSuiteBatch()
+        downloadAndInstall(asset)
+    }
+
+    private fun cancelSuiteBatch() {
+        suiteInstallQueue.clear()
+        suiteBatchUpdating = false
+    }
+
+    private fun startNextSuiteInstall() {
+        val next = suiteInstallQueue.firstOrNull()
+        if (next == null) {
+            suiteBatchUpdating = false
+            refreshDeviceApps()
+            bump()
+            return
+        }
+        downloadAndInstall(next, fromBatch = true)
+    }
+
     fun goBack() {
         when (route) {
             HubRoute.AppDetail -> closeAppDetail()
             HubRoute.AppList -> closeAppList()
             HubRoute.Search -> closeSearch()
             HubRoute.ExtrasInfo -> closeExtrasInfo()
+            HubRoute.Updater -> closeUpdater()
+            HubRoute.Device -> closeDevice()
             HubRoute.Hub -> Unit
         }
     }
@@ -356,7 +525,10 @@ class HubState(
         startFullCatalogFetch(mode = CatalogLoadMode.Loading)
     }
 
-    private fun startFullCatalogFetch(mode: CatalogLoadMode) {
+    private fun startFullCatalogFetch(
+        mode: CatalogLoadMode,
+        onComplete: (() -> Unit)? = null,
+    ) {
         fetchJob?.cancel()
         catalogLoadMode = mode
         releaseError = null
@@ -370,6 +542,11 @@ class HubState(
                 releaseError = null
                 refreshFeaturedPicks(force = featuredAssets.isEmpty())
                 prefetchVisibleIcons(visibleAssets)
+                if (onComplete == null &&
+                    (route == HubRoute.Updater || route == HubRoute.Device)
+                ) {
+                    refreshDeviceApps()
+                }
             }.onFailure { err ->
                 if (firestoreAssets.isEmpty() && release == null) {
                     releaseError = err.message ?: "Could not load the app catalog."
@@ -377,6 +554,7 @@ class HubState(
             }
             catalogLoadMode = CatalogLoadMode.Idle
             bump()
+            onComplete?.invoke()
         }
     }
 
@@ -410,11 +588,18 @@ class HubState(
         }
     }
 
-    fun downloadAndInstall(asset: ReleaseApkAsset) {
+    fun downloadAndInstall(asset: ReleaseApkAsset, fromBatch: Boolean = false) {
         if (asset.downloadUrl.isBlank()) {
             downloadError = "No download URL for ${asset.displayName}."
+            if (fromBatch) {
+                suiteInstallQueue.removeFirstOrNull()
+                startNextSuiteInstall()
+            }
             bump()
             return
+        }
+        if (!fromBatch) {
+            cancelSuiteBatch()
         }
         downloadJob?.cancel()
         downloadingAssetName = asset.name
@@ -433,9 +618,24 @@ class HubState(
                 pendingInstallFile = file
                 downloadError = null
                 ensureIcon(asset)
+                if (fromBatch) {
+                    // Drop this APK from the queue; next starts after the install intent fires.
+                    if (suiteInstallQueue.firstOrNull()?.name == asset.name) {
+                        suiteInstallQueue.removeFirst()
+                    } else {
+                        suiteInstallQueue.removeAll { it.name == asset.name }
+                    }
+                }
             }.onFailure {
                 pendingInstallFile = null
                 downloadError = it.message ?: "Download failed."
+                if (fromBatch) {
+                    suiteInstallQueue.removeAll { it.name == asset.name }
+                    downloadingAssetName = null
+                    bump()
+                    startNextSuiteInstall()
+                    return@launch
+                }
             }
             downloadingAssetName = null
             bump()
@@ -446,6 +646,10 @@ class HubState(
         val file = pendingInstallFile
         pendingInstallFile = null
         bump()
+        if (file != null && suiteBatchUpdating) {
+            // Next download after the package installer is launched.
+            scope.launch { startNextSuiteInstall() }
+        }
         return file
     }
 
@@ -637,6 +841,98 @@ class HubState(
         bump()
     }
 
+    fun refreshDeviceApps(onComplete: (() -> Unit)? = null) {
+        deviceScanJob?.cancel()
+        deviceAppsLoading = true
+        bump()
+        deviceScanJob = scope.launch {
+            val rows = withContext(Dispatchers.IO) { scanDeviceApps() }
+            deviceApps = rows
+            deviceAppsLoading = false
+            bump()
+            onComplete?.invoke()
+        }
+    }
+
+    /**
+     * Device pane: only installed packages that appear in first / second / third-party
+     * Hub catalogs and have a known catalog version (versionName or versionCode).
+     */
+    private fun scanDeviceApps(): List<DeviceAppRow> {
+        val pm = appContext.packageManager
+        val catalogByPackage = LinkedHashMap<String, ReleaseApkAsset>()
+
+        fun consider(asset: ReleaseApkAsset) {
+            // Require a catalog version so we can compare / show updates.
+            val hasVersion = (asset.versionCode != null && asset.versionCode > 0) ||
+                !asset.versionName.isNullOrBlank()
+            if (!hasVersion) return
+            val key = asset.packageName.lowercase()
+            if (key.isBlank()) return
+            val existing = catalogByPackage[key]
+            if (existing == null ||
+                (existing.downloadUrl.isBlank() && asset.downloadUrl.isNotBlank()) ||
+                (existing.versionCode == null && asset.versionCode != null) ||
+                (existing.versionName.isNullOrBlank() && !asset.versionName.isNullOrBlank())
+            ) {
+                catalogByPackage[key] = asset
+            }
+        }
+
+        // First / second / third-party Firestore (+ GitHub merge) pool.
+        updateCatalogPool.forEach(::consider)
+        // GitHub suite APKs are first-party when Firestore is empty / incomplete.
+        release?.assets.orEmpty().forEach(::consider)
+
+        val rows = ArrayList<DeviceAppRow>(catalogByPackage.size)
+        catalogByPackage.values.forEach { catalog ->
+            val version = installedVersion(pm, catalog.packageName) ?: return@forEach
+            val updateAsset = catalog.takeIf { asset ->
+                asset.downloadUrl.isNotBlank() &&
+                    HubAppCatalog.isNewerThanInstalled(
+                        catalogVersionCode = asset.versionCode,
+                        catalogVersionName = asset.versionName,
+                        installedVersionCode = version.second,
+                        installedVersionName = version.first,
+                    )
+            }
+            val label = MetroAppRegistry.label(catalog.packageName)
+                ?: runCatching {
+                    pm.getApplicationLabel(pm.getApplicationInfo(catalog.packageName, 0)).toString()
+                }.getOrNull()
+                ?: catalog.displayName
+            rows += DeviceAppRow(
+                packageName = catalog.packageName,
+                label = label,
+                installedVersionName = version.first,
+                installedVersionCode = version.second,
+                catalogAsset = catalog,
+                updateAsset = updateAsset,
+            )
+        }
+
+        return rows.sortedBy { it.label.lowercase() }
+    }
+
+    private fun installedVersion(pm: PackageManager, packageName: String): Pair<String?, Long>? =
+        try {
+            val info = if (Build.VERSION.SDK_INT >= 33) {
+                pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(packageName, 0)
+            }
+            val code = if (Build.VERSION.SDK_INT >= 28) {
+                info.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                info.versionCode.toLong()
+            }
+            info.versionName to code
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
+
     private fun patchAsset(name: String, transform: (ReleaseApkAsset) -> ReleaseApkAsset) {
         if (firestoreAssets.isNotEmpty()) {
             firestoreAssets = firestoreAssets.map { asset ->
@@ -669,8 +965,11 @@ class HubState(
         const val HUB_HOME = 0
         const val HUB_APPS = 1
         const val HUB_FEATURED = 2
+        const val HUB_LOCAL = 3
         const val FEATURED_COUNT = 4
         const val GITHUB_URL = "https://github.com/god-s-perfect-idiot/metro-os"
+        const val GITHUB_RELEASES_LATEST_URL =
+            "https://github.com/god-s-perfect-idiot/metro-os/releases/latest"
         const val BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/godsperfectidiot"
 
         fun releaseUrlForTag(tag: String): String =
