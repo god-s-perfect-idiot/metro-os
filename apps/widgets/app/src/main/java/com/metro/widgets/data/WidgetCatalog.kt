@@ -19,7 +19,7 @@ enum class WidgetKind(
     val size: WidgetTileSize,
     val gridCol: Int,
     val gridRow: Int,
-    /** Start hides titles on 1×1; Time / Battery / Notifier faces own their chrome. */
+    /** Start hides titles on 1×1; faces own their chrome. */
     val showTitle: Boolean,
 ) {
     Time(
@@ -46,13 +46,29 @@ enum class WidgetKind(
         gridRow = 2,
         showTitle = false,
     ),
-    StorageSense(
-        id = "storage_sense",
-        title = "storage sense",
-        size = WidgetTileSize.TwoByFour,
+    AnalogClock(
+        id = "analog_clock",
+        title = "clock",
+        size = WidgetTileSize.OneByOne,
+        gridCol = 3,
+        gridRow = 2,
+        showTitle = false,
+    ),
+    Torch(
+        id = "torch",
+        title = "torch",
+        size = WidgetTileSize.OneByOne,
         gridCol = 0,
-        gridRow = 4,
-        showTitle = true,
+        gridRow = 3,
+        showTitle = false,
+    ),
+    Lock(
+        id = "lock",
+        title = "lock",
+        size = WidgetTileSize.OneByOne,
+        gridCol = 3,
+        gridRow = 3,
+        showTitle = false,
     ),
 }
 

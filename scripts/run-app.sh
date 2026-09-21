@@ -82,6 +82,13 @@ if [[ "$APP" == "notifications" ]]; then
     || echo "WARN  WRITE_SECURE_SETTINGS grant failed"
 fi
 
+# Widgets Battery Saver tile toggles Settings.Global low_power.
+if [[ "$APP" == "widgets" ]]; then
+  adb shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 \
+    && echo "OK  WRITE_SECURE_SETTINGS: widgets (battery saver)" \
+    || echo "WARN  WRITE_SECURE_SETTINGS grant failed: widgets"
+fi
+
 if [[ "$DO_LAUNCH" -eq 1 ]]; then
   echo "==> launch $COMPONENT"
   adb shell am force-stop "$PKG" >/dev/null 2>&1 || true

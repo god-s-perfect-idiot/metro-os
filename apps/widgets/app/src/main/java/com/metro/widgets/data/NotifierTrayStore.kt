@@ -2,8 +2,10 @@ package com.metro.widgets.data
 
 import android.app.Notification
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
+import com.metro.system.MetroAppRegistry
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -97,19 +99,39 @@ object NotifierTrayStore {
             title = resolvedTitle,
             subtitle = null,
             body = resolvedBody,
-            appLabel = appLabel(context, sbn.packageName),
+            appLabel = resolveAppLabel(context, sbn),
             packageName = sbn.packageName,
             postTimeMs = sbn.postTime,
         ).normalizedForFlip()
         return peek.takeIf { it.hasContent }
     }
 
-    private fun appLabel(context: Context, packageName: String): String {
-        return runCatching {
-            val pm = context.packageManager
-            val info = pm.getApplicationInfo(packageName, 0)
-            pm.getApplicationLabel(info).toString()
-        }.getOrDefault(packageName.substringAfterLast('.'))
+    /**
+     * Footer label for the peek face — same priority as the shade when possible:
+     * substitute app name → suite registry → PackageManager → last package segment.
+     */
+    internal fun resolveAppLabel(context: Context, sbn: StatusBarNotification): String {
+        val extras = sbn.notification.extras
+        // Notification.EXTRA_SUBSTITUTE_APP_NAME ("android.substName") — not always on the SDK stub.
+        extras.getString("android.substName")
+            ?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { return it }
+
+        MetroAppRegistry.label(sbn.packageName)?.let { return it }
+
+        val pm = context.packageManager
+        runCatching {
+            val info = pm.getApplicationInfo(sbn.packageName, 0)
+            val label = info.loadLabel(pm)?.toString()?.trim()
+            if (!label.isNullOrEmpty()) return label
+        }
+        runCatching {
+            val info = pm.getApplicationInfo(sbn.packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+            val label = pm.getApplicationLabel(info)?.toString()?.trim()
+            if (!label.isNullOrEmpty()) return label
+        }
+
+        return sbn.packageName.substringAfterLast('.')
     }
 
     private fun notifyListeners() {

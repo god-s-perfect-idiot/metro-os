@@ -1,6 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Torch tile: CameraManager.setTorchMode (LED flash). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
+
+    <!-- Resolve notification source app labels (API 30+ package visibility). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <package android:name="com.metro.launcher" />
+        <package android:name="com.metro.browser" />
+        <package android:name="com.metro.notes" />
+        <package android:name="com.metro.music" />
+        <package android:name="com.metro.settings" />
+        <package android:name="com.metro.store" />
+        <package android:name="com.metro.photos" />
+        <package android:name="com.metro.calendar" />
+        <package android:name="com.metro.mail" />
+        <package android:name="com.metro.messaging" />
+        <package android:name="com.metro.people" />
+        <package android:name="com.metro.dialer" />
+        <package android:name="com.metro.calculator" />
+        <package android:name="com.metro.clock" />
+        <package android:name="com.metro.files" />
+        <package android:name="com.metro.hub" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -19,6 +49,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name=".tiles.WidgetsTileProvider"
+            android:authorities="com.metro.widgets.tiles"
+            android:exported="true"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="com.metro.tile.provider"
+                android:value="true" />
+        </provider>
+
+        <receiver
+            android:name=".tiles.WidgetsTileActionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.metro.widgets.action.TILE_TAP" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".WidgetsNotificationListenerService"

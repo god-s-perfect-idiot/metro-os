@@ -15,35 +15,26 @@ class WidgetLogicTest {
     }
 
     @Test
-    fun bytesToGbLabel_formatsSmallAndLarge() {
-        val oneGb = 1024L * 1024L * 1024L
-        assertEquals("1.0 GB", WidgetFormatters.bytesToGbLabel(oneGb))
-        assertEquals("2.5 GB", WidgetFormatters.bytesToGbLabel((oneGb * 2.5).toLong()))
-        assertTrue(WidgetFormatters.bytesToGbLabel(oneGb * 32).endsWith(" GB"))
-        assertEquals("32 GB", WidgetFormatters.bytesToGbLabel(oneGb * 32))
-    }
-
-    @Test
-    fun storageLines_includeUnits() {
-        val volume = StorageVolumeSnapshot(
-            label = "phone",
-            freeBytes = 1024L * 1024L * 1024L * 4,
-            totalBytes = 1024L * 1024L * 1024L * 16,
-        )
-        assertEquals("4.0 GB free", WidgetFormatters.storageFreeLine(volume))
-        assertEquals("12 GB used", WidgetFormatters.storageUsedLine(volume))
-    }
-
-    @Test
     fun catalog_usesFourColumnsAndExpectedFootprints() {
         assertEquals(4, WidgetCatalog.COLUMNS)
         assertEquals(WidgetTileSize.TwoByFour, WidgetKind.Time.size)
         assertEquals(WidgetTileSize.OneByOne, WidgetKind.Battery.size)
         assertEquals(WidgetTileSize.TwoByTwo, WidgetKind.Notifier.size)
-        assertEquals(WidgetTileSize.TwoByFour, WidgetKind.StorageSense.size)
+        assertEquals(WidgetTileSize.OneByOne, WidgetKind.AnalogClock.size)
+        assertEquals(WidgetTileSize.OneByOne, WidgetKind.Torch.size)
+        assertEquals(3, WidgetKind.AnalogClock.gridCol)
+        assertEquals(2, WidgetKind.AnalogClock.gridRow)
+        assertEquals(0, WidgetKind.Torch.gridCol)
+        assertEquals(3, WidgetKind.Torch.gridRow)
+        assertEquals(WidgetTileSize.OneByOne, WidgetKind.Lock.size)
+        assertEquals(3, WidgetKind.Lock.gridCol)
+        assertEquals(3, WidgetKind.Lock.gridRow)
         assertEquals(false, WidgetKind.Time.showTitle)
         assertEquals(false, WidgetKind.Battery.showTitle)
         assertEquals(false, WidgetKind.Notifier.showTitle)
+        assertEquals(false, WidgetKind.AnalogClock.showTitle)
+        assertEquals(false, WidgetKind.Torch.showTitle)
+        assertEquals(false, WidgetKind.Lock.showTitle)
     }
 
     @Test
@@ -87,18 +78,39 @@ class WidgetLogicTest {
     }
 
     @Test
+    fun ignoredPackages_includeShell() {
+        assertTrue(NotifierTrayStore.IgnoredPackages.contains("com.metro.launcher"))
+        assertTrue(NotifierTrayStore.IgnoredPackages.contains("com.metro.widgets"))
+    }
+
+    @Test
+    fun pinLogic_mapsCatalogSizesToStartStorage() {
+        assertEquals("time", WidgetPinLogic.tileId(WidgetKind.Time))
+        assertEquals("4x2", WidgetPinLogic.pinSizeStorageValue(WidgetKind.Time))
+        assertEquals("2x2", WidgetPinLogic.pinSizeStorageValue(WidgetKind.Notifier))
+        assertEquals("1x1", WidgetPinLogic.pinSizeStorageValue(WidgetKind.Battery))
+        assertEquals("1x1", WidgetPinLogic.pinSizeStorageValue(WidgetKind.Torch))
+        assertEquals(WidgetKind.Lock, WidgetPinLogic.kindForTileId("lock"))
+        assertEquals(null, WidgetPinLogic.kindForTileId("unknown"))
+    }
+
+    @Test
     fun timeFace_formatsTwelveHourWithPeriod() {
         val afternoon = LocalDateTime.of(2024, 6, 15, 14, 5)
         val parts = TimeFaceLogic.parts(afternoon)
         assertEquals("2", parts.hour)
         assertEquals("05", parts.minute)
         assertEquals("PM", parts.period)
+        assertEquals(62.5f, parts.hourHandDegrees, 0.001f)
+        assertEquals(30f, parts.minuteHandDegrees, 0.001f)
 
         val morning = LocalDateTime.of(2024, 6, 15, 10, 46)
         val am = TimeFaceLogic.parts(morning)
         assertEquals("10", am.hour)
         assertEquals("46", am.minute)
         assertEquals("AM", am.period)
+        assertEquals(323f, am.hourHandDegrees, 0.001f)
+        assertEquals(276f, am.minuteHandDegrees, 0.001f)
     }
 
     @Test

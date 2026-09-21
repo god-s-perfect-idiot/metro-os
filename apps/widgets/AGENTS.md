@@ -8,7 +8,7 @@
 
 ## App role
 
-Homescreen **widget catalog** — Start-style **4-column** grid of custom live tiles (Time, Battery, Notifier, Storage Sense). Preview only in v1 (no pin yet).
+Homescreen **widget catalog** — Start-style **4-column** grid of custom live tiles (Time, Battery, Notifier, Analog clock, Torch, Lock). Long-press pins a secondary Start tile with live face + in-place tap via `MetroTileWidgetFace`.
 
 ## Build phase gate
 
@@ -30,7 +30,8 @@ Homescreen **widget catalog** — Start-style **4-column** grid of custom live t
 - Black Start background; 4 columns only; gaps/gutters match launcher Start
 - Tile sizes only **1×1 / 2×2 / 2×4** (2×4 = Start wide)
 - `MetroAppTitle("widgets")` — no Material chrome
-- No pin / resize / edit in v1
+- Long-press any catalog tile → pin secondary Start tile (catalog footprint); tap actions unchanged
+- No resize / edit in catalog
 
 ## Verify
 
@@ -43,4 +44,5 @@ Homescreen **widget catalog** — Start-style **4-column** grid of custom live t
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | First-party Time Start tile | Did not exist on WP8.1 | TimeMe / Clock Hub–style digital face |
-| Battery Saver shield glyph when saver on | No WP Battery Saver mode API | Show shield / red fill at ≤20% or while charging low |
+| First-party Torch Start tile | Action Center quick action only | 1×1 LED toggle via `CameraManager.setTorchMode` |
+| First-party Lock Start tile | None | 1×1 padlock via lockscreen a11y `GLOBAL_ACTION_LOCK_SCREEN` |

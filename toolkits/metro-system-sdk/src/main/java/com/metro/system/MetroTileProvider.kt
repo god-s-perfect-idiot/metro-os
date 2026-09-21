@@ -66,6 +66,13 @@ abstract class MetroTileProvider : ContentProvider() {
         MetroTileAgendaCodec.encode(agenda)?.let {
             putString(MetroTileContract.Columns.AGENDA, it)
         }
+        MetroTileWidgetFaceCodec.encode(widgetFace)?.let {
+            putString(MetroTileContract.Columns.WIDGET_FACE, it)
+        }
+        tapAction?.let { putString(MetroTileContract.Columns.TAP_ACTION, it) }
+        MetroTilePeekCodec.encode(peeks)?.let {
+            putString(MetroTileContract.Columns.PEEKS, it)
+        }
     }
 
     private fun MetroTileData.toCursor(): Cursor {
@@ -80,6 +87,9 @@ abstract class MetroTileProvider : ContentProvider() {
             MetroTileContract.Columns.DEEP_LINK_URI,
             MetroTileContract.Columns.PHOTO_GRID,
             MetroTileContract.Columns.AGENDA,
+            MetroTileContract.Columns.WIDGET_FACE,
+            MetroTileContract.Columns.TAP_ACTION,
+            MetroTileContract.Columns.PEEKS,
         )
         val cursor = MatrixCursor(columns)
         cursor.addRow(
@@ -94,6 +104,9 @@ abstract class MetroTileProvider : ContentProvider() {
                 deepLinkUri,
                 MetroTilePhotoGridCodec.encode(photoGrid),
                 MetroTileAgendaCodec.encode(agenda),
+                MetroTileWidgetFaceCodec.encode(widgetFace),
+                tapAction,
+                MetroTilePeekCodec.encode(peeks),
             ),
         )
         return cursor

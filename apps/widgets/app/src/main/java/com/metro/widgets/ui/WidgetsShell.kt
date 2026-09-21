@@ -1,7 +1,12 @@
 package com.metro.widgets.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,14 +32,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.Manifest
+import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroTheme
@@ -43,10 +54,12 @@ import com.metro.widgets.R
 import com.metro.widgets.data.BatterySnapshot
 import com.metro.widgets.data.ClockFaceParts
 import com.metro.widgets.data.NotifierTraySnapshot
-import com.metro.widgets.data.StorageSnapshot
 import com.metro.widgets.data.WidgetCatalog
 import com.metro.widgets.data.WidgetFormatters
 import com.metro.widgets.data.WidgetKind
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 
 private val WidgetGridGap = 8.dp
 private val WidgetGridPadding = 12.dp
@@ -77,26 +90,43 @@ fun WidgetsShell(
         WidgetTileGrid(
             clock = state.clock,
             battery = state.battery,
-            storage = state.storage,
             notifierTray = state.notifierTray,
             notifierAccessGranted = state.notifierAccessGranted,
             onRequestNotifierAccess = state::openNotifierAccessSettings,
+            torchOn = state.torchOn,
+            torchAvailable = state.torchAvailable,
+            hasTorchPermission = state::hasTorchCameraPermission,
+            onToggleTorch = state::toggleTorch,
+            onLockDevice = state::lockDevice,
+            onPinToStart = state::pinToStart,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(48.dp))
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WidgetTileGrid(
     clock: ClockFaceParts,
     battery: BatterySnapshot,
-    storage: StorageSnapshot,
     notifierTray: NotifierTraySnapshot,
     notifierAccessGranted: Boolean,
     onRequestNotifierAccess: () -> Unit,
+    torchOn: Boolean,
+    torchAvailable: Boolean,
+    hasTorchPermission: () -> Boolean,
+    onToggleTorch: () -> Boolean,
+    onLockDevice: () -> Unit,
+    onPinToStart: (WidgetKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val requestCameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) onToggleTorch()
+    }
+
     BoxWithConstraints(modifier = modifier.padding(horizontal = WidgetGridPadding)) {
         val columns = WidgetCatalog.COLUMNS
         val unit = (maxWidth - WidgetGridGap * (columns - 1)) / columns
@@ -121,10 +151,20 @@ private fun WidgetTileGrid(
                         kind = kind,
                         clock = clock,
                         battery = battery,
-                        storage = storage,
                         notifierTray = notifierTray,
                         notifierAccessGranted = notifierAccessGranted,
                         onRequestNotifierAccess = onRequestNotifierAccess,
+                        torchOn = torchOn,
+                        torchAvailable = torchAvailable,
+                        onTorchClick = {
+                            when {
+                                !torchAvailable -> Unit
+                                hasTorchPermission() -> onToggleTorch()
+                                else -> requestCameraPermission.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onLockDevice = onLockDevice,
+                        onPinToStart = { onPinToStart(kind) },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -139,15 +179,20 @@ private fun tilePixelSize(unit: Dp, colSpan: Int, rowSpan: Int): Pair<Dp, Dp> {
     return width to height
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WidgetTileFace(
     kind: WidgetKind,
     clock: ClockFaceParts,
     battery: BatterySnapshot,
-    storage: StorageSnapshot,
     notifierTray: NotifierTraySnapshot,
     notifierAccessGranted: Boolean,
     onRequestNotifierAccess: () -> Unit,
+    torchOn: Boolean,
+    torchAvailable: Boolean,
+    onTorchClick: () -> Unit,
+    onLockDevice: () -> Unit,
+    onPinToStart: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (kind) {
@@ -156,6 +201,25 @@ private fun WidgetTileFace(
                 snapshot = notifierTray,
                 accessGranted = notifierAccessGranted,
                 onRequestAccess = onRequestNotifierAccess,
+                onPinToStart = onPinToStart,
+                modifier = modifier,
+            )
+            return
+        }
+        WidgetKind.Torch -> {
+            TorchTileFace(
+                on = torchOn,
+                available = torchAvailable,
+                onClick = onTorchClick,
+                onPinToStart = onPinToStart,
+                modifier = modifier,
+            )
+            return
+        }
+        WidgetKind.Lock -> {
+            LockTileFace(
+                onLock = onLockDevice,
+                onPinToStart = onPinToStart,
                 modifier = modifier,
             )
             return
@@ -165,7 +229,12 @@ private fun WidgetTileFace(
     val background = MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
     Box(
-        modifier = modifier.background(background),
+        modifier = modifier
+            .background(background)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = onPinToStart,
+            ),
     ) {
         when (kind) {
             WidgetKind.Time -> TimeFace(
@@ -180,14 +249,14 @@ private fun WidgetTileFace(
                     .fillMaxSize()
                     .padding(6.dp),
             )
-            WidgetKind.StorageSense -> StorageSenseFace(
-                storage = storage,
+            WidgetKind.AnalogClock -> AnalogClockFace(
+                clock = clock,
                 contentColor = content,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 28.dp),
+                    .padding(8.dp),
             )
-            WidgetKind.Notifier -> Unit
+            WidgetKind.Notifier, WidgetKind.Torch, WidgetKind.Lock -> Unit
         }
         if (kind.showTitle) {
             BasicText(
@@ -204,6 +273,78 @@ private fun WidgetTileFace(
                     .padding(horizontal = TileTitlePaddingH, vertical = TileTitlePaddingV),
             )
         }
+    }
+}
+
+/**
+ * 1×1 lock tile — suite padlock glyph; tap locks the device via Metro lockscreen a11y.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LockTileFace(
+    onLock: () -> Unit,
+    onPinToStart: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val background = MetroTheme.colors.accent
+    val content = MetroColors.tileContentColor(background)
+    Box(
+        modifier = modifier
+            .background(background)
+            .combinedClickable(
+                onClick = onLock,
+                onLongClick = onPinToStart,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(MetroAppGlyphs.Lockscreen),
+            contentDescription = stringResource(R.string.widget_lock_content_description),
+            colorFilter = ColorFilter.tint(content),
+            // Glyph vector is padded (~0.50 of 108dp canvas); enlarge so the padlock
+            // matches other 1×1 face glyph weight.
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp),
+        )
+    }
+}
+
+/**
+ * 1×1 torch toggle — flashlight glyph; white fill when on (lit), accent when off.
+ * Tap toggles the camera LED (requests CAMERA when needed).
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TorchTileFace(
+    on: Boolean,
+    available: Boolean,
+    onClick: () -> Unit,
+    onPinToStart: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val accent = MetroTheme.colors.accent
+    val background = if (on) Color.White else accent
+    val content = if (on) accent else MetroColors.tileContentColor(accent)
+    Box(
+        modifier = modifier
+            .background(background)
+            .combinedClickable(
+                onClick = { if (available) onClick() },
+                onLongClick = onPinToStart,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_widget_torch),
+            contentDescription = stringResource(R.string.widget_torch_content_description),
+            colorFilter = ColorFilter.tint(
+                content.copy(alpha = if (available) 1f else 0.45f),
+            ),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(18.dp),
+        )
     }
 }
 
@@ -283,7 +424,64 @@ private fun TimeFace(
     }
 }
 
-/** 1×1 Battery Saver–style face: vertical battery + digits (no `%`). */
+/**
+ * 1×1 analog clock — 12 thick hour bars, thin minute ticks between them,
+ * flat rectangular hour/minute hands. No numerals, no second hand.
+ */
+@Composable
+private fun AnalogClockFace(
+    clock: ClockFaceParts,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val radius = min(size.width, size.height) / 2f
+        val center = Offset(size.width / 2f, size.height / 2f)
+
+        for (i in 0 until 60) {
+            val isHour = i % 5 == 0
+            val angleRad = Math.toRadians(i * 6.0 - 90.0)
+            val outer = radius
+            val inner = if (isHour) radius * 0.78f else radius * 0.90f
+            val stroke = if (isHour) radius * 0.085f else radius * 0.028f
+            val cosA = cos(angleRad).toFloat()
+            val sinA = sin(angleRad).toFloat()
+            drawLine(
+                color = contentColor,
+                start = Offset(center.x + cosA * inner, center.y + sinA * inner),
+                end = Offset(center.x + cosA * outer, center.y + sinA * outer),
+                strokeWidth = stroke,
+                cap = StrokeCap.Butt,
+            )
+        }
+
+        val hourLength = radius * 0.48f
+        val minuteLength = radius * 0.72f
+        val hourWidth = radius * 0.075f
+        val minuteWidth = radius * 0.055f
+
+        rotate(degrees = clock.hourHandDegrees, pivot = center) {
+            drawLine(
+                color = contentColor,
+                start = center,
+                end = Offset(center.x, center.y - hourLength),
+                strokeWidth = hourWidth,
+                cap = StrokeCap.Butt,
+            )
+        }
+        rotate(degrees = clock.minuteHandDegrees, pivot = center) {
+            drawLine(
+                color = contentColor,
+                start = center,
+                end = Offset(center.x, center.y - minuteLength),
+                strokeWidth = minuteWidth,
+                cap = StrokeCap.Butt,
+            )
+        }
+    }
+}
+
+/** 1×1 battery face: vertical battery + digits (no `%`). */
 @Composable
 private fun BatteryFace(
     battery: BatterySnapshot,
@@ -328,76 +526,6 @@ private fun BatteryFace(
             )
         }
     }
-}
-
-@Composable
-private fun StorageSenseFace(
-    storage: StorageSnapshot,
-    contentColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.Top,
-    ) {
-        StorageVolumeBlock(
-            title = storage.phone.label,
-            free = WidgetFormatters.storageFreeLine(storage.phone),
-            used = WidgetFormatters.storageUsedLine(storage.phone),
-            contentColor = contentColor,
-        )
-        storage.sdCard?.let { sd ->
-            Spacer(modifier = Modifier.height(10.dp))
-            StorageVolumeBlock(
-                title = sd.label,
-                free = WidgetFormatters.storageFreeLine(sd),
-                used = WidgetFormatters.storageUsedLine(sd),
-                contentColor = contentColor,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StorageVolumeBlock(
-    title: String,
-    free: String,
-    used: String,
-    contentColor: Color,
-) {
-    BasicText(
-        text = title,
-        style = TextStyle(
-            color = contentColor.copy(alpha = 0.75f),
-            fontSize = 15.sp,
-            lineHeight = 18.sp,
-            fontFamily = MetroTheme.fontFamily,
-            fontWeight = FontWeight.Normal,
-        ),
-        maxLines = 1,
-    )
-    BasicText(
-        text = free,
-        style = TextStyle(
-            color = contentColor,
-            fontSize = 28.sp,
-            lineHeight = 32.sp,
-            fontFamily = MetroTheme.fontFamily,
-            fontWeight = FontWeight.Light,
-        ),
-        maxLines = 1,
-    )
-    BasicText(
-        text = used,
-        style = TextStyle(
-            color = contentColor.copy(alpha = 0.85f),
-            fontSize = 16.sp,
-            lineHeight = 20.sp,
-            fontFamily = MetroTheme.fontFamily,
-            fontWeight = FontWeight.Normal,
-        ),
-        maxLines = 1,
-    )
 }
 
 @Composable

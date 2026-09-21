@@ -459,8 +459,9 @@ fun tileExitWaveDurationMs(placed: List<PlacedTile>): Long {
     return tileExitStaggerDelayMs(maxDiag + 1) + TileExitSelectedMs
 }
 
-/** 1×1 music now-playing is transport-only — no app launch / exit wave. */
+/** 1×1 music now-playing / Start widget faces — no app launch / exit wave. */
 fun tileClickUsesExitWave(tile: DisplayTile): Boolean {
+    if (tile.handlesStartTap) return false
     val music = tile.musicNowPlaying
     return !(music != null && tile.entry.size == PinnedTileSize.OneByOne)
 }
@@ -1234,12 +1235,16 @@ private fun LauncherTileCell(
     val musicNowPlaying = tile.musicNowPlaying
     val showMusicNowPlaying = musicNowPlaying != null
     val showCustomWidget = tile.entry.hasActiveCustomWidget() && !isUnpinning && !editMode
+    val showWidgetFace = tile.widgetFace?.hasContent == true && !showCustomWidget
+    val isPeekCycle =
+        tile.widgetFace?.kind == com.metro.system.MetroTileWidgetFaceKind.PEEK_CYCLE
     val showPhotoContent = showCyclePhoto || showPhotoGrid
     val progress = tile.progress
-    val showProgressOverlay = progress != null && !showMusicNowPlaying && !showCustomWidget
+    val showProgressOverlay = progress != null && !showMusicNowPlaying && !showCustomWidget &&
+        !showWidgetFace
     val agenda = tile.agenda?.takeIf { it.hasContent }
     val showAgenda = agenda != null && !showPhotoContent && !showStaticPhoto &&
-        !showMusicNowPlaying && !showCustomWidget &&
+        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace &&
         tile.entry.size != PinnedTileSize.OneByOne
     val isSmall = tile.entry.size == PinnedTileSize.OneByOne
     val isMessaging = tile.entry.packageName == MESSAGING_PACKAGE
@@ -1247,14 +1252,14 @@ private fun LauncherTileCell(
     // Medium/wide Messaging unread: wink glyph + large count (tile_yellow.jpg), not a corner badge.
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMusicNowPlaying &&
-        !showCustomWidget
+        !showCustomWidget && !showWidgetFace
     // Custom Chrome face: three brand wedges + blue center (full-bleed, no stock icon).
     val showChromeFace = isChromeTilePackage(tile.entry.packageName) &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
-        !showMusicNowPlaying && !showCustomWidget
+        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
     val startBackground = LocalStartBackgroundViewport.current
-    // Custom App Widgets keep the same transparent-window fill as accent tiles so they
-    // read as Metro tiles, not opaque Android home-screen widgets.
+    // Custom App Widgets and Metro widget faces keep the same transparent-window fill as
+    // accent tiles so they read as Metro tiles (wallpaper windows when Start bg is set).
     val useWindowFill = tile.revealsStartBackground &&
         startBackground != null &&
         !showPhotoContent &&
@@ -1276,18 +1281,23 @@ private fun LauncherTileCell(
         !showChromeFace &&
         !showMusicNowPlaying &&
         !showCustomWidget &&
+        !showWidgetFace &&
         !isSmall &&
         !editMode
-    val forceStaticEditFace = editMode && steadyPhase > 0f && !showCustomWidget
+    val forceStaticEditFace = editMode && steadyPhase > 0f && !showCustomWidget && !showWidgetFace
     val badgeCount = tile.counter?.takeIf {
-        it > 0 && !showAgenda && !showMessagingUnreadFace && !showMusicNowPlaying
+        it > 0 &&
+            !showAgenda &&
+            !showMessagingUnreadFace &&
+            !showMusicNowPlaying &&
+            (!showWidgetFace || isPeekCycle)
     }
     // 1×1 icon tiles pair glyph + count in a centered row; 2×2 keeps a center-right badge
     // and nudges the icon left so the numeral does not sit on top of it.
     val tileMinEdge = min(width.value, height.value).dp
     val showSmallIconBadge = isSmall && badgeCount != null &&
         !showPhotoContent && !showStaticPhoto && !showChromeFace && !showMusicNowPlaying &&
-        !showCustomWidget
+        !showCustomWidget && !showWidgetFace
     val iconBadgeShift = when {
         badgeCount == null -> 0.dp
         tile.entry.size != PinnedTileSize.TwoByTwo -> 0.dp
@@ -1344,6 +1354,11 @@ private fun LauncherTileCell(
                             showCustomWidget && useWindowFill ->
                                 Modifier.drawStartBackgroundWindow(startBackground)
                             showCustomWidget -> Modifier.background(tile.backgroundColor)
+                            // Peek-cycle paints its own rotating face fill (accent or window).
+                            showWidgetFace && isPeekCycle -> Modifier
+                            showWidgetFace && useWindowFill ->
+                                Modifier.drawStartBackgroundWindow(startBackground)
+                            showWidgetFace -> Modifier.background(tile.backgroundColor)
                             showPhotoContent || showStaticPhoto || showChromeFace ||
                                 showMusicNowPlaying -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
@@ -1368,6 +1383,37 @@ private fun LauncherTileCell(
                                 entry = tile.entry,
                                 modifier = Modifier.fillMaxSize(),
                             )
+                        }
+                        showWidgetFace -> {
+                            if (isPeekCycle) {
+                                PeekCycleWidgetFace(
+                                    peeks = tile.peeks,
+                                    badgeCount = badgeCount,
+                                    contentColor = contentColor,
+                                    faceColor = tile.backgroundColor,
+                                    startBackground = startBackground.takeIf { useWindowFill },
+                                    wide = tile.entry.size == PinnedTileSize.FourByTwo,
+                                    liveMotionEnabled = liveMotionEnabled,
+                                    flipSeed = floatSeed,
+                                    tileMinEdge = tileMinEdge,
+                                    chrome = chrome,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                StartWidgetFace(
+                                    face = tile.widgetFace!!,
+                                    contentColor = contentColor,
+                                    // Window-fill tiles stay clear so wallpaper shows; toggle-on
+                                    // still paints white inside StartWidgetFace.
+                                    tileBackground = if (useWindowFill) {
+                                        Color.Transparent
+                                    } else {
+                                        tile.backgroundColor
+                                    },
+                                    compact = tile.entry.size != PinnedTileSize.FourByTwo,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         }
                         forceStaticEditFace && !isSmall -> {
                             StaticIconTileContent(
@@ -1524,11 +1570,11 @@ private fun LauncherTileCell(
                 // Edge-to-edge faces skip chrome content inset on the container; pad the badge
                 // itself so the numeral keeps the same margin as inset tiles.
                 val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto || showChromeFace ||
-                    showMusicNowPlaying || showProgressOverlay ||
+                    showMusicNowPlaying || showProgressOverlay || showWidgetFace ||
                     (canFlip && tile.flipToIcon)
                 val insetFront = showProgressOverlay &&
                     !showPhotoContent && !showStaticPhoto && !showChromeFace &&
-                    !showMusicNowPlaying && !canFlip
+                    !showMusicNowPlaying && !showWidgetFace && !canFlip
                 val wrappedFront: @Composable () -> Unit = {
                     if (insetFront) {
                         Box(
@@ -1629,8 +1675,9 @@ private fun LauncherTileCell(
                     )
                 } else {
                     wrappedFront()
-                    // 1×1 icon faces already draw the count beside the glyph.
-                    if (!showSmallIconBadge) {
+                    // Peek-cycle draws its own badge; 1×1 icon faces already draw the count
+                    // beside the glyph.
+                    if (!showSmallIconBadge && !isPeekCycle) {
                         badgeCount?.let { count ->
                             TileNotificationBadge(
                                 count = count,
@@ -2144,6 +2191,99 @@ private fun MessagingGlyph(
         colorFilter = ColorFilter.tint(contentColor),
         modifier = modifier,
     )
+}
+
+/**
+ * [MetroTileWidgetFaceKind.PEEK_CYCLE] — flip between provider peeks only (no host app icon).
+ * Matches the Widgets catalog Notifier face.
+ */
+@Composable
+private fun PeekCycleWidgetFace(
+    peeks: List<TilePeekLines>,
+    badgeCount: Int?,
+    contentColor: Color,
+    faceColor: Color,
+    wide: Boolean,
+    liveMotionEnabled: Boolean,
+    flipSeed: Int,
+    tileMinEdge: Dp,
+    chrome: TileChrome,
+    modifier: Modifier = Modifier,
+    startBackground: StartBackgroundViewport? = null,
+) {
+    val faces = peeks.ifEmpty {
+        listOf(TilePeekLines(title = "no notifications", subtitle = null, body = null))
+    }
+    var peekIndex by remember(flipSeed) { mutableIntStateOf(0) }
+    val density = LocalDensity.current.density
+    val rotation = remember { Animatable(0f) }
+    val peekCountState = rememberUpdatedState(faces.size)
+
+    LaunchedEffect(flipSeed, liveMotionEnabled) {
+        if (!liveMotionEnabled) {
+            rotation.snapTo(0f)
+            return@LaunchedEffect
+        }
+        if (abs(rotation.value) > 0.01f) {
+            rotation.snapTo(0f)
+        }
+        val rng = Random(flipSeed)
+        delay(rng.nextLong(0L, TILE_FLIP_STAGGER_MAX_MS + 1))
+        while (true) {
+            val count = peekCountState.value.coerceAtLeast(1)
+            val jitter = rng.nextLong(-TILE_FLIP_HOLD_JITTER_MS, TILE_FLIP_HOLD_JITTER_MS + 1)
+            delay((TILE_FLIP_HOLD_MS + jitter).coerceAtLeast(2_500L))
+            if (count <= 1) continue
+            rotation.animateTo(90f, animationSpec = TileFlipHalfAnimation)
+            peekIndex = (peekIndex + 1) % count
+            rotation.snapTo(-90f)
+            rotation.animateTo(0f, animationSpec = TileFlipSettleAnimation)
+        }
+    }
+
+    val peek = faces[peekIndex.mod(faces.size.coerceAtLeast(1))]
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                rotationX = rotation.value
+                transformOrigin = TransformOrigin(0.5f, 0.5f)
+                cameraDistance = TILE_FLIP_CAMERA_DISTANCE * density
+            }
+            .then(
+                if (startBackground != null) {
+                    Modifier.drawStartBackgroundWindow(startBackground)
+                } else {
+                    Modifier.background(faceColor)
+                },
+            )
+            .padding(chrome.contentInset),
+    ) {
+        NotificationPeekTileContent(
+            title = peek.title,
+            subtitle = peek.subtitle,
+            body = peek.body,
+            footer = peek.footer.orEmpty(),
+            wide = wide,
+            contentColor = contentColor,
+            footerEndReserve = peekBadgeEndReserve(
+                tileMinEdge = tileMinEdge,
+                count = badgeCount ?: 0,
+                withIcon = false,
+                chrome = chrome,
+            ),
+            modifier = Modifier.fillMaxSize(),
+        )
+        badgeCount?.let { count ->
+            TileNotificationBadge(
+                count = count,
+                contentColor = contentColor,
+                tileMinEdge = tileMinEdge,
+                tileSize = if (wide) PinnedTileSize.FourByTwo else PinnedTileSize.TwoByTwo,
+                inset = false,
+                alignBottom = true,
+            )
+        }
+    }
 }
 
 /**

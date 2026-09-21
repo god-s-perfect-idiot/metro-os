@@ -185,6 +185,10 @@ configure_shell() {
     && echo "OK  WRITE_SECURE_SETTINGS: notifications" \
     || echo "WARN  WRITE_SECURE_SETTINGS grant failed (device may require adb root / manual grant)"
 
+  adb_cmd shell pm grant com.metro.widgets android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 \
+    && echo "OK  WRITE_SECURE_SETTINGS: widgets (battery saver)" \
+    || echo "WARN  WRITE_SECURE_SETTINGS grant failed: widgets"
+
   echo "Note: enable Volume + Notifications accessibility / notification access from each app's setup screen."
 }
 

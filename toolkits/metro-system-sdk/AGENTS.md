@@ -44,8 +44,23 @@ before painting accent-dependent UI when Settings may still be waking.
 | `LAUNCH_APP` | `com.metro.action.LAUNCH_APP` | `package` |
 | `SEARCH` | `com.metro.action.SEARCH` | `query` |
 | `SHARE` | `com.metro.action.SHARE` | `uri`, `mime` |
-| `PIN_TILE` | `com.metro.action.PIN_TILE` | `package`, `tile_id` |
+| `PIN_TILE` | `com.metro.action.PIN_TILE` | `package`, `tile_id`, optional `tile_size` (`1x1` / `2x2` / `4x2`) |
+| `TILE_TAP` | `com.metro.action.TILE_TAP` | `package`, `tile_id` — or app-private action via `MetroTileData.tapAction` |
 | `ADD_SPEED_DIAL` | `com.metro.action.ADD_SPEED_DIAL` | `display_name`, `phone_number` |
+
+### Custom Start widget faces (`MetroTileWidgetFace`)
+
+Apps that pin interactive catalog widgets export face state on `MetroTileData.widgetFace` (+ optional `tapAction`). The **launcher renders** the face (clock / battery / glyph) and calls `MetroIntents.dispatchTileTap` instead of launching the app. Same rule as agenda / photo grids: no in-process UI from the source app on Start.
+
+| `kind` | Payload | Tap |
+|--------|---------|-----|
+| `digital_clock` / `analog_clock` | kind only (launcher ticks locally) | usually none (display) |
+| `battery` | `batteryPercent` | usually none |
+| `glyph` | `glyph` key (`lock`, …) | `tapAction` → lock / etc. |
+| `glyph_toggle` | `glyph`, `toggleOn`, optional `dimmed` | `tapAction` → toggle |
+| `peek_cycle` | [MetroTileData.peeks] + optional counter | cycle notifications only (no host icon) |
+
+Glyph keys: `MetroTileWidgetGlyph` (`torch`, `lock`, `battery_saver`). Drawables live in `metro-ui-android`.
 
 ### MetroBroadcasts
 

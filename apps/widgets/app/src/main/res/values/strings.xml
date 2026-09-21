@@ -3,4 +3,7 @@
     <string name="app_name">widgets</string>
     <string name="widgets_app_title">widgets</string>
     <string name="notification_listener_label">Notifier live tile</string>
+    <string name="widget_lock_content_description">lock device</string>
+    <string name="widget_torch_content_description">torch</string>
+    <string name="pinned_to_start">pinned to start</string>
 </resources>

@@ -371,6 +371,19 @@ class LauncherState(context: Context) {
             MusicNowPlayingStore.togglePlayPause(music.packageName)
             return
         }
+        // Custom Start widget faces: dispatch tapAction (or swallow for display-only clocks).
+        if (tile.handlesStartTap) {
+            val action = tile.tapAction
+            if (!action.isNullOrBlank()) {
+                MetroIntents.dispatchTileTap(
+                    context = appContext,
+                    packageName = tile.entry.packageName,
+                    tileId = tile.entry.tileId,
+                    action = action,
+                )
+            }
+            return
+        }
         beginAppOpen(
             packageName = tile.entry.packageName,
             deepLinkUri = tile.deepLinkUri,
@@ -379,12 +392,14 @@ class LauncherState(context: Context) {
     }
 
     fun launchApp(app: MetroAppInfo) {
+        // App list always opens the package. Do not route through onTileClick — pinned
+        // widget faces swallow taps / dispatch tile actions (clocks, torch, lock, …).
         val pinnedTile = displayTiles.firstOrNull { it.entry.packageName == app.packageName }
-        if (pinnedTile != null) {
-            onTileClick(pinnedTile)
-        } else {
-            beginAppOpen(packageName = app.packageName, deepLinkUri = null)
-        }
+        beginAppOpen(
+            packageName = app.packageName,
+            deepLinkUri = null,
+            backgroundColor = pinnedTile?.backgroundColor,
+        )
     }
 
     /**
@@ -892,7 +907,11 @@ class LauncherState(context: Context) {
         val tileId = intent.getStringExtra(MetroIntents.EXTRA_TILE_ID)
             ?.takeIf { it.isNotBlank() }
             ?: MetroTileContract.DEFAULT_TILE_ID
-        pinTile(packageName = packageName, tileId = tileId)
+        val size = intent.getStringExtra(MetroIntents.EXTRA_TILE_SIZE)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { PinnedTileSize.fromStorage(it) }
+            ?: PinnedTileSize.TwoByTwo
+        pinTile(packageName = packageName, tileId = tileId, size = size)
     }
 
     fun uninstallApp(app: MetroAppInfo) {

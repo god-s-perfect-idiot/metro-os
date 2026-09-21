@@ -1,8 +1,9 @@
 package com.metro.widgets.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -52,33 +53,51 @@ private val TileFlipSettleAnimation = MetroTransitions.tileFlipSettleSpring<Floa
  * Notifier catalog tile — flips only between tray notification peeks (no static
  * “notifier” front face). Idle when access is denied or the tray is empty.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NotifierTileFace(
     snapshot: NotifierTraySnapshot,
     accessGranted: Boolean,
     onRequestAccess: () -> Unit,
+    onPinToStart: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val background = MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
     val peeks = snapshot.peeks
 
-    Box(modifier = modifier.background(background)) {
+    Box(
+        modifier = modifier
+            .clipToBounds()
+            .combinedClickable(
+                onClick = {
+                    if (!accessGranted) onRequestAccess()
+                },
+                onLongClick = onPinToStart,
+            ),
+    ) {
         when {
             !accessGranted || peeks.isEmpty() -> {
-                NotifierIdleFace(
-                    contentColor = content,
-                    accessGranted = accessGranted,
-                    onRequestAccess = onRequestAccess,
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(8.dp),
-                )
+                        .background(background),
+                ) {
+                    NotifierIdleFace(
+                        contentColor = content,
+                        accessGranted = accessGranted,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                    )
+                }
             }
             else -> {
                 var peekIndex by remember { mutableIntStateOf(0) }
                 val safeIndex = peekIndex.mod(peeks.size.coerceAtLeast(1))
                 val peek = peeks[safeIndex]
+                // Accent lives only on the rotating face — a stationary fill behind the
+                // flip reads as a second tile during the turnstile (Start leaves the slot black).
                 NotifierPeekCycleFlip(
                     faceColor = background,
                     peekCount = peeks.size,
@@ -103,15 +122,9 @@ fun NotifierTileFace(
 private fun NotifierIdleFace(
     contentColor: Color,
     accessGranted: Boolean,
-    onRequestAccess: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val clickable = if (!accessGranted) {
-        Modifier.clickable(onClick = onRequestAccess)
-    } else {
-        Modifier
-    }
-    Box(modifier = modifier.then(clickable)) {
+    Box(modifier = modifier) {
         BasicText(
             text = if (accessGranted) "no notifications" else "allow notification access",
             style = TextStyle(

@@ -8,6 +8,11 @@ object MetroIntents {
     const val ACTION_SEARCH = "com.metro.action.SEARCH"
     const val ACTION_SHARE = "com.metro.action.SHARE"
     const val ACTION_PIN_TILE = "com.metro.action.PIN_TILE"
+    /**
+     * Generic Start-tile tap for secondary / widget faces. Extras: [EXTRA_PACKAGE], [EXTRA_TILE_ID].
+     * Apps may instead export a private action via [MetroTileData.tapAction].
+     */
+    const val ACTION_TILE_TAP = "com.metro.action.TILE_TAP"
     /** Explicit broadcast to Phone — extras [EXTRA_DISPLAY_NAME], [EXTRA_PHONE_NUMBER]. */
     const val ACTION_ADD_SPEED_DIAL = "com.metro.action.ADD_SPEED_DIAL"
 
@@ -16,29 +21,58 @@ object MetroIntents {
     const val EXTRA_URI = "uri"
     const val EXTRA_MIME = "mime"
     const val EXTRA_TILE_ID = "tile_id"
+    /** Optional Start footprint: `1x1`, `2x2`, or `4x2` (wide). */
+    const val EXTRA_TILE_SIZE = "tile_size"
     const val EXTRA_DISPLAY_NAME = "display_name"
     const val EXTRA_PHONE_NUMBER = "phone_number"
 
     const val PACKAGE_LAUNCHER = "com.metro.launcher"
     const val PACKAGE_DIALER = "com.metro.dialer"
     const val PACKAGE_PEOPLE = "com.metro.people"
+    const val PACKAGE_WIDGETS = "com.metro.widgets"
 
     /**
      * Ask the launcher to pin a (possibly secondary) tile for [packageName]/[tileId].
      * Launcher brings Start forward after pinning.
+     *
+     * @param size Optional footprint storage value (`1x1` / `2x2` / `4x2`). When null,
+     * the launcher defaults to medium (`2x2`).
      */
     fun requestPinTile(
         context: Context,
         packageName: String,
         tileId: String = MetroTileContract.DEFAULT_TILE_ID,
+        size: String? = null,
     ) {
         val intent = Intent(ACTION_PIN_TILE).apply {
             setPackage(PACKAGE_LAUNCHER)
             putExtra(EXTRA_PACKAGE, packageName)
             putExtra(EXTRA_TILE_ID, tileId)
+            if (!size.isNullOrBlank()) {
+                putExtra(EXTRA_TILE_SIZE, size)
+            }
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         runCatching { context.startActivity(intent) }
+    }
+
+    /**
+     * Dispatch a Start-tile tap to [packageName]. Uses [action] when non-blank, otherwise
+     * [ACTION_TILE_TAP]. The receiving app should switch on [EXTRA_TILE_ID].
+     */
+    fun dispatchTileTap(
+        context: Context,
+        packageName: String,
+        tileId: String,
+        action: String? = null,
+    ) {
+        val resolved = action?.takeIf { it.isNotBlank() } ?: ACTION_TILE_TAP
+        val intent = Intent(resolved).apply {
+            setPackage(packageName)
+            putExtra(EXTRA_PACKAGE, packageName)
+            putExtra(EXTRA_TILE_ID, tileId)
+        }
+        context.sendBroadcast(intent)
     }
 
     /** Ask Phone to append a speed-dial entry (no UI required). */

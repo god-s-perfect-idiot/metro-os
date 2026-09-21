@@ -27,6 +27,9 @@ object MetroTileContract {
         const val DEEP_LINK_URI = "deep_link_uri"
         const val PHOTO_GRID = "photo_grid"
         const val AGENDA = "agenda"
+        const val WIDGET_FACE = "widget_face"
+        const val TAP_ACTION = "tap_action"
+        const val PEEKS = "peeks"
     }
 
     /** Max cells exported for wide (4×2 → 6×3) People-style photo grids. */
@@ -91,6 +94,9 @@ object MetroTileContract {
             deepLinkUri = getString(Columns.DEEP_LINK_URI),
             photoGrid = MetroTilePhotoGridCodec.decode(getString(Columns.PHOTO_GRID)),
             agenda = MetroTileAgendaCodec.decode(getString(Columns.AGENDA)),
+            widgetFace = MetroTileWidgetFaceCodec.decode(getString(Columns.WIDGET_FACE)),
+            tapAction = getString(Columns.TAP_ACTION),
+            peeks = MetroTilePeekCodec.decode(getString(Columns.PEEKS)),
         )
     }
 
@@ -115,6 +121,13 @@ object MetroTileContract {
             photoGrid = if (gridIdx >= 0) MetroTilePhotoGridCodec.decode(getString(gridIdx)) else null,
             agenda = col(Columns.AGENDA).let {
                 if (it >= 0) MetroTileAgendaCodec.decode(getString(it)) else null
+            },
+            widgetFace = col(Columns.WIDGET_FACE).let {
+                if (it >= 0) MetroTileWidgetFaceCodec.decode(getString(it)) else null
+            },
+            tapAction = col(Columns.TAP_ACTION).let { if (it >= 0) getString(it) else null },
+            peeks = col(Columns.PEEKS).let {
+                if (it >= 0) MetroTilePeekCodec.decode(getString(it)) else null
             },
         )
     }

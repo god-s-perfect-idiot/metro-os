@@ -92,6 +92,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.metro.lockscreen.action.SET_SUPPRESSED" />
+                <action android:name="com.metro.lockscreen.action.LOCK_NOW" />
             </intent-filter>
         </receiver>
 

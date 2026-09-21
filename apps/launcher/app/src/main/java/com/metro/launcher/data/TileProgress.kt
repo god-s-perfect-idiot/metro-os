@@ -167,6 +167,8 @@ data class TilePeekLines(
     val title: String?,
     val subtitle: String?,
     val body: String?,
+    /** Optional source-app footer for peek-cycle widget faces (not the host tile title). */
+    val footer: String? = null,
 ) {
     val hasContent: Boolean
         get() = !title.isNullOrBlank() || !subtitle.isNullOrBlank() || !body.isNullOrBlank()
@@ -180,10 +182,10 @@ data class TilePeekLines(
         val s = subtitle?.trim()?.takeIf { it.isNotEmpty() }
         val b = body?.trim()?.takeIf { it.isNotEmpty() }
         return when {
-            t != null -> TilePeekLines(title = t, subtitle = s, body = b)
-            s != null -> TilePeekLines(title = s, subtitle = null, body = b)
-            b != null -> TilePeekLines(title = b, subtitle = null, body = null)
-            else -> TilePeekLines(title = null, subtitle = null, body = null)
+            t != null -> TilePeekLines(title = t, subtitle = s, body = b, footer = footer)
+            s != null -> TilePeekLines(title = s, subtitle = null, body = b, footer = footer)
+            b != null -> TilePeekLines(title = b, subtitle = null, body = null, footer = footer)
+            else -> TilePeekLines(title = null, subtitle = null, body = null, footer = footer)
         }
     }
 }

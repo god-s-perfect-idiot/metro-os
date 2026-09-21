@@ -15,6 +15,8 @@ import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
 import com.metro.system.MetroTilePhotoGrid
+import com.metro.system.MetroTileWidgetFace
+import com.metro.system.MetroTileWidgetFaceKind
 import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT
 import com.metro.system.MetroAppBranding
@@ -53,7 +55,19 @@ data class DisplayTile(
     val musicNowPlaying: MusicNowPlayingInfo? = null,
     /** Progress-bar notification (charging, downloads) drawn on the front of the tile. */
     val progress: TileProgressInfo? = null,
-)
+    /** Custom Start widget face from [MetroTileData.widgetFace]. */
+    val widgetFace: MetroTileWidgetFace? = null,
+    /** Explicit Start-tap broadcast action from [MetroTileData.tapAction]. */
+    val tapAction: String? = null,
+    /**
+     * Provider peeks for [com.metro.system.MetroTileWidgetFaceKind.PEEK_CYCLE] — cycle with no
+     * host-app icon (Notifier).
+     */
+    val peeks: List<TilePeekLines> = emptyList(),
+) {
+    val handlesStartTap: Boolean
+        get() = !tapAction.isNullOrBlank() || widgetFace?.hasContent == true
+}
 
 class LauncherRepository(private val context: Context) {
     private val store = PinnedTileStore(context)
@@ -152,11 +166,22 @@ class LauncherRepository(private val context: Context) {
         } else {
             null
         }
+        val widgetFace = providerData?.widgetFace?.takeIf { it.hasContent }
+        val isPeekCycle = widgetFace?.kind == MetroTileWidgetFaceKind.PEEK_CYCLE
+        val providerPeeks = providerData?.peeks.orEmpty().map { peek ->
+            TilePeekLines(
+                title = peek.title,
+                subtitle = peek.subtitle,
+                body = peek.body,
+                footer = peek.footer,
+            ).normalizedForFlip()
+        }.filter { it.hasContent }
         val hasRichFrontFace =
             photoGrid?.hasContent == true ||
                 agenda != null ||
                 imageUri != null ||
-                musicNowPlaying != null
+                musicNowPlaying != null ||
+                widgetFace != null
         val merged = TileNotificationStore.mergeIntoDisplay(
             packageName = packageName,
             providerCounter = providerData?.counter,
@@ -164,30 +189,55 @@ class LauncherRepository(private val context: Context) {
             hasRichFrontFace = hasRichFrontFace,
         )
         val flipToIcon = imageUri != null && musicNowPlaying == null
-        val progress = if (musicNowPlaying != null) null else merged.progress
+        val progress = if (musicNowPlaying != null || widgetFace != null) null else merged.progress
+        // Peek-cycle keeps the provider counter badge; other widget faces own the chrome.
+        val counter = when {
+            musicNowPlaying != null -> null
+            isPeekCycle -> providerData?.counter?.takeIf { it > 0 } ?: merged.counter
+            widgetFace != null -> null
+            else -> merged.counter
+        }
         return DisplayTile(
             entry = this,
             title = title,
             backgroundColor = background,
             revealsStartBackground = revealsStartBackground,
-            // Now-playing owns the tile; progress overlays the front but still peeks/flips.
-            counter = if (musicNowPlaying != null) null else merged.counter,
+            counter = counter,
             deepLinkUri = providerData?.deepLinkUri,
-            hasFlipFace = if (musicNowPlaying != null) {
+            hasFlipFace = if (musicNowPlaying != null || widgetFace != null) {
                 false
             } else {
                 merged.hasFlipFace || flipToIcon
             },
-            backFaceTitle = if (musicNowPlaying != null) null else merged.backFaceTitle,
-            backFaceSubtitle = if (musicNowPlaying != null) null else merged.backFaceSubtitle,
-            backFaceBody = if (musicNowPlaying != null) null else merged.backFaceBody,
-            backFaces = if (musicNowPlaying != null) emptyList() else merged.backFaces,
+            backFaceTitle = if (musicNowPlaying != null || widgetFace != null) {
+                null
+            } else {
+                merged.backFaceTitle
+            },
+            backFaceSubtitle = if (musicNowPlaying != null || widgetFace != null) {
+                null
+            } else {
+                merged.backFaceSubtitle
+            },
+            backFaceBody = if (musicNowPlaying != null || widgetFace != null) {
+                null
+            } else {
+                merged.backFaceBody
+            },
+            backFaces = if (musicNowPlaying != null || widgetFace != null) {
+                emptyList()
+            } else {
+                merged.backFaces
+            },
             photoGrid = photoGrid,
             agenda = agenda,
             imageUri = imageUri,
             flipToIcon = flipToIcon,
             musicNowPlaying = musicNowPlaying,
             progress = progress,
+            widgetFace = widgetFace,
+            tapAction = providerData?.tapAction?.takeIf { it.isNotBlank() },
+            peeks = if (isPeekCycle) providerPeeks else emptyList(),
         )
     }
 
