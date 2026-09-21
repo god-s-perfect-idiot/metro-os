@@ -60,18 +60,25 @@ fun NotifierTileFace(
     accessGranted: Boolean,
     onRequestAccess: () -> Unit,
     onPinToStart: () -> Unit,
+    onOpenPeek: (NotifierPeekLines) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val background = MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
     val peeks = snapshot.peeks
+    var peekIndex by remember { mutableIntStateOf(0) }
+    val safeIndex = if (peeks.isEmpty()) 0 else peekIndex.mod(peeks.size)
+    val currentPeek = peeks.getOrNull(safeIndex)
 
     Box(
         modifier = modifier
             .clipToBounds()
             .combinedClickable(
                 onClick = {
-                    if (!accessGranted) onRequestAccess()
+                    when {
+                        !accessGranted -> onRequestAccess()
+                        currentPeek != null -> onOpenPeek(currentPeek)
+                    }
                 },
                 onLongClick = onPinToStart,
             ),
@@ -93,9 +100,6 @@ fun NotifierTileFace(
                 }
             }
             else -> {
-                var peekIndex by remember { mutableIntStateOf(0) }
-                val safeIndex = peekIndex.mod(peeks.size.coerceAtLeast(1))
-                val peek = peeks[safeIndex]
                 // Accent lives only on the rotating face — a stationary fill behind the
                 // flip reads as a second tile during the turnstile (Start leaves the slot black).
                 NotifierPeekCycleFlip(
@@ -105,7 +109,7 @@ fun NotifierTileFace(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     NotifierPeekFace(
-                        peek = peek,
+                        peek = currentPeek!!,
                         contentColor = content,
                         badgeCount = snapshot.count,
                         modifier = Modifier

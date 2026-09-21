@@ -88,6 +88,7 @@ class WidgetsTileDataSource(context: Context) {
                 subtitle = normalized.subtitle,
                 body = normalized.body,
                 footer = normalized.appLabel,
+                packageName = normalized.packageName.takeIf { it.isNotBlank() },
             )
         }.filter { it.hasContent }
         val idleTitle = when {

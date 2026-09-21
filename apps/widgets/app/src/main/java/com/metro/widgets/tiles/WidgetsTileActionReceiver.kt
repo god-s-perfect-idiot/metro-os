@@ -7,6 +7,8 @@ import com.metro.system.MetroIntents
 import com.metro.system.MetroLockscreen
 import com.metro.system.MetroTileUpdates
 import com.metro.widgets.data.NotifierAccess
+import com.metro.widgets.data.NotifierPeekOpen
+import com.metro.widgets.data.NotifierTrayStore
 import com.metro.widgets.data.WidgetKind
 import com.metro.widgets.data.WidgetPinLogic
 
@@ -32,6 +34,13 @@ object WidgetsTileActions {
             WidgetKind.Notifier -> {
                 if (!NotifierAccess.isEnabled(appContext)) {
                     NotifierAccess.openSettings(appContext)
+                } else {
+                    // Prefer the newest tray peek when Start cannot report the visible face
+                    // (idle / access grants still fall through from the launcher).
+                    val peek = NotifierTrayStore.snapshot().peeks.firstOrNull()
+                    if (peek != null) {
+                        NotifierPeekOpen.launch(appContext, peek.packageName)
+                    }
                 }
             }
             WidgetKind.Time,

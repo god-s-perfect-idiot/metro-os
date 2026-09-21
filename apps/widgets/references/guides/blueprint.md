@@ -28,7 +28,7 @@ Homescreen widget picker surface. Opens immediately on launch — no pivots, no 
 
 - **Tile chrome:** Square 0dp corners; no bottom titles on current faces. Content color from `MetroColors.tileContentColor` (Torch on-state uses white fill + accent content)
 - **Layout packing (v1 fixed):** Time at (0,0) 2×4; Battery at (0,2) 1×1; Notifier at (1,2) 2×2; Analog clock at (3,2) 1×1; Torch at (0,3) 1×1; Lock at (3,3) 1×1
-- **Interactions:** Long-press any catalog tile pins it to Start (secondary tile at the catalog footprint). Tap: Notifier (opens notification-listener settings when access denied), Torch (toggles LED; requests `CAMERA` when needed), Lock (locks device or opens Accessibility settings). Display-only otherwise.
+- **Interactions:** Long-press any catalog tile pins it to Start (secondary tile at the catalog footprint). Tap: Notifier (opens the notifying app for the visible peek; opens notification-listener settings when access denied), Torch (toggles LED; requests `CAMERA` when needed), Lock (locks device or opens Accessibility settings). Display-only otherwise.
 - **Live updates:** Time (digital + analog) ticks every minute; Battery from `ACTION_BATTERY_CHANGED`; Notifier from `NotificationListenerService` (hold ~5s, flip 600ms — same as Start); Torch from `CameraManager` torch callbacks
 
 ## Images
@@ -75,4 +75,4 @@ Metro-os catalog widget (not a stock WP8.1 system tile). Quick lock action using
 - Resize cycle, edit mode, reorder in the catalog
 - Additional Sense / third-party widget faces
 - 6-column density
-- Opening a specific notification from a Notifier peek tap
+- Opening a notification deep-link / content intent from a Notifier peek tap (v1 launches the app)

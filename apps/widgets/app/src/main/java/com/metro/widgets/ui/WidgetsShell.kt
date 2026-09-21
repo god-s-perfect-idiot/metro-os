@@ -53,6 +53,7 @@ import com.metro.ui.metroNavBarPadding
 import com.metro.widgets.R
 import com.metro.widgets.data.BatterySnapshot
 import com.metro.widgets.data.ClockFaceParts
+import com.metro.widgets.data.NotifierPeekLines
 import com.metro.widgets.data.NotifierTraySnapshot
 import com.metro.widgets.data.WidgetCatalog
 import com.metro.widgets.data.WidgetFormatters
@@ -93,6 +94,7 @@ fun WidgetsShell(
             notifierTray = state.notifierTray,
             notifierAccessGranted = state.notifierAccessGranted,
             onRequestNotifierAccess = state::openNotifierAccessSettings,
+            onOpenNotifierPeek = state::openNotifierPeek,
             torchOn = state.torchOn,
             torchAvailable = state.torchAvailable,
             hasTorchPermission = state::hasTorchCameraPermission,
@@ -113,6 +115,7 @@ private fun WidgetTileGrid(
     notifierTray: NotifierTraySnapshot,
     notifierAccessGranted: Boolean,
     onRequestNotifierAccess: () -> Unit,
+    onOpenNotifierPeek: (NotifierPeekLines) -> Unit,
     torchOn: Boolean,
     torchAvailable: Boolean,
     hasTorchPermission: () -> Boolean,
@@ -154,6 +157,7 @@ private fun WidgetTileGrid(
                         notifierTray = notifierTray,
                         notifierAccessGranted = notifierAccessGranted,
                         onRequestNotifierAccess = onRequestNotifierAccess,
+                        onOpenNotifierPeek = onOpenNotifierPeek,
                         torchOn = torchOn,
                         torchAvailable = torchAvailable,
                         onTorchClick = {
@@ -188,6 +192,7 @@ private fun WidgetTileFace(
     notifierTray: NotifierTraySnapshot,
     notifierAccessGranted: Boolean,
     onRequestNotifierAccess: () -> Unit,
+    onOpenNotifierPeek: (NotifierPeekLines) -> Unit,
     torchOn: Boolean,
     torchAvailable: Boolean,
     onTorchClick: () -> Unit,
@@ -201,6 +206,7 @@ private fun WidgetTileFace(
                 snapshot = notifierTray,
                 accessGranted = notifierAccessGranted,
                 onRequestAccess = onRequestNotifierAccess,
+                onOpenPeek = onOpenNotifierPeek,
                 onPinToStart = onPinToStart,
                 modifier = modifier,
             )

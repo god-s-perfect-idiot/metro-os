@@ -144,7 +144,7 @@ fun LauncherShell(
     // Stable identities — unstable lambdas / modifiers force a full Start+AppList rebuild.
     val startPageModifier = remember { Modifier.testTag("metro_page_start") }
     val appListPageModifier = remember { Modifier.testTag("metro_page_app_list") }
-    val noopTileClick = remember<(DisplayTile) -> Unit> { {} }
+    val noopTileClick = remember<(DisplayTile, String?) -> Unit> { { _, _ -> } }
     val openAppList = remember(state) { { state.currentPage = 1 } }
     val onTileClick = remember(state) { state::onTileClick }
     val onTileLongPress = remember(state) { state::onTileLongPress }
@@ -450,9 +450,9 @@ private fun LauncherPagerHost(
     coveredByCustomize: State<Boolean>,
     startPageModifier: Modifier,
     appListPageModifier: Modifier,
-    noopTileClick: (DisplayTile) -> Unit,
+    noopTileClick: (DisplayTile, String?) -> Unit,
     openAppList: () -> Unit,
-    onTileClick: (DisplayTile) -> Unit,
+    onTileClick: (DisplayTile, String?) -> Unit,
     onTileLongPress: (DisplayTile) -> Unit,
     onDismissEdit: () -> Unit,
     onResize: () -> Unit,

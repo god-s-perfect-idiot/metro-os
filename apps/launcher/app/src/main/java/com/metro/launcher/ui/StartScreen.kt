@@ -48,7 +48,7 @@ private val NeverSuspendEditMotion: State<Boolean> = mutableStateOf(false)
 @Composable
 fun StartScreen(
     tiles: List<DisplayTile>,
-    onTileClick: (DisplayTile) -> Unit,
+    onTileClick: (DisplayTile, peekPackageName: String?) -> Unit,
     onTileLongPress: (DisplayTile) -> Unit,
     onOpenAppList: () -> Unit,
     modifier: Modifier = Modifier,

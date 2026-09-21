@@ -887,6 +887,19 @@ class TileGridTest {
         assertEquals(1f, pose.scale, 0.001f)
     }
 
+    @Test
+    fun tileClickUsesExitWave_peekCycleOpensVisibleApp() {
+        val tile = displayTile("com.metro.widgets", PinnedTileSize.TwoByTwo).copy(
+            widgetFace = com.metro.system.MetroTileWidgetFace(
+                kind = com.metro.system.MetroTileWidgetFaceKind.PEEK_CYCLE,
+            ),
+            tapAction = "com.metro.widgets.action.TILE_TAP",
+        )
+        assertTrue(tile.handlesStartTap)
+        assertFalse(tileClickUsesExitWave(tile, peekPackageName = null))
+        assertTrue(tileClickUsesExitWave(tile, peekPackageName = "com.example.mail"))
+    }
+
     private fun displayTile(
         packageName: String,
         size: PinnedTileSize,

@@ -61,6 +61,7 @@ class WidgetLogicTest {
             ),
         )
         assertEquals(listOf("C", "B", "A"), queue.map { it.title })
+        assertEquals("com.example.app", queue.first().packageName)
     }
 
     @Test

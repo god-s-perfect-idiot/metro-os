@@ -460,7 +460,14 @@ fun tileExitWaveDurationMs(placed: List<PlacedTile>): Long {
 }
 
 /** 1×1 music now-playing / Start widget faces — no app launch / exit wave. */
-fun tileClickUsesExitWave(tile: DisplayTile): Boolean {
+fun tileClickUsesExitWave(tile: DisplayTile, peekPackageName: String? = null): Boolean {
+    // Notifier peek-cycle: open the notifying app with the normal Start exit wave.
+    if (
+        tile.widgetFace?.kind == com.metro.system.MetroTileWidgetFaceKind.PEEK_CYCLE &&
+        !peekPackageName.isNullOrBlank()
+    ) {
+        return true
+    }
     if (tile.handlesStartTap) return false
     val music = tile.musicNowPlaying
     return !(music != null && tile.entry.size == PinnedTileSize.OneByOne)
@@ -470,7 +477,7 @@ fun tileClickUsesExitWave(tile: DisplayTile): Boolean {
 @Composable
 fun TileGrid(
     tiles: List<DisplayTile>,
-    onTileClick: (DisplayTile) -> Unit,
+    onTileClick: (DisplayTile, peekPackageName: String?) -> Unit,
     onTileLongPress: (DisplayTile) -> Unit,
     modifier: Modifier = Modifier,
     columns: Int = TILE_GRID_COLUMNS,
@@ -507,6 +514,7 @@ fun TileGrid(
     var dragBaselinePositions by remember { mutableStateOf<Map<TileKey, Pair<Int, Int>>?>(null) }
     // Package launch: exit wave (tapped tile last). Press tilt is finger-down feedback.
     var exitingTileKey by remember { mutableStateOf<TileKey?>(null) }
+    var exitingPeekPackage by remember { mutableStateOf<String?>(null) }
     val isDragging = draggingKey != null
     val launchInProgress = exitingTileKey != null
     val tilesState = rememberUpdatedState(tiles)
@@ -531,6 +539,7 @@ fun TileGrid(
     // Home-resume bumps enterWaveKey — clear any leftover exit pose so enter can replay.
     LaunchedEffect(enterWaveKey) {
         exitingTileKey = null
+        exitingPeekPackage = null
     }
 
     // Unlock / lock-skip path: drop exit pose and let TilePivotEnter snap to rest
@@ -538,6 +547,7 @@ fun TileGrid(
     LaunchedEffect(restPoseRequestId) {
         if (restPoseRequestId <= 0) return@LaunchedEffect
         exitingTileKey = null
+        exitingPeekPackage = null
     }
 
     // One shared clock for Perlin jiggle — avoids per-tile animation loops on enter.
@@ -893,7 +903,7 @@ fun TileGrid(
                             tileLeftInGridPx = tileLeftInGridPx,
                             onExitComplete = if (isExitSelected) {
                                 {
-                                    onTileClickState.value(tile)
+                                    onTileClickState.value(tile, exitingPeekPackage)
                                 }
                             } else {
                                 null
@@ -909,13 +919,17 @@ fun TileGrid(
                                 editProgress = editProgress,
                                 floatTimeSec = floatTimeSec,
                                 liveMotionEnabled = liveMotionEnabled,
-                                onClick = {
+                                onClick = { peekPackageName ->
                                     when {
                                         editMode && isActive -> Unit
                                         editMode -> onDismissEdit()
                                         launchInProgress -> Unit
-                                        !tileClickUsesExitWave(tile) -> onTileClick(tile)
-                                        else -> exitingTileKey = tileKey
+                                        !tileClickUsesExitWave(tile, peekPackageName) ->
+                                            onTileClick(tile, peekPackageName)
+                                        else -> {
+                                            exitingPeekPackage = peekPackageName
+                                            exitingTileKey = tileKey
+                                        }
                                     }
                                 },
                                 onLongClick = {
@@ -1093,7 +1107,7 @@ private fun LauncherTileCell(
     editProgress: Float,
     floatTimeSec: State<Float>,
     liveMotionEnabled: Boolean,
-    onClick: () -> Unit,
+    onClick: (peekPackageName: String?) -> Unit,
     onLongClick: () -> Unit,
     onResize: () -> Unit,
     onUnpin: () -> Unit,
@@ -1247,6 +1261,9 @@ private fun LauncherTileCell(
     val showWidgetFace = tile.widgetFace?.hasContent == true && !showCustomWidget
     val isPeekCycle =
         tile.widgetFace?.kind == com.metro.system.MetroTileWidgetFaceKind.PEEK_CYCLE
+    var visiblePeekPackage by remember(tile.entry.packageName, tile.entry.tileId) {
+        mutableStateOf<String?>(null)
+    }
     val showPhotoContent = showCyclePhoto || showPhotoGrid
     val progress = tile.progress
     val showProgressOverlay = progress != null && !showMusicNowPlaying && !showCustomWidget &&
@@ -1330,7 +1347,7 @@ private fun LauncherTileCell(
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick,
+                onClick = { onClick(visiblePeekPackage) },
                 onLongClick = {
                     // WP8.1 Start: short buzz when long-press enters tile edit / resize mode.
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1414,6 +1431,7 @@ private fun LauncherTileCell(
                                     flipSeed = floatSeed,
                                     tileMinEdge = tileMinEdge,
                                     chrome = chrome,
+                                    onVisiblePeekPackage = { visiblePeekPackage = it },
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
@@ -2225,6 +2243,7 @@ private fun PeekCycleWidgetFace(
     flipSeed: Int,
     tileMinEdge: Dp,
     chrome: TileChrome,
+    onVisiblePeekPackage: (String?) -> Unit = {},
     modifier: Modifier = Modifier,
     startBackground: StartBackgroundViewport? = null,
 ) {
@@ -2235,6 +2254,7 @@ private fun PeekCycleWidgetFace(
     val density = LocalDensity.current.density
     val rotation = remember { Animatable(0f) }
     val peekCountState = rememberUpdatedState(faces.size)
+    val onVisiblePeekPackageState = rememberUpdatedState(onVisiblePeekPackage)
 
     LaunchedEffect(flipSeed, liveMotionEnabled) {
         if (!liveMotionEnabled) {
@@ -2259,6 +2279,9 @@ private fun PeekCycleWidgetFace(
     }
 
     val peek = faces[peekIndex.mod(faces.size.coerceAtLeast(1))]
+    LaunchedEffect(peek.packageName, peek.title, peek.body, peek.footer) {
+        onVisiblePeekPackageState.value(peek.packageName?.takeIf { it.isNotBlank() })
+    }
     Box(
         modifier = modifier
             .graphicsLayer {

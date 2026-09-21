@@ -174,6 +174,7 @@ class LauncherRepository(private val context: Context) {
                 subtitle = peek.subtitle,
                 body = peek.body,
                 footer = peek.footer,
+                packageName = peek.packageName?.takeIf { it.isNotBlank() },
             ).normalizedForFlip()
         }.filter { it.hasContent }
         val hasRichFrontFace =

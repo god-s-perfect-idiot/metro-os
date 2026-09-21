@@ -15,6 +15,8 @@ import com.metro.system.MetroTileUpdates
 import com.metro.widgets.R
 import com.metro.widgets.data.BatterySnapshot
 import com.metro.widgets.data.NotifierAccess
+import com.metro.widgets.data.NotifierPeekLines
+import com.metro.widgets.data.NotifierPeekOpen
 import com.metro.widgets.data.NotifierTraySnapshot
 import com.metro.widgets.data.NotifierTrayStore
 import com.metro.widgets.data.TimeFaceLogic
@@ -129,6 +131,10 @@ class WidgetsState(private val appContext: Context) {
 
     fun openNotifierAccessSettings() {
         NotifierAccess.openSettings(appContext)
+    }
+
+    fun openNotifierPeek(peek: NotifierPeekLines) {
+        NotifierPeekOpen.launch(appContext, peek.packageName)
     }
 
     /** Lock the device via Metro lockscreen a11y; opens Accessibility settings if unavailable. */

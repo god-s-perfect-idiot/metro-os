@@ -13,6 +13,8 @@ data class MetroTilePeek(
     val body: String? = null,
     /** Source app name (Start-style footer), not the host tile title. */
     val footer: String? = null,
+    /** Package of the notifying app — Start opens this on peek-cycle tap. */
+    val packageName: String? = null,
 ) {
     val hasContent: Boolean
         get() = !title.isNullOrBlank() || !subtitle.isNullOrBlank() || !body.isNullOrBlank()
@@ -30,6 +32,7 @@ internal object MetroTilePeekCodec {
                     peek.subtitle?.let { put("subtitle", it) }
                     peek.body?.let { put("body", it) }
                     peek.footer?.let { put("footer", it) }
+                    peek.packageName?.takeIf { it.isNotBlank() }?.let { put("package", it) }
                 },
             )
         }
@@ -48,6 +51,7 @@ internal object MetroTilePeekCodec {
                         subtitle = obj.optString("subtitle").takeIf { it.isNotBlank() },
                         body = obj.optString("body").takeIf { it.isNotBlank() },
                         footer = obj.optString("footer").takeIf { it.isNotBlank() },
+                        packageName = obj.optString("package").takeIf { it.isNotBlank() },
                     )
                     if (peek.hasContent) add(peek)
                 }

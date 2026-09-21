@@ -48,6 +48,7 @@ import com.metro.system.MetroStartBackground
 import com.metro.system.MetroThemeMode
 import com.metro.system.MetroTypeface
 import com.metro.system.MetroTileContract
+import com.metro.system.MetroTileWidgetFaceKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -364,11 +365,24 @@ class LauncherState(context: Context) {
         refreshTilesLiveAsync(pinnedEntries.filter { it.packageName == packageName })
     }
 
-    fun onTileClick(tile: DisplayTile) {
+    fun onTileClick(tile: DisplayTile, peekPackageName: String? = null) {
         // 1×1 music now-playing face is transport-only (play/pause), matching Xbox Music small tile.
         val music = tile.musicNowPlaying
         if (music != null && tile.entry.size == PinnedTileSize.OneByOne) {
             MusicNowPlayingStore.togglePlayPause(music.packageName)
+            return
+        }
+        // Notifier peek-cycle: open the app whose notification is currently on the face.
+        val peekPkg = peekPackageName?.takeIf { it.isNotBlank() }
+        if (
+            peekPkg != null &&
+            tile.widgetFace?.kind == MetroTileWidgetFaceKind.PEEK_CYCLE
+        ) {
+            beginAppOpen(
+                packageName = peekPkg,
+                deepLinkUri = null,
+                backgroundColor = tile.backgroundColor,
+            )
             return
         }
         // Custom Start widget faces: dispatch tapAction (or swallow for display-only clocks).

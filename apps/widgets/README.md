@@ -16,7 +16,7 @@ Catalog of custom homescreen widgets rendered as live tiles. Opens to a black St
 1. **Widget catalog** — `MetroAppTitle` `widgets` + packed tile grid  
    - Time (2×4 digital clock — AM/PM + square colon; no weather)  
    - Battery (1×1 vertical glyph + digits — charge level)  
-   - Notifier (2×2 Start-style flip through tray notifications)  
+   - Notifier (2×2 Start-style flip through tray notifications; tap opens the visible app)  
    - Analog clock (1×1 flat dial)
    - Torch (1×1 LED flashlight toggle)
    - Lock (1×1 padlock — tap locks device)
@@ -28,7 +28,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 - Theme via `MetroSystemTheme` / `MetroPreferences`
 - Battery: `ACTION_BATTERY_CHANGED`
 - Clock: `ACTION_TIME_TICK` / time / timezone changed
-- Notifier: `NotificationListenerService` → tray peek queue (Start flip timing)
+- Notifier: `NotificationListenerService` → tray peek queue (Start flip timing); tap opens the notifying app for the visible peek (access settings when denied)
 - Torch: `CameraManager.setTorchMode` (runtime `CAMERA`; optional flash feature)
 - Lock: `MetroLockscreen.requestLock` → lockscreen a11y `GLOBAL_ACTION_LOCK_SCREEN`
 - Pin: long-press → `MetroIntents.requestPinTile` (`com.metro.widgets` + widget id + catalog size)

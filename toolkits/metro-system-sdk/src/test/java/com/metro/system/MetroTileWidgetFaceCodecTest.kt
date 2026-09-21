@@ -51,8 +51,8 @@ class MetroTileWidgetFaceCodecTest {
     @Test
     fun peeks_roundTrip() {
         val peeks = listOf(
-            MetroTilePeek(title = "Hello", body = "World", footer = "Mail"),
-            MetroTilePeek(title = "Only title", footer = "Chat"),
+            MetroTilePeek(title = "Hello", body = "World", footer = "Mail", packageName = "com.example.mail"),
+            MetroTilePeek(title = "Only title", footer = "Chat", packageName = "com.example.chat"),
         )
         val encoded = MetroTilePeekCodec.encode(peeks)
         assertEquals(peeks, MetroTilePeekCodec.decode(encoded))
