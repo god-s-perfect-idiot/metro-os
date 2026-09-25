@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.metro.settings.R
+import com.metro.system.MetroIconPacks
 import com.metro.system.MetroStartBackground
 import com.metro.system.MetroTypeface
 import com.metro.ui.MetroBorderButton
@@ -150,6 +151,29 @@ fun StartThemeScreen(
             label = stringResource(R.string.settings_font_label),
             modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
         )
+
+        SettingsSpacer(height = 28)
+
+        val context = LocalContext.current
+        val noneLabel = stringResource(R.string.settings_icon_pack_none)
+        val iconPackLabel = remember(state.iconPackPackage, noneLabel) {
+            val pkg = state.iconPackPackage
+            if (pkg == null) {
+                noneLabel
+            } else {
+                MetroIconPacks.labelFor(context, pkg) ?: pkg
+            }
+        }
+        MetroListPicker(
+            selected = state.iconPackPackage,
+            options = emptyList<MetroListPickerOption<String?>>(),
+            onSelectedChange = {},
+            label = stringResource(R.string.settings_icon_pack_label),
+            placeholder = iconPackLabel,
+            onOpen = { state.open(SettingsRoute.IconPackPicker) },
+            modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+        )
+        SettingsHelpText(text = stringResource(R.string.settings_icon_pack_help))
 
         SettingsSpacer(height = 28)
 

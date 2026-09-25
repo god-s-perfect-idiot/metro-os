@@ -9,5 +9,18 @@
     <queries>
         <package android:name="com.metro.settings" />
         <package android:name="com.metro.lockscreen" />
+        <!-- Icon packs advertise via theme intents (Settings → start+theme). -->
+        <intent>
+            <action android:name="org.adw.launcher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.gau.go.launcherex.theme" />
+        </intent>
+        <intent>
+            <action android:name="com.novalauncher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="com.teslacoilsw.launcher.THEME" />
+        </intent>
     </queries>
 </manifest>

@@ -57,17 +57,23 @@ class TileNotificationMergeTest {
     }
 
     @Test
-    fun merge_prefersProviderBackFace() {
-        val merged = TileNotificationStore.mergeIntoDisplay(
-            packageName = "com.metro.calendar",
-            providerCounter = null,
-            providerBackFaceTitle = "10:00 — Standup",
-            hasRichFrontFace = false,
-            info = info("com.metro.calendar", 1, "Notif", "Body"),
+    fun merge_prefersProviderPeekQueue() {
+        val providerPeeks = listOf(
+            TilePeekLines(title = "Alice", subtitle = null, body = "hey", footer = "WhatsApp"),
+            TilePeekLines(title = "Bob", subtitle = null, body = "later", footer = "Telegram"),
         )
-        assertEquals("10:00 — Standup", merged.backFaceTitle)
-        assertNull(merged.backFaceBody)
-        assertTrue(merged.hasFlipFace)
+        val merged = TileNotificationStore.mergeIntoDisplay(
+            packageName = "com.metro.conversations",
+            providerCounter = 2,
+            providerBackFaceTitle = "ignored",
+            hasRichFrontFace = false,
+            info = info("com.metro.conversations", 9, "Notif", "Body"),
+            providerPeeks = providerPeeks,
+        )
+        assertEquals(2, merged.counter)
+        assertEquals(providerPeeks, merged.backFaces)
+        assertEquals("Alice", merged.backFaceTitle)
+        assertEquals("hey", merged.backFaceBody)
     }
 
     @Test

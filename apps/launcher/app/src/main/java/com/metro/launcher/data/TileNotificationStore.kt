@@ -56,6 +56,8 @@ object TileNotificationStore {
      * Merge provider tile fields with notification peek/badge/progress.
      * Rich faces (agenda / photo grid) keep the front face; notifications still supply the badge
      * when the provider has no counter, and supply a flip face when the provider has none.
+     * Provider [providerPeeks] (e.g. Conversations cycling active chats) win over a single
+     * [providerBackFaceTitle] and over shade peeks for that package.
      * Progress-bar notifications overlay a bar on the front face; the same notification still
      * supplies the flip/peek copy so tiles like Bolt.Earth keep turning.
      */
@@ -65,6 +67,7 @@ object TileNotificationStore {
         providerBackFaceTitle: String?,
         hasRichFrontFace: Boolean,
         info: TileNotificationInfo? = snapshot(packageName),
+        providerPeeks: List<TilePeekLines> = emptyList(),
     ): MergedNotificationFace {
         val progress = info?.progress
         val counter = when {
@@ -75,6 +78,7 @@ object TileNotificationStore {
             else -> null
         }
         val backFaces = when {
+            providerPeeks.isNotEmpty() -> providerPeeks
             !providerBackFaceTitle.isNullOrBlank() ->
                 listOf(TilePeekLines(providerBackFaceTitle, null, null))
             hasRichFrontFace -> emptyList()

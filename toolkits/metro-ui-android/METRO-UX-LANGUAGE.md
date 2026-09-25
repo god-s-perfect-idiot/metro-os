@@ -543,6 +543,41 @@ WP8.1 lock-screen settings — pick an app from a full-page list; empty quick-st
 
 ---
 
+### 6.21 Icon pack picker (`MetroIconPackPickerScreen`)
+
+Android launcher affordance (not WP8.1) — pick an installed icon pack from Settings → start+theme. Same page chrome as §6.20: secondary surface, small-caps header, **none** first, then pack labels. Collapsed entry point stays `MetroListPicker` with `onOpen` (drill-in).
+
+| Property | Spec |
+|----------|------|
+| Collapsed field | Identical to §6.19 ListPicker; does **not** expand inline |
+| Choose pack page | Delegates to `MetroAppPickerScreen` chrome via `MetroIconPackPickerScreen` |
+| Discovery | Theme intents (`org.adw.launcher.THEMES`, GO / Nova equivalents) via `MetroIconPacks` |
+| Persistence | `MetroPreferences.icon_pack_package` (null = system icons) |
+
+**Agent rule:** Do not invent a Material dialog or inline mega-list for icon packs.
+
+---
+
+### 6.22 Message bubble (`MetroMessageBubble`)
+
+WP8.1 Messaging conversation chrome — square body + right-triangle tail. Used by Messaging and Conversations.
+
+| Property | Spec |
+|----------|------|
+| Corner radius | **0dp** — sharp square body |
+| Max width | ~82% of row |
+| Incoming | Left-aligned; full system accent fill; tail on **top-left** pointing up/left |
+| Outgoing | Right-aligned; accent darkened ~30% (`metroOutgoingBubbleColor`); tail on **bottom-right** pointing down/right |
+| Composer | Outgoing shape; light gray fill (`MetroComposerBubbleColor`); dark hint/text |
+| Content | Body text + optional timestamp (subtitle, end-aligned, ~75% opacity on accent content color) |
+| Padding | 12dp horizontal, 10dp vertical inside the body |
+
+**Don't:** Rounded chat pills, Material elevation cards, circular avatars as bubble chrome, left/right “cloud” shapes.
+
+**Toolkit:** `MetroMessageBubble`, `MetroMessageBubbleKind`, `metroIncomingBubbleColor`, `metroOutgoingBubbleColor`, `MetroComposerBubbleColor`.
+
+---
+
 ## 7. System chrome (shell apps)
 
 ### 7.1 Status bar
@@ -602,7 +637,7 @@ All Metro apps use the same icon catalog from `metro-ui-android`. Do not ship du
 
 | Need | Use |
 |------|-----|
-| App bar / chrome action (add, search, phone, heart, save, attach, mic, …) | `MetroSystemIconType` via `MetroAppBarIcon` / `MetroSystemIcon` |
+| App bar / chrome action (add, search, phone, heart, heart-slash, save, attach, mic, …) | `MetroSystemIconType` via `MetroAppBarIcon` / `MetroSystemIcon` |
 | SIP / keyboard chrome (shift, backspace, enter, emoji) | `MetroSystemIconType.Shift` / `ShiftLocked` / `Backspace` / `Enter` / `Emoji` (`showCircle = false` on keys) |
 | Smartbar / extra actions (undo, redo, settings, clipboard, …) | `MetroSystemIconType.Undo` / `Redo` / `Settings` / `Clipboard` / `Copy` / `Cut` / `Paste` / `SelectAll` / `Language` / `KeyboardHide` / `Send` / `Autocorrect` / `Chevron*` (`showCircle = false`) |
 | Status tray Wi-Fi (hub + 3 quarter-arcs, outer clips box) | `MetroSystemIconType.Wifi` / `drawMetroWifiGlyph` (live bands via `filledBands`) |
@@ -689,6 +724,9 @@ Need a container shape?
 | §6.17 Page header | `MetroPageHeader` | Implemented |
 | §6.18 Jump list | `MetroJumpList`, `MetroLetterTile`, `MetroJumpListLogic`, `metroStickyLetterHeader` | Implemented |
 | §6.19 ListPicker | `MetroListPicker` | Implemented |
+| §6.20 App picker | `MetroAppPickerScreen`, `MetroAppSlotButton` | Implemented |
+| §6.21 Icon pack picker | `MetroIconPackPickerScreen` | Implemented |
+| §6.22 Message bubble | `MetroMessageBubble` | Implemented |
 | Theme / color | `MetroTheme`, `MetroColors` | Implemented |
 | Typography | `MetroText`, `MetroTextStyle` | Implemented |
 | Motion | `MetroTransitions` | Implemented |

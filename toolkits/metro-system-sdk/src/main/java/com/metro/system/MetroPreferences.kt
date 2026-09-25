@@ -164,6 +164,21 @@ class MetroPreferences(context: Context) {
             MetroConnectedApps.encode(value),
         )
 
+    /**
+     * Active Android icon-pack package for Start / app-list glyphs (Settings → start+theme).
+     * Null or blank → system icons. See [MetroIconPacks].
+     *
+     * Clearing writes an empty string (not a key remove) so other processes overwrite their
+     * local mirror instead of falling back to a stale pack when the provider key is absent.
+     */
+    var iconPackPackage: String?
+        get() = readStringNullable(MetroPreferenceKeys.ICON_PACK_PACKAGE)?.takeIf { it.isNotBlank() }
+        set(value) {
+            val normalized = value?.trim()?.takeIf { it.isNotEmpty() }
+            writeString(MetroPreferenceKeys.ICON_PACK_PACKAGE, normalized.orEmpty())
+            MetroIconPacks.clearCache()
+        }
+
     /** Writes theme/accent/font and broadcasts [MetroBroadcasts.ACTION_THEME_CHANGED]. */
     fun applyThemeChange(
         themeMode: MetroThemeMode? = null,

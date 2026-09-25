@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.launcher.R
 import com.metro.launcher.data.DisplayTile
+import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileBackgroundMode
 import com.metro.launcher.data.TileWidgetOption
@@ -44,6 +45,7 @@ import com.metro.system.MetroPreferences
 import com.metro.ui.MetroDimens
 import com.metro.ui.MetroListPicker
 import com.metro.ui.MetroListPickerOption
+import com.metro.ui.MetroSlider
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -57,6 +59,10 @@ import kotlinx.coroutines.withContext
 data class TileCustomizeDraft(
     val backgroundMode: TileBackgroundMode,
     val customBackgroundHex: String?,
+    val launchTargetPackage: String?,
+    val iconPackage: String?,
+    val iconScale: Float,
+    val hideTitle: Boolean,
     val useCustomWidget: Boolean,
     val widgetProvider: String?,
 )
@@ -67,6 +73,10 @@ fun TileCustomizeScreen(
     draft: TileCustomizeDraft,
     onDraftChange: (TileCustomizeDraft) -> Unit,
     onOpenColorPicker: () -> Unit,
+    onOpenLaunchTargetPicker: () -> Unit,
+    onOpenIconPicker: () -> Unit,
+    launchTargetLabel: String,
+    iconLabel: String,
     modifier: Modifier = Modifier,
 ) {
     val widgetController = LocalTileAppWidgetController.current
@@ -199,6 +209,72 @@ fun TileCustomizeScreen(
                     style = MetroTextStyle.Body,
                 )
             }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+        // Drill-in ListPicker — same pattern as Settings icon pack / lockscreen app slots.
+        MetroListPicker(
+            selected = draft.launchTargetPackage,
+            options = emptyList<MetroListPickerOption<String?>>(),
+            onSelectedChange = {},
+            label = stringResource(R.string.tile_customize_launch_target_label),
+            placeholder = launchTargetLabel,
+            onOpen = onOpenLaunchTargetPicker,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+        MetroListPicker(
+            selected = draft.iconPackage,
+            options = emptyList<MetroListPickerOption<String?>>(),
+            onSelectedChange = {},
+            label = stringResource(R.string.tile_customize_icon_label),
+            placeholder = iconLabel,
+            onOpen = onOpenIconPicker,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+        MetroText(
+            text = stringResource(R.string.tile_customize_icon_scale_label),
+            style = MetroTextStyle.ListItemSubtitle,
+            color = MetroTheme.colors.secondaryText,
+            modifier = Modifier.padding(
+                start = MetroDimens.ScreenHorizontalMargin,
+                end = MetroDimens.ScreenHorizontalMargin,
+                bottom = 4.dp,
+            ),
+        )
+        MetroSlider(
+            value = draft.iconScale,
+            onValueChange = { scale ->
+                onDraftChange(
+                    draft.copy(iconScale = PinnedTileEntry.clampIconScale(scale)),
+                )
+            },
+            valueRange = PinnedTileEntry.MIN_ICON_SCALE..PinnedTileEntry.MAX_ICON_SCALE,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+        )
+
+        // 1×1 faces never draw an app-name footer — only medium / wide.
+        if (tile.entry.size != PinnedTileSize.OneByOne) {
+            Spacer(modifier = Modifier.height(28.dp))
+            MetroToggleSwitch(
+                checked = draft.hideTitle,
+                onCheckedChange = { hide ->
+                    onDraftChange(draft.copy(hideTitle = hide))
+                },
+                label = stringResource(R.string.tile_customize_hide_title_label),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+            )
         }
 
         if (showWidgetSection) {

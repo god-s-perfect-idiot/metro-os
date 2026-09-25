@@ -26,7 +26,7 @@ done
 
 # Apps in tier order
 for app in launcher statusbar notifications navbar volume lockscreen browser notes music \
-           photos calendar mail messaging people dialer store settings calculator clock files hub widgets; do
+           photos calendar mail messaging people dialer store settings calculator clock files hub widgets conversations; do
   if [[ -d "$ROOT/apps/$app/app" ]]; then
     echo "--- app: $app"
     if "$ROOT/scripts/verify-app.sh" "$app"; then

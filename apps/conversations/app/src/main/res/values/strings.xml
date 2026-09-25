@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">conversations</string>
+    <string name="home_title">conversations</string>
+    <string name="setup_title">conversations</string>
+    <string name="all_chats">all chats</string>
+    <string name="favorites">favorites</string>
+    <string name="favorite">favorite</string>
+    <string name="unfavorite">unfavorite</string>
+    <string name="dismiss">dismiss</string>
+    <string name="clear">clear</string>
+    <string name="empty_favorites">no favorite chats right now</string>
+    <string name="permission_body">Conversations reads replyable chats from the notification shade (not SMS), including Gmail. Turn on notification access so it can list conversations by app and send replies.</string>
+    <string name="grant_access">turn on access</string>
+    <string name="empty_hub">no conversations waiting for a reply</string>
+    <string name="reply_hint">type a reply</string>
+    <string name="send">send</string>
+    <string name="open_app">open app</string>
+</resources>

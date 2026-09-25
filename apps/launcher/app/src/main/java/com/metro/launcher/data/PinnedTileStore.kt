@@ -41,6 +41,19 @@ class PinnedTileStore(context: Context) {
                         if (tile.appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                             put("appWidgetId", tile.appWidgetId)
                         }
+                        tile.launchTargetPackage?.takeIf { it.isNotBlank() }?.let {
+                            put("launchTarget", it)
+                        }
+                        tile.iconPackage?.takeIf { it.isNotBlank() }?.let {
+                            put("iconPackage", it)
+                        }
+                        if (tile.iconScale != PinnedTileEntry.DEFAULT_ICON_SCALE) {
+                            put(
+                                "iconScale",
+                                PinnedTileEntry.clampIconScale(tile.iconScale).toDouble(),
+                            )
+                        }
+                        if (tile.hideTitle) put("hideTitle", true)
                     },
             )
         }
@@ -84,6 +97,17 @@ class PinnedTileStore(context: Context) {
                                 "appWidgetId",
                                 AppWidgetManager.INVALID_APPWIDGET_ID,
                             ),
+                            launchTargetPackage = obj.optString("launchTarget", "")
+                                .takeIf { it.isNotBlank() },
+                            iconPackage = obj.optString("iconPackage", "")
+                                .takeIf { it.isNotBlank() },
+                            iconScale = PinnedTileEntry.clampIconScale(
+                                obj.optDouble(
+                                    "iconScale",
+                                    PinnedTileEntry.DEFAULT_ICON_SCALE.toDouble(),
+                                ).toFloat(),
+                            ),
+                            hideTitle = obj.optBoolean("hideTitle", false),
                         ),
                     )
                 }

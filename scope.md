@@ -60,6 +60,7 @@ These apps form the **Metro Shell** (launcher, status bar, notifications, naviga
 | **Files** | `com.metro.files` | File explorer with pivot filters |
 | **Hub** | `com.metro.hub` | About / suite catalog: panorama hub, GitHub latest-release APK download & install |
 | **Widgets** | `com.metro.widgets` | Homescreen widget catalog: Start-style 4-column grid of custom live tiles (Time, Battery, Notifier, Analog clock, Torch, Lock) |
+| **Conversations** | `com.metro.conversations` | Replyable third-party chats from the notification shade; panorama home with per-app tiles (excludes SMS) |
 
 New apps are added only after they have an entry in this table and a folder scaffold under `apps/`.
 

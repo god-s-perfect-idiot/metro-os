@@ -46,6 +46,7 @@ private fun SettingsSubpageContent(
         SettingsRoute.StartTheme -> StartThemeScreen(state = state, modifier = modifier)
         SettingsRoute.AccentPicker -> AccentPickerScreen(state = state, modifier = modifier)
         SettingsRoute.StartBackgroundCrop -> StartBackgroundCropScreen(state = state, modifier = modifier)
+        SettingsRoute.IconPackPicker -> IconPackPickerScreen(state = state, modifier = modifier)
         SettingsRoute.EaseOfAccess -> EaseOfAccessScreen(state = state, modifier = modifier)
         SettingsRoute.Brightness -> BrightnessScreen(state = state, modifier = modifier)
         SettingsRoute.StorageSense -> StorageSenseScreen(state = state, modifier = modifier)
@@ -79,6 +80,7 @@ private fun SettingsSubpageContent(
 private fun SettingsRoute.parentRoute(): SettingsRoute = when (this) {
     SettingsRoute.AccentPicker,
     SettingsRoute.StartBackgroundCrop,
+    SettingsRoute.IconPackPicker,
     -> SettingsRoute.StartTheme
     SettingsRoute.GalleryApps,
     SettingsRoute.MusicApps,

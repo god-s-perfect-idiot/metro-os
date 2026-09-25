@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Favorites tile glyph — heart (tint with tile content color). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M256,472L86,292C10,216 10,96 86,48c58,-36 134,-20 170,32c36,-52 112,-68 170,-32c76,48 76,168 0,244z" />
+</vector>

@@ -48,10 +48,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -83,6 +85,8 @@ import com.metro.launcher.data.placeTileAt
 import com.metro.launcher.data.rowCompactionMap
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.hasActiveCustomWidget
+import com.metro.launcher.data.resolvedIconPackage
+import com.metro.launcher.data.resolvedIconScale
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import kotlin.math.abs
@@ -123,6 +127,24 @@ private const val TILE_FLIP_STAGGER_MAX_MS = 4_000L
 private const val TILE_FLIP_HOLD_JITTER_MS = 1_200L
 /** Camera distance multiplier so rotationX reads as a 3D flip, not a squash. */
 private const val TILE_FLIP_CAMERA_DISTANCE = 16f
+/**
+ * Live-tile / press-tilt perspective may spill into the inter-tile gutter. Clip at the
+ * neighboring tile edge ([TILE_GRID_GAP] past each side) — not at the tile bounds, which
+ * reads as cutting the 3D protrusion mid-padding while a stationary neighbor sits next door.
+ */
+private fun Modifier.clipThroughTileGap(): Modifier = drawWithContent {
+    val gutter = TILE_GRID_GAP.toPx()
+    // clipRect's block is DrawScope — keep ContentDrawScope for drawContent().
+    val contentScope = this
+    clipRect(
+        left = -gutter,
+        top = -gutter,
+        right = size.width + gutter,
+        bottom = size.height + gutter,
+    ) {
+        contentScope.drawContent()
+    }
+}
 /** → affordance on Start; keep in sync with [StartScreen] arrow row. */
 internal val START_ARROW_ROW_HEIGHT = 64.dp
 internal val START_BOTTOM_SCROLL_PADDING = 48.dp
@@ -1245,7 +1267,11 @@ private fun LauncherTileCell(
         }
     }
     val chrome = LocalTileChrome.current
-    val iconSize = chrome.iconSize(width, height, tile.entry.size)
+    val iconPackage = tile.entry.resolvedIconPackage()
+    val hasIconOverride = !tile.entry.iconPackage.isNullOrBlank()
+    val iconSize = chrome.iconSize(width, height, tile.entry.size) *
+        tile.entry.resolvedIconScale()
+    val faceTitle = tile.title.takeUnless { tile.entry.hideTitle }
     val photoGrid = tile.photoGrid
     val gridDimensions = MetroTileContract.photoGridDimensions(
         tile.entry.size.colSpan,
@@ -1273,16 +1299,13 @@ private fun LauncherTileCell(
         !showMusicNowPlaying && !showCustomWidget && !showWidgetFace &&
         tile.entry.size != PinnedTileSize.OneByOne
     val isSmall = tile.entry.size == PinnedTileSize.OneByOne
-    val isMessaging = tile.entry.packageName == MESSAGING_PACKAGE
+    // Custom icon override replaces suite Messaging composed faces.
+    val isMessaging = !hasIconOverride && tile.entry.packageName == MESSAGING_PACKAGE
     val messagingUnread = tile.counter?.takeIf { it > 0 && isMessaging }
-    // Medium/wide Messaging unread: wink glyph + large count (tile_yellow.jpg), not a corner badge.
+    // Medium/wide Messaging unread: bubble glyph + large count, not a corner badge.
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMusicNowPlaying &&
         !showCustomWidget && !showWidgetFace
-    // Custom Chrome face: three brand wedges + blue center (full-bleed, no stock icon).
-    val showChromeFace = isChromeTilePackage(tile.entry.packageName) &&
-        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
-        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
     val startBackground = LocalStartBackgroundViewport.current
     // Custom App Widgets and Metro widget faces keep the same transparent-window fill as
     // accent tiles so they read as Metro tiles (wallpaper windows when Start bg is set).
@@ -1290,7 +1313,6 @@ private fun LauncherTileCell(
         startBackground != null &&
         !showPhotoContent &&
         !showStaticPhoto &&
-        !showChromeFace &&
         !showMusicNowPlaying
     val contentColor = if (useWindowFill) {
         Color.White
@@ -1304,7 +1326,6 @@ private fun LauncherTileCell(
         !showPhotoGrid &&
         !showAgenda &&
         !showMessagingUnreadFace &&
-        !showChromeFace &&
         !showMusicNowPlaying &&
         !showCustomWidget &&
         !showWidgetFace &&
@@ -1322,7 +1343,7 @@ private fun LauncherTileCell(
     // and nudges the icon left so the numeral does not sit on top of it.
     val tileMinEdge = min(width.value, height.value).dp
     val showSmallIconBadge = isSmall && badgeCount != null &&
-        !showPhotoContent && !showStaticPhoto && !showChromeFace && !showMusicNowPlaying &&
+        !showPhotoContent && !showStaticPhoto && !showMusicNowPlaying &&
         !showCustomWidget && !showWidgetFace
     val iconBadgeShift = when {
         badgeCount == null -> 0.dp
@@ -1379,10 +1400,12 @@ private fun LauncherTileCell(
         ) {
             // Flip tiles keep a black void in the slot (even transparent window tiles); the
             // fill rides on the rotating face so black shows through mid-flip like WP8.1.
+            // Clip through the gutter so rotationX protrusions fill the gap and stop at
+            // neighboring tiles (clipToBounds would cut them mid-padding).
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clipToBounds()
+                    .clipThroughTileGap()
                     .then(
                         when {
                             showCustomWidget && useWindowFill ->
@@ -1393,8 +1416,7 @@ private fun LauncherTileCell(
                             showWidgetFace && useWindowFill ->
                                 Modifier.drawStartBackgroundWindow(startBackground)
                             showWidgetFace -> Modifier.background(tile.backgroundColor)
-                            showPhotoContent || showStaticPhoto || showChromeFace ||
-                                showMusicNowPlaying -> Modifier
+                            showPhotoContent || showStaticPhoto || showMusicNowPlaying -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
                             showProgressOverlay -> if (useWindowFill) {
                                 Modifier.drawStartBackgroundWindow(startBackground)
@@ -1452,8 +1474,8 @@ private fun LauncherTileCell(
                         }
                         forceStaticEditFace && !isSmall -> {
                             StaticIconTileContent(
-                                packageName = tile.entry.packageName,
-                                title = tile.title,
+                                packageName = iconPackage,
+                                title = faceTitle,
                                 iconSize = iconSize,
                                 contentColor = contentColor,
                                 iconOffsetX = -iconBadgeShift,
@@ -1462,7 +1484,7 @@ private fun LauncherTileCell(
                         }
                         forceStaticEditFace && isSmall -> {
                             MetroAppIcon(
-                                packageName = tile.entry.packageName,
+                                packageName = iconPackage,
                                 size = iconSize,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -1483,7 +1505,7 @@ private fun LauncherTileCell(
                         showCyclePhoto -> {
                             CyclingPhotoTileContent(
                                 cells = photoGrid!!.cells,
-                                title = tile.title,
+                                title = faceTitle.orEmpty(),
                                 animate = liveMotionEnabled && !editMode,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -1494,7 +1516,7 @@ private fun LauncherTileCell(
                                 cells = photoGrid!!.cells,
                                 columns = columns,
                                 rows = rows,
-                                title = tile.title,
+                                title = faceTitle.orEmpty(),
                                 animate = liveMotionEnabled && !editMode,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -1503,7 +1525,7 @@ private fun LauncherTileCell(
                             StaticPhotoTileContent(
                                 imageUri = tile.imageUri!!,
                                 fallbackColor = tile.backgroundColor,
-                                title = if (isSmall) null else tile.title,
+                                title = if (isSmall) null else faceTitle,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -1523,12 +1545,6 @@ private fun LauncherTileCell(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
-                        showChromeFace -> {
-                            ChromeTileContent(
-                                title = if (isSmall) null else tile.title,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
                         isMessaging && isSmall && showSmallIconBadge -> {
                             SmallTileIconBadgeContent(
                                 count = badgeCount!!,
@@ -1536,7 +1552,6 @@ private fun LauncherTileCell(
                                 modifier = Modifier.fillMaxSize(),
                             ) { glyphSize ->
                                 MessagingGlyph(
-                                    unread = true,
                                     contentColor = contentColor,
                                     contentDescription = tile.title,
                                     modifier = Modifier.size(glyphSize),
@@ -1545,7 +1560,6 @@ private fun LauncherTileCell(
                         }
                         isMessaging && isSmall -> {
                             MessagingGlyph(
-                                unread = messagingUnread != null,
                                 contentColor = contentColor,
                                 contentDescription = tile.title,
                                 modifier = Modifier
@@ -1555,7 +1569,7 @@ private fun LauncherTileCell(
                         }
                         isMessaging -> {
                             MessagingIdleTileContent(
-                                title = tile.title,
+                                title = faceTitle,
                                 iconSize = iconSize,
                                 contentColor = contentColor,
                                 iconOffsetX = -iconBadgeShift,
@@ -1569,7 +1583,7 @@ private fun LauncherTileCell(
                                 modifier = Modifier.fillMaxSize(),
                             ) { glyphSize ->
                                 MetroAppIcon(
-                                    packageName = tile.entry.packageName,
+                                    packageName = iconPackage,
                                     size = glyphSize,
                                     modifier = Modifier.size(glyphSize),
                                     contentDescription = tile.title,
@@ -1580,7 +1594,7 @@ private fun LauncherTileCell(
                         }
                         isSmall -> {
                             MetroAppIcon(
-                                packageName = tile.entry.packageName,
+                                packageName = iconPackage,
                                 size = iconSize,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -1592,8 +1606,8 @@ private fun LauncherTileCell(
                         }
                         else -> {
                             StaticIconTileContent(
-                                packageName = tile.entry.packageName,
-                                title = tile.title,
+                                packageName = iconPackage,
+                                title = faceTitle,
                                 iconSize = iconSize,
                                 contentColor = contentColor,
                                 iconOffsetX = -iconBadgeShift,
@@ -1604,11 +1618,11 @@ private fun LauncherTileCell(
                 }
                 // Edge-to-edge faces skip chrome content inset on the container; pad the badge
                 // itself so the numeral keeps the same margin as inset tiles.
-                val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto || showChromeFace ||
+                val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto ||
                     showMusicNowPlaying || showProgressOverlay || showWidgetFace ||
                     (canFlip && tile.flipToIcon)
                 val insetFront = showProgressOverlay &&
-                    !showPhotoContent && !showStaticPhoto && !showChromeFace &&
+                    !showPhotoContent && !showStaticPhoto &&
                     !showMusicNowPlaying && !showWidgetFace && !canFlip
                 val wrappedFront: @Composable () -> Unit = {
                     if (insetFront) {
@@ -1656,8 +1670,8 @@ private fun LauncherTileCell(
                         back = {
                             if (tile.flipToIcon) {
                                 StaticIconTileContent(
-                                    packageName = tile.entry.packageName,
-                                    title = tile.title,
+                                    packageName = iconPackage,
+                                    title = faceTitle,
                                     iconSize = iconSize,
                                     contentColor = contentColor,
                                     iconOffsetX = -iconBadgeShift,
@@ -1671,7 +1685,7 @@ private fun LauncherTileCell(
                                     title = peek?.title ?: tile.backFaceTitle,
                                     subtitle = peek?.subtitle ?: tile.backFaceSubtitle,
                                     body = peek?.body ?: tile.backFaceBody,
-                                    footer = tile.title,
+                                    footer = faceTitle,
                                     wide = isWide,
                                     contentColor = contentColor,
                                     // Keep app-name footer clear of the bottom-right badge.
@@ -1690,7 +1704,7 @@ private fun LauncherTileCell(
                                 val peekFace = showingBack && !tile.flipToIcon
                                 // Wide peek face: app icon sits left of the count (identity + badge).
                                 val peekIconPackage = when {
-                                    peekFace && isWide -> tile.entry.packageName
+                                    peekFace && isWide -> iconPackage
                                     else -> null
                                 }
                                 TileNotificationBadge(
@@ -2094,13 +2108,14 @@ private fun AgendaTileContent(
 @Composable
 private fun StaticIconTileContent(
     packageName: String,
-    title: String,
+    title: String?,
     iconSize: Dp,
     contentColor: Color,
     modifier: Modifier = Modifier,
     iconOffsetX: Dp = 0.dp,
 ) {
     val chrome = LocalTileChrome.current
+    val showTitle = !title.isNullOrBlank()
     Column(modifier = modifier) {
         Box(
             modifier = Modifier
@@ -2119,27 +2134,30 @@ private fun StaticIconTileContent(
                 fallbackColor = contentColor,
             )
         }
-        TileText(
-            text = title,
-            style = chrome.titleStyle,
-            color = contentColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (showTitle) {
+            TileText(
+                text = title!!,
+                style = chrome.titleStyle,
+                color = contentColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
-/** Idle Messaging Start face: :-) bubble + app title. */
+/** Idle Messaging Start face: chat bubble + app title. */
 @Composable
 private fun MessagingIdleTileContent(
-    title: String,
+    title: String?,
     iconSize: Dp,
     contentColor: Color,
     modifier: Modifier = Modifier,
     iconOffsetX: Dp = 0.dp,
 ) {
     val chrome = LocalTileChrome.current
+    val showTitle = !title.isNullOrBlank()
     Column(modifier = modifier) {
         Box(
             modifier = Modifier
@@ -2148,7 +2166,6 @@ private fun MessagingIdleTileContent(
             contentAlignment = Alignment.Center,
         ) {
             MessagingGlyph(
-                unread = false,
                 contentColor = contentColor,
                 contentDescription = title,
                 modifier = Modifier
@@ -2156,19 +2173,21 @@ private fun MessagingIdleTileContent(
                     .offset(x = iconOffsetX),
             )
         }
-        TileText(
-            text = title,
-            style = chrome.titleStyle,
-            color = contentColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (showTitle) {
+            TileText(
+                text = title!!,
+                style = chrome.titleStyle,
+                color = contentColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
 /**
- * Unread Messaging live-tile face: ;-) bubble + large count (`tile_yellow.jpg`).
+ * Unread Messaging live-tile face: chat bubble + large count.
  * No corner badge and no app-title footer — the count sits beside the glyph.
  */
 @Composable
@@ -2191,7 +2210,6 @@ private fun MessagingUnreadTileContent(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             MessagingGlyph(
-                unread = true,
                 contentColor = contentColor,
                 contentDescription = null,
                 modifier = Modifier.size(iconSize),
@@ -2212,15 +2230,12 @@ private fun MessagingUnreadTileContent(
 
 @Composable
 private fun MessagingGlyph(
-    unread: Boolean,
     contentColor: Color,
     contentDescription: String?,
     modifier: Modifier = Modifier,
 ) {
     Image(
-        painter = painterResource(
-            if (unread) MetroAppGlyphs.MessagingUnread else MetroAppGlyphs.Messaging,
-        ),
+        painter = painterResource(MetroAppGlyphs.Messaging),
         contentDescription = contentDescription,
         contentScale = ContentScale.Fit,
         colorFilter = ColorFilter.tint(contentColor),
@@ -2288,6 +2303,7 @@ private fun PeekCycleWidgetFace(
                 rotationX = rotation.value
                 transformOrigin = TransformOrigin(0.5f, 0.5f)
                 cameraDistance = TILE_FLIP_CAMERA_DISTANCE * density
+                clip = false
             }
             .then(
                 if (startBackground != null) {
@@ -2339,7 +2355,7 @@ private fun PeekCycleWidgetFace(
 private fun NotificationPeekTileContent(
     title: String?,
     body: String?,
-    footer: String,
+    footer: String?,
     wide: Boolean,
     contentColor: Color,
     modifier: Modifier = Modifier,
@@ -2358,6 +2374,7 @@ private fun NotificationPeekTileContent(
             else -> listOf(all.first(), all.last())
         }
     }
+    val showFooter = !footer.isNullOrBlank()
 
     Column(modifier = modifier) {
         // Weight-bound content band: wrapped peek lines clip here instead of covering the footer.
@@ -2399,20 +2416,21 @@ private fun NotificationPeekTileContent(
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            TileText(
-                text = footer,
-                style = chrome.titleStyle,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            if (footerEndReserve > 0.dp) {
-                Spacer(modifier = Modifier.width(footerEndReserve))
+        if (showFooter) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                TileText(
+                    text = footer!!,
+                    style = chrome.titleStyle,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = footerEndReserve),
+                )
             }
         }
     }
@@ -2506,6 +2524,8 @@ private fun LiveTileFlipFace(
                 rotationX = rotation.value
                 transformOrigin = TransformOrigin(0.5f, 0.5f)
                 cameraDistance = TILE_FLIP_CAMERA_DISTANCE * density
+                // Parent [clipThroughTileGap] owns the silhouette; do not self-clip mid-flip.
+                clip = false
             }
             .then(
                 if (startBackground != null) {

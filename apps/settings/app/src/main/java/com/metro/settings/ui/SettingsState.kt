@@ -24,6 +24,7 @@ enum class SettingsRoute {
     StartTheme,
     AccentPicker,
     StartBackgroundCrop,
+    IconPackPicker,
     EaseOfAccess,
     Brightness,
     StorageSense,
@@ -96,6 +97,10 @@ class SettingsState(
     var startBackgroundEpoch by mutableIntStateOf(0)
         private set
 
+    /** Active Android icon-pack package; null = system icons. */
+    var iconPackPackage by mutableStateOf(prefs.iconPackPackage)
+        private set
+
     /** Source photo for the Start background crop page (cleared on cancel / save). */
     var cropSourceUri by mutableStateOf<Uri?>(null)
         private set
@@ -147,6 +152,7 @@ class SettingsState(
             SettingsRoute.Root -> Unit
             SettingsRoute.StartTheme -> route = SettingsRoute.Root
             SettingsRoute.AccentPicker -> route = SettingsRoute.StartTheme
+            SettingsRoute.IconPackPicker -> route = SettingsRoute.StartTheme
             SettingsRoute.StartBackgroundCrop -> {
                 cropSourceUri = null
                 route = SettingsRoute.StartTheme
@@ -190,6 +196,11 @@ class SettingsState(
     fun applyShowMoreColumns(enabled: Boolean) {
         showMoreColumns = enabled
         prefs.showMoreColumns = enabled
+    }
+
+    fun applyIconPackPackage(packageName: String?) {
+        iconPackPackage = packageName?.trim()?.takeIf { it.isNotEmpty() }
+        prefs.iconPackPackage = iconPackPackage
     }
 
     /** Opens the crop page for a photo picked from the system picker. */
@@ -315,6 +326,7 @@ class SettingsState(
         typeface = prefs.typeface
         showMoreColumns = prefs.showMoreColumns
         startBackgroundEnabled = prefs.startBackgroundEnabled
+        iconPackPackage = prefs.iconPackPackage
         galleryAppPackages = prefs.galleryAppPackages
         musicAppPackages = prefs.musicAppPackages
         applicationEntries = applications.listInstalledApps()

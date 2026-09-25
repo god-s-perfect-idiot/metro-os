@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Conversations app glyph — dual chat bubbles (adaptive foreground, 72dp safe zone). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="2048"
+    android:viewportHeight="2048">
+    <group
+        android:pivotX="1024"
+        android:pivotY="1024"
+        android:scaleX="0.62"
+        android:scaleY="0.62">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M1792,128v512H640v859l-384,384v-475H0V128zM768,768h1280v896h-256v347l-347,-347H768z" />
+    </group>
+</vector>

@@ -72,6 +72,8 @@ enum class MetroSystemIconType {
     Phone,
     Message,
     Heart,
+    /** Heart with diagonal slash — unfavorite / unlike. */
+    HeartSlash,
     DialPad,
     People,
     Delete,
@@ -203,6 +205,7 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.Phone -> drawViewportPath(phoneHandsetPath, color, 0.72f)
         MetroSystemIconType.Message -> drawViewportPath(messagingBubblePath, color, 0.66f)
         MetroSystemIconType.Heart -> drawHeartGlyph(color)
+        MetroSystemIconType.HeartSlash -> drawHeartSlashGlyph(color)
         MetroSystemIconType.DialPad -> drawDialPadGlyph(color, glyphStroke)
         MetroSystemIconType.People -> drawPeopleGlyph(color, glyphStroke)
         MetroSystemIconType.Delete -> drawDeleteGlyph(color, glyphStroke)
@@ -633,6 +636,25 @@ internal fun DrawScope.drawHeartGlyph(color: Color) {
     }) {
         drawPath(heartGlyphPath, color)
     }
+}
+
+/** Filled heart with a diagonal slash — unfavorite / unlike. */
+internal fun DrawScope.drawHeartSlashGlyph(color: Color) {
+    drawHeartGlyph(color)
+    val s = size.minDimension
+    val stroke = Stroke(
+        width = s * MetroSystemIconStrokeFraction * 1.35f,
+        cap = StrokeCap.Butt,
+    )
+    // Bottom-left → top-right, matching WP “cancel / remove” slash direction.
+    // Kept short so tips only barely clear the heart silhouette.
+    drawLine(
+        color = color,
+        start = Offset(size.width * 0.32f, size.height * 0.68f),
+        end = Offset(size.width * 0.68f, size.height * 0.32f),
+        strokeWidth = stroke.width,
+        cap = stroke.cap,
+    )
 }
 
 /** Filled download / save — 512 viewBox path (arrow into tray). */

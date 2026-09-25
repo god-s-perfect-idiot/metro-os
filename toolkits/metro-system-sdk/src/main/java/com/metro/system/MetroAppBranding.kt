@@ -44,6 +44,11 @@ object MetroAppBranding {
         loadAppIconAsset(context, packageName).drawable
 
     fun loadAppIconAsset(context: Context, packageName: String): AppIconAsset {
+        val packIcon = MetroIconPacks.loadIconForPackage(context, packageName)
+        if (packIcon != null) {
+            val backgroundColor = resolveTileBackgroundColor(context, packageName, drawable = packIcon)
+            return AppIconAsset(drawable = metroGlyphDrawable(packIcon), backgroundColor = backgroundColor)
+        }
         val raw = try {
             val packageManager = context.packageManager
             val appInfo = packageManager.getApplicationInfo(packageName, 0)

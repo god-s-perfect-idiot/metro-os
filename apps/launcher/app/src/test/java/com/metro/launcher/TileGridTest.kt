@@ -12,6 +12,10 @@ import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.hasActiveCustomWidget
 import com.metro.launcher.data.mergePinnedDisplayTiles
+import com.metro.launcher.data.normalizeLaunchTargetPackage
+import com.metro.launcher.data.resolvedIconPackage
+import com.metro.launcher.data.resolvedIconScale
+import com.metro.launcher.data.resolvedLaunchTargetForPicker
 import com.metro.launcher.data.supportsCustomWidget
 import com.metro.launcher.data.tileGridColumnCount
 import com.metro.launcher.data.tileOverlapsRegion
@@ -23,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -185,13 +190,64 @@ class TileGridTest {
             useCustomWidget = true,
             widgetProvider = "com.example.app/.MyWidget",
             appWidgetId = 42,
+            launchTargetPackage = "com.example.other",
         )
         assertTrue(medium.supportsCustomWidget())
         assertTrue(medium.hasActiveCustomWidget())
+        assertEquals("com.example.other", medium.launchTargetPackage)
 
         val small = medium.copy(size = PinnedTileSize.OneByOne)
         assertFalse(small.supportsCustomWidget())
         assertFalse(small.hasActiveCustomWidget())
+    }
+
+    @Test
+    fun pinnedTileEntry_preservesLaunchTargetAndIconFields() {
+        val entry = PinnedTileEntry(
+            packageName = "com.example.app",
+            tileId = "primary",
+            size = PinnedTileSize.TwoByTwo,
+            launchTargetPackage = "com.metro.dialer",
+            iconPackage = "com.metro.messaging",
+            iconScale = 1.25f,
+            hideTitle = true,
+        )
+        assertEquals("com.metro.dialer", entry.launchTargetPackage)
+        assertEquals("com.metro.messaging", entry.iconPackage)
+        assertEquals(1.25f, entry.iconScale, 0.001f)
+        assertTrue(entry.hideTitle)
+        assertEquals("com.metro.messaging", entry.resolvedIconPackage())
+        assertEquals(1.25f, entry.resolvedIconScale(), 0.001f)
+        assertEquals(0.5f, PinnedTileEntry.clampIconScale(0.1f), 0.001f)
+        assertEquals(1.5f, PinnedTileEntry.clampIconScale(9f), 0.001f)
+        assertEquals(
+            "com.example.app",
+            entry.copy(iconPackage = null).resolvedIconPackage(),
+        )
+    }
+
+    @Test
+    fun launchTarget_defaultsToAppExceptWidgetFaces() {
+        val photos = displayTile("com.metro.photos", PinnedTileSize.TwoByTwo)
+        assertEquals("com.metro.photos", photos.resolvedLaunchTargetForPicker())
+        assertNull(normalizeLaunchTargetPackage("com.metro.photos", "com.metro.photos"))
+        assertEquals(
+            "com.metro.dialer",
+            normalizeLaunchTargetPackage("com.metro.photos", "com.metro.dialer"),
+        )
+
+        val clock = displayTile("com.metro.widgets", PinnedTileSize.OneByOne).copy(
+            widgetFace = com.metro.system.MetroTileWidgetFace(
+                kind = com.metro.system.MetroTileWidgetFaceKind.DIGITAL_CLOCK,
+            ),
+        )
+        assertTrue(clock.handlesStartTap)
+        assertNull(clock.resolvedLaunchTargetForPicker())
+
+        val overridden = clock.copy(
+            entry = clock.entry.copy(launchTargetPackage = "com.metro.dialer"),
+        )
+        assertEquals("com.metro.dialer", overridden.resolvedLaunchTargetForPicker())
     }
 
     @Test

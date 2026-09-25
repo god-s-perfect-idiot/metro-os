@@ -31,11 +31,12 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Live tile payloads read via `MetroTileContract`; static fallback when no provider registered
 - Cold start shows `MetroSplashLoadingScreen` (accent splash + Start glyph + dancing dots): system splash stays until the View-backed dots start, then Compose holds until Start paints and dots have had a visible beat (~700ms). Live tile providers fill in afterward without re-covering Start; resume refreshes also update in place — no splash. Unlock onto an already-painted Start skips the enter wave (snaps any leftover launch-exit pose to rest). Returning Home after opening an app still plays the enter wave, even if the screen was locked while that app was in front. Settings / theme observers never resolve live tile ContentProviders on the main thread (was ANR on unlock).
 - System notifications (via `NotificationListenerService`) drive tile badges, WP8.1 flip/peek faces, and progress overlays (charging / downloads) for pinned apps
-- Custom Start faces for select third-party apps (Chrome: three brand wedges + blue center disc)
 - Music apps (Settings → connected apps → Music apps; defaults include `com.metro.music`, YouTube Music, Spotify, …): when a media session is active, the pinned tile shows an Xbox Music–style now-playing face (album art; 1×1 play/pause; 2×2 / 4×2 song+artist+transport)
 - Gallery apps (Settings → connected apps → Gallery apps): medium/wide pinned tiles use a Photos-style cycling live face fed from MediaStore (launcher requests photo permission when needed). People mosaics stay provider-driven.
 - Progress-bar notifications (charging remaining, downloads) overlay a WP8.1 rectangular bar on the pinned tile; remaining time still peeks on the flip face
 - Wallpaper/parallax: Settings → start+theme → choose photo; accent tiles reveal a fixed Start background
+- Icon pack: Settings → start+theme → Icon pack; active pack remaps Start / app-list glyphs via `MetroIconPacks`
+- Icon pack: Settings → start+theme → Icon pack; active pack remaps Start / app-list glyphs via `MetroIconPacks`
 
 ## Screen inventory
 
@@ -93,7 +94,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Re-render within one frame after preference changes
 - Never hardcode tile accent variants outside the official palette
 - Metro suite and Android system apps use the system accent for Start/app-list tile fills unless `MetroAppRegistry.strongBrandHex` is set; third-party apps keep icon-derived brands
-- Selected third-party packages use `CustomTileBranding` (white Metro glyph + accent or brand fill) or composed faces in `CustomTileFaces` (e.g. Chrome). Includes Google Search (accent), Gmail (accent M monogram), YouTube Music (red), WhatsApp (green), and Camera (accent).
+- Selected third-party packages use `CustomTileBranding` (white Metro glyph + accent or brand fill). Includes Google Search (accent), Gmail (accent M monogram), YouTube Music (red), WhatsApp (green), and Camera (accent). Chrome and other browsers use a regular package icon tile.
 
 ### Navigation contracts
 
@@ -181,6 +182,8 @@ cd apps/launcher
 |----------------|-------------------|------------|
 | Wide tiles were limited in WP8.1 device/OEM contexts | Device support varies and may not be worth shipping in v1 | Keep wide tiles behind `BuildConfig.WIDE_TILES`, default off |
 | Xbox Music live tile was display-only (art / visualization) | Android Start needs MediaSession transport for play/pause on-tile | Album art + metadata match Xbox Music; 1×1 / medium / wide expose Metro transport controls via the active session |
+| No third-party icon packs | Android themes advertise ADW/GO/Nova intents | Settings → start+theme Icon pack; launcher reads `appfilter.xml` via `MetroIconPacks` |
+| No third-party icon packs | Android themes advertise ADW/GO/Nova intents | Settings → start+theme Icon pack; launcher reads `appfilter.xml` via `MetroIconPacks` |
 
 ## Agent postmortem
 

@@ -46,3 +46,5 @@ Supplementary: [`references/guides/startmenu.md`](references/guides/startmenu.md
 | scope.md | Blueprint | Compromise |
 |----------|-----------|------------|
 | 6-column grid, 99/198dp sizes | 4-column default; optional 6-column via Settings `show_more_columns` | Toggle matches WP8.1 “show more tiles” density (3 medium across) |
+| No icon packs | Android icon packs via theme intents | Settings → start+theme; `MetroIconPacks` remaps glyphs when a pack is active |
+| No icon packs | Android icon packs via theme intents | Settings → start+theme; `MetroIconPacks` remaps glyphs when a pack is active |

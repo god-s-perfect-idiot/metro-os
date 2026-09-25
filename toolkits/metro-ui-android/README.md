@@ -25,6 +25,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroToggleSwitch` | WP8.1 rectangular toggle (accent fill when on) |
 | `MetroListPicker` | WP8.1 ListPicker — bordered field, inline inverted options panel |
 | `MetroAppPickerScreen` | Full-page **choose an app** list (`none` + launchable apps) |
+| `MetroIconPackPickerScreen` | Full-page **choose an icon pack** list (same chrome as app picker) |
+| `MetroMessageBubble` | WP8.1 Messaging bubble — square body + triangle tail (incoming / outgoing) |
 | `MetroAppSlotButton` | Bordered square quick-status slot (glyph or plus) |
 | `MetroTextBox` | WP8.1 TextBox — light fill, black text, 3dp accent border when focused |
 | `MetroPageHeader` | Large page title |

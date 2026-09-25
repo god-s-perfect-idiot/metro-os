@@ -61,6 +61,7 @@ import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroAppOpenSplash
+import com.metro.ui.MetroAppPickerScreen
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroPagePivotLoad
 import com.metro.ui.MetroSplashLoadingScreen
@@ -118,10 +119,18 @@ fun LauncherShell(
     // tiles (enter wave) even if the screen was locked while that app was in front —
     // otherwise exit-pose tiles stay at alpha 0 until a later Home bumps the wave.
     var pausedAfterAppLaunch by remember { mutableStateOf(false) }
+    // True while the app-list peel has run and rows may still be at alpha 0.
+    // Cleared by snap — app list is static on enter (no reverse wave).
+    var appListPeeled by remember { mutableStateOf(false) }
     // Bump to clear tile exit pose and snap pivot layers to rest without a new enter wave.
     var restPoseRequestId by remember { mutableIntStateOf(0) }
+    var appListRestPoseRequestId by remember { mutableIntStateOf(0) }
     fun snapTilesToRest() {
         restPoseRequestId++
+    }
+    fun snapAppListToRest() {
+        appListPeeled = false
+        appListRestPoseRequestId++
     }
     fun bumpEnterWave() {
         if (stoppedBehindLock) return
@@ -251,6 +260,16 @@ fun LauncherShell(
         }
         if (state.currentPage != 1) {
             state.dismissSearch()
+        } else if (appListPeeled) {
+            // Opened app list while still peeled — snap static (no enter wave).
+            snapAppListToRest()
+        }
+    }
+
+    // Mark peel as soon as an open splash is armed while page 1 is showing.
+    LaunchedEffect(state.appOpenSplash?.packageName, state.currentPage) {
+        if (state.appOpenSplash != null && state.currentPage == 1) {
+            appListPeeled = true
         }
     }
 
@@ -277,9 +296,17 @@ fun LauncherShell(
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> {
                     // Target is in front — drop the open splash so it is not stuck on return.
-                    if (state.appOpenSplash?.launched == true) {
-                        state.clearAppOpenSplash()
-                        pausedAfterAppLaunch = true
+                    if (state.appOpenSplash != null) {
+                        if (state.currentPage == 1) {
+                            appListPeeled = true
+                        }
+                        if (state.appOpenSplash?.launched == true) {
+                            state.clearAppOpenSplash()
+                            pausedAfterAppLaunch = true
+                        } else if (state.currentPage == 1) {
+                            pausedAfterAppLaunch = true
+                            state.clearAppOpenSplash()
+                        }
                     }
                 }
                 Lifecycle.Event.ON_RESUME -> {
@@ -307,6 +334,11 @@ fun LauncherShell(
                     }
                     if (state.currentPage != 0) {
                         if (fromLock && !stillLocked) stoppedBehindLock = false
+                        if (state.currentPage == 1 && (appListPeeled || fromAppLaunch || fromLock)) {
+                            // App list is static — snap out of peel; never replay an enter wave.
+                            stoppedBehindLock = false
+                            snapAppListToRest()
+                        }
                         return@LifecycleEventObserver
                     }
                     // Unlock onto Start that was already showing: keep painted tiles, but snap
@@ -346,6 +378,14 @@ fun LauncherShell(
         bumpEnterWave()
     }
 
+    // Start/Home MAIN while not in edit — snap app list out of peel if needed.
+    LaunchedEffect(state.startKeyRequestId) {
+        if (state.startKeyRequestId == 0) return@LaunchedEffect
+        if (state.currentPage == 1 && appListPeeled) {
+            snapAppListToRest()
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -360,6 +400,7 @@ fun LauncherShell(
                 enterWaveKey = enterWaveKey,
                 consumedEnterWaveKey = consumedEnterWaveKey,
                 restPoseRequestId = restPoseRequestId,
+                appListRestPoseRequestId = appListRestPoseRequestId,
                 suspendEditMotion = customizeSuspendStart,
                 coveredByCustomize = startCoveredByCustomize,
                 startPageModifier = startPageModifier,
@@ -446,6 +487,7 @@ private fun LauncherPagerHost(
     enterWaveKey: Int,
     consumedEnterWaveKey: Int,
     restPoseRequestId: Int,
+    appListRestPoseRequestId: Int,
     suspendEditMotion: State<Boolean>,
     coveredByCustomize: State<Boolean>,
     startPageModifier: Modifier,
@@ -504,6 +546,7 @@ private fun LauncherPagerHost(
     CompositionLocalProvider(
         LocalStartBackgroundViewport provides startBackground,
         LocalTileAppWidgetController provides state.widgetController,
+        LocalIconPackPackage provides state.iconPackPackage,
     ) {
         Box(
             modifier = Modifier
@@ -554,6 +597,7 @@ private fun LauncherPagerHost(
                         onUninstall = onUninstall,
                         queryAppOptions = queryAppOptions,
                         onLaunchAppOption = onLaunchAppOption,
+                        restPoseRequestId = appListRestPoseRequestId,
                         modifier = appListPageModifier,
                     )
                 }
@@ -620,20 +664,63 @@ private fun TileCustomizeOverlay(
     CompositionLocalProvider(
         LocalTileAppWidgetController provides state.widgetController,
         LocalStartBackgroundViewport provides startBackground,
+        LocalIconPackPackage provides state.iconPackPackage,
     ) {
         val colorPickerOpen = state.tileCustomizeColorPickerOpen
         val colorPickerExiting = state.tileCustomizeColorPickerExiting
         val showingColorPicker = colorPickerOpen || colorPickerExiting
+        val launchTargetPickerOpen = state.tileCustomizeLaunchTargetPickerOpen
+        val launchTargetPickerExiting = state.tileCustomizeLaunchTargetPickerExiting
+        val showingLaunchTargetPicker = launchTargetPickerOpen || launchTargetPickerExiting
+        val iconPickerOpen = state.tileCustomizeIconPickerOpen
+        val iconPickerExiting = state.tileCustomizeIconPickerExiting
+        val showingIconPicker = iconPickerOpen || iconPickerExiting
+        val showingSubpage = showingColorPicker || showingLaunchTargetPicker || showingIconPicker
         val epoch = state.tileCustomizeEpoch
         val exiting = state.tileCustomizeExiting
+        val noneLaunchLabel = stringResource(R.string.tile_customize_launch_target_none)
+        val defaultIconLabel = stringResource(R.string.tile_customize_icon_default)
+        val launchTargetLabel = remember(
+            customizeDraft.launchTargetPackage,
+            state.launchTargetPickerApps,
+            state.apps,
+            noneLaunchLabel,
+        ) {
+            val pkg = customizeDraft.launchTargetPackage?.takeIf { it.isNotBlank() }
+                ?: return@remember noneLaunchLabel
+            state.launchTargetPickerApps.firstOrNull { it.packageName == pkg }?.label
+                ?: state.apps.firstOrNull { it.packageName == pkg }?.label
+                ?: pkg.substringAfterLast('.')
+        }
+        val iconLabel = remember(
+            customizeDraft.iconPackage,
+            state.launchTargetPickerApps,
+            state.apps,
+            defaultIconLabel,
+        ) {
+            val pkg = customizeDraft.iconPackage?.takeIf { it.isNotBlank() }
+                ?: return@remember defaultIconLabel
+            state.launchTargetPickerApps.firstOrNull { it.packageName == pkg }?.label
+                ?: state.apps.firstOrNull { it.packageName == pkg }?.label
+                ?: pkg.substringAfterLast('.')
+        }
 
-        BackHandler(enabled = !exiting && !showingColorPicker) {
+        BackHandler(enabled = !exiting && !showingSubpage) {
             state.beginCloseTileCustomize()
         }
         BackHandler(enabled = colorPickerOpen && !colorPickerExiting) {
             state.beginCloseTileColorPicker()
         }
-        BackHandler(enabled = exiting || colorPickerExiting) { }
+        BackHandler(enabled = launchTargetPickerOpen && !launchTargetPickerExiting) {
+            state.beginCloseTileLaunchTargetPicker()
+        }
+        BackHandler(enabled = iconPickerOpen && !iconPickerExiting) {
+            state.beginCloseTileIconPicker()
+        }
+        BackHandler(
+            enabled = exiting || colorPickerExiting || launchTargetPickerExiting ||
+                iconPickerExiting,
+        ) { }
 
         Box(
             modifier = Modifier
@@ -670,6 +757,10 @@ private fun TileCustomizeOverlay(
                             draft = customizeDraft,
                             onDraftChange = state::updateTileCustomizeDraft,
                             onOpenColorPicker = state::openTileColorPicker,
+                            onOpenLaunchTargetPicker = state::openTileLaunchTargetPicker,
+                            onOpenIconPicker = state::openTileIconPicker,
+                            launchTargetLabel = launchTargetLabel,
+                            iconLabel = iconLabel,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -692,7 +783,7 @@ private fun TileCustomizeOverlay(
                     }
                     // Sibling of the pivot — must not live inside the rotating layer.
                     MetroAppBar(
-                        visible = motionStarted && !showingColorPicker && !exiting,
+                        visible = motionStarted && !showingSubpage && !exiting,
                         enterKey = if (motionStarted) epoch else null,
                         icons = appBarIcons,
                         modifier = Modifier.align(Alignment.BottomCenter),
@@ -721,6 +812,46 @@ private fun TileCustomizeOverlay(
                         TileColorPickerScreen(
                             onColorSelected = state::selectTileCustomColor,
                             onClose = state::beginCloseTileColorPicker,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+
+                if (showingLaunchTargetPicker) {
+                    MetroPagePivotLoad(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MetroTheme.colors.secondarySurface),
+                        loadKey = "launchTarget:$epoch",
+                        exiting = launchTargetPickerExiting,
+                        onExitComplete = state::finishCloseTileLaunchTargetPicker,
+                    ) {
+                        MetroAppPickerScreen(
+                            apps = state.launchTargetPickerApps,
+                            selectedPackageName = customizeDraft.launchTargetPackage,
+                            headerTitle = stringResource(R.string.tile_customize_choose_app),
+                            onSelected = state::selectTileLaunchTarget,
+                            onBack = state::beginCloseTileLaunchTargetPicker,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+
+                if (showingIconPicker) {
+                    MetroPagePivotLoad(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MetroTheme.colors.secondarySurface),
+                        loadKey = "tileIcon:$epoch",
+                        exiting = iconPickerExiting,
+                        onExitComplete = state::finishCloseTileIconPicker,
+                    ) {
+                        MetroAppPickerScreen(
+                            apps = state.launchTargetPickerApps,
+                            selectedPackageName = customizeDraft.iconPackage,
+                            headerTitle = stringResource(R.string.tile_customize_choose_icon),
+                            onSelected = state::selectTileIcon,
+                            onBack = state::beginCloseTileIconPicker,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

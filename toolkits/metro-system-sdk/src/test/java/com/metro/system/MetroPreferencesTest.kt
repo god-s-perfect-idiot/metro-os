@@ -134,4 +134,22 @@ class MetroPreferencesTest {
         assertTrue(prefs.galleryAppPackages.isEmpty())
         assertTrue(prefs.musicAppPackages.isEmpty())
     }
+
+    @Test
+    fun iconPackPackage_defaultsNullAndRoundTrips() {
+        assertEquals(null, prefs.iconPackPackage)
+        prefs.iconPackPackage = "com.example.iconpack"
+        assertEquals("com.example.iconpack", prefs.iconPackPackage)
+        prefs.iconPackPackage = "  "
+        assertEquals(null, prefs.iconPackPackage)
+        prefs.iconPackPackage = "com.example.iconpack"
+        assertEquals("com.example.iconpack", prefs.iconPackPackage)
+        // none must clear — blank storage, not an absent key (clients mirror the blank).
+        prefs.iconPackPackage = null
+        assertEquals(null, prefs.iconPackPackage)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val raw = context.getSharedPreferences(MetroPreferenceKeys.PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(MetroPreferenceKeys.ICON_PACK_PACKAGE, "missing")
+        assertEquals("", raw)
+    }
 }

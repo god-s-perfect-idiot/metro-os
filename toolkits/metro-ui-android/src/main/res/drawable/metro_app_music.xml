@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Music adaptive foreground: headphones glyph (72dp safe zone). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- Simple headphones glyph for Music tile stand-in -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,28c-14,0 -26,10 -26,24v18c0,4 3,7 7,7h6v-18h-6c0,-11 9,-20 19,-20s19,9 19,20h-6v18h6c4,0 7,-3 7,-7V52c0,-14 -12,-24 -26,-24z" />
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M12,3a9,9 0 0,0 -9,9v9h6v-8H5v-1c0,-3.87 3.13,-7 7,-7s7,3.13 7,7v1h-4v8h6v-9a9,9 0 0,0 -9,-9" />
+    </group>
 </vector>

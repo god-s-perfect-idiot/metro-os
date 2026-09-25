@@ -35,12 +35,17 @@ import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.mergePinnedDisplayTiles
+import com.metro.launcher.data.normalizeLaunchTargetPackage
+import com.metro.launcher.data.resolvedIconScale
+import com.metro.launcher.data.resolvedLaunchTargetForPicker
 import com.metro.launcher.data.supportsCustomWidget
 import com.metro.launcher.data.tileGridColumnCount
 import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroAppBranding
+import com.metro.system.MetroAppDiscovery
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroBroadcasts
+import com.metro.system.MetroIconPacks
 import com.metro.system.MetroIntents
 import com.metro.system.MetroPreferenceKeys
 import com.metro.system.MetroPreferences
@@ -49,6 +54,7 @@ import com.metro.system.MetroThemeMode
 import com.metro.system.MetroTypeface
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileWidgetFaceKind
+import com.metro.ui.MetroAppPickerEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -94,6 +100,12 @@ class LauncherState(context: Context) {
     /** 4 (default) or 6 when Settings → show more columns is on. */
     var gridColumns by mutableIntStateOf(tileGridColumnCount(metroPrefs.showMoreColumns))
         private set
+    /**
+     * Active Android icon-pack package from Settings → start+theme (null = system icons).
+     * Exposed so Start / app-list composables invalidate glyphs when the pack changes.
+     */
+    var iconPackPackage by mutableStateOf(metroPrefs.iconPackPackage)
+        private set
     var currentPage by mutableIntStateOf(0)
     /** Package+tile to bring into view after pin-to-Start; consumed by Start. */
     var pendingPinReveal by mutableStateOf<TileKey?>(null)
@@ -106,6 +118,13 @@ class LauncherState(context: Context) {
      * can remount Start and replay the tile enter wave.
      */
     var homeEnterRequestId by mutableIntStateOf(0)
+        private set
+    /**
+     * Bumped on every Start/Home MAIN delivery that did not take the edit/customize path.
+     * Shell uses this for app-list enter when returning from an app (onNewIntent may fire
+     * without a useful ON_RESUME pause flag).
+     */
+    var startKeyRequestId by mutableIntStateOf(0)
         private set
     /** Non-null while the tile customize page is open (brush corner). */
     var customizingTile by mutableStateOf<DisplayTile?>(null)
@@ -127,6 +146,17 @@ class LauncherState(context: Context) {
     var tileCustomizeColorPickerOpen by mutableStateOf(false)
         private set
     var tileCustomizeColorPickerExiting by mutableStateOf(false)
+    /** Launch-target app picker stacked on customize (lockscreen choose-app pattern). */
+    var tileCustomizeLaunchTargetPickerOpen by mutableStateOf(false)
+        private set
+    var tileCustomizeLaunchTargetPickerExiting by mutableStateOf(false)
+    /** Per-tile icon picker stacked on customize (same chrome as launch-target). */
+    var tileCustomizeIconPickerOpen by mutableStateOf(false)
+        private set
+    var tileCustomizeIconPickerExiting by mutableStateOf(false)
+    /** Cached launchable apps for launch-target / icon pickers (loaded on open). */
+    var launchTargetPickerApps by mutableStateOf<List<MetroAppPickerEntry>>(emptyList())
+        private set
     val widgetController = TileAppWidgetController(appContext)
     /**
      * Pending bind / configure activity after Save chooses a new widget. The activity
@@ -186,6 +216,7 @@ class LauncherState(context: Context) {
                 refreshTilesLiveAsync(pinnedEntries)
             }
             MetroPreferenceKeys.SHOW_MORE_COLUMNS -> applyShowMoreColumns(metroPrefs.showMoreColumns)
+            MetroPreferenceKeys.ICON_PACK_PACKAGE -> applyIconPackPackage(metroPrefs.iconPackPackage)
             MetroPreferenceKeys.START_BACKGROUND_ENABLED -> {
                 scheduleStartBackgroundReload()
                 refreshTilesLiveAsync(pinnedEntries)
@@ -250,6 +281,7 @@ class LauncherState(context: Context) {
             darkTheme = metroPrefs.isDark
             accent = metroPrefs.accentColor
             applyShowMoreColumns(metroPrefs.showMoreColumns)
+            applyIconPackPackage(metroPrefs.iconPackPackage)
             clearAppListIconCache()
             schedulePrefsDrivenRefresh()
         }
@@ -366,6 +398,16 @@ class LauncherState(context: Context) {
     }
 
     fun onTileClick(tile: DisplayTile, peekPackageName: String? = null) {
+        // Customize → Launch target overrides every face-specific tap handler.
+        val launchOverride = tile.entry.launchTargetPackage?.takeIf { it.isNotBlank() }
+        if (launchOverride != null) {
+            beginAppOpen(
+                packageName = launchOverride,
+                deepLinkUri = null,
+                backgroundColor = tile.backgroundColor,
+            )
+            return
+        }
         // 1×1 music now-playing face is transport-only (play/pause), matching Xbox Music small tile.
         val music = tile.musicNowPlaying
         if (music != null && tile.entry.size == PinnedTileSize.OneByOne) {
@@ -431,22 +473,29 @@ class LauncherState(context: Context) {
         val bg = backgroundColor
             ?: CustomTileBranding.resolveBackgroundColor(appContext, packageName)
             ?: MetroAppBranding.resolveTileBackgroundColor(appContext, packageName)
-        val iconBitmap = if (glyphResId == null) {
-            val px = (OPEN_SPLASH_ICON_DP * appContext.resources.displayMetrics.density)
-                .toInt()
-                .coerceAtLeast(1)
-            MetroAppBranding.loadAppIcon(appContext, packageName)
+        val px = (OPEN_SPLASH_ICON_DP * appContext.resources.displayMetrics.density)
+            .toInt()
+            .coerceAtLeast(1)
+        val packIcon = iconPackPackage?.let { pack ->
+            MetroIconPacks.loadIconForPackage(appContext, pack, packageName)
                 ?.toBitmap(px, px)
                 ?.asImageBitmap()
-        } else {
-            null
+        }
+        val iconBitmap = when {
+            packIcon != null -> packIcon
+            glyphResId == null -> {
+                MetroAppBranding.loadAppIcon(appContext, packageName)
+                    ?.toBitmap(px, px)
+                    ?.asImageBitmap()
+            }
+            else -> null
         }
         appOpenSplash = AppOpenSplashRequest(
             packageName = packageName,
             deepLinkUri = deepLinkUri,
             backgroundColor = bg,
             iconBitmap = iconBitmap,
-            glyphResId = glyphResId,
+            glyphResId = if (packIcon != null) null else glyphResId,
             shortcut = shortcut,
         )
     }
@@ -480,12 +529,18 @@ class LauncherState(context: Context) {
      * and ask the shell to replay the tile enter wave. Leaves [editingTile] for the shell
      * to clear after arming snap-exit so the edit outro does not fight the enter wave.
      *
+     * Always bumps [startKeyRequestId] so the shell can restore app-list enter after an
+     * app launch even when MAIN arrives via onNewIntent without a fresh pause flag.
+     *
      * @return true when an overlay was active and the shell should finish the home return.
      */
     fun onHomeRequested(): Boolean {
         val wasCustomizing = customizingTile != null
         val wasEditing = editingTile != null
-        if (!wasCustomizing && !wasEditing) return false
+        if (!wasCustomizing && !wasEditing) {
+            startKeyRequestId++
+            return false
+        }
         if (wasCustomizing) {
             // Skip the customize pivot exit — Home should land on Start immediately.
             finishCloseTileCustomize()
@@ -528,6 +583,10 @@ class LauncherState(context: Context) {
                     metroPrefs.peekCachedAccentColorHex()
                         ?: MetroPreferences.DEFAULT_ACCENT_HEX,
                 ),
+            launchTargetPackage = current.resolvedLaunchTargetForPicker(),
+            iconPackage = current.entry.iconPackage,
+            iconScale = current.entry.resolvedIconScale(),
+            hideTitle = current.entry.hideTitle,
             useCustomWidget = current.entry.useCustomWidget,
             widgetProvider = current.entry.widgetProvider,
         )
@@ -535,17 +594,25 @@ class LauncherState(context: Context) {
         tileCustomizeAppBarVisible = false
         tileCustomizeColorPickerOpen = false
         tileCustomizeColorPickerExiting = false
+        tileCustomizeLaunchTargetPickerOpen = false
+        tileCustomizeLaunchTargetPickerExiting = false
+        tileCustomizeIconPickerOpen = false
+        tileCustomizeIconPickerExiting = false
     }
 
     fun onTileCustomizeEnterComplete() {
         // App bar is already visible on open; keep this for any future enter-gated chrome.
         if (customizingTile == null || tileCustomizeExiting) return
         if (tileCustomizeColorPickerOpen || tileCustomizeColorPickerExiting) return
+        if (tileCustomizeLaunchTargetPickerOpen || tileCustomizeLaunchTargetPickerExiting) return
+        if (tileCustomizeIconPickerOpen || tileCustomizeIconPickerExiting) return
         tileCustomizeAppBarVisible = true
     }
 
     fun openTileColorPicker() {
         if (customizingTile == null || tileCustomizeExiting) return
+        if (tileCustomizeLaunchTargetPickerOpen || tileCustomizeLaunchTargetPickerExiting) return
+        if (tileCustomizeIconPickerOpen || tileCustomizeIconPickerExiting) return
         tileCustomizeAppBarVisible = false
         tileCustomizeColorPickerOpen = true
         tileCustomizeColorPickerExiting = false
@@ -573,10 +640,94 @@ class LauncherState(context: Context) {
         beginCloseTileColorPicker()
     }
 
+    fun openTileLaunchTargetPicker() {
+        if (customizingTile == null || tileCustomizeExiting) return
+        if (tileCustomizeColorPickerOpen || tileCustomizeColorPickerExiting) return
+        if (tileCustomizeIconPickerOpen || tileCustomizeIconPickerExiting) return
+        tileCustomizeAppBarVisible = false
+        tileCustomizeLaunchTargetPickerOpen = true
+        tileCustomizeLaunchTargetPickerExiting = false
+        ensureLaunchTargetPickerApps()
+    }
+
+    fun beginCloseTileLaunchTargetPicker() {
+        if (!tileCustomizeLaunchTargetPickerOpen || tileCustomizeLaunchTargetPickerExiting) {
+            return
+        }
+        tileCustomizeLaunchTargetPickerExiting = true
+    }
+
+    fun finishCloseTileLaunchTargetPicker() {
+        tileCustomizeLaunchTargetPickerOpen = false
+        tileCustomizeLaunchTargetPickerExiting = false
+        if (customizingTile != null && !tileCustomizeExiting) {
+            tileCustomizeAppBarVisible = true
+        }
+    }
+
+    fun selectTileLaunchTarget(packageName: String?) {
+        val draft = tileCustomizeDraft ?: return
+        tileCustomizeDraft = draft.copy(
+            launchTargetPackage = packageName?.takeIf { it.isNotBlank() },
+        )
+        beginCloseTileLaunchTargetPicker()
+    }
+
+    fun openTileIconPicker() {
+        if (customizingTile == null || tileCustomizeExiting) return
+        if (tileCustomizeColorPickerOpen || tileCustomizeColorPickerExiting) return
+        if (tileCustomizeLaunchTargetPickerOpen || tileCustomizeLaunchTargetPickerExiting) return
+        tileCustomizeAppBarVisible = false
+        tileCustomizeIconPickerOpen = true
+        tileCustomizeIconPickerExiting = false
+        ensureLaunchTargetPickerApps()
+    }
+
+    fun beginCloseTileIconPicker() {
+        if (!tileCustomizeIconPickerOpen || tileCustomizeIconPickerExiting) return
+        tileCustomizeIconPickerExiting = true
+    }
+
+    fun finishCloseTileIconPicker() {
+        tileCustomizeIconPickerOpen = false
+        tileCustomizeIconPickerExiting = false
+        if (customizingTile != null && !tileCustomizeExiting) {
+            tileCustomizeAppBarVisible = true
+        }
+    }
+
+    fun selectTileIcon(packageName: String?) {
+        val draft = tileCustomizeDraft ?: return
+        tileCustomizeDraft = draft.copy(
+            iconPackage = packageName?.takeIf { it.isNotBlank() },
+        )
+        beginCloseTileIconPicker()
+    }
+
+    private fun ensureLaunchTargetPickerApps() {
+        if (launchTargetPickerApps.isNotEmpty()) return
+        persistScope.launch {
+            val entries = withContext(Dispatchers.IO) {
+                MetroAppDiscovery.discoverInstalledApps(appContext).map {
+                    MetroAppPickerEntry(it.packageName, it.label)
+                }
+            }
+            launchTargetPickerApps = entries
+        }
+    }
+
     fun beginCloseTileCustomize() {
         if (customizingTile == null || tileCustomizeExiting) return
         if (tileCustomizeColorPickerOpen) {
             beginCloseTileColorPicker()
+            return
+        }
+        if (tileCustomizeLaunchTargetPickerOpen) {
+            beginCloseTileLaunchTargetPicker()
+            return
+        }
+        if (tileCustomizeIconPickerOpen) {
+            beginCloseTileIconPicker()
             return
         }
         tileCustomizeAppBarVisible = false
@@ -592,6 +743,11 @@ class LauncherState(context: Context) {
         tileCustomizeAppBarVisible = false
         tileCustomizeColorPickerOpen = false
         tileCustomizeColorPickerExiting = false
+        tileCustomizeLaunchTargetPickerOpen = false
+        tileCustomizeLaunchTargetPickerExiting = false
+        tileCustomizeIconPickerOpen = false
+        tileCustomizeIconPickerExiting = false
+        launchTargetPickerApps = emptyList()
     }
 
     fun updateTileCustomizeDraft(draft: TileCustomizeDraft) {
@@ -618,6 +774,10 @@ class LauncherState(context: Context) {
         val providerChanged = wantsWidget &&
             (draft.widgetProvider != previous.widgetProvider ||
                 previous.appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID)
+        val launchTarget = normalizeLaunchTargetPackage(
+            tilePackage = key.packageName,
+            selected = draft.launchTargetPackage,
+        )
 
         if (!wantsWidget) {
             deleteWidgetIfNeeded(previous)
@@ -625,6 +785,10 @@ class LauncherState(context: Context) {
                 key = key,
                 backgroundMode = draft.backgroundMode,
                 customBackgroundHex = bgHex,
+                launchTargetPackage = launchTarget,
+                iconPackage = draft.iconPackage,
+                iconScale = draft.iconScale,
+                hideTitle = draft.hideTitle,
                 useCustomWidget = false,
                 widgetProvider = null,
                 appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID,
@@ -638,6 +802,10 @@ class LauncherState(context: Context) {
                 key = key,
                 backgroundMode = draft.backgroundMode,
                 customBackgroundHex = bgHex,
+                launchTargetPackage = launchTarget,
+                iconPackage = draft.iconPackage,
+                iconScale = draft.iconScale,
+                hideTitle = draft.hideTitle,
                 useCustomWidget = true,
                 widgetProvider = draft.widgetProvider,
                 appWidgetId = previous.appWidgetId,
@@ -706,6 +874,13 @@ class LauncherState(context: Context) {
             key = key,
             backgroundMode = draft.backgroundMode,
             customBackgroundHex = draft.customBackgroundHex,
+            launchTargetPackage = normalizeLaunchTargetPackage(
+                tilePackage = key.packageName,
+                selected = draft.launchTargetPackage,
+            ),
+            iconPackage = draft.iconPackage,
+            iconScale = draft.iconScale,
+            hideTitle = draft.hideTitle,
             useCustomWidget = true,
             widgetProvider = draft.widgetProvider,
             appWidgetId = resolvedId,
@@ -730,6 +905,13 @@ class LauncherState(context: Context) {
             key = key,
             backgroundMode = draft.backgroundMode,
             customBackgroundHex = draft.customBackgroundHex,
+            launchTargetPackage = normalizeLaunchTargetPackage(
+                tilePackage = key.packageName,
+                selected = draft.launchTargetPackage,
+            ),
+            iconPackage = draft.iconPackage,
+            iconScale = draft.iconScale,
+            hideTitle = draft.hideTitle,
             useCustomWidget = true,
             widgetProvider = provider,
             appWidgetId = appWidgetId,
@@ -741,6 +923,10 @@ class LauncherState(context: Context) {
         key: TileKey,
         backgroundMode: TileBackgroundMode,
         customBackgroundHex: String?,
+        launchTargetPackage: String?,
+        iconPackage: String?,
+        iconScale: Float,
+        hideTitle: Boolean,
         useCustomWidget: Boolean,
         widgetProvider: String?,
         appWidgetId: Int,
@@ -751,6 +937,10 @@ class LauncherState(context: Context) {
                 entry.copy(
                     backgroundMode = backgroundMode,
                     customBackgroundHex = customBackgroundHex,
+                    launchTargetPackage = launchTargetPackage?.takeIf { it.isNotBlank() },
+                    iconPackage = iconPackage?.takeIf { it.isNotBlank() },
+                    iconScale = PinnedTileEntry.clampIconScale(iconScale),
+                    hideTitle = hideTitle,
                     useCustomWidget = useCustomWidget,
                     widgetProvider = widgetProvider,
                     appWidgetId = appWidgetId,
@@ -1090,6 +1280,21 @@ class LauncherState(context: Context) {
         gridColumns = columns
         pinnedEntries = adaptTilesToColumnCount(pinnedEntries, columns)
         persistLayoutAndPaint()
+    }
+
+    /** Applies Settings → icon pack; clears glyph caches so Start / app list reload. */
+    private fun applyIconPackPackage(packageName: String?) {
+        val normalized = packageName?.takeIf { it.isNotBlank() }
+        if (normalized == iconPackPackage) return
+        iconPackPackage = normalized
+        // Drop any stale local mirror of a previous pack (none clears as "").
+        appContext.getSharedPreferences(MetroPreferenceKeys.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(MetroPreferenceKeys.ICON_PACK_PACKAGE, normalized.orEmpty())
+            .apply()
+        MetroIconPacks.clearCache()
+        clearAppListIconCache()
+        refreshTilesLiveAsync(pinnedEntries)
     }
 
     companion object {

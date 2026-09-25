@@ -14,10 +14,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
@@ -39,8 +41,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,11 +62,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,6 +83,7 @@ import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.CustomTileBranding
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
+import com.metro.system.MetroIconPacks
 import androidx.core.content.ContextCompat
 import com.metro.ui.MetroCircleIconButton
 import com.metro.ui.MetroColors
@@ -124,6 +129,15 @@ private val SearchFieldBorderWidth = 3.dp
 private val SearchFieldHorizontalPadding = 10.dp
 private val SearchFieldBottomSpacing = 8.dp
 private val AppListHorizontalStartPadding = 12.dp
+private val AppListHorizontalEndPadding = 12.dp
+/** Top inset above search + list (matches prior Row padding). */
+private val AppListTopPadding = 4.dp
+/**
+ * List content starts after search column + gap. LazyColumn itself is full-bleed so
+ * exit peels can draw to the screen edge (contentPadding only insets layout, not clip).
+ */
+private val AppListContentStartInset =
+    AppListHorizontalStartPadding + AppListIconSize + SearchColumnGap
 /** Fade + height wipe when letter markers hide/show with search mode. */
 private val LetterMarkerVisibilityMs = MetroTransitions.AppBarSlideMs
 
@@ -149,6 +163,9 @@ internal fun clearAppListIconCache() {
  * Reference: references/images/applist.png
  *
  * Column order: search | icon/letter squares | app labels.
+ *
+ * Exit peel: bottom→top pivot (search + letters + apps); tapped row last.
+ * Enter / resume: static — snap to rest after a peel.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -164,6 +181,11 @@ fun AppListScreen(
     queryAppOptions: suspend (String) -> List<AppLauncherOption>,
     onLaunchAppOption: (AppLauncherOption) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Bump to clear launch-exit pose and snap pivot layers to rest
+     * (resume / unlock after a row open left rows at alpha 0).
+     */
+    restPoseRequestId: Int = 0,
 ) {
     var jumpListVisible by remember { mutableStateOf(false) }
     var scrollToLetter by remember { mutableStateOf<Char?>(null) }
@@ -179,14 +201,26 @@ fun AppListScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val imeVisible = WindowInsets.isImeVisible
     var imeWasVisibleWhileSearching by remember { mutableStateOf(false) }
+    // Package launch: exit wave (tapped row last).
+    var exitingPackage by remember { mutableStateOf<String?>(null) }
+    var pendingLaunch by remember { mutableStateOf<(() -> Unit)?>(null) }
+    /** Visible wave keys top→bottom at exit start — search + letters + apps. */
+    var exitVisibleKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+    var restKey by remember { mutableIntStateOf(0) }
+    val launchInProgress = exitingPackage != null
+    val isExiting = exitingPackage != null
+    val onAppClickState = rememberUpdatedState(onAppClick)
+    val onLaunchAppOptionState = rememberUpdatedState(onLaunchAppOption)
     val menuGapPx = with(density) { ContextMenuGapBelowIcon.roundToPx() }
     val openContextMenu: (MetroAppInfo, Rect) -> Unit = { app, iconBounds ->
-        // WP8.1 app list: short buzz when long-press opens the context menu.
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        contextMenuIconBounds = iconBounds
-        contextMenuRootBounds = popupRootBounds.value
-        contextMenuApp = app
-        contextMenuVisible.targetState = true
+        if (!launchInProgress) {
+            // WP8.1 app list: short buzz when long-press opens the context menu.
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            contextMenuIconBounds = iconBounds
+            contextMenuRootBounds = popupRootBounds.value
+            contextMenuApp = app
+            contextMenuVisible.targetState = true
+        }
     }
     val dismissContextMenu: () -> Unit = {
         contextMenuVisible.targetState = false
@@ -196,6 +230,34 @@ fun AppListScreen(
     val snapDismissContextMenu: () -> Unit = {
         contextMenuVisible.targetState = false
         contextMenuApp = null
+    }
+    val beginLaunchExit: (String, () -> Unit) -> Unit = { packageName, launch ->
+        if (exitingPackage == null) {
+            snapDismissContextMenu()
+            val listVisible = listState.layoutInfo.visibleItemsInfo.mapNotNull { info ->
+                when (val key = info.key) {
+                    is String -> key
+                    else -> null
+                }
+            }
+            // Search chrome is always in the peel (top of the vertical wave).
+            val withSearch = listOf(AppListPivotLogic.SearchWaveKey) + listVisible
+            exitVisibleKeys = if (packageName in withSearch) {
+                withSearch
+            } else {
+                withSearch + packageName
+            }
+            pendingLaunch = launch
+            exitingPackage = packageName
+        }
+    }
+
+    LaunchedEffect(restPoseRequestId) {
+        if (restPoseRequestId <= 0) return@LaunchedEffect
+        exitingPackage = null
+        pendingLaunch = null
+        exitVisibleKeys = emptyList()
+        restKey++
     }
 
     // Drop the host once the shrink animation finishes.
@@ -274,95 +336,115 @@ fun AppListScreen(
         scrollToLetter = null
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
+            .background(Color.Black)
             .onGloballyPositioned { coordinates ->
                 // Ref update only — writing Compose state here would recompose the whole list
                 // on every parent layout pass.
                 popupRootBounds.value = coordinates.boundsInWindow()
             },
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .padding(top = 4.dp, start = AppListHorizontalStartPadding, end = 12.dp),
-        ) {
-            Column(
+        val pageWidthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+        // Shared page-left hinge offsets (content is inset; list clip is screen-edge).
+        val searchLeftInPagePx = with(density) { AppListHorizontalStartPadding.toPx() }
+        val listRowLeftInPagePx = with(density) { AppListContentStartInset.toPx() }
+        fun exitDelayFor(waveKey: String, exitSelected: Boolean = false): Long {
+            if (!isExiting) return 0L
+            val exitRowIndex = exitVisibleKeys.indexOf(waveKey)
+            if (exitRowIndex < 0) return 0L
+            return AppListPivotLogic.exitDelayMs(
+                rowIndex = exitRowIndex,
+                lastIndex = exitVisibleKeys.lastIndex,
+                selected = exitSelected,
+            )
+        }
+
+        @Composable
+        fun LetterMarkerRow(letter: Char, letterKey: String) {
+            // Opaque bg so app rows do not show through while pinned.
+            // Height wipe + fade when entering/exiting search mode.
+            Box(
                 modifier = Modifier
-                    .width(AppListIconSize)
-                    .fillMaxHeight()
-                    .padding(vertical = ListRowVerticalPadding),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .fillMaxWidth()
+                    .height(LetterMarkerRowHeight * letterMarkerVisibility)
+                    .graphicsLayer {
+                        alpha = letterMarkerVisibility
+                        clip = letterMarkerVisibility < 0.999f
+                    }
+                    .background(Color.Black),
             ) {
-                MetroCircleIconButton(
-                    type = MetroSystemIconType.Search,
-                    onClick = {
-                        if (searchActive) {
-                            focusSearchField()
-                        } else {
-                            onSearchActiveChange(true)
-                        }
-                    },
-                    size = AppListIconSize,
-                    contentDescription = "search",
-                )
-                if (searchActive) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                                onClick = dismissSearch,
-                            ),
+                AppListRowPivot(
+                    exitDelayMs = exitDelayFor(letterKey),
+                    exitSelected = false,
+                    exiting = isExiting,
+                    pageWidthPx = pageWidthPx,
+                    itemLeftInPagePx = listRowLeftInPagePx,
+                    restKey = restKey,
+                ) {
+                    AppListRowLayout(
+                        modifier = Modifier.fillMaxWidth(),
+                        iconContent = {
+                            LetterHeader(
+                                letter = letter,
+                                enabled = showLetterMarkers && !launchInProgress,
+                                onClick = { jumpListVisible = true },
+                            )
+                        },
+                        labelContent = {},
                     )
                 }
             }
+        }
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = SearchColumnGap),
-            ) {
-                if (searchActive) {
-                    AppListSearchField(
-                        value = searchQuery,
-                        onValueChange = onSearchQueryChange,
-                        focusRequester = searchFocusRequester,
-                    )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = AppListTopPadding),
+        ) {
+            if (searchActive) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = AppListHorizontalEndPadding),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Spacer(modifier = Modifier.width(AppListContentStartInset))
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppListSearchField(
+                            value = searchQuery,
+                            onValueChange = onSearchQueryChange,
+                            focusRequester = searchFocusRequester,
+                        )
+                    }
                 }
+            }
 
+            // Full-bleed list: clip edge = screen edge so peels are not cut at the
+            // search-column gutter. Rows are inset via contentPadding only.
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(bottom = ListBottomScrollPadding),
+                    modifier = Modifier.fillMaxSize(),
+                    userScrollEnabled = !launchInProgress,
+                    contentPadding = PaddingValues(
+                        start = AppListContentStartInset,
+                        end = AppListHorizontalEndPadding,
+                        bottom = ListBottomScrollPadding,
+                    ),
                 ) {
                     grouped.forEach { (letter, sectionApps) ->
-                        metroStickyLetterHeader(letter = letter) {
-                            // Opaque bg so app rows do not show through while pinned.
-                            // Height wipe + fade when entering/exiting search mode.
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(LetterMarkerRowHeight * letterMarkerVisibility)
-                                    .clipToBounds()
-                                    .graphicsLayer { alpha = letterMarkerVisibility }
-                                    .background(Color.Black),
-                            ) {
-                                AppListRowLayout(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    iconContent = {
-                                        LetterHeader(
-                                            letter = letter,
-                                            enabled = showLetterMarkers,
-                                            onClick = { jumpListVisible = true },
-                                        )
-                                    },
-                                    labelContent = {},
-                                )
+                        val letterKey = AppListPivotLogic.letterWaveKey(letter)
+                        // During exit, use a normal item so sticky overlay cannot cover
+                        // peels (apps were sliding out from under the pinned letter).
+                        if (isExiting) {
+                            item(key = letterKey, contentType = "metro-letter-header") {
+                                LetterMarkerRow(letter = letter, letterKey = letterKey)
+                            }
+                        } else {
+                            metroStickyLetterHeader(letter = letter, key = letterKey) {
+                                LetterMarkerRow(letter = letter, letterKey = letterKey)
                             }
                         }
                         items(
@@ -370,15 +452,86 @@ fun AppListScreen(
                             key = { it.packageName },
                             contentType = { "app" },
                         ) { app ->
-                            AppListAppRow(
-                                app = app,
-                                highlightQuery = if (searchActive) searchQuery else "",
-                                contextMenuTarget = contextMenuApp?.packageName == app.packageName,
-                                contextMenuFocusFraction = contextMenuFocusFraction,
-                                onAppClick = { onAppClick(app) },
-                                onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
-                            )
+                            val isExitSelected = exitingPackage == app.packageName
+                            AppListRowPivot(
+                                exitDelayMs = exitDelayFor(app.packageName, isExitSelected),
+                                exitSelected = isExitSelected,
+                                exiting = isExiting,
+                                pageWidthPx = pageWidthPx,
+                                itemLeftInPagePx = listRowLeftInPagePx,
+                                restKey = restKey,
+                                onExitComplete = if (isExitSelected) {
+                                    {
+                                        pendingLaunch?.invoke()
+                                        pendingLaunch = null
+                                    }
+                                } else {
+                                    null
+                                },
+                            ) {
+                                AppListAppRow(
+                                    app = app,
+                                    highlightQuery = if (searchActive) searchQuery else "",
+                                    contextMenuTarget = contextMenuApp?.packageName == app.packageName,
+                                    contextMenuFocusFraction = contextMenuFocusFraction,
+                                    onAppClick = {
+                                        if (!launchInProgress) {
+                                            beginLaunchExit(app.packageName) {
+                                                onAppClickState.value(app)
+                                            }
+                                        }
+                                    },
+                                    onLongClick = { iconBounds -> openContextMenu(app, iconBounds) },
+                                )
+                            }
                         }
+                    }
+                }
+
+                // Search chrome overlays the full-bleed list (same visual slot as before).
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = AppListHorizontalStartPadding)
+                        .width(AppListIconSize)
+                        .fillMaxHeight()
+                        .padding(vertical = ListRowVerticalPadding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    AppListRowPivot(
+                        exitDelayMs = exitDelayFor(AppListPivotLogic.SearchWaveKey),
+                        exitSelected = false,
+                        exiting = isExiting,
+                        pageWidthPx = pageWidthPx,
+                        itemLeftInPagePx = searchLeftInPagePx,
+                        restKey = restKey,
+                    ) {
+                        MetroCircleIconButton(
+                            type = MetroSystemIconType.Search,
+                            onClick = {
+                                if (!launchInProgress) {
+                                    if (searchActive) {
+                                        focusSearchField()
+                                    } else {
+                                        onSearchActiveChange(true)
+                                    }
+                                }
+                            },
+                            size = AppListIconSize,
+                            contentDescription = "search",
+                        )
+                    }
+                    if (searchActive) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    onClick = dismissSearch,
+                                ),
+                        )
                     }
                 }
             }
@@ -422,8 +575,9 @@ fun AppListScreen(
                                 dismissContextMenu()
                             },
                             onLaunchAppOption = { option ->
-                                snapDismissContextMenu()
-                                onLaunchAppOption(option)
+                                beginLaunchExit(app.packageName) {
+                                    onLaunchAppOptionState.value(option)
+                                }
                             },
                         )
                     },
@@ -725,8 +879,11 @@ private fun AppListSquareIcon(
         // Cache key must change when system accent changes (Metro/system square fills).
         String.format("#%06X", (0xFFFFFF and color.toArgb()))
     }
+    val iconPackPackage = LocalIconPackPackage.current
     val pixelSize = with(density) { AppListIconSize.roundToPx() }.coerceAtLeast(1)
-    val cacheKey = remember(packageName, pixelSize, accentHex) { "$packageName@$pixelSize@$accentHex" }
+    val cacheKey = remember(packageName, pixelSize, accentHex, iconPackPackage) {
+        "$packageName@$pixelSize@$accentHex@${iconPackPackage.orEmpty()}"
+    }
     var cached by remember(cacheKey) {
         mutableStateOf(appListIconCache.get(cacheKey))
     }
@@ -734,19 +891,36 @@ private fun AppListSquareIcon(
     LaunchedEffect(cacheKey) {
         if (cached != null) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) {
-            val customBg = CustomTileBranding.resolveBackgroundColor(context, packageName)
-            val customGlyph = CustomTileBranding.glyphResId(packageName)?.let { resId ->
-                ContextCompat.getDrawable(context, resId)
+            val packDrawable = if (!iconPackPackage.isNullOrBlank()) {
+                MetroIconPacks.loadIconForPackage(context, iconPackPackage, packageName)
+            } else {
+                null
             }
-            if (customGlyph != null && customBg != null) {
+            if (packDrawable != null) {
+                val bg = MetroAppBranding.resolveTileBackgroundColor(
+                    context,
+                    packageName,
+                    drawable = packDrawable,
+                )
                 CachedAppIcon(
-                    bitmap = customGlyph.toBitmap(pixelSize, pixelSize).asImageBitmap(),
-                    backgroundColor = customBg,
+                    bitmap = packDrawable.toBitmap(pixelSize, pixelSize).asImageBitmap(),
+                    backgroundColor = bg,
                 )
             } else {
-                val asset = MetroAppBranding.loadAppIconAsset(context, packageName)
-                val bitmap = asset.drawable?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
-                CachedAppIcon(bitmap = bitmap, backgroundColor = asset.backgroundColor)
+                val customBg = CustomTileBranding.resolveBackgroundColor(context, packageName)
+                val customGlyph = CustomTileBranding.glyphResId(packageName)?.let { resId ->
+                    ContextCompat.getDrawable(context, resId)
+                }
+                if (customGlyph != null && customBg != null) {
+                    CachedAppIcon(
+                        bitmap = customGlyph.toBitmap(pixelSize, pixelSize).asImageBitmap(),
+                        backgroundColor = customBg,
+                    )
+                } else {
+                    val asset = MetroAppBranding.loadAppIconAsset(context, packageName)
+                    val bitmap = asset.drawable?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
+                    CachedAppIcon(bitmap = bitmap, backgroundColor = asset.backgroundColor)
+                }
             }
         }
         appListIconCache.put(cacheKey, loaded)

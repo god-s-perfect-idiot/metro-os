@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.core.graphics.drawable.toBitmap
 import com.metro.launcher.data.CustomTileBranding
 import com.metro.system.MetroAppBranding
+import com.metro.system.MetroIconPacks
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
@@ -24,8 +25,8 @@ import com.metro.ui.MetroTextStyle
 /**
  * Renders a Start / list glyph for [packageName].
  *
- * Prefer [CustomTileBranding] Metro overrides when registered; otherwise the installed
- * launcher icon (adaptive foreground unwrapped by [MetroAppBranding]).
+ * Order: active icon pack mapping → [CustomTileBranding] Metro override → installed launcher
+ * icon (adaptive foreground unwrapped by [MetroAppBranding]).
  */
 @Composable
 fun MetroAppIcon(
@@ -36,6 +37,31 @@ fun MetroAppIcon(
     fallbackLabel: String? = null,
     fallbackColor: Color = MetroColors.DarkPrimaryText,
 ) {
+    val context = LocalContext.current
+    val iconPackPackage = LocalIconPackPackage.current
+    val pixelSize = with(LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
+
+    val packIcon = remember(packageName, pixelSize, iconPackPackage) {
+        if (iconPackPackage.isNullOrBlank()) {
+            null
+        } else {
+            MetroIconPacks.loadIconForPackage(context, iconPackPackage, packageName)
+                ?.toBitmap(pixelSize, pixelSize)
+                ?.asImageBitmap()
+        }
+    }
+    if (packIcon != null) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Image(
+                bitmap = packIcon,
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        return
+    }
+
     val customGlyphRes = CustomTileBranding.glyphResId(packageName)
     if (customGlyphRes != null) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -49,9 +75,7 @@ fun MetroAppIcon(
         return
     }
 
-    val context = LocalContext.current
-    val pixelSize = with(LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
-    val installedIcon = remember(packageName, pixelSize) {
+    val installedIcon = remember(packageName, pixelSize, iconPackPackage) {
         MetroAppBranding.loadAppIcon(context, packageName)?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
     }
 

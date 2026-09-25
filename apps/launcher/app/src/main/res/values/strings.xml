@@ -12,6 +12,14 @@
     <string name="tile_customize_bg_custom">custom</string>
     <string name="tile_customize_color_picker">color</string>
     <string name="tile_customize_accents_title">accents</string>
+    <string name="tile_customize_launch_target_label">Launch target</string>
+    <string name="tile_customize_launch_target_none">none</string>
+    <string name="tile_customize_choose_app">choose an app</string>
+    <string name="tile_customize_icon_label">Tile icon</string>
+    <string name="tile_customize_icon_default">default</string>
+    <string name="tile_customize_choose_icon">choose an icon</string>
+    <string name="tile_customize_icon_scale_label">Icon scale</string>
+    <string name="tile_customize_hide_title_label">Hide app name</string>
     <string name="tile_customize_widget_label">Use custom widgets</string>
     <string name="tile_customize_widget_pick">choose a widget</string>
     <string name="tile_customize_widget_empty">This app has no Android widgets.</string>

@@ -12,8 +12,6 @@ import com.metro.ui.MetroAppGlyphs
  * Glyphs live in the shared suite set ([MetroAppGlyphs]). Default look: white monochrome
  * glyph on the system accent. Set [MetroAppGlyphs.TileOverride.backgroundHex] only when a
  * fixed brand fill is required.
- *
- * Fully custom composed faces (e.g. Chrome wedges) live in `CustomTileFaces.kt`.
  */
 object CustomTileBranding {
     data class Entry(

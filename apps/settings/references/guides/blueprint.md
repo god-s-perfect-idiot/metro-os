@@ -44,13 +44,21 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Layout:** `SETTINGS` overline + title `start+theme`. Vertical stack:
   1. Intro body: “Change your phone's background and **accent colour** to suit your mood today, this week or all month.” — the words `accent colour` use the current accent colour; the rest is primary text.
   2. **Accent colour** — secondary label, then a full-width bordered combo (1dp primary stroke, 0dp corners) containing a small square swatch (~24dp) + lowercase colour name. Tap opens accent picker (Page 3).
-  3. **Background** dark/light ListPicker — **omitted** (theme stays dark; see known-gaps / platform exceptions).
-  4. **Start background** — square thumbnail (~108dp) left; gray placeholder when unset, cropped photo when set. To the right: primary label `Start background`, then `MetroBorderButton` **choose photo**, then underlined plain text **remove** (only when set — not a border button). Opens system photo picker → crop page. Ignore Background dark/light ListPicker if present in captures.
-  5. **Show more columns** — `MetroToggleSwitch`. Off (default) = 4-column Start (2 medium tiles across). On = 6-column Start (3 medium tiles across). Writes `MetroPreferences.show_more_columns`; launcher observes and reflows. WP8.1 labeled this “Show more tiles”; metro-os uses the clearer “Show more columns” label.
-- **Navigation:** Back → Settings root. Crop page Back / close → start+theme without saving.
-- **Interactions:** Changing accent writes `MetroPreferences` and broadcasts `THEME_CHANGED` immediately (suite-wide). Saving/clearing Start background writes `start_background_enabled` + JPEG, then broadcasts `THEME_CHANGED`. Toggling show more columns writes the preference immediately (ContentProvider notify; no theme broadcast).
+  3. **Font** — `MetroListPicker` (Metro Noto / Source Sans 3 / Alegreya Sans). Writes `font_family` + `THEME_CHANGED`.
+  4. **Icon pack** — `MetroListPicker` collapsed chrome (same as Font); tap drills into **choose an icon pack** (`MetroIconPackPickerScreen`, same list language as lock-screen **choose an app**: `none` + installed ADW/GO/Nova theme packs). Writes `icon_pack_package` (null = system icons). Launcher observes and reloads Start / app-list glyphs. Not a WP8.1 control — Android icon-pack affordance.
+  5. **Background** dark/light ListPicker — **omitted** (theme stays dark; see known-gaps / platform exceptions).
+  6. **Start background** — square thumbnail (~108dp) left; gray placeholder when unset, cropped photo when set. To the right: primary label `Start background`, then `MetroBorderButton` **choose photo**, then underlined plain text **remove** (only when set — not a border button). Opens system photo picker → crop page. Ignore Background dark/light ListPicker if present in captures.
+  7. **Show more columns** — `MetroToggleSwitch`. Off (default) = 4-column grid (2 medium tiles across). On = 6-column grid (3 medium tiles across). Writes `MetroPreferences.show_more_columns`; launcher observes and reflows. WP8.1 labeled this “Show more tiles”; metro-os uses the clearer “Show more columns” label.
+- **Navigation:** Back → Settings root. Crop page / icon-pack picker Back → start+theme without saving (picker saves on row tap).
+- **Interactions:** Changing accent writes `MetroPreferences` and broadcasts `THEME_CHANGED` immediately (suite-wide). Saving/clearing Start background writes `start_background_enabled` + JPEG, then broadcasts `THEME_CHANGED`. Toggling show more columns writes the preference immediately (ContentProvider notify; no theme broadcast). Choosing an icon pack writes `icon_pack_package` immediately (ContentProvider notify; launcher clears glyph caches).
 - **Background:** Theme background.
 - **Reference:** `images/start_theme_background_unset_dark_cobalt.png`, `images/start_theme_background_set_dark_yellow.png` (Background dark/light row in some captures — do not implement).
+
+### Page 2a — choose an icon pack
+
+- **Layout:** Secondary surface; small-caps header `choose an icon pack`; vertical list — first row **none** (accent when selected), then installed icon-pack labels (`ListItemTitle`). Same chrome as lock-screen `MetroAppPickerScreen`.
+- **Navigation:** Row tap applies + Back → start+theme. Back without tap → start+theme (no change).
+- **Interactions:** Writes `MetroPreferences.icon_pack_package` (`null` for none).
 
 ### Page 2b — Start background crop
 

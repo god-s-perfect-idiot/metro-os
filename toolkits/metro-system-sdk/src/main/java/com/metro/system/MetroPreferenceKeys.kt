@@ -29,6 +29,12 @@ object MetroPreferenceKeys {
      * Null (never written) → [MetroConnectedApps.DEFAULT_MUSIC_PACKAGES]; blank → none.
      */
     const val CONNECTED_MUSIC_APPS = "connected_music_apps"
+
+    /**
+     * Active Android icon-pack package for Start / app list glyphs.
+     * Null or blank → system / suite icons ([MetroIconPacks]).
+     */
+    const val ICON_PACK_PACKAGE = "icon_pack_package"
 }
 
 enum class MetroThemeMode(val storageValue: String) {

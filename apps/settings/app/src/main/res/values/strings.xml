@@ -31,6 +31,10 @@
     <string name="settings_font_metro_noto">Metro Noto</string>
     <string name="settings_font_source_sans_3">Source Sans 3</string>
     <string name="settings_font_alegreya_sans">Alegreya Sans</string>
+    <string name="settings_icon_pack_label">Icon pack</string>
+    <string name="settings_icon_pack_none">none</string>
+    <string name="settings_icon_pack_choose">choose an icon pack</string>
+    <string name="settings_icon_pack_help">Applies installed Android icon packs to Start and the app list. Choose none for system icons.</string>
     <string name="settings_start_theme_intro_prefix">Change your phone\'s background and\u0020</string>
     <string name="settings_start_theme_intro_accent">accent colour</string>
     <string name="settings_start_theme_intro_suffix">\u0020to suit your mood today, this week or all month.</string>

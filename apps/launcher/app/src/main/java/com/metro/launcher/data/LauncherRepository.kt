@@ -69,6 +69,26 @@ data class DisplayTile(
         get() = !tapAction.isNullOrBlank() || widgetFace?.hasContent == true
 }
 
+/**
+ * Package shown as selected in the Launch target picker.
+ * Explicit override wins; otherwise the tile's own app — except Start widget faces
+ * (clock, battery, torch, …) that do not open an app, which stay at **none**.
+ */
+fun DisplayTile.resolvedLaunchTargetForPicker(): String? {
+    entry.launchTargetPackage?.takeIf { it.isNotBlank() }?.let { return it }
+    if (handlesStartTap) return null
+    return entry.packageName
+}
+
+/**
+ * Persist only real overrides. Selecting the tile's own package is the native default
+ * and stores as null so face-specific taps (music transport, widget actions) stay intact.
+ */
+fun normalizeLaunchTargetPackage(tilePackage: String, selected: String?): String? {
+    val pkg = selected?.takeIf { it.isNotBlank() } ?: return null
+    return pkg.takeUnless { it == tilePackage }
+}
+
 class LauncherRepository(private val context: Context) {
     private val store = PinnedTileStore(context)
     private val packageManager = context.packageManager
@@ -188,6 +208,7 @@ class LauncherRepository(private val context: Context) {
             providerCounter = providerData?.counter,
             providerBackFaceTitle = providerData?.backFaceTitle,
             hasRichFrontFace = hasRichFrontFace,
+            providerPeeks = if (isPeekCycle) emptyList() else providerPeeks,
         )
         val flipToIcon = imageUri != null && musicNowPlaying == null
         val progress = if (musicNowPlaying != null || widgetFace != null) null else merged.progress

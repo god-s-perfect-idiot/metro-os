@@ -147,7 +147,7 @@ private fun MessageBubble(message: MessageItem) {
                     )
                     MetroText(
                         text = MessagingLogic.bubbleTime(message.timestamp) + statusSuffix,
-                        style = MetroTextStyle.ListItemSubtitle,
+                        style = MetroTextStyle.DialogBody,
                         color = MetroColors.TileContentOnAccent.copy(alpha = 0.75f),
                         modifier = Modifier.align(Alignment.End),
                     )

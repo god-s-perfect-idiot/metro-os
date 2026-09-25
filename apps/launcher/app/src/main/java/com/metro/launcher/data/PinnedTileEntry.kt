@@ -61,7 +61,39 @@ data class PinnedTileEntry(
     /** [android.content.ComponentName.flattenToString] of the selected App Widget provider. */
     val widgetProvider: String? = null,
     val appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID,
-)
+    /**
+     * Optional package opened on tile tap instead of [packageName].
+     * Null / blank = default (this tile's package / live-tile handlers).
+     */
+    val launchTargetPackage: String? = null,
+    /**
+     * Optional package whose launcher icon is drawn on this tile.
+     * Null / blank = [packageName] (or suite branding / icon pack for that package).
+     */
+    val iconPackage: String? = null,
+    /**
+     * Multiplier on the default Start glyph size for this tile. Clamped on read/write.
+     */
+    val iconScale: Float = DEFAULT_ICON_SCALE,
+    /** When true, medium/wide faces omit the bottom-left app name. */
+    val hideTitle: Boolean = false,
+) {
+    companion object {
+        const val DEFAULT_ICON_SCALE = 1f
+        const val MIN_ICON_SCALE = 0.5f
+        const val MAX_ICON_SCALE = 1.5f
+
+        fun clampIconScale(value: Float): Float =
+            value.coerceIn(MIN_ICON_SCALE, MAX_ICON_SCALE)
+    }
+}
+
+/** Package used for [com.metro.launcher.ui.MetroAppIcon] on this pin. */
+fun PinnedTileEntry.resolvedIconPackage(): String =
+    iconPackage?.takeIf { it.isNotBlank() } ?: packageName
+
+fun PinnedTileEntry.resolvedIconScale(): Float =
+    PinnedTileEntry.clampIconScale(iconScale)
 
 fun PinnedTileEntry.hasGridPosition(): Boolean = gridCol != null && gridRow != null
 

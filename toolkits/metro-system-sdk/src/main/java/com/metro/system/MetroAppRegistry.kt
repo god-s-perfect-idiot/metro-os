@@ -26,6 +26,7 @@ object MetroAppRegistry {
         "com.metro.calendar" to Entry("Calendar", "#0078D7"),
         "com.metro.mail" to Entry("Mail", "#0078D7"),
         "com.metro.messaging" to Entry("Messaging", "#0078D7"),
+        "com.metro.conversations" to Entry("Conversations", "#00ABA9"),
         "com.metro.people" to Entry("People", "#D34829"),
         "com.metro.dialer" to Entry("Phone", "#0078D7"),
         "com.metro.calculator" to Entry("Calculator", "#007500"),

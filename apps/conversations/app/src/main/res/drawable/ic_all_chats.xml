@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- All-chats tile glyph — people group (tint with tile content color). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M80,184a72,72 0 1,0 144,0a72,72 0 1,0 -144,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M234,296c-28.16,-14.3 -59.24,-20 -82,-20c-44.58,0 -136,27.34 -136,82v42h150v-16.07c0,-19 8,-38.05 22,-53.93c11.17,-12.68 26.81,-24.45 46,-34" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M340,288c-52.07,0 -156,32.16 -156,96v48h312v-48c0,-63.84 -103.93,-96 -156,-96" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M252,168a88,88 0 1,0 176,0a88,88 0 1,0 -176,0" />
+</vector>
