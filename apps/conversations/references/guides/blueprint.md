@@ -21,7 +21,8 @@ Prototype UI — panorama home with Start-style tiles; richer presentation may f
 - Following tiles: one per notifying app (Start tile fill from `MetroAppBranding`, app icon,
   app label) — SMS / suite Messaging excluded; **Gmail included** even without RemoteInput
 - Last tile when apps exist: **clear** (red + trash glyph) — dismisses all Conversations-tracked
-  shade posts; omitted when the home grid has no app tiles
+  shade posts; omitted when the home grid has no app tiles; always occupies the last 2-up slot
+  (slides in with the first app tile; later apps push it to the new last slot)
 - Tile size: ~88% of half-width square; enter: Hub extras+info right-slide stagger
 - Interactions: tap app tile → Page 3; tap clear → staggered slide-out of app tiles + clear, then refresh
 

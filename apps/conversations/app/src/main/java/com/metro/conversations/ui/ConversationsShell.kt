@@ -8,10 +8,10 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -41,6 +41,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -80,6 +83,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
@@ -323,9 +327,12 @@ private fun HomeScreen(
 /**
  * Start-menu–style 2-up tiles. Enter order left→right, top→bottom —
  * each sliding in from the right (same motion as Hub extras+info support tiles).
- * Clear slides app tiles + the clear tile out one-by-one (same stagger as enter).
- * Clear is omitted when there are no app groups left.
+ *
+ * Clear sits in the last grid slot (beside the final app when the count is odd).
+ * First app arrival slides Clear in with it; later apps push Clear to the new last
+ * slot via [animateItem] placement. Clear is omitted when there are no app groups.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeTilesGrid(
     tiles: List<HomeTile>,
@@ -339,140 +346,111 @@ private fun HomeTilesGrid(
     val leading = tiles.filter { it is HomeTile.AllApps || it is HomeTile.Favorites }
     val apps = tiles.filterIsInstance<HomeTile.App>()
     val showClear = tiles.any { it is HomeTile.Clear }
+    val itemCount = leading.size + apps.size + if (showClear) 1 else 0
+    val rows = (itemCount + 1) / 2
+    val placementSpec = tween<IntOffset>(
+        durationMillis = HomeClearSlideUpMs,
+        easing = HomeTileEnterEasing,
+    )
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val tileSize = (maxWidth - HomeTileGap) / 2 * HomeTileWidthScale
-        Column(
-            modifier = Modifier.animateContentSize(
-                animationSpec = tween(
-                    durationMillis = HomeClearSlideUpMs,
-                    easing = HomeTileEnterEasing,
-                ),
+        val gridHeight = if (rows == 0) {
+            0.dp
+        } else {
+            tileSize * rows + HomeTileGap * (rows - 1)
+        }
+        val animatedGridHeight by animateDpAsState(
+            targetValue = gridHeight,
+            animationSpec = tween(
+                durationMillis = HomeClearSlideUpMs,
+                easing = HomeTileEnterEasing,
             ),
+            label = "homeGridHeight",
+        )
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(animatedGridHeight),
+            horizontalArrangement = Arrangement.spacedBy(HomeTileGap),
             verticalArrangement = Arrangement.spacedBy(HomeTileGap),
+            userScrollEnabled = false,
         ) {
-            TileChunkRows(
-                tiles = leading,
-                tileSize = tileSize,
-                baseEnterIndex = 0,
-                onOpenAllApps = onOpenAllApps,
-                onOpenFavorites = onOpenFavorites,
-                onOpenApp = onOpenApp,
-                onClear = {},
-            )
-            apps.chunked(2).forEachIndexed { rowIndex, row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(HomeTileGap),
-                ) {
-                    row.forEachIndexed { colIndex, tile ->
-                        val enterIndex = leading.size + rowIndex * 2 + colIndex
-                        val exitStaggerIndex = rowIndex * 2 + colIndex
-                        HomeAppTile(
-                            title = tile.appLabel,
-                            packageName = tile.packageName,
-                            glyphResId = null,
-                            faceColorOverride = null,
-                            enterIndex = enterIndex,
-                            exiting = clearing,
-                            exitStaggerIndex = exitStaggerIndex,
-                            onClick = { onOpenApp(tile.packageName) },
-                            modifier = Modifier.size(tileSize),
-                        )
-                    }
-                }
-            }
-            if (showClear) {
-                val clearEnterIndex = leading.size + apps.size
+            item(key = "all_chats") {
                 HomeAppTile(
-                    title = stringResource(R.string.clear),
+                    title = stringResource(R.string.all_chats),
                     packageName = null,
-                    glyphResId = R.drawable.ic_clear,
-                    faceColorOverride = MetroColors.AccentRed,
-                    enterIndex = clearEnterIndex,
-                    exiting = clearing,
-                    exitStaggerIndex = apps.size,
-                    onClick = {
-                        if (!clearing && apps.isNotEmpty()) {
-                            clearing = true
-                            scope.launch {
-                                val waitMs =
-                                    apps.size * HomeTileStaggerMs + HomeClearSlideOutMs
-                                delay(waitMs)
-                                onClear()
-                                clearing = false
-                            }
-                        }
-                    },
+                    glyphResId = R.drawable.ic_all_chats,
+                    faceColorOverride = null,
+                    enterIndex = 0,
+                    onClick = onOpenAllApps,
                     modifier = Modifier.size(tileSize),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun TileChunkRows(
-    tiles: List<HomeTile>,
-    tileSize: androidx.compose.ui.unit.Dp,
-    baseEnterIndex: Int,
-    onOpenAllApps: () -> Unit,
-    onOpenFavorites: () -> Unit,
-    onOpenApp: (String) -> Unit,
-    onClear: () -> Unit,
-) {
-    tiles.chunked(2).forEachIndexed { rowIndex, row ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(HomeTileGap),
-        ) {
-            row.forEachIndexed { colIndex, tile ->
-                val enterIndex = baseEnterIndex + rowIndex * 2 + colIndex
-                when (tile) {
-                    HomeTile.AllApps -> {
-                        HomeAppTile(
-                            title = stringResource(R.string.all_chats),
-                            packageName = null,
-                            glyphResId = R.drawable.ic_all_chats,
-                            faceColorOverride = null,
-                            enterIndex = enterIndex,
-                            onClick = onOpenAllApps,
-                            modifier = Modifier.size(tileSize),
+            item(key = "favorites") {
+                HomeAppTile(
+                    title = stringResource(R.string.favorites),
+                    packageName = null,
+                    glyphResId = R.drawable.ic_favorites,
+                    faceColorOverride = MetroColors.AccentPink,
+                    enterIndex = 1,
+                    onClick = onOpenFavorites,
+                    modifier = Modifier.size(tileSize),
+                )
+            }
+            itemsIndexed(
+                items = apps,
+                key = { _, tile -> tile.packageName },
+            ) { appIndex, tile ->
+                HomeAppTile(
+                    title = tile.appLabel,
+                    packageName = tile.packageName,
+                    glyphResId = null,
+                    faceColorOverride = null,
+                    enterIndex = leading.size + appIndex,
+                    exiting = clearing,
+                    exitStaggerIndex = appIndex,
+                    onClick = { onOpenApp(tile.packageName) },
+                    modifier = Modifier
+                        .animateItem(
+                            fadeInSpec = null,
+                            fadeOutSpec = null,
+                            placementSpec = placementSpec,
                         )
-                    }
-                    HomeTile.Favorites -> {
-                        HomeAppTile(
-                            title = stringResource(R.string.favorites),
-                            packageName = null,
-                            glyphResId = R.drawable.ic_favorites,
-                            faceColorOverride = MetroColors.AccentPink,
-                            enterIndex = enterIndex,
-                            onClick = onOpenFavorites,
-                            modifier = Modifier.size(tileSize),
-                        )
-                    }
-                    is HomeTile.App -> {
-                        HomeAppTile(
-                            title = tile.appLabel,
-                            packageName = tile.packageName,
-                            glyphResId = null,
-                            faceColorOverride = null,
-                            enterIndex = enterIndex,
-                            onClick = { onOpenApp(tile.packageName) },
-                            modifier = Modifier.size(tileSize),
-                        )
-                    }
-                    HomeTile.Clear -> {
-                        HomeAppTile(
-                            title = stringResource(R.string.clear),
-                            packageName = null,
-                            glyphResId = R.drawable.ic_clear,
-                            faceColorOverride = MetroColors.AccentRed,
-                            enterIndex = enterIndex,
-                            onClick = onClear,
-                            modifier = Modifier.size(tileSize),
-                        )
-                    }
+                        .size(tileSize),
+                )
+            }
+            if (showClear) {
+                item(key = "clear") {
+                    HomeAppTile(
+                        title = stringResource(R.string.clear),
+                        packageName = null,
+                        glyphResId = R.drawable.ic_clear,
+                        faceColorOverride = MetroColors.AccentRed,
+                        enterIndex = leading.size + apps.size,
+                        exiting = clearing,
+                        exitStaggerIndex = apps.size,
+                        onClick = {
+                            if (!clearing && apps.isNotEmpty()) {
+                                clearing = true
+                                scope.launch {
+                                    val waitMs =
+                                        apps.size * HomeTileStaggerMs + HomeClearSlideOutMs
+                                    delay(waitMs)
+                                    onClear()
+                                    clearing = false
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .animateItem(
+                                fadeInSpec = null,
+                                fadeOutSpec = null,
+                                placementSpec = placementSpec,
+                            )
+                            .size(tileSize),
+                    )
                 }
             }
         }
@@ -504,7 +482,7 @@ private fun HomeAppTile(
     val faceColor = faceColorOverride ?: asset?.backgroundColor ?: accent
     val contentColor = MetroColors.tileContentColor(faceColor)
     val slideStartPx = with(density) { HomeTileSlideStart.toPx() }
-    // Stable across enterIndex changes so clear doesn't re-slide after apps leave.
+    // Freeze stagger so later slot moves (Clear pushed last) don't re-run enter.
     val staggerIndex = remember { enterIndex }
     val translationX = remember { Animatable(slideStartPx) }
     val alpha = remember { Animatable(0f) }
