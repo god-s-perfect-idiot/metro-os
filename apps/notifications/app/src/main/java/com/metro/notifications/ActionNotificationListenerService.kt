@@ -110,6 +110,7 @@ class ActionNotificationListenerService : NotificationListenerService() {
             onlyAlertOnce = onlyAlertOnce,
             title = copy.title,
             body = copy.body,
+            groupTitle = copy.groupTitle,
             contentSignature = contentSignature(sbn, copy),
         )
     }
@@ -231,10 +232,11 @@ private fun isActiveCall(sbn: StatusBarNotification): Boolean =
 private fun contentSignature(sbn: StatusBarNotification, copy: ToastContent.Copy?): String {
     val title = copy?.title ?: ""
     val body = copy?.body.orEmpty()
+    val groupTitle = copy?.groupTitle.orEmpty()
     val extras = sbn.notification.extras
     @Suppress("DEPRECATION")
     val messageCount = extras.getParcelableArray(Notification.EXTRA_MESSAGES)?.size ?: 0
     @Suppress("DEPRECATION")
     val historyCount = extras.getCharSequenceArray(Notification.EXTRA_REMOTE_INPUT_HISTORY)?.size ?: 0
-    return "$title\u0000$body\u0000$messageCount\u0000$historyCount"
+    return "$groupTitle\u0000$title\u0000$body\u0000$messageCount\u0000$historyCount"
 }

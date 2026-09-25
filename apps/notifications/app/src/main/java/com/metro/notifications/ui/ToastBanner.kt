@@ -55,7 +55,9 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /**
- * WP8.1 toast: accent-filled bar, square app logo + single-line `sender: message` with ellipsis.
+ * WP8.1 toast: accent-filled bar, square app logo + message copy with ellipsis.
+ * Default copy is single-line `sender: message`; setup may enable two-row
+ * `title` / `description`. Group chats always put the conversation name on top.
  * Clock is owned by the status tray — not drawn here.
  *
  * The window sits at y=0. The full accent band ([topInsetDp] under the Metro tray + banner)
@@ -72,6 +74,8 @@ fun ToastBanner(
     onExitFinished: () -> Unit,
     /** Status-bar / cutout height — accent extension under the Metro tray (flips with banner). */
     topInsetDp: Int = 0,
+    /** Setup toggle: stack title over description instead of `title: description`. */
+    twoRowView: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -82,7 +86,15 @@ fun ToastBanner(
     }
     var dragPx by remember(toast.key) { mutableFloatStateOf(0f) }
     val dismissPx = with(density) { ToastSpec.SWIPE_DISMISS_DP.dp.toPx() }
+    val groupRow = remember(toast.key, toast.groupTitle) { toast.displayGroupRow() }
     val line = remember(toast.key, toast.title, toast.body) { toast.displayLine() }
+    val titleRow = remember(toast.key, toast.title, toast.body) { toast.displayTitleRow() }
+    val bodyRow = remember(toast.key, toast.title, toast.body) { toast.displayBodyRow() }
+    val showTwoRows = twoRowView && bodyRow != null
+    val contentLines = if (showTwoRows) 2 else 1
+    val lineCount = (if (groupRow != null) 1 else 0) + contentLines
+    val bannerHeightDp = ToastSpec.heightForLines(lineCount)
+    val stackCopy = groupRow != null || showTwoRows
     val onTapState = rememberUpdatedState(onTap)
     val onSwipeDismissState = rememberUpdatedState(onSwipeDismiss)
 
@@ -113,7 +125,7 @@ fun ToastBanner(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(ToastSpec.HEIGHT_DP.dp)
+                        .height(bannerHeightDp.dp)
                         .offset { IntOffset(dragPx.roundToInt().coerceAtLeast(0), 0) }
                         .pointerInput(toast.key, exiting, dismissPx) {
                             if (exiting) return@pointerInput
@@ -162,15 +174,57 @@ fun ToastBanner(
                             modifier = Modifier.size(ToastSpec.ICON_DP.dp),
                         )
                         Spacer(modifier = Modifier.width(ToastSpec.ICON_TEXT_GAP_DP.dp))
-                        MetroText(
-                            text = line,
-                            style = MetroTextStyle.DialogBody,
-                            color = MetroColors.TileContentOnAccent,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
+                        if (stackCopy) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                if (groupRow != null) {
+                                    MetroText(
+                                        text = groupRow,
+                                        style = MetroTextStyle.DialogBody,
+                                        color = MetroColors.TileContentOnAccent,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                if (showTwoRows) {
+                                    MetroText(
+                                        text = titleRow,
+                                        style = MetroTextStyle.DialogBody,
+                                        color = MetroColors.TileContentOnAccent,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    MetroText(
+                                        text = bodyRow.orEmpty(),
+                                        style = MetroTextStyle.DialogBody,
+                                        color = MetroColors.TileContentOnAccent,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                } else {
+                                    MetroText(
+                                        text = line,
+                                        style = MetroTextStyle.DialogBody,
+                                        color = MetroColors.TileContentOnAccent,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        } else {
+                            MetroText(
+                                text = line,
+                                style = MetroTextStyle.DialogBody,
+                                color = MetroColors.TileContentOnAccent,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }

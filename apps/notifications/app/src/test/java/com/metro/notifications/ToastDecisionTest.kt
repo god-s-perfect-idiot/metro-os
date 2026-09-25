@@ -156,4 +156,56 @@ class ToastDecisionTest {
             ).displayLine(),
         )
     }
+
+    @Test
+    fun displayRows_splitDistinctTitleAndBody() {
+        val messaging = ToastSnapshot(
+            key = "1",
+            packageName = "com.whatsapp",
+            title = "Alex",
+            body = "are you free later?",
+        )
+        assertEquals("Alex", messaging.displayTitleRow())
+        assertEquals("are you free later?", messaging.displayBodyRow())
+
+        val titleOnly = ToastSnapshot(
+            key = "2",
+            packageName = "com.example",
+            title = "Update available",
+            body = null,
+        )
+        assertEquals("Update available", titleOnly.displayTitleRow())
+        assertEquals(null, titleOnly.displayBodyRow())
+
+        val redundant = ToastSnapshot(
+            key = "3",
+            packageName = "com.example",
+            title = "Hello",
+            body = "Hello from Sam",
+        )
+        assertEquals("Hello", redundant.displayTitleRow())
+        assertEquals(null, redundant.displayBodyRow())
+    }
+
+    @Test
+    fun displayGroupRow_surfacesConversationName() {
+        val group = ToastSnapshot(
+            key = "1",
+            packageName = "com.whatsapp",
+            title = "Alice",
+            body = "bring snacks",
+            groupTitle = "Family Chat",
+        )
+        assertEquals("Family Chat", group.displayGroupRow())
+        assertEquals("Alice: bring snacks", group.displayLine())
+
+        val dm = ToastSnapshot(
+            key = "2",
+            packageName = "com.whatsapp",
+            title = "Alice",
+            body = "hey",
+            groupTitle = null,
+        )
+        assertEquals(null, dm.displayGroupRow())
+    }
 }

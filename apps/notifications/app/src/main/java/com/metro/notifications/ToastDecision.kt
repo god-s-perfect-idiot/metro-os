@@ -41,10 +41,17 @@ data class ToastSnapshot(
     val packageName: String,
     val title: String,
     val body: String?,
+    /** Group / conversation name shown above title when present. */
+    val groupTitle: String? = null,
 ) {
+    /** Top row for group chats; null for 1:1 / non-conversation posts. */
+    fun displayGroupRow(): String? =
+        groupTitle?.trim()?.takeIf { it.isNotEmpty() }
+
     /**
      * Message toast copy next to the icon: `sender: message` when both parts exist
      * (Messaging + social). Rendered as one line with ellipsis when it overflows.
+     * Group name is rendered separately above this line.
      */
     fun displayLine(): String {
         val t = title.trim()
@@ -56,5 +63,24 @@ data class ToastSnapshot(
             t.startsWith(b, ignoreCase = true) -> t
             else -> "$t: $b"
         }
+    }
+
+    /** Title row when two-row view is on (falls back to the single-line join when body is absent). */
+    fun displayTitleRow(): String {
+        val t = title.trim()
+        if (t.isNotEmpty()) return t
+        return body?.trim().orEmpty()
+    }
+
+    /**
+     * Body row when two-row view is on. Null when there is no distinct body (redundant or empty),
+     * so the banner can stay shorter.
+     */
+    fun displayBodyRow(): String? {
+        val t = title.trim()
+        val b = body?.trim().orEmpty()
+        if (t.isEmpty() || b.isEmpty()) return null
+        if (b.startsWith(t, ignoreCase = true) || t.startsWith(b, ignoreCase = true)) return null
+        return b
     }
 }

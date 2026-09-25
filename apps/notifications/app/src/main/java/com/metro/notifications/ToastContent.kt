@@ -21,7 +21,12 @@ object ToastContent {
     )
     private val SELF_SENDERS = setOf("you", "me")
 
-    data class Copy(val title: String, val body: String?)
+    data class Copy(
+        val title: String,
+        val body: String?,
+        /** Chat / conversation name when this is a group thread; shown above title. */
+        val groupTitle: String? = null,
+    )
 
     /** Lightweight sibling used when resolving group summaries to child copy. */
     data class ActivePost(
@@ -52,19 +57,25 @@ object ToastContent {
         active: List<ActivePost>?,
     ): Copy {
         val direct = copyFrom(notification)
-        if (!needsGroupLookup(isGroupSummary, direct)) return direct
+        if (!needsGroupLookup(isGroupSummary, direct)) {
+            return direct.withGroupTitleFrom(notification)
+        }
 
         val child = bestGroupChild(key, packageName, groupKey, active)
         if (child != null) {
             val fromChild = copyFrom(child.notification)
-            if (!isCountSummary(fromChild.title, fromChild.body)) return fromChild
+            if (!isCountSummary(fromChild.title, fromChild.body)) {
+                return fromChild
+                    .withGroupTitleFrom(child.notification)
+                    .withGroupTitleFrom(notification)
+            }
         }
 
         val fromLines = copyFromTextLines(notification.extras)
         if (fromLines != null && !isCountSummary(fromLines.title, fromLines.body)) {
-            return fromLines
+            return fromLines.withGroupTitleFrom(notification)
         }
-        return direct
+        return direct.withGroupTitleFrom(notification)
     }
 
     /** Shade reply / RemoteInput echo — do not raise another Metro toast. */
@@ -137,10 +148,20 @@ object ToastContent {
                 val title = sender
                     ?: extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim()
                     ?: extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-                return Copy(title = title.ifEmpty { text }, body = if (title.isEmpty()) null else text)
+                val resolvedTitle = title.ifEmpty { text }
+                val resolvedBody = if (title.isEmpty()) null else text
+                return Copy(
+                    title = resolvedTitle,
+                    body = resolvedBody,
+                    groupTitle = distinctGroupTitle(extras, resolvedTitle, resolvedBody),
+                )
             }
             if (sender != null && text != null) {
-                return Copy(title = sender, body = text)
+                return Copy(
+                    title = sender,
+                    body = text,
+                    groupTitle = distinctGroupTitle(extras, sender, text),
+                )
             }
         }
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
@@ -153,7 +174,37 @@ object ToastContent {
         val body = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
             ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim()
-        return Copy(title = title, body = body)
+        return Copy(
+            title = title,
+            body = body,
+            groupTitle = distinctGroupTitle(extras, title, body),
+        )
+    }
+
+    /**
+     * Conversation / chat name for group threads. Null for 1:1 chats where the conversation
+     * title is just the contact (same as [title]).
+     */
+    fun distinctGroupTitle(extras: Bundle, title: String, body: String?): String? {
+        val conversation = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            ?.toString()
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: return null
+        val t = title.trim()
+        val b = body?.trim().orEmpty()
+        if (conversation.equals(t, ignoreCase = true)) return null
+        if (b.isNotEmpty() && conversation.equals(b, ignoreCase = true)) return null
+        val isGroup = extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false) ||
+            (t.isNotEmpty() && !conversation.equals(t, ignoreCase = true))
+        return conversation.takeIf { isGroup }
+    }
+
+    /** Prefer an existing group title; otherwise fill from [notification] extras. */
+    private fun Copy.withGroupTitleFrom(notification: Notification): Copy {
+        if (!groupTitle.isNullOrBlank()) return this
+        val fromExtras = distinctGroupTitle(notification.extras, title, body) ?: return this
+        return copy(groupTitle = fromExtras)
     }
 
     private fun copyFromTextLines(extras: Bundle): Copy? {

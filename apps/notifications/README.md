@@ -31,7 +31,8 @@ immediately disables stock heads-up (`heads_up_notifications_enabled=0` + listen
 Boot auto-starts only when the toggle is on. Settings → **notifications** launches this
 activity (`com.metro.settings` does not host toast setup itself). **toast timeout** is a
 ListPicker (3 / 5 / 10 seconds, default 5). **show test toast** raises a sample banner when
-the toggle is on and overlay + accessibility are granted.
+the toggle is on and overlay + accessibility are granted. **Two-row view** stacks title over
+description instead of joining as `title: description`.
 
 ```bash
 adb shell appops set com.metro.notifications SYSTEM_ALERT_WINDOW allow
@@ -43,7 +44,10 @@ adb shell pm grant com.metro.notifications android.permission.WRITE_SECURE_SETTI
 ### 1. Toast
 
 - Continuous accent band: full tray-inset + banner flips behind an opaque matching Metro tray
-- Square app logo + single-line `sender: message` with ellipsis; no clock (the tray already shows time)
+- Square app logo + message copy with ellipsis; no clock (the tray already shows time)
+  - Group chats: conversation name on top, then title/body
+  - Default: single-line `sender: message`
+  - Optional setup **Two-row view**: `title` over `description` on two rows (taller banner)
 - Reference: `references/images/toast.png`
 - Auto-dismiss after 3 / 5 / 10 seconds (setup ListPicker; default 5s); swipe right dismisses the banner; tap opens the notifying app
 - Enter/exit: perspective 3D tile flip (`rotationX` 90° → 0°, reverse on dismiss)

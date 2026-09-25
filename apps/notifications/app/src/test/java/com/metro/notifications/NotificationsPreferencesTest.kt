@@ -59,4 +59,17 @@ class NotificationsPreferencesTest {
         prefs.toastDurationMs = 7_000L
         assertEquals(ToastSpec.DURATION_MS, prefs.toastDurationMs)
     }
+
+    @Test
+    fun twoRowView_defaultsToFalse() {
+        assertFalse(prefs.twoRowView)
+    }
+
+    @Test
+    fun twoRowView_persistsAcrossInstances() {
+        prefs.twoRowView = true
+        assertTrue(NotificationsPreferences(RuntimeEnvironment.getApplication()).twoRowView)
+        prefs.twoRowView = false
+        assertFalse(NotificationsPreferences(RuntimeEnvironment.getApplication()).twoRowView)
+    }
 }

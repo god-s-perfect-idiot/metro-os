@@ -57,12 +57,14 @@ class MainActivity : ComponentActivity() {
             var permissionTick by remember { mutableIntStateOf(0) }
             var enabled by remember { mutableStateOf(notifPrefs.enabled) }
             var toastDurationMs by remember { mutableLongStateOf(notifPrefs.toastDurationMs) }
+            var twoRowView by remember { mutableStateOf(notifPrefs.twoRowView) }
 
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         permissionTick++
                         enabled = notifPrefs.enabled
+                        twoRowView = notifPrefs.twoRowView
                         if (notifPrefs.enabled) {
                             HeadsUpController.disableStockHeadsUp(context)
                             ActionNotificationListenerService.requestHeadsUpSuppression()
@@ -198,6 +200,20 @@ class MainActivity : ComponentActivity() {
                         label = stringResource(R.string.toast_timeout),
                         labelStyle = MetroTextStyle.Body,
                         optionStyle = MetroTextStyle.Body,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MetroToggleSwitch(
+                        checked = twoRowView,
+                        onCheckedChange = { value ->
+                            notifPrefs.twoRowView = value
+                            twoRowView = notifPrefs.twoRowView
+                        },
+                        label = stringResource(R.string.two_row_view),
+                        labelStyle = MetroTextStyle.Body,
+                        statusStyle = MetroTextStyle.Body,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),

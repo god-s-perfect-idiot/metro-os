@@ -41,6 +41,53 @@ class ToastContentTest {
         )
         assertEquals("Alice", copy.title)
         assertEquals("second hello", copy.body)
+        assertEquals(null, copy.groupTitle)
+    }
+
+    @Test
+    fun resolve_includesConversationTitleForGroupChats() {
+        val messages = arrayOf(message("Alice", "bring snacks"))
+        val notification = notification(
+            title = "Family Chat",
+            text = "Alice: bring snacks",
+            messages = messages,
+            conversationTitle = "Family Chat",
+            isGroupConversation = true,
+        )
+        val copy = ToastContent.resolve(
+            key = "wa|group",
+            packageName = "com.whatsapp",
+            groupKey = null,
+            isGroupSummary = false,
+            notification = notification,
+            active = null,
+        )
+        assertEquals("Alice", copy.title)
+        assertEquals("bring snacks", copy.body)
+        assertEquals("Family Chat", copy.groupTitle)
+    }
+
+    @Test
+    fun resolve_skipsConversationTitleForOneToOne() {
+        val messages = arrayOf(message("Alice", "hey"))
+        val notification = notification(
+            title = "Alice",
+            text = "hey",
+            messages = messages,
+            conversationTitle = "Alice",
+            isGroupConversation = false,
+        )
+        val copy = ToastContent.resolve(
+            key = "wa|dm",
+            packageName = "com.whatsapp",
+            groupKey = null,
+            isGroupSummary = false,
+            notification = notification,
+            active = null,
+        )
+        assertEquals("Alice", copy.title)
+        assertEquals("hey", copy.body)
+        assertEquals(null, copy.groupTitle)
     }
 
     @Test
@@ -118,6 +165,8 @@ class ToastContentTest {
         flags: Int = 0,
         messages: Array<Bundle>? = null,
         remoteInputHistory: Array<String>? = null,
+        conversationTitle: String? = null,
+        isGroupConversation: Boolean = false,
     ): Notification =
         Notification().also { n ->
             val extras = Bundle()
@@ -126,6 +175,12 @@ class ToastContentTest {
             messages?.let { extras.putParcelableArray(Notification.EXTRA_MESSAGES, it) }
             remoteInputHistory?.let {
                 extras.putCharSequenceArray(Notification.EXTRA_REMOTE_INPUT_HISTORY, it)
+            }
+            conversationTitle?.let {
+                extras.putCharSequence(Notification.EXTRA_CONVERSATION_TITLE, it)
+            }
+            if (isGroupConversation) {
+                extras.putBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, true)
             }
             n.extras = extras
             if (category != null) n.category = category

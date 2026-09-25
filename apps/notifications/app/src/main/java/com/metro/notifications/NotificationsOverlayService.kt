@@ -91,6 +91,8 @@ class NotificationsOverlayService :
         private set
     var toastExiting by mutableStateOf(false)
         private set
+    var twoRowView by mutableStateOf(false)
+        private set
     var darkTheme by mutableStateOf(true)
         private set
     var accent by mutableStateOf(Color(0xFF1BA1E2))
@@ -223,6 +225,7 @@ class NotificationsOverlayService :
     private fun showToast(snapshot: ToastSnapshot) {
         // Pick up any accent missed while the toast window was torn down.
         refreshTheme()
+        twoRowView = NotificationsPreferences(this).twoRowView
         toastExiting = false
         toast = snapshot
         handler.removeCallbacks(toastTimeout)
@@ -344,6 +347,7 @@ class NotificationsOverlayService :
                             onSwipeDismiss = { dismissToast() },
                             onExitFinished = { handler.post { finishExit() } },
                             topInsetDp = topInsetDp,
+                            twoRowView = twoRowView,
                         )
                     }
                 }
@@ -607,6 +611,7 @@ class NotificationsOverlayService :
             onlyAlertOnce: Boolean,
             title: String,
             body: String?,
+            groupTitle: String? = null,
             contentSignature: String,
         ) {
             val svc = instance ?: return
@@ -660,6 +665,7 @@ class NotificationsOverlayService :
                         packageName = packageName,
                         title = resolvedTitle,
                         body = if (title.isEmpty()) null else body,
+                        groupTitle = groupTitle?.trim()?.takeIf { it.isNotEmpty() },
                     ),
                 )
             }

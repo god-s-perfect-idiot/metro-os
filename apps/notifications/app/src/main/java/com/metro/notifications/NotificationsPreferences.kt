@@ -27,10 +27,19 @@ class NotificationsPreferences(context: Context) {
             .putLong(KEY_TOAST_DURATION_MS, ToastSpec.coerceDurationMs(value))
             .apply()
 
+    /**
+     * When true, toast copy is `title` over `description` on two rows.
+     * Default is the classic single-line `title: description` layout.
+     */
+    var twoRowView: Boolean
+        get() = prefs.getBoolean(KEY_TWO_ROW_VIEW, false)
+        set(value) = prefs.edit().putBoolean(KEY_TWO_ROW_VIEW, value).apply()
+
     companion object {
         private const val PREFS_NAME = "metro_notifications"
         private const val KEY_ENABLED = "notifications_enabled"
         private const val KEY_PREV_HEADS_UP = "previous_heads_up_enabled"
         private const val KEY_TOAST_DURATION_MS = "toast_duration_ms"
+        private const val KEY_TWO_ROW_VIEW = "two_row_view"
     }
 }

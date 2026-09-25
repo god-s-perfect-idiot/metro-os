@@ -23,7 +23,7 @@ statusbar, and not Action Center.
 
 ## WP8.1 rules
 
-- Toast: accent fill, square logo + single-line `sender: message` with ellipsis; no clock (tray already shows time); 3/5/10s timeout (setup ListPicker, default 5s), swipe right to dismiss, tap to open
+- Toast: accent fill, square logo + message copy with ellipsis; group chats put conversation name on top; default single-line `sender: message` (or two-row when enabled); no clock (tray already shows time); 3/5/10s timeout (setup ListPicker, default 5s), swipe right to dismiss, tap to open
 - Enter/exit: perspective 3D tile flip (`rotationX` 90° ↔ 0°, camera from banner width); exit is the reverse of enter
 - Overlay at y=0; full accent band (tray inset + banner) flips behind an opaque matching Metro tray raised after attach
 - Overlay window exists **only** while a toast is visible
@@ -42,7 +42,8 @@ statusbar, and not Action Center.
 1. Master **Show notifications** toggle starts/stops the overlay FGS
 2. High-importance notification → toast at the top of the screen
 3. Setup **toast timeout** ListPicker (3 / 5 / 10 seconds) and **show test toast** (toggle + grants required)
-4. Theme broadcast refreshes accent / dark-light
+4. Setup **Two-row view** toggle stacks `title` / `description` instead of `title: description`
+5. Theme broadcast refreshes accent / dark-light
 
 ## Verify
 

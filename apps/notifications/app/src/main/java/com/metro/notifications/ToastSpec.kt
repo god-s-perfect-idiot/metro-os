@@ -4,6 +4,10 @@ package com.metro.notifications
 object ToastSpec {
     /** Accent strip height: square icon + single-line message. Clock lives in the status tray. */
     const val HEIGHT_DP = 52
+    /** Accent strip height for two text rows (two-row view, or group + single content line). */
+    const val TWO_ROW_HEIGHT_DP = 72
+    /** Accent strip height for group + title + description (three text rows). */
+    const val THREE_ROW_HEIGHT_DP = 92
     const val ICON_DP = 32
     const val HORIZONTAL_PADDING_DP = 12
     const val ICON_TEXT_GAP_DP = 10
@@ -22,6 +26,14 @@ object ToastSpec {
 
     fun coerceDurationMs(ms: Long): Long =
         if (ms in DURATION_OPTIONS_MS) ms else DURATION_MS
+
+    /** Banner height for [lineCount] text rows (1–3). */
+    fun heightForLines(lineCount: Int): Int =
+        when {
+            lineCount <= 1 -> HEIGHT_DP
+            lineCount == 2 -> TWO_ROW_HEIGHT_DP
+            else -> THREE_ROW_HEIGHT_DP
+        }
 
     /**
      * Skia/RenderNode camera distance is inches (×72 → px). Jump-list flips use 16×density
