@@ -57,7 +57,13 @@ screenshots/golden/hub_dark_blue.png
 
 ```bash
 ../../scripts/verify-app.sh hub
+# First-party Hub logos (required for new suite apps before release sync):
+../../scripts/sync-hub-firestore.sh --tag <tag>   # fails if logoXml missing
 ```
+
+New suite apps must register `metro_app_<name>.xml` in `MetroAppGlyphs` and
+`scripts/sync-hub-firestore.sh` `glyphFiles` before the first Hub sync
+(see `docs/HARNESS.md` § Hub first-party logoXml).
 
 ## Platform exceptions
 

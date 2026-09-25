@@ -43,6 +43,9 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 - Firestore collections: `first-party`, `second-party`, `third-party`, `explore`
 - App docs include `backgroundColor` (`#RRGGBB`) from `ic_launcher_background` / brand fallback
 - Logos: `logoXml` (vector XML **or** `https://…` PNG URL), `iconUrl` (https PNG), or `logoPngBase64`
+- **Required for new first-party apps:** ship `logoXml` via
+  `metro_app_<name>.xml` + `glyphFiles` in `scripts/sync-hub-firestore.sh` (and
+  `MetroAppGlyphs`). Sync **refuses** to upsert apps with no logo.
 - GitHub latest release remains the APK download source; Firestore caches metadata
 - `HubAppCategory`, `ReleaseApkAsset`, `FirestoreHubApp`
 
@@ -56,12 +59,12 @@ cd apps/hub
 ./gradlew :app:test
 
 # From repo root — sync Hub Firestore catalogs
+# Fails if any release APK lacks logoXml (or People logoPngBase64)
 ./scripts/sync-hub-firestore.sh --tag alpha-8          # first-party (default)
 ./scripts/sync-hub-firestore.sh --party second         # curated second-party
 ./scripts/sync-hub-firestore.sh --party all --tag alpha-8
 ../../scripts/verify-app.sh hub
 ```
-
 ## Agent entrypoint
 
 [`AGENTS.md`](AGENTS.md)

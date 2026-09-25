@@ -355,6 +355,9 @@ Tell the user:
 - Do not commit `apps/hub/app/google-services.json` or `firebase/service-account.json`.
 - After attaching APKs, run `./scripts/sync-hub-firestore.sh --tag "$NEXT_TAG"` so Hub
   first-party Firestore docs match the release (versions, apkUrl, logoXml).
+- Sync **requires logoXml** (or People `logoPngBase64`) for every release APK — if a
+  new app is missing `glyphFiles` / `metro_app_<name>.xml`, fix before calling sync
+  (see `docs/HARNESS.md` § Hub first-party logoXml).
 - Do not update golden screenshots as part of release.
 - Prefer `./scripts/build-apks.sh` over ad-hoc Gradle loops.
 - Prefer
@@ -373,3 +376,4 @@ Tell the user:
 | Build fails mid-suite | Stop; do not publish; paste failing app + log tail |
 | Tag already exists | Stop; ask to reuse, bump, or abort |
 | Asset upload fails | Keep release; retry `gh release upload`; report missing assets |
+| Hub sync fails (missing logoXml) | Stop; add `metro_app_<name>.xml` + `glyphFiles` entry; re-run sync |

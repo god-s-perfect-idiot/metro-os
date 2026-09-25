@@ -76,6 +76,7 @@ object HubAppCatalog {
         "browser", "notes", "music",
         "calculator", "clock", "files", "settings", "store", "hub",
         "photos", "calendar", "mail", "messaging", "people", "dialer",
+        "widgets", "conversations",
     )
 
     private val descriptions = mapOf(
@@ -101,6 +102,8 @@ object HubAppCatalog {
         "clock" to "Alarms, world clock, timer, and stopwatch.",
         "files" to "File explorer with pivot filters.",
         "hub" to "About metro-os and suite app downloads.",
+        "widgets" to "Homescreen widget catalog with Start-style live tiles.",
+        "conversations" to "Reply inbox for third-party shade chats (RemoteInput).",
     )
 
     fun categoryForAssetName(assetName: String): HubAppCategory {
@@ -283,6 +286,8 @@ object HubAppCatalog {
         "clock" to "#0078D7",
         "files" to "#0078D7",
         "hub" to "#1BA1E2",
+        "widgets" to "#1BA1E2",
+        "conversations" to "#00ABA9",
         "launcher" to "#1BA1E2",
         "statusbar" to "#1BA1E2",
         "notifications" to "#1BA1E2",

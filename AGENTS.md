@@ -115,6 +115,8 @@ Only when `scope.md` already lists the app:
 
 Then run **Reference research (Phase 0)**: customize `apps/<name>/references/guides/blueprint.md`, populate `references/web-resources.md`, **prefill `references/images/` with a capture per page** (or document gaps in `references/known-gaps.md`), and add golden screenshots. Scaffolding leaves `images/` empty on purpose — filling it is the first build step, not an afterthought.
 
+Before the app ships in a Hub release sync, add `metro_app_<name>.xml` + `MetroAppGlyphs` + `glyphFiles` in `scripts/sync-hub-firestore.sh`. Sync **requires logoXml** (see `docs/HARNESS.md` § Hub first-party logoXml).
+
 ## What not to do
 
 - Do not commit APKs/AABs (they go in `deploy/`, gitignored).

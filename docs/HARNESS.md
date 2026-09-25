@@ -23,7 +23,23 @@ This document defines how AI agents (and humans) use automation to keep the metr
 | `scripts/build-apks.sh` | Suite APK collection | Builds all complete apps → `deploy/apks/` |
 | `scripts/deploy-suite.sh` | Device testing | Build + install all suite apps on connected adb device |
 | `scripts/install-shell.sh` | Device testing | Installs Tier 0 APKs in order |
+| `scripts/sync-hub-firestore.sh` | After release APKs / Hub catalog | Upserts Firestore first-party (requires **logoXml** per app) |
 
+## Hub first-party logoXml (required)
+
+Every suite app on a GitHub release **must** resolve a Hub logo before
+`scripts/sync-hub-firestore.sh` will upsert `first-party`. Sync exits non-zero if any
+release APK is missing `logoXml` (vector) or the legacy People `logoPngBase64`.
+
+For a **new** app, before the first Hub sync / release:
+
+1. Add `toolkits/metro-ui-android/src/main/res/drawable/metro_app_<name>.xml`
+2. Register it in `MetroAppGlyphs` and in `glyphFiles` inside `sync-hub-firestore.sh`
+3. Add `descriptions` + `brandHexFallback` (+ `core` / `shell`) for that id
+4. Run `./scripts/sync-hub-firestore.sh --tag <tag>` — must print `logoXml` on the upsert line
+
+Do not ship a release that syncs Hub metadata without a logo; Hub catalog rows will
+otherwise show an empty / letter tile.
 ## verify-app.sh pipeline
 
 Executed from repo root. Steps run **in order**; first failure stops the pipeline.

@@ -4,6 +4,10 @@
 #   second-party — curated external Metro apps; metadata from GitHub Releases API only
 # Requires: firebase/service-account.json, network. gh optional for first-party.
 #
+# Hard rule (first-party): every release APK must resolve a Hub logo —
+#   logoXml (vector under toolkits/metro-ui-android/.../drawable + glyphFiles map)
+#   or logoPngBase64 (legacy People PNG only). Sync refuses to upsert when missing.
+#
 # Usage:
 #   ./scripts/sync-hub-firestore.sh
 #   ./scripts/sync-hub-firestore.sh --tag alpha-8
@@ -119,7 +123,7 @@ const shell = new Set([
 ]);
 const core = new Set([
   "browser", "notes", "music", "calculator", "clock", "files", "settings", "store", "hub",
-  "photos", "calendar", "mail", "messaging", "people", "dialer", "widgets",
+  "photos", "calendar", "mail", "messaging", "people", "dialer", "widgets", "conversations",
 ]);
 
 const descriptions = {
@@ -146,6 +150,7 @@ const descriptions = {
   files: "File explorer with pivot filters.",
   hub: "About metro-os and suite app downloads.",
   widgets: "Homescreen widget catalog with Start-style live tiles.",
+  conversations: "Reply inbox for third-party shade chats (RemoteInput).",
 };
 
 const glyphFiles = {
@@ -172,6 +177,7 @@ const glyphFiles = {
   keyboard: "metro_app_keyboard.xml",
   hub: "metro_app_hub.xml",
   widgets: "metro_app_widgets.xml",
+  conversations: "metro_app_conversations.xml",
 };
 
 /** Catalog brand fills (MetroAppRegistry.brandHex) when launcher bg is missing. */
@@ -192,6 +198,7 @@ const brandHexFallback = {
   files: "#0078D7",
   hub: "#1BA1E2",
   widgets: "#1BA1E2",
+  conversations: "#00ABA9",
 };
 
 const DEFAULT_BACKGROUND_COLOR = "#1BA1E2";
@@ -226,6 +233,20 @@ function readLogoXml(id) {
   const path = join(root, "toolkits/metro-ui-android/src/main/res/drawable", file);
   if (!existsSync(path)) return { logoXml: null, logoPngBase64: null };
   return { logoXml: readFileSync(path, "utf8"), logoPngBase64: null };
+}
+
+/** New suite apps must ship a Hub logo — vector logoXml (preferred) or People PNG. */
+function assertHubLogo(id, logos) {
+  if (logos.logoXml || logos.logoPngBase64) return;
+  const hint = [
+    `ERROR: first-party/${id} has no Hub logo (logoXml / logoPngBase64).`,
+    `  New apps require logoXml before sync:`,
+    `    1. Add toolkits/metro-ui-android/src/main/res/drawable/metro_app_${id}.xml`,
+    `    2. Register it in glyphFiles + MetroAppGlyphs (package → drawable)`,
+    `    3. Add descriptions / brandHexFallback / core|shell for ${id}`,
+    `  Then re-run: ./scripts/sync-hub-firestore.sh --tag <tag>`,
+  ].join("\n");
+  throw new Error(hint);
 }
 
 /** Prefer each app's `ic_launcher_background`, then registry brandHex, then default accent. */
@@ -300,6 +321,29 @@ console.log(`Release ${tag}: ${releaseApks.length} APK(s) → ${[...releaseIds].
 
 const batch = db.batch();
 let upserted = 0;
+const logoFailures = [];
+
+for (const apkName of releaseApks.sort()) {
+  const id = assetId(apkName);
+  const logos = readLogoXml(id);
+  if (!logos.logoXml && !logos.logoPngBase64) {
+    logoFailures.push(id);
+  }
+}
+
+if (logoFailures.length > 0) {
+  console.error(
+    `ERROR: ${logoFailures.length} first-party app(s) missing Hub logoXml (or logoPngBase64): ${logoFailures.join(", ")}`,
+  );
+  for (const id of logoFailures) {
+    try {
+      assertHubLogo(id, { logoXml: null, logoPngBase64: null });
+    } catch (e) {
+      console.error(e.message);
+    }
+  }
+  process.exit(1);
+}
 
 for (const apkName of releaseApks.sort()) {
   const id = assetId(apkName);
@@ -307,6 +351,7 @@ for (const apkName of releaseApks.sort()) {
   const fromApk = badging(apkPath);
   const fromGradle = readVersionFromGradle(id);
   const logos = readLogoXml(id);
+  assertHubLogo(id, logos);
   const backgroundColor = readBackgroundColor(id);
   const sizeBytes = existsSync(apkPath) ? statSync(apkPath).size : null;
   const apkUrl = tag
@@ -341,7 +386,8 @@ for (const apkName of releaseApks.sort()) {
 
   batch.set(col.doc(id), patch, { merge: true });
   upserted += 1;
-  console.log(`  upsert first-party/${id}  ${doc.versionName || "?"}  ${doc.type}  ${backgroundColor}`);
+  const logoKind = logos.logoXml ? "logoXml" : "logoPngBase64";
+  console.log(`  upsert first-party/${id}  ${doc.versionName || "?"}  ${doc.type}  ${backgroundColor}  ${logoKind}`);
 }
 
 await batch.commit();
