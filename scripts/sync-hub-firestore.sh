@@ -645,7 +645,7 @@ const CATALOG = [
     name: "Disco Launcher",
     packageName: "io.github.cherryhoax.discolauncher2",
     description: "Metro-inspired Android launcher (DiscoUI nightly builds).",
-    creator: "DiscoUI",
+    creator: "cherryhoax",
     type: "shell",
     backgroundColor: "#E51400",
     githubRepo: "discoui-org/discolauncher",
