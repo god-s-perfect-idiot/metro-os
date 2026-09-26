@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.metro.music.data.Album
 import com.metro.music.data.Artist
+import com.metro.music.data.Genre
 import com.metro.music.data.LibraryLogic
 import com.metro.music.data.Playlist
 import com.metro.music.data.ShowingFilter
@@ -92,6 +93,8 @@ fun CollectionScreen(state: MusicState, onBack: () -> Unit) {
                     CollectionSongsList(state, jumpTarget, consumeJump, openJumpList)
                 MusicState.COLLECTION_PLAYLISTS ->
                     PlaylistsList(state, jumpTarget, consumeJump, openJumpList)
+                MusicState.COLLECTION_GENRES ->
+                    GenresList(state, jumpTarget, consumeJump, openJumpList)
                 else -> PlaceholderList("No genres yet.")
             }
         }
@@ -316,6 +319,39 @@ private fun PlaylistsList(
     }
 }
 
+@Composable
+private fun GenresList(
+    state: MusicState,
+    jumpTarget: Char?,
+    onJumpConsumed: () -> Unit,
+    onOpenJumpList: () -> Unit,
+) {
+    val genres = state.genres
+    if (genres.isEmpty()) {
+        when {
+            isLibraryPageLoading(state) -> MetroLoadingScreen()
+            state.showingFilter == ShowingFilter.YouTubeMusic ->
+                PlaceholderList("YouTube Music library has no genre tags.")
+            else -> PlaceholderList("No genres.")
+        }
+        return
+    }
+    MusicLetterList(
+        items = genres,
+        labelOf = { it.name },
+        keyOf = { it.id },
+        jumpTarget = jumpTarget,
+        onJumpTargetConsumed = onJumpConsumed,
+        onLetterMarkerClick = onOpenJumpList,
+    ) { genre ->
+        MusicListRow(
+            title = genre.name,
+            subtitle = "${genre.songCount} songs",
+            onClick = { state.openGenre(genre) },
+        )
+    }
+}
+
 /** Track order list for album / artist / playlist detail — no letter grouping (§6.18 applies to pivots). */
 @Composable
 fun SongsList(state: MusicState, songs: List<Song>) {
@@ -421,6 +457,27 @@ fun ArtistDetailScreen(state: MusicState, artist: Artist, onBack: () -> Unit) {
         MetroText(
             text = "songs",
             style = MetroTextStyle.HubTitle,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        SongsList(state, songs)
+    }
+}
+
+@Composable
+fun GenreDetailScreen(state: MusicState, genre: Genre, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val songs = state.songsForGenre(genre)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MetroTheme.colors.background)
+            .padding(bottom = 24.dp),
+    ) {
+        MetroAppTitle("MUSIC")
+        MetroText(
+            text = genre.name,
+            style = MetroTextStyle.PageTitle,
             modifier = Modifier.padding(start = 12.dp),
         )
         Spacer(Modifier.height(12.dp))

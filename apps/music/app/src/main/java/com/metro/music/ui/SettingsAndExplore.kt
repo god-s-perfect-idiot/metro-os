@@ -89,6 +89,48 @@ fun SettingsScreen(
 }
 
 @Composable
+fun RecentScreen(state: MusicState, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MetroTheme.colors.background)
+            .padding(bottom = 24.dp),
+    ) {
+        MetroAppTitle("MUSIC")
+        MetroText(
+            text = "recent",
+            style = MetroTextStyle.HubTitle,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        if (state.recentSongs.isEmpty()) {
+            MetroText(
+                text = "Nothing played yet",
+                style = MetroTextStyle.Body,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+        } else {
+            LazyColumn {
+                items(state.recentSongs, key = { it.id }) { song ->
+                    MusicListRow(
+                        title = song.title,
+                        subtitle = song.artist,
+                        onClick = {
+                            state.playSongs(
+                                listOf(song) + state.recentSongs.filter { it.id != song.id },
+                                0,
+                            )
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ExploreScreen(state: MusicState, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val searchFocus = remember { FocusRequester() }

@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -20,14 +19,18 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.metro.music.data.Album
 import com.metro.music.data.Artist
+import com.metro.music.data.Genre
 import com.metro.music.data.LibraryLogic
 import com.metro.music.data.LibrarySource
 import com.metro.music.data.LocalLibraryRepository
+import com.metro.music.data.PlayHistoryEntry
+import com.metro.music.data.PlayHistoryLogic
+import com.metro.music.data.PlayHistoryStore
 import com.metro.music.data.Playlist
+import com.metro.music.data.QueueLogic
 import com.metro.music.data.ShowingFilter
 import com.metro.music.data.Song
 import com.metro.music.data.artworkModel
-import com.metro.music.data.loadAlbumTintArgb
 import com.metro.music.playback.MusicPlaybackService
 import com.metro.music.playback.PlaybackLogic
 import com.metro.music.ytmusic.YtMusicAuthStore
@@ -39,11 +42,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
 
 enum class MusicRoute {
     Hub,
@@ -51,14 +56,18 @@ enum class MusicRoute {
     AlbumDetail,
     ArtistDetail,
     PlaylistDetail,
+    GenreDetail,
     Settings,
     Explore,
+    Recent,
+    Queue,
 }
 
 class MusicState(context: Context) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val localRepo = LocalLibraryRepository(appContext)
+    private val playHistoryStore = PlayHistoryStore(appContext)
     private val authStore = YtMusicAuthStore(appContext)
     private val ytHttp = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -78,9 +87,9 @@ class MusicState(context: Context) {
     private var playlistJob: Job? = null
     private var libraryJob: Job? = null
     private var exploreJob: Job? = null
-    private var tintJob: Job? = null
-    private var backdropArtwork: Any? = null
     private var playbackError: String? = null
+    private var playHistoryEntries by mutableStateOf<List<PlayHistoryEntry>>(emptyList())
+    private var lastRecordedSongId: String? = null
 
     var hasAudioPermission by mutableStateOf(false)
         private set
@@ -123,6 +132,7 @@ class MusicState(context: Context) {
     var selectedAlbum by mutableStateOf<Album?>(null)
     var selectedArtist by mutableStateOf<Artist?>(null)
     var selectedPlaylist by mutableStateOf<Playlist?>(null)
+    var selectedGenre by mutableStateOf<Genre?>(null)
     var playlistSongs by mutableStateOf<List<Song>>(emptyList())
         private set
     var playlistLoading by mutableStateOf(false)
@@ -135,17 +145,36 @@ class MusicState(context: Context) {
         private set
     var currentSong by mutableStateOf<Song?>(null)
         private set
-    /** Darkened album-art colour behind the hub while a track is loaded; null = plain background. */
-    var nowPlayingBackdrop by mutableStateOf<Color?>(null)
+    /**
+     * Full logical play queue from the last [playSongs] call. Broader than the short window
+     * materialised into Media3 (YouTube stream URLs expire).
+     */
+    var playbackQueue by mutableStateOf<List<Song>>(emptyList())
+        private set
+    /**
+     * Unshuffled order from the last [playSongs] call. Restored when shuffle turns off so the
+     * queue list matches the album/playlist again.
+     */
+    private var orderedPlaybackQueue: List<Song> = emptyList()
+    /** Album cover Coil model behind the hub while a track is loaded; null = plain background. */
+    var nowPlayingBackdropArt by mutableStateOf<Any?>(null)
         private set
     var shuffle by mutableStateOf(false)
+        private set
     var repeatMode by mutableIntStateOf(Player.REPEAT_MODE_OFF)
     var loadingPlayback by mutableStateOf(false)
         private set
     var statusMessage by mutableStateOf<String?>(null)
 
+    val upNextLabel: String
+        get() = QueueLogic.upNextLabel(playbackQueue, currentSong?.id)
+
     val allSongs: List<Song>
         get() = localSongs + ytSongs
+
+    /** Newest-first plays persisted on this device (library metadata when still available). */
+    val recentSongs: List<Song>
+        get() = PlayHistoryLogic.resolveSongs(playHistoryEntries, allSongs)
 
     val visibleSongs: List<Song>
         get() = LibraryLogic.filterSongs(allSongs, showingFilter)
@@ -159,18 +188,26 @@ class MusicState(context: Context) {
     val playlists: List<Playlist>
         get() = LibraryLogic.filterPlaylists(localPlaylists + ytPlaylists, showingFilter)
 
-    /** Letters the jump grid can offer for the pivot page on screen (empty = genres). */
+    val genres: List<Genre>
+        get() = LibraryLogic.genresFrom(visibleSongs)
+
+    /** Letters the jump grid can offer for the pivot page on screen. */
     val collectionJumpLetters: Set<Char>
         get() = when (collectionPage) {
             COLLECTION_ARTISTS -> MetroJumpListLogic.activeLetters(artists.map { it.name })
             COLLECTION_ALBUMS -> MetroJumpListLogic.activeLetters(albums.map { it.title })
             COLLECTION_SONGS -> MetroJumpListLogic.activeLetters(visibleSongs.map { it.title })
             COLLECTION_PLAYLISTS -> MetroJumpListLogic.activeLetters(playlists.map { it.title })
+            COLLECTION_GENRES -> MetroJumpListLogic.activeLetters(genres.map { it.name })
             else -> emptySet()
         }
 
     fun refreshPermissions(context: Context) {
         hasAudioPermission = hasAudioPermission(context)
+    }
+
+    init {
+        loadPlayHistory()
     }
 
     fun connectPlayer() {
@@ -204,7 +241,6 @@ class MusicState(context: Context) {
         playlistJob?.cancel()
         libraryJob?.cancel()
         exploreJob?.cancel()
-        tintJob?.cancel()
         controller?.removeListener(playerListener)
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controller = null
@@ -334,6 +370,14 @@ class MusicState(context: Context) {
         positionMs = 0L
         durationMs = 0L
         isPlaying = false
+        orderedPlaybackQueue = songs
+        playbackQueue = if (shuffle) {
+            QueueLogic.shuffleKeepingCurrent(songs, start.id)
+        } else {
+            songs
+        }
+        val queue = playbackQueue
+        val queueIndex = QueueLogic.indexOfSong(queue, start.id).coerceIn(0, queue.lastIndex)
         updateCurrentSong(start)
         hubPage = HUB_NOW_PLAYING
         route = MusicRoute.Hub
@@ -346,6 +390,7 @@ class MusicState(context: Context) {
                     statusMessage = playbackError ?: "Unable to play"
                     return@launch
                 }
+                ctrl.shuffleModeEnabled = false
                 ctrl.setMediaItems(listOf(startItem.second), 0, 0L)
                 ctrl.prepare()
                 ctrl.play()
@@ -353,24 +398,118 @@ class MusicState(context: Context) {
             } finally {
                 loadingPlayback = false
             }
-            fillQueue(ctrl, songs, index)
+            fillQueue(ctrl, queue, queueIndex)
         }
+    }
+
+    fun openQueue() {
+        if (playbackQueue.isEmpty()) {
+            rebuildQueueFromPlayer()
+        }
+        route = MusicRoute.Queue
+    }
+
+    /**
+     * Jump to [index] in [playbackQueue]. Prefers seeking an already-materialised Media3 item;
+     * otherwise reloads the queue from that song.
+     */
+    fun playQueueIndex(index: Int) {
+        val songs = playbackQueue
+        if (index !in songs.indices) return
+        val target = songs[index]
+        val ctrl = controller
+        if (ctrl != null) {
+            for (i in 0 until ctrl.mediaItemCount) {
+                if (ctrl.getMediaItemAt(i).mediaId == target.id) {
+                    ctrl.seekToDefaultPosition(i)
+                    ctrl.play()
+                    hubPage = HUB_NOW_PLAYING
+                    route = MusicRoute.Hub
+                    return
+                }
+            }
+        }
+        playSongs(songs, index)
     }
 
     /**
      * Every YouTube track costs an Innertube round trip and its stream URL expires, so only a
-     * short window either side of the tapped song is materialised.
+     * short window either side of the tapped song is materialised. [ensureQueueWindow] tops it
+     * up as playback advances through the full logical [playbackQueue].
      */
     private suspend fun fillQueue(ctrl: MediaController, songs: List<Song>, startIndex: Int) {
         val following = songs.drop(startIndex + 1).take(QUEUE_LOOKAHEAD)
         for (song in following) {
+            coroutineContext.ensureActive()
             val item = withContext(Dispatchers.IO) { resolvePlayable(song) } ?: continue
             ctrl.addMediaItem(item.second)
         }
         val preceding = songs.take(startIndex).takeLast(QUEUE_LOOKBEHIND)
         for ((offset, song) in preceding.withIndex()) {
+            coroutineContext.ensureActive()
             val item = withContext(Dispatchers.IO) { resolvePlayable(song) } ?: continue
             ctrl.addMediaItem(offset, item.second)
+        }
+    }
+
+    /**
+     * Append / prepend unresolved songs so Media3 always holds ~[QUEUE_LOOKAHEAD] ahead of the
+     * current logical index. Skip and natural advance both rely on this sliding window.
+     */
+    private fun ensureQueueWindow() {
+        val ctrl = controller ?: return
+        val songs = playbackQueue
+        if (songs.isEmpty()) return
+        val logicalIndex = QueueLogic.indexOfSong(songs, currentSong?.id)
+        if (logicalIndex < 0) return
+        val materialised = materialisedMediaIds(ctrl)
+        val ahead = QueueLogic.missingAhead(songs, logicalIndex, QUEUE_LOOKAHEAD, materialised)
+        val behind = QueueLogic.missingBehind(songs, logicalIndex, QUEUE_LOOKBEHIND, materialised)
+        if (ahead.isEmpty() && behind.isEmpty()) return
+        queueJob?.cancel()
+        queueJob = scope.launch {
+            for (song in ahead) {
+                if (!isActive) return@launch
+                if (materialisedMediaIds(ctrl).contains(song.id)) continue
+                val item = withContext(Dispatchers.IO) { resolvePlayable(song) } ?: continue
+                ctrl.addMediaItem(item.second)
+            }
+            // Prepend in reverse so the earliest missing song ends up first.
+            for (song in behind.asReversed()) {
+                if (!isActive) return@launch
+                if (materialisedMediaIds(ctrl).contains(song.id)) continue
+                val item = withContext(Dispatchers.IO) { resolvePlayable(song) } ?: continue
+                ctrl.addMediaItem(0, item.second)
+            }
+        }
+    }
+
+    private fun materialisedMediaIds(ctrl: MediaController): Set<String> = buildSet {
+        for (i in 0 until ctrl.mediaItemCount) {
+            add(ctrl.getMediaItemAt(i).mediaId)
+        }
+    }
+
+    /**
+     * Drop every Media3 item except the current track, then refill the look-ahead / look-behind
+     * window from [playbackQueue]. Used after shuffle reorder so the player order matches.
+     */
+    private fun rematerializeWindowAroundCurrent() {
+        val ctrl = controller ?: return
+        val songs = playbackQueue
+        val logicalIndex = QueueLogic.indexOfSong(songs, currentSong?.id)
+        if (logicalIndex < 0 || ctrl.mediaItemCount <= 0) return
+        val currentIndex = ctrl.currentMediaItemIndex.coerceAtLeast(0)
+        while (ctrl.mediaItemCount > currentIndex + 1) {
+            ctrl.removeMediaItem(ctrl.mediaItemCount - 1)
+        }
+        while (ctrl.currentMediaItemIndex > 0) {
+            ctrl.removeMediaItem(0)
+        }
+        ctrl.shuffleModeEnabled = false
+        queueJob?.cancel()
+        queueJob = scope.launch {
+            fillQueue(ctrl, songs, logicalIndex)
         }
     }
 
@@ -380,11 +519,31 @@ class MusicState(context: Context) {
     }
 
     fun skipNext() {
-        controller?.seekToNextMediaItem()
+        val ctrl = controller ?: return
+        if (ctrl.hasNextMediaItem()) {
+            ctrl.seekToNextMediaItem()
+            return
+        }
+        // Media3 window exhausted but logical queue may still have tracks — jump / refill.
+        val next = QueueLogic.upNext(playbackQueue, currentSong?.id) ?: return
+        val index = QueueLogic.indexOfSong(playbackQueue, next.id)
+        if (index >= 0) playQueueIndex(index)
     }
 
     fun skipPrevious() {
-        controller?.seekToPreviousMediaItem()
+        val ctrl = controller ?: return
+        // Near the start of a track, WP / most players restart; otherwise go previous.
+        if (ctrl.currentPosition > PREVIOUS_RESTART_MS && ctrl.isCurrentMediaItemSeekable) {
+            ctrl.seekTo(0L)
+            return
+        }
+        if (ctrl.hasPreviousMediaItem()) {
+            ctrl.seekToPreviousMediaItem()
+            return
+        }
+        val queue = playbackQueue
+        val index = QueueLogic.indexOfSong(queue, currentSong?.id)
+        if (index > 0) playQueueIndex(index - 1)
     }
 
     fun seekTo(ms: Long) {
@@ -392,8 +551,25 @@ class MusicState(context: Context) {
     }
 
     fun toggleShuffle() {
-        shuffle = !shuffle
-        controller?.shuffleModeEnabled = shuffle
+        val enabling = !shuffle
+        shuffle = enabling
+        // Own shuffle on the logical queue — Media3 shuffle only sees the short window.
+        controller?.shuffleModeEnabled = false
+        val currentId = currentSong?.id
+        if (enabling) {
+            if (orderedPlaybackQueue.isEmpty()) {
+                orderedPlaybackQueue = playbackQueue
+            }
+            val source = orderedPlaybackQueue.ifEmpty { playbackQueue }
+            if (source.isEmpty()) return
+            playbackQueue = QueueLogic.shuffleKeepingCurrent(source, currentId)
+        } else {
+            val restored = orderedPlaybackQueue
+            if (restored.isNotEmpty()) {
+                playbackQueue = restored
+            }
+        }
+        rematerializeWindowAroundCurrent()
     }
 
     fun cycleRepeat() {
@@ -415,6 +591,11 @@ class MusicState(context: Context) {
         route = MusicRoute.ArtistDetail
     }
 
+    fun openGenre(genre: Genre) {
+        selectedGenre = genre
+        route = MusicRoute.GenreDetail
+    }
+
     fun songsForAlbum(album: Album): List<Song> =
         visibleSongs.filter {
             it.album.equals(album.title, ignoreCase = true) &&
@@ -423,6 +604,9 @@ class MusicState(context: Context) {
 
     fun songsForArtist(artist: Artist): List<Song> =
         visibleSongs.filter { it.artist.equals(artist.name, ignoreCase = true) }
+
+    fun songsForGenre(genre: Genre): List<Song> =
+        visibleSongs.filter { it.genre.equals(genre.name, ignoreCase = true) }
 
     /**
      * Cover of the song's *album* rather than the playing track's own thumbnail — the first track
@@ -437,25 +621,25 @@ class MusicState(context: Context) {
         return cover.artworkModel()
     }
 
-    private fun updateCurrentSong(song: Song?) {
+    private fun updateCurrentSong(song: Song?, recordHistory: Boolean = true) {
         currentSong = song
-        refreshBackdrop(song)
+        nowPlayingBackdropArt = song?.let { albumArtworkModel(it) }
+        if (recordHistory && song != null) {
+            recordPlay(song)
+        }
     }
 
-    private fun refreshBackdrop(song: Song?) {
-        val artwork = song?.let { albumArtworkModel(it) }
-        if (artwork == backdropArtwork) return
-        backdropArtwork = artwork
-        tintJob?.cancel()
-        if (artwork == null) {
-            nowPlayingBackdrop = null
-            return
-        }
-        tintJob = scope.launch {
-            val argb = withContext(Dispatchers.IO) { loadAlbumTintArgb(appContext, artwork) }
-            if (backdropArtwork == artwork) {
-                nowPlayingBackdrop = argb?.let { Color(it) }
-            }
+    private fun recordPlay(song: Song) {
+        if (song.id == lastRecordedSongId) return
+        lastRecordedSongId = song.id
+        val updated = PlayHistoryLogic.record(song, System.currentTimeMillis(), playHistoryEntries)
+        playHistoryEntries = updated
+        scope.launch(Dispatchers.IO) { playHistoryStore.save(updated) }
+    }
+
+    private fun loadPlayHistory() {
+        scope.launch {
+            playHistoryEntries = withContext(Dispatchers.IO) { playHistoryStore.load() }
         }
     }
 
@@ -486,6 +670,8 @@ class MusicState(context: Context) {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             durationMs = controller?.duration?.coerceAtLeast(0L) ?: 0L
             updateCurrentSong(resolveSong(mediaItem))
+            // Slide the materialised window forward so skip/next never dead-ends mid-queue.
+            ensureQueueWindow()
         }
 
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
@@ -494,6 +680,12 @@ class MusicState(context: Context) {
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             durationMs = controller?.duration?.coerceAtLeast(0L) ?: 0L
+        }
+
+        override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+            if (playbackQueue.isEmpty()) {
+                rebuildQueueFromPlayer()
+            }
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -513,9 +705,31 @@ class MusicState(context: Context) {
         isPlaying = ctrl.isPlaying
         durationMs = ctrl.duration.coerceAtLeast(0L)
         positionMs = ctrl.currentPosition.coerceAtLeast(0L)
-        shuffle = ctrl.shuffleModeEnabled
+        // Shuffle is owned by this state (full logical queue), not Media3's short window.
         repeatMode = ctrl.repeatMode
         updateCurrentSong(resolveSong(ctrl.currentMediaItem))
+        if (playbackQueue.isEmpty()) {
+            rebuildQueueFromPlayer()
+        }
+        ensureQueueWindow()
+    }
+
+    /** After process death, rebuild a best-effort queue from materialised Media3 items. */
+    private fun rebuildQueueFromPlayer() {
+        val ctrl = controller ?: return
+        val count = ctrl.mediaItemCount
+        if (count <= 0) return
+        val items = buildList {
+            for (i in 0 until count) {
+                resolveSong(ctrl.getMediaItemAt(i))?.let { add(it) }
+            }
+        }
+        if (items.isNotEmpty()) {
+            playbackQueue = items
+            if (orderedPlaybackQueue.isEmpty()) {
+                orderedPlaybackQueue = items
+            }
+        }
     }
 
     private fun resolveSong(mediaItem: MediaItem?): Song? =
@@ -525,6 +739,7 @@ class MusicState(context: Context) {
         return allSongs.firstOrNull { it.id == id }
             ?: exploreResults.firstOrNull { it.id == id }
             ?: playlistSongs.firstOrNull { it.id == id }
+            ?: playbackQueue.firstOrNull { it.id == id }
             ?: currentSong?.takeIf { it.id == id }
     }
 
@@ -571,6 +786,8 @@ class MusicState(context: Context) {
     companion object {
         private const val QUEUE_LOOKAHEAD = 6
         private const val QUEUE_LOOKBEHIND = 3
+        /** Restart current track instead of skipping previous when earlier than this. */
+        private const val PREVIOUS_RESTART_MS = 3_000L
         const val HUB_COLLECTION = 0
         const val HUB_GET_MUSIC = 1
         const val HUB_NOW_PLAYING = 2

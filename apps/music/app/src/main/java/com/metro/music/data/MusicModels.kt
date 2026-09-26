@@ -26,6 +26,8 @@ data class Song(
     val youtubeVideoId: String? = null,
     val albumId: String? = null,
     val artistId: String? = null,
+    /** Local MediaStore genre tag when present; YT Music library items usually omit this. */
+    val genre: String? = null,
 )
 
 data class Album(
@@ -52,6 +54,13 @@ data class Playlist(
     val artworkUri: Uri? = null,
     val youtubePlaylistId: String? = null,
     val localMediaStoreId: Long? = null,
+)
+
+data class Genre(
+    val id: String,
+    val name: String,
+    val songCount: Int,
+    val source: LibrarySource,
 )
 
 data class PlaybackQueueItem(
@@ -106,6 +115,29 @@ object LibraryLogic {
                 )
             }
             .sortedBy { it.title.lowercase() }
+
+    /** Only tagged genres — blank/missing tags are omitted (no synthetic “Unknown genre”). */
+    fun genresFrom(songs: List<Song>): List<Genre> =
+        songs
+            .mapNotNull { song ->
+                val name = song.genre?.trim().orEmpty()
+                if (name.isEmpty()) null else song to name
+            }
+            .groupBy { (_, name) -> name.lowercase() }
+            .map { (_, group) ->
+                val name = group.first().second
+                Genre(
+                    id = "genre:${name.lowercase()}",
+                    name = name,
+                    songCount = group.size,
+                    source = if (group.all { (song, _) -> song.source == LibrarySource.YouTubeMusic }) {
+                        LibrarySource.YouTubeMusic
+                    } else {
+                        LibrarySource.Local
+                    },
+                )
+            }
+            .sortedBy { it.name.lowercase() }
 
     /**
      * Groups rows under find-by-letter keys — `#` section first, then `a`–`z` — so every

@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,6 +36,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -61,7 +62,6 @@ import com.metro.ui.MetroListItem
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
-import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -99,6 +99,7 @@ fun MusicHub(
     onOpenCollection: (pivotPage: Int) -> Unit,
     onOpenExplore: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenRecent: () -> Unit,
     skipIntro: Boolean = false,
     onIntroPlayed: () -> Unit = {},
 ) {
@@ -177,6 +178,7 @@ fun MusicHub(
                             state = state,
                             onOpenExplore = onOpenExplore,
                             onOpenSettings = onOpenSettings,
+                            onOpenRecent = onOpenRecent,
                         )
                         else -> NowPlayingPane(state = state)
                     }
@@ -229,6 +231,7 @@ fun GetMusicPane(
     state: MusicState,
     onOpenExplore: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenRecent: () -> Unit,
 ) {
     // WP8.1 Xbox Music leaves a clear gap under the panorama header before the
     // accent squares (`hub_fullpage.png` centre pane). Tiles are flush blocks, so
@@ -241,17 +244,25 @@ fun GetMusicPane(
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val tileSize = ((maxWidth - 8.dp) / 2) * GetMusicHubTileWidthScale
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GetMusicHubTile(
+                        title = "search",
+                        glyph = GetMusicTileGlyph.Search,
+                        onClick = onOpenExplore,
+                        modifier = Modifier.size(tileSize),
+                    )
+                    GetMusicHubTile(
+                        title = if (state.ytConnected) "account" else "connect",
+                        glyph = GetMusicTileGlyph.Account,
+                        onClick = onOpenSettings,
+                        modifier = Modifier.size(tileSize),
+                    )
+                }
                 GetMusicHubTile(
-                    title = "search",
-                    glyph = GetMusicTileGlyph.Search,
-                    onClick = onOpenExplore,
-                    modifier = Modifier.size(tileSize),
-                )
-                GetMusicHubTile(
-                    title = if (state.ytConnected) "account" else "connect",
-                    glyph = GetMusicTileGlyph.Account,
-                    onClick = onOpenSettings,
+                    title = "recent",
+                    glyph = GetMusicTileGlyph.Recent,
+                    onClick = onOpenRecent,
                     modifier = Modifier.size(tileSize),
                 )
             }
@@ -267,36 +278,9 @@ fun GetMusicPane(
             style = MetroTextStyle.Body,
             color = MetroTheme.colors.secondaryText,
         )
-        Spacer(modifier = Modifier.height(8.dp))
         if (!state.ytConnected) {
-            MetroBorderButton(text = "connect youtube music", onClick = onOpenSettings)
-        } else {
-            MetroBorderButton(text = "sync now", onClick = { state.refreshYtLibrary() })
             Spacer(modifier = Modifier.height(8.dp))
-            MetroBorderButton(text = "search", onClick = onOpenExplore)
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        if (state.ytSyncing && state.ytSongs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 24.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                MetroLoadingDots()
-            }
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(state.ytSongs.take(12), key = { it.id }) { song ->
-                    MusicListRow(
-                        title = song.title,
-                        subtitle = song.artist,
-                        onClick = {
-                            state.playSongs(state.ytSongs, state.ytSongs.indexOf(song).coerceAtLeast(0))
-                        },
-                    )
-                }
-            }
+            MetroBorderButton(text = "connect youtube music", onClick = onOpenSettings)
         }
     }
 }
@@ -304,6 +288,7 @@ fun GetMusicPane(
 private enum class GetMusicTileGlyph {
     Search,
     Account,
+    Recent,
 }
 
 /**
@@ -348,6 +333,7 @@ private fun DrawScope.drawGetMusicTileGlyph(glyph: GetMusicTileGlyph, color: Col
     when (glyph) {
         GetMusicTileGlyph.Search -> drawSearchTileGlyph(color)
         GetMusicTileGlyph.Account -> drawAccountTileGlyph(color)
+        GetMusicTileGlyph.Recent -> drawRecentTileGlyph(color)
     }
 }
 
@@ -388,6 +374,28 @@ private fun DrawScope.drawAccountTileGlyph(color: Color) {
         close()
     }
     drawPath(body, color)
+}
+
+/** History / recent plays — 512 viewBox path from the provided SVG. */
+private const val RecentGlyphPathData =
+    "M256 0C179.9 0 111.7 33.4 64.9 86.2L0 21.3V192h170.7l-60.2-60.2C145.6 90.5 197.5 64 256 64c106 0 192 85.9 192 192s-86 192-192 192c-53 0-101-21.5-135.8-56.2L75 437c46.4 46.3 110.4 75 181 75c141.4 0 256-114.6 256-256S397.4 0 256 0m-21.3 106.7v170.7h128v-42.7h-85.3v-128z"
+
+private val recentGlyphPath: Path by lazy {
+    PathParser().parsePathString(RecentGlyphPathData).toPath()
+}
+
+private fun DrawScope.drawRecentTileGlyph(color: Color) {
+    // Slightly under the canvas so the history mark reads lighter than search/account fills.
+    val scale = size.minDimension / 512f * 0.82f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(recentGlyphPath, color)
+    }
 }
 
 @Composable
@@ -492,7 +500,7 @@ fun NowPlayingPane(state: MusicState) {
                         }
                         MediaGlyphButton(
                             glyph = MediaGlyph.Queue,
-                            onClick = { },
+                            onClick = { state.openQueue() },
                             contentDescription = "queue",
                         )
                     }
@@ -509,7 +517,7 @@ fun NowPlayingPane(state: MusicState) {
         }
 
         NowPlayingOverflowText(
-            text = "Up next: —",
+            text = state.upNextLabel,
             style = MetroTextStyle.Body,
             color = MetroTheme.colors.secondaryText,
         )

@@ -7,10 +7,9 @@ High-fidelity WP8.1 captures missing or low-fidelity for blueprint pages. Prefer
 | Full `collection` panorama pane (recent plays + section links) without now-playing chrome | Collection hub content | Use `hub_nowplaying_compare_dark_unknown.jpg` + blueprint § Page 2; artists showing for list chrome |
 | Dense artists A–Z list (many rows) | Long letter list + jump list | `artists_showing_dark_teal.jpg` shows header + `#` jump tile; implement `MetroLetterList` |
 | Playlists pivot | Playlist titles list | Same list chrome as artists; WP text sources in Thurrott Showing article |
-| Genres pivot | Genre names | Same as playlists |
+| Genres pivot capture | Genre names list | Implemented from MediaStore tags; use artists list chrome + blueprint § Page 3 |
 | Radio panorama pane | Station list / create station | Blueprint stub; YT Music search “radio” when connected |
 | Explore / Store pane | Featured albums | Blueprint Page 9; YT Music search results |
-| Queue full-screen list | Now playing queue reorder | Icons on now playing + `Up next` line in `hub_nowplaying_dark_green.jpg` |
 | Light theme Music captures | Light bg Music UI | Dark refs + `MetroTheme` light tokens |
 
 Do not start UI against an empty `images/` folder — primary now-playing and showing captures are present.

@@ -66,7 +66,7 @@ Authoritative spec: [`references/guides/blueprint.md`](references/guides/bluepri
 
 ## Data and state model
 
-- `Song`, `Album`, `Artist`, `Playlist`, `PlaybackQueueItem`, `LibrarySource` (Local | YouTubeMusic)
+- `Song`, `Album`, `Artist`, `Playlist`, `Genre`, `PlaybackQueueItem`, `LibrarySource` (Local | YouTubeMusic)
 - Persist last queue position when reasonable
 - YT Music cookies/session in app-private prefs
 

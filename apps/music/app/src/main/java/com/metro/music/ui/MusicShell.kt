@@ -1,10 +1,11 @@
 package com.metro.music.ui
 
 import android.content.Intent
+import android.os.Build
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -22,9 +23,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.metro.music.ytmusic.YtMusicConnectActivity
 import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroAppBar
@@ -43,6 +49,9 @@ import kotlinx.coroutines.flow.first
 
 /** First dots need a short beat before they read as dancing (matches Start). */
 private const val MIN_SPLASH_DOTS_VISIBLE_MS = 700L
+
+/** Dim the full-bleed album art so white Metro chrome stays readable. */
+private val HubArtScrim = Color.Black.copy(alpha = 0.62f)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -75,27 +84,53 @@ fun MusicShell(
         coldSplashActive = false
     }
 
-    // While a track is loaded the hub takes a darkened album-art colour, as WP8.1 faded the
-    // artist image behind the panorama. Reference: `references/images/hub_nowplaying_compare_dark_unknown.jpg`.
+    // While a track is loaded the hub paints the album cover full-bleed (dimmed), as WP8.1
+    // faded the artist image behind the panorama. Reference: user capture + hub_nowplaying_compare.
     val pageBackground = MetroTheme.colors.background
-    val backdrop = state.nowPlayingBackdrop.takeIf {
-        !coldSplashActive &&
-            state.route == MusicRoute.Hub &&
-            pageBackground.luminance() < 0.5f
-    }
-    val background by animateColorAsState(
-        targetValue = backdrop ?: pageBackground,
-        animationSpec = tween(durationMillis = MetroTransitions.PageTransitionMs),
-        label = "hubBackdrop",
-    )
+    val showArtBackdrop = !coldSplashActive &&
+        state.route == MusicRoute.Hub &&
+        pageBackground.luminance() < 0.5f &&
+        state.nowPlayingBackdropArt != null
+    val backdropArt = state.nowPlayingBackdropArt.takeIf { showArtBackdrop }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .metroNavBarPadding()
-            .background(background),
+            .background(pageBackground),
     ) {
+        Crossfade(
+            targetState = backdropArt,
+            animationSpec = tween(durationMillis = MetroTransitions.PageTransitionMs),
+            label = "hubBackdropArt",
+            modifier = Modifier.fillMaxSize(),
+        ) { art ->
+            if (art != null) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AsyncImage(
+                        model = art,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    Modifier.blur(28.dp)
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(HubArtScrim),
+                    )
+                }
+            }
+        }
+
         if (!coldSplashActive) {
             MetroSubpageHost(
                 route = state.route,
@@ -128,6 +163,9 @@ fun MusicShell(
                         },
                         onOpenSettings = {
                             state.route = MusicRoute.Settings
+                        },
+                        onOpenRecent = {
+                            state.route = MusicRoute.Recent
                         },
                         skipIntro = panoramaIntroPlayed,
                         onIntroPlayed = { panoramaIntroPlayed = true },
@@ -165,6 +203,18 @@ fun MusicShell(
                                 )
                             }
                         }
+                        MusicRoute.GenreDetail -> {
+                            val genre = state.selectedGenre
+                            if (genre == null) {
+                                state.route = MusicRoute.Collection
+                            } else {
+                                GenreDetailScreen(
+                                    state = state,
+                                    genre = genre,
+                                    onBack = { onBack() },
+                                )
+                            }
+                        }
                         MusicRoute.PlaylistDetail -> {
                             val playlist = state.selectedPlaylist
                             if (playlist == null) {
@@ -190,14 +240,26 @@ fun MusicShell(
                             state = state,
                             onBack = { onBack() },
                         )
+                        MusicRoute.Recent -> RecentScreen(
+                            state = state,
+                            onBack = { onBack() },
+                        )
+                        MusicRoute.Queue -> QueueScreen(
+                            songs = state.playbackQueue,
+                            currentSongId = state.currentSong?.id,
+                            onSongSelected = { index ->
+                                state.playQueueIndex(index)
+                            },
+                            onBack = { onBack() },
+                        )
                         MusicRoute.Hub -> Unit
                     }
                 },
             )
 
             val jumpListOpen = state.route == MusicRoute.Collection && state.jumpListVisible
-            val appBarVisible = (state.route == MusicRoute.Hub || state.route == MusicRoute.Collection) &&
-                !jumpListOpen
+            // Hub (homescreen) has no ApplicationBar — collection keeps the search/… chrome.
+            val appBarVisible = state.route == MusicRoute.Collection && !jumpListOpen
             MetroAppBar(
                 visible = appBarVisible,
                 icons = listOf(
@@ -249,10 +311,13 @@ private fun MusicRoute.parentRoute(): MusicRoute = when (this) {
     MusicRoute.AlbumDetail,
     MusicRoute.ArtistDetail,
     MusicRoute.PlaylistDetail,
+    MusicRoute.GenreDetail,
     -> MusicRoute.Collection
     MusicRoute.Collection,
     MusicRoute.Settings,
     MusicRoute.Explore,
+    MusicRoute.Recent,
+    MusicRoute.Queue,
     MusicRoute.Hub,
     -> MusicRoute.Hub
 }
@@ -262,7 +327,10 @@ private fun subpageLoadKey(route: MusicRoute, state: MusicState): Any = when (ro
     MusicRoute.AlbumDetail -> "Album:${state.selectedAlbum?.id.orEmpty()}"
     MusicRoute.ArtistDetail -> "Artist:${state.selectedArtist?.id.orEmpty()}"
     MusicRoute.PlaylistDetail -> "Playlist:${state.selectedPlaylist?.id.orEmpty()}"
+    MusicRoute.GenreDetail -> "Genre:${state.selectedGenre?.id.orEmpty()}"
     MusicRoute.Settings -> "Settings"
     MusicRoute.Explore -> "Explore"
+    MusicRoute.Recent -> "Recent"
+    MusicRoute.Queue -> "Queue"
     MusicRoute.Hub -> "Hub"
 }

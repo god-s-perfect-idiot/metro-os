@@ -64,6 +64,21 @@ class LibraryLogicTest {
     }
 
     @Test
+    fun genresFrom_groupsTaggedSongsAndSkipsBlank() {
+        val rock = local.copy(id = "local:1", genre = "Rock")
+        val rock2 = local.copy(id = "local:2", title = "A2", genre = "rock")
+        val jazz = local.copy(id = "local:3", title = "C", genre = "Jazz")
+        val untagged = yt.copy(genre = null)
+        val blank = local.copy(id = "local:4", title = "D", genre = "  ")
+
+        val genres = LibraryLogic.genresFrom(listOf(rock, rock2, jazz, untagged, blank))
+
+        assertEquals(2, genres.size)
+        assertTrue(genres.any { it.name == "Rock" && it.songCount == 2 })
+        assertTrue(genres.any { it.name == "Jazz" && it.songCount == 1 })
+    }
+
+    @Test
     fun formatDuration_andRemaining() {
         assertEquals("1:30", LibraryLogic.formatDuration(90_000))
         assertEquals("-0:30", LibraryLogic.formatRemaining(60_000, 90_000))

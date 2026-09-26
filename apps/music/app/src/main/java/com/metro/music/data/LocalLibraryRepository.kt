@@ -15,15 +15,22 @@ class LocalLibraryRepository(private val context: Context) {
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         }
 
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.IS_MUSIC,
-        )
+        val useInlineGenre = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+        val projection = buildList {
+            add(MediaStore.Audio.Media._ID)
+            add(MediaStore.Audio.Media.TITLE)
+            add(MediaStore.Audio.Media.ARTIST)
+            add(MediaStore.Audio.Media.ALBUM)
+            add(MediaStore.Audio.Media.DURATION)
+            add(MediaStore.Audio.Media.ALBUM_ID)
+            add(MediaStore.Audio.Media.IS_MUSIC)
+            if (useInlineGenre) {
+                add(MediaStore.Audio.Media.GENRE)
+            }
+        }.toTypedArray()
+
+        // Pre-R: GENRE is not on the media table — map audio id → name via Genres.Members.
+        val genreByAudioId = if (useInlineGenre) emptyMap() else loadGenreByAudioId()
 
         val songs = mutableListOf<Song>()
         context.contentResolver.query(
@@ -39,6 +46,11 @@ class LocalLibraryRepository(private val context: Context) {
             val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val genreCol = if (useInlineGenre) {
+                cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
+            } else {
+                -1
+            }
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
@@ -51,6 +63,10 @@ class LocalLibraryRepository(private val context: Context) {
                     Uri.parse("content://media/external/audio/albumart"),
                     albumId,
                 )
+                val genre = when {
+                    genreCol >= 0 -> cursor.getString(genreCol)?.trim()?.takeIf { it.isNotEmpty() }
+                    else -> genreByAudioId[id]
+                }
                 songs += Song(
                     id = "local:$id",
                     title = cursor.getString(titleCol).orEmpty().ifBlank { "Unknown title" },
@@ -62,10 +78,58 @@ class LocalLibraryRepository(private val context: Context) {
                     source = LibrarySource.Local,
                     albumId = "local-album:$albumId",
                     artistId = null,
+                    genre = genre,
                 )
             }
         }
         return songs
+    }
+
+    /**
+     * Builds audio-id → genre name for API &lt; 30. One Genres table pass plus a members query
+     * per genre — cheaper than [MediaStore.Audio.Genres.getContentUriForAudioId] per track.
+     */
+    @Suppress("DEPRECATION")
+    private fun loadGenreByAudioId(): Map<Long, String> {
+        val genresUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Genres.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI
+        }
+        val result = mutableMapOf<Long, String>()
+        runCatching {
+            context.contentResolver.query(
+                genresUri,
+                arrayOf(MediaStore.Audio.Genres._ID, MediaStore.Audio.Genres.NAME),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres._ID)
+                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Genres.NAME)
+                while (cursor.moveToNext()) {
+                    val genreId = cursor.getLong(idCol)
+                    val name = cursor.getString(nameCol)?.trim().orEmpty()
+                    if (name.isEmpty()) continue
+                    val members = MediaStore.Audio.Genres.Members.getContentUri("external", genreId)
+                    context.contentResolver.query(
+                        members,
+                        arrayOf(MediaStore.Audio.Genres.Members.AUDIO_ID),
+                        null,
+                        null,
+                        null,
+                    )?.use { memberCursor ->
+                        val audioIdCol = memberCursor.getColumnIndexOrThrow(
+                            MediaStore.Audio.Genres.Members.AUDIO_ID,
+                        )
+                        while (memberCursor.moveToNext()) {
+                            result.putIfAbsent(memberCursor.getLong(audioIdCol), name)
+                        }
+                    }
+                }
+            }
+        }
+        return result
     }
 
     @Suppress("DEPRECATION")
@@ -108,6 +172,11 @@ class LocalLibraryRepository(private val context: Context) {
     @Suppress("DEPRECATION")
     fun loadPlaylistSongs(playlistId: Long): List<Song> {
         val members = MediaStore.Audio.Playlists.Members.getContentUri("external", playlistId)
+        val genreByAudioId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            emptyMap()
+        } else {
+            loadGenreByAudioId()
+        }
         val songs = mutableListOf<Song>()
         runCatching {
             context.contentResolver.query(
@@ -150,6 +219,7 @@ class LocalLibraryRepository(private val context: Context) {
                         source = LibrarySource.Local,
                         albumId = "local-album:$albumId",
                         artistId = null,
+                        genre = genreByAudioId[audioId],
                     )
                 }
             }
