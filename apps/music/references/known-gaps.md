@@ -8,6 +8,7 @@ High-fidelity WP8.1 captures missing or low-fidelity for blueprint pages. Prefer
 | Dense artists A–Z list (many rows) | Long letter list + jump list | `artists_showing_dark_teal.jpg` shows header + `#` jump tile; implement `MetroLetterList` |
 | Playlists pivot | Playlist titles list | Same list chrome as artists; WP text sources in Thurrott Showing article |
 | Genres pivot capture | Genre names list | Implemented from MediaStore tags; use artists list chrome + blueprint § Page 3 |
+| Artist detail discover / about | Accent `in collection` + `discover` sections; `about` wiki bio | No WP8.1 capture for YT discover or Wikipedia about — use album detail chrome + blueprint § Page 4 |
 | Radio panorama pane | Station list / create station | Blueprint stub; YT Music search “radio” when connected |
 | Explore / Store pane | Featured albums | Blueprint Page 9; YT Music search results |
 | Light theme Music captures | Light bg Music UI | Dark refs + `MetroTheme` light tokens |

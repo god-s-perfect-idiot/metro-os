@@ -37,6 +37,8 @@ data class Album(
     val artworkUri: Uri?,
     val songCount: Int,
     val source: LibrarySource,
+    /** YouTube Music browse id (`MPREb_…`) when this album came from search/discover. */
+    val youtubeBrowseId: String? = null,
 )
 
 data class Artist(
@@ -98,7 +100,9 @@ object LibraryLogic {
             .sortedBy { it.name.lowercase() }
 
     fun albumsFrom(songs: List<Song>): List<Album> =
-        songs.groupBy { (it.album.ifBlank { "Unknown album" }) to (it.artist.ifBlank { "Unknown artist" }) }
+        songs
+            .filter { !isPlaceholderAlbumTitle(it.album) }
+            .groupBy { (it.album.ifBlank { "Unknown album" }) to (it.artist.ifBlank { "Unknown artist" }) }
             .map { (key, group) ->
                 val (album, artist) = key
                 Album(
@@ -115,6 +119,15 @@ object LibraryLogic {
                 )
             }
             .sortedBy { it.title.lowercase() }
+
+    /** Synthetic album titles from streaming rows that lack real album metadata. */
+    fun isPlaceholderAlbumTitle(title: String?): Boolean {
+        val t = title?.trim().orEmpty()
+        if (t.isEmpty()) return true
+        return t.equals("YouTube Music", ignoreCase = true) ||
+            t.equals("Unknown album", ignoreCase = true) ||
+            t.equals("Unknown", ignoreCase = true)
+    }
 
     /** Only tagged genres — blank/missing tags are omitted (no synthetic “Unknown genre”). */
     fun genresFrom(songs: List<Song>): List<Genre> =

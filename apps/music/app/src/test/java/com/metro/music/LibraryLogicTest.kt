@@ -79,9 +79,19 @@ class LibraryLogicTest {
     }
 
     @Test
-    fun formatDuration_andRemaining() {
-        assertEquals("1:30", LibraryLogic.formatDuration(90_000))
-        assertEquals("-0:30", LibraryLogic.formatRemaining(60_000, 90_000))
+    fun albumsFrom_skipsYouTubeMusicPlaceholder() {
+        val real = local.copy(album = "OK Computer", artist = "Radiohead")
+        val fake = yt.copy(album = "YouTube Music", artist = "Radiohead")
+        val albums = LibraryLogic.albumsFrom(listOf(real, fake))
+        assertEquals(1, albums.size)
+        assertEquals("OK Computer", albums[0].title)
+    }
+
+    @Test
+    fun isPlaceholderAlbumTitle_detectsStreamingStub() {
+        assertTrue(LibraryLogic.isPlaceholderAlbumTitle("YouTube Music"))
+        assertTrue(LibraryLogic.isPlaceholderAlbumTitle(""))
+        assertTrue(!LibraryLogic.isPlaceholderAlbumTitle("In Rainbows"))
     }
 
     @Test

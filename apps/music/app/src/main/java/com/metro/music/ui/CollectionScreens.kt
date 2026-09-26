@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
@@ -27,14 +28,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.metro.music.data.Album
 import com.metro.music.data.Artist
+import com.metro.music.data.ArtistAboutLogic
 import com.metro.music.data.Genre
 import com.metro.music.data.LibraryLogic
 import com.metro.music.data.Playlist
 import com.metro.music.data.ShowingFilter
 import com.metro.music.data.Song
+import com.metro.music.ytmusic.ArtistAboutClient
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroLoadingScreen
@@ -220,7 +227,7 @@ private fun ArtistsList(
     ) { artist ->
         MusicListRow(
             title = artist.name,
-            subtitle = "${artist.songCount} songs",
+            subtitle = "${artist.songCount} songs discovered",
             onClick = { state.openArtist(artist) },
         )
     }
@@ -400,7 +407,7 @@ private fun isLibraryPageLoading(state: MusicState): Boolean {
 @Composable
 fun AlbumDetailScreen(state: MusicState, album: Album, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val songs = state.songsForAlbum(album)
+    val songs = state.songsForAlbumDetail(album)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -414,7 +421,12 @@ fun AlbumDetailScreen(state: MusicState, album: Album, onBack: () -> Unit) {
             modifier = Modifier.padding(start = 12.dp),
         )
         Spacer(Modifier.height(12.dp))
-        SongsList(state, songs)
+        when {
+            state.albumRemoteLoading && songs.isEmpty() ->
+                MetroLoadingScreen(modifier = Modifier.weight(1f))
+            songs.isEmpty() -> PlaceholderList("No songs.")
+            else -> SongsList(state, songs)
+        }
     }
 }
 
@@ -443,25 +455,284 @@ fun PlaylistDetailScreen(state: MusicState, playlist: Playlist, onBack: () -> Un
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ArtistDetailScreen(state: MusicState, artist: Artist, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val songs = state.songsForArtist(artist)
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MetroTheme.colors.background)
             .padding(bottom = 24.dp),
     ) {
-        MetroAppTitle(artist.name.uppercase())
-        MetroText(
-            text = "songs",
-            style = MetroTextStyle.HubTitle,
-            modifier = Modifier.padding(start = 12.dp),
-        )
-        Spacer(Modifier.height(12.dp))
-        SongsList(state, songs)
+        MetroPivot(
+            titles = listOf("songs", "albums", "about"),
+            pagerState = pagerState,
+            header = { MetroAppTitle(artist.name.uppercase()) },
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+            when (page) {
+                0 -> ArtistSongsPage(state, artist)
+                1 -> ArtistAlbumsPage(state, artist)
+                else -> ArtistAboutPage(state)
+            }
+        }
     }
+}
+
+@Composable
+private fun ArtistSongsPage(state: MusicState, artist: Artist) {
+    val collection = state.songsForArtist(artist)
+    val discover = state.artistDiscoverSongs
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item(key = "songs-in-collection-header") {
+            AccentSectionHeader("in collection")
+        }
+        if (collection.isEmpty()) {
+            item(key = "songs-in-collection-empty") {
+                SectionEmpty("No songs in your collection.")
+            }
+        } else {
+            itemsIndexed(collection, key = { index, song -> "c-${song.id}#$index" }) { index, song ->
+                MusicListRow(
+                    title = song.title,
+                    subtitle = song.album.takeIf { it.isNotBlank() },
+                    onClick = { state.playSongs(collection, index) },
+                )
+            }
+        }
+        item(key = "songs-discover-header") {
+            AccentSectionHeader("discover")
+        }
+        when {
+            state.artistDiscoverLoading && discover.isEmpty() -> {
+                item(key = "songs-discover-loading") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MetroLoadingScreen()
+                    }
+                }
+            }
+            !state.ytConnected && discover.isEmpty() && !state.artistDiscoverLoading -> {
+                item(key = "songs-discover-connect") {
+                    SectionEmpty("Connect YouTube Music in settings to play discovered songs.")
+                }
+            }
+            discover.isEmpty() -> {
+                item(key = "songs-discover-empty") {
+                    SectionEmpty("Nothing new to discover right now.")
+                }
+            }
+            else -> {
+                itemsIndexed(discover, key = { index, song -> "d-${song.id}#$index" }) { index, song ->
+                    MusicListRow(
+                        title = song.title,
+                        subtitle = song.artist,
+                        onClick = { state.playSongs(discover, index) },
+                    )
+                }
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun ArtistAlbumsPage(state: MusicState, artist: Artist) {
+    val collection = state.albumsForArtist(artist)
+    val discover = state.artistDiscoverAlbums
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item(key = "albums-in-collection-header") {
+            AccentSectionHeader("in collection")
+        }
+        if (collection.isEmpty()) {
+            item(key = "albums-in-collection-empty") {
+                SectionEmpty("No albums in your collection.")
+            }
+        } else {
+            items(collection, key = { it.id }) { album ->
+                MusicListRow(
+                    title = album.title,
+                    subtitle = "${album.songCount} songs",
+                    onClick = { state.openAlbum(album) },
+                )
+            }
+        }
+        item(key = "albums-discover-header") {
+            AccentSectionHeader("discover")
+        }
+        when {
+            state.artistDiscoverLoading && discover.isEmpty() -> {
+                item(key = "albums-discover-loading") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MetroLoadingScreen()
+                    }
+                }
+            }
+            !state.ytConnected && discover.isEmpty() && !state.artistDiscoverLoading -> {
+                item(key = "albums-discover-connect") {
+                    SectionEmpty("Connect YouTube Music in settings to open discovered albums.")
+                }
+            }
+            discover.isEmpty() -> {
+                item(key = "albums-discover-empty") {
+                    SectionEmpty("Nothing new to discover right now.")
+                }
+            }
+            else -> {
+                items(discover, key = { it.id }) { album ->
+                    MusicListRow(
+                        title = album.title,
+                        subtitle = album.artist,
+                        onClick = { state.openAlbum(album) },
+                    )
+                }
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun ArtistAboutPage(state: MusicState) {
+    when {
+        state.artistAboutLoading && state.artistAbout == null -> MetroLoadingScreen()
+        else -> {
+            val about = state.artistAbout
+            if (about == null ||
+                (about.error != null && about.summary == null && about.paragraphs.isEmpty())
+            ) {
+                PlaceholderList(about?.error ?: "No information available.")
+                return
+            }
+            val context = LocalContext.current
+            val heroUrl = ArtistAboutLogic.heroImageUrl(about)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+            ) {
+                heroUrl?.let { url ->
+                    item(key = "about-image") {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(url)
+                                .addHeader("User-Agent", ArtistAboutClient.USER_AGENT)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = about.name,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, bottom = 16.dp),
+                            contentScale = ContentScale.FillWidth,
+                        )
+                    }
+                }
+                about.description?.let { desc ->
+                    item(key = "about-desc") {
+                        MetroText(
+                            text = desc,
+                            style = MetroTextStyle.Body,
+                            color = MetroTheme.colors.secondaryText,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
+                    }
+                }
+                val facts = ArtistAboutLogic.factLines(about)
+                if (facts.isNotEmpty()) {
+                    item(key = "about-facts") {
+                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                            facts.forEach { (label, value) ->
+                                MetroText(
+                                    text = label,
+                                    style = MetroTextStyle.SectionHeader,
+                                    color = MetroTheme.colors.accent,
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                                )
+                                MetroText(
+                                    text = value,
+                                    style = MetroTextStyle.Body,
+                                )
+                            }
+                        }
+                    }
+                }
+                val lead = about.paragraphs.ifEmpty {
+                    listOfNotNull(about.summary)
+                }
+                lead.forEachIndexed { index, paragraph ->
+                    item(key = "about-lead-$index") {
+                        MetroText(
+                            text = paragraph,
+                            style = MetroTextStyle.Body,
+                            modifier = Modifier.padding(bottom = 14.dp),
+                        )
+                    }
+                }
+                about.sections.forEach { section ->
+                    item(key = "about-section-${section.title}") {
+                        Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                            MetroText(
+                                text = section.title.lowercase(),
+                                style = MetroTextStyle.SectionHeader,
+                                color = MetroTheme.colors.accent,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
+                            )
+                            section.paragraphs.forEach { paragraph ->
+                                MetroText(
+                                    text = paragraph,
+                                    style = MetroTextStyle.Body,
+                                    modifier = Modifier.padding(bottom = 12.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                about.error?.takeIf {
+                    about.summary != null || about.paragraphs.isNotEmpty()
+                }?.let { err ->
+                    item(key = "about-err") {
+                        MetroText(
+                            text = err,
+                            style = MetroTextStyle.Body,
+                            color = MetroTheme.colors.secondaryText,
+                        )
+                    }
+                }
+                item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccentSectionHeader(label: String) {
+    MetroText(
+        text = label,
+        style = MetroTextStyle.SectionHeader,
+        color = MetroTheme.colors.accent,
+        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun SectionEmpty(message: String) {
+    MetroText(
+        text = message,
+        style = MetroTextStyle.Body,
+        color = MetroTheme.colors.secondaryText,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+    )
 }
 
 @Composable

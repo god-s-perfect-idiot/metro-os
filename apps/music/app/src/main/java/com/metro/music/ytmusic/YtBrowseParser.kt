@@ -1,7 +1,9 @@
 package com.metro.music.ytmusic
 
 import android.net.Uri
+import com.metro.music.data.Album
 import com.metro.music.data.ArtworkUrls
+import com.metro.music.data.LibraryLogic
 import com.metro.music.data.LibrarySource
 import com.metro.music.data.Song
 import org.json.JSONArray
@@ -48,6 +50,37 @@ object YtBrowseParser {
 
     fun parseSearch(root: JSONObject): List<Song> {
         val out = mutableListOf<Song>()
+        for (shelf in searchShelves(root)) {
+            val (songs, _) = songsAndToken(shelf)
+            out += songs
+        }
+        return out
+    }
+
+    fun parseSearchAlbums(root: JSONObject): List<Album> {
+        val out = linkedMapOf<String, Album>()
+        fun add(album: Album?) {
+            if (album == null) return
+            out[album.youtubeBrowseId ?: album.id] = album
+        }
+        for (shelf in searchShelves(root)) {
+            for (i in 0 until shelf.length()) {
+                val obj = shelf.optJSONObject(i) ?: continue
+                obj.optJSONObject("musicResponsiveListItemRenderer")?.let { add(parseAlbumListItem(it)) }
+                obj.optJSONObject("musicTwoRowItemRenderer")?.let { add(parseAlbumTwoRow(it)) }
+            }
+        }
+        // Fall back: walk the tree for album browse cards (some layouts nest outside shelves).
+        if (out.isEmpty()) {
+            walk(root) { node ->
+                node.optJSONObject("musicResponsiveListItemRenderer")?.let { add(parseAlbumListItem(it)) }
+                node.optJSONObject("musicTwoRowItemRenderer")?.let { add(parseAlbumTwoRow(it)) }
+            }
+        }
+        return out.values.toList()
+    }
+
+    private fun searchShelves(root: JSONObject): List<JSONArray> {
         val contents = root.optJSONObject("contents")
             ?.optJSONObject("tabbedSearchResultsRenderer")
             ?.optJSONArray("tabs")
@@ -56,17 +89,114 @@ object YtBrowseParser {
             ?.optJSONObject("content")
             ?.optJSONObject("sectionListRenderer")
             ?.optJSONArray("contents")
-            ?: return out
-
+            ?: return emptyList()
+        val shelves = mutableListOf<JSONArray>()
         for (i in 0 until contents.length()) {
-            val shelf = contents.optJSONObject(i)
+            contents.optJSONObject(i)
                 ?.optJSONObject("musicShelfRenderer")
                 ?.optJSONArray("contents")
-                ?: continue
-            val (songs, _) = songsAndToken(shelf)
-            out += songs
+                ?.let { shelves += it }
         }
-        return out
+        return shelves
+    }
+
+    private fun parseAlbumListItem(item: JSONObject): Album? {
+        val browseId = albumBrowseId(item) ?: return null
+        val flex = item.optJSONArray("flexColumns") ?: JSONArray()
+        val title = flex.optJSONObject(0)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optString("text")
+            ?.ifBlank { null }
+            ?: return null
+        val subtitleRuns = flex.optJSONObject(1)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")
+            ?.optJSONArray("runs")
+        val artist = albumArtistFromRuns(subtitleRuns)
+        val thumb = bestThumbnail(
+            item.optJSONObject("thumbnail")
+                ?.optJSONObject("musicThumbnailRenderer")
+                ?.optJSONObject("thumbnail")
+                ?.optJSONArray("thumbnails"),
+        )
+        return Album(
+            id = "yt-album:$browseId",
+            title = title,
+            artist = artist,
+            artworkUri = thumb,
+            songCount = 0,
+            source = LibrarySource.YouTubeMusic,
+            youtubeBrowseId = browseId,
+        )
+    }
+
+    private fun parseAlbumTwoRow(item: JSONObject): Album? {
+        val browseId = albumBrowseId(item) ?: return null
+        val title = item.optJSONObject("title")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optString("text")
+            ?.ifBlank { null }
+            ?: return null
+        val artist = albumArtistFromRuns(
+            item.optJSONObject("subtitle")?.optJSONArray("runs"),
+        )
+        val thumb = bestThumbnail(
+            item.optJSONObject("thumbnailRenderer")
+                ?.optJSONObject("musicThumbnailRenderer")
+                ?.optJSONObject("thumbnail")
+                ?.optJSONArray("thumbnails"),
+        )
+        return Album(
+            id = "yt-album:$browseId",
+            title = title,
+            artist = artist,
+            artworkUri = thumb,
+            songCount = 0,
+            source = LibrarySource.YouTubeMusic,
+            youtubeBrowseId = browseId,
+        )
+    }
+
+    private fun albumBrowseId(item: JSONObject): String? {
+        val candidates = listOfNotNull(
+            item.optJSONObject("navigationEndpoint")
+                ?.optJSONObject("browseEndpoint")
+                ?.optString("browseId"),
+            item.optJSONArray("flexColumns")
+                ?.optJSONObject(0)
+                ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                ?.optJSONObject("text")
+                ?.optJSONArray("runs")
+                ?.optJSONObject(0)
+                ?.optJSONObject("navigationEndpoint")
+                ?.optJSONObject("browseEndpoint")
+                ?.optString("browseId"),
+            item.optJSONObject("title")
+                ?.optJSONArray("runs")
+                ?.optJSONObject(0)
+                ?.optJSONObject("navigationEndpoint")
+                ?.optJSONObject("browseEndpoint")
+                ?.optString("browseId"),
+        )
+        return candidates.firstOrNull { id ->
+            id.isNotBlank() && (id.startsWith("MPRE") || id.startsWith("MPRL"))
+        }
+    }
+
+    private fun albumArtistFromRuns(runs: JSONArray?): String {
+        if (runs == null) return "Unknown artist"
+        val texts = (0 until runs.length())
+            .mapNotNull { runs.optJSONObject(it)?.optString("text")?.ifBlank { null } }
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && it != "•" && it != "·" }
+        val skip = setOf("album", "ep", "single", "lp")
+        return texts.firstOrNull { text ->
+            text.lowercase() !in skip && !text.matches(Regex("\\d{4}"))
+        }.orEmpty().ifBlank { "Unknown artist" }
     }
 
     private fun continuationItemArray(root: JSONObject): JSONArray? {
@@ -215,18 +345,15 @@ object YtBrowseParser {
             ?.optJSONObject(0)
             ?.optString("text")
             ?: "Unknown title"
-        val artist = item.optJSONObject("subtitle")
-            ?.optJSONArray("runs")
-            ?.optJSONObject(0)
-            ?.optString("text")
-            ?: "Unknown artist"
+        val subtitleRuns = item.optJSONObject("subtitle")?.optJSONArray("runs")
+        val (artist, album) = artistAndAlbumFromRuns(subtitleRuns)
         val thumb = bestThumbnail(
             item.optJSONObject("thumbnailRenderer")
                 ?.optJSONObject("musicThumbnailRenderer")
                 ?.optJSONObject("thumbnail")
                 ?.optJSONArray("thumbnails"),
         )
-        return ytSong(videoId, title, artist, thumb)
+        return ytSong(videoId, title, artist, album, thumb)
     }
 
     private fun parseListItem(item: JSONObject): Song? {
@@ -265,28 +392,71 @@ object YtBrowseParser {
             ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
             ?.optJSONObject("text")
             ?.optJSONArray("runs")
-        val artist = subtitleRuns?.optJSONObject(0)?.optString("text").orEmpty()
-            .ifBlank { "Unknown artist" }
+        val col2Runs = flex.optJSONObject(2)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")
+            ?.optJSONArray("runs")
+        val (artist, albumFromSub) = artistAndAlbumFromRuns(subtitleRuns)
+        val albumFromCol2 = col2Runs
+            ?.optJSONObject(0)
+            ?.optString("text")
+            ?.ifBlank { null }
+        val album = albumFromSub
+            ?: albumFromCol2?.takeUnless { LibraryLogic.isPlaceholderAlbumTitle(it) }
         val thumb = bestThumbnail(
             item.optJSONObject("thumbnail")
                 ?.optJSONObject("musicThumbnailRenderer")
                 ?.optJSONObject("thumbnail")
                 ?.optJSONArray("thumbnails"),
         )
-        return ytSong(videoId, title, artist, thumb)
+        return ytSong(videoId, title, artist, album, thumb)
     }
 
-    private fun ytSong(videoId: String, title: String, artist: String, thumb: Uri?) = Song(
+    /**
+     * Subtitle runs are usually `Artist • Album` or `Artist • Album • 3:45`.
+     * Prefer browse-linked album runs when present.
+     */
+    private fun artistAndAlbumFromRuns(runs: JSONArray?): Pair<String, String?> {
+        if (runs == null || runs.length() == 0) return "Unknown artist" to null
+        val parts = mutableListOf<Pair<String, Boolean>>()
+        for (i in 0 until runs.length()) {
+            val run = runs.optJSONObject(i) ?: continue
+            val text = run.optString("text").trim()
+            if (text.isEmpty() || text == "•" || text == "·") continue
+            if (text.matches(DURATION_OR_YEAR)) continue
+            val isAlbumNav = run.optJSONObject("navigationEndpoint")
+                ?.optJSONObject("browseEndpoint")
+                ?.optString("browseId")
+                ?.startsWith("MPRE") == true
+            parts += text to isAlbumNav
+        }
+        if (parts.isEmpty()) return "Unknown artist" to null
+        val album = parts.firstOrNull { it.second }?.first
+            ?: parts.getOrNull(1)?.first?.takeUnless { LibraryLogic.isPlaceholderAlbumTitle(it) }
+        val artist = parts.firstOrNull { !it.second && it.first != album }?.first
+            ?: parts.first().first
+        return artist to album
+    }
+
+    private fun ytSong(
+        videoId: String,
+        title: String,
+        artist: String,
+        album: String?,
+        thumb: Uri?,
+    ) = Song(
         id = "yt:$videoId",
         title = title,
         artist = artist,
-        album = "YouTube Music",
+        album = album?.takeUnless { LibraryLogic.isPlaceholderAlbumTitle(it) } ?: "",
         durationMs = 0L,
         uri = null,
         artworkUri = thumb,
         source = LibrarySource.YouTubeMusic,
         youtubeVideoId = videoId,
     )
+
+    private val DURATION_OR_YEAR = Regex("""^(\d{1,2}:\d{2}(:\d{2})?|\d{4})$""")
 
     private val SHELF_KEYS = listOf(
         "musicShelfRenderer",
@@ -386,6 +556,14 @@ object YtLibrarySync {
         limit: Int = DEFAULT_LIMIT,
     ): YtSyncResult {
         val browseId = if (playlistId.startsWith("VL")) playlistId else "VL$playlistId"
-        return browseAll(browseId, limit, fetchBrowse, fetchContinuation)
+        return collectBrowse(browseId, fetchBrowse, fetchContinuation, limit)
     }
+
+    /** Browse any Innertube id as-is (album `MPREb_…`, playlist `VL…`, etc.). */
+    fun collectBrowse(
+        browseId: String,
+        fetchBrowse: (browseId: String) -> JSONObject?,
+        fetchContinuation: (token: String) -> JSONObject?,
+        limit: Int = DEFAULT_LIMIT,
+    ): YtSyncResult = browseAll(browseId, limit, fetchBrowse, fetchContinuation)
 }

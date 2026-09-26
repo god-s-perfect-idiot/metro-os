@@ -61,9 +61,12 @@ Collection list pages show **`showing <filter>`** (`MetroShowingLabel`) with fil
 
 ### Page 4 — Artist detail
 
-- **Layout:** Artist name caps overline; pivot `songs` | `albums` (optional `bio` stub). Hero art optional. Song rows + play-on-art control.
-- **Navigation:** Back → library pivot. Play → queue artist songs.
-- **Reference:** `images/album_detail_dark_teal.jpg` (detail chrome / download link pattern)
+- **Layout:** Artist name caps overline; pivot `songs` | `albums` | `about`.
+  - **songs / albums:** accent section headers `in collection` (library tracks/albums) then `discover` (YouTube Music search results not already owned). Discover needs YT Music connected; otherwise show a connect hint.
+  - **about:** Wikipedia summary + image; Wikidata-backed facts when available (`formed`, `origin`, `genres`).
+- **Artists list subtitle:** `{n} songs discovered` (collection count for that artist).
+- **Navigation:** Back → library pivot. Tap collection/discover song → play. Tap album → Page 5 (YT discover albums load remote tracks).
+- **Reference:** `images/album_detail_dark_teal.jpg` (detail chrome). Discover/about sections: see `known-gaps.md`.
 
 ### Page 5 — Album detail
 

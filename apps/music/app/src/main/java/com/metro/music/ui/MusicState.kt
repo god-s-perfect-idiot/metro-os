@@ -19,6 +19,8 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.metro.music.data.Album
 import com.metro.music.data.Artist
+import com.metro.music.data.ArtistAbout
+import com.metro.music.data.ArtistDiscoverLogic
 import com.metro.music.data.Genre
 import com.metro.music.data.LibraryLogic
 import com.metro.music.data.LibrarySource
@@ -33,6 +35,7 @@ import com.metro.music.data.Song
 import com.metro.music.data.artworkModel
 import com.metro.music.playback.MusicPlaybackService
 import com.metro.music.playback.PlaybackLogic
+import com.metro.music.ytmusic.ArtistAboutClient
 import com.metro.music.ytmusic.YtMusicAuthStore
 import com.metro.music.ytmusic.YtMusicClient
 import com.metro.music.ytmusic.potoken.YtPoTokenSession
@@ -79,12 +82,15 @@ class MusicState(context: Context) {
         http = ytHttp,
         poTokenSession = poTokenSession,
     )
+    private val artistAboutClient = ArtistAboutClient(ytHttp)
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private var positionJob: Job? = null
     private var queueJob: Job? = null
     private var playlistJob: Job? = null
+    private var albumJob: Job? = null
+    private var artistJob: Job? = null
     private var libraryJob: Job? = null
     private var exploreJob: Job? = null
     private var playbackError: String? = null
@@ -136,6 +142,21 @@ class MusicState(context: Context) {
     var playlistSongs by mutableStateOf<List<Song>>(emptyList())
         private set
     var playlistLoading by mutableStateOf(false)
+        private set
+    /** Remote tracks when opening a YouTube Music discover album with no local copies. */
+    var albumRemoteSongs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var albumRemoteLoading by mutableStateOf(false)
+        private set
+    var artistDiscoverSongs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var artistDiscoverAlbums by mutableStateOf<List<Album>>(emptyList())
+        private set
+    var artistDiscoverLoading by mutableStateOf(false)
+        private set
+    var artistAbout by mutableStateOf<ArtistAbout?>(null)
+        private set
+    var artistAboutLoading by mutableStateOf(false)
         private set
     var isPlaying by mutableStateOf(false)
         private set
@@ -239,6 +260,8 @@ class MusicState(context: Context) {
         positionJob?.cancel()
         queueJob?.cancel()
         playlistJob?.cancel()
+        albumJob?.cancel()
+        artistJob?.cancel()
         libraryJob?.cancel()
         exploreJob?.cancel()
         controller?.removeListener(playerListener)
@@ -583,12 +606,89 @@ class MusicState(context: Context) {
 
     fun openAlbum(album: Album) {
         selectedAlbum = album
+        albumRemoteSongs = emptyList()
         route = MusicRoute.AlbumDetail
+        val browseId = album.youtubeBrowseId
+        if (browseId != null && songsForAlbum(album).isEmpty()) {
+            albumJob?.cancel()
+            albumJob = scope.launch {
+                albumRemoteLoading = true
+                try {
+                    albumRemoteSongs = withContext(Dispatchers.IO) {
+                        ytClient.albumSongs(browseId)
+                    }
+                } finally {
+                    albumRemoteLoading = false
+                }
+            }
+        } else {
+            albumJob?.cancel()
+            albumRemoteLoading = false
+        }
     }
 
     fun openArtist(artist: Artist) {
         selectedArtist = artist
+        artistDiscoverSongs = emptyList()
+        artistDiscoverAlbums = emptyList()
+        artistAbout = null
         route = MusicRoute.ArtistDetail
+        loadArtistExtras(artist)
+    }
+
+    fun albumsForArtist(artist: Artist): List<Album> =
+        albums.filter { it.artist.equals(artist.name, ignoreCase = true) }
+
+    fun songsForAlbumDetail(album: Album): List<Song> {
+        val local = songsForAlbum(album)
+        return local.ifEmpty { albumRemoteSongs }
+    }
+
+    private fun loadArtistExtras(artist: Artist) {
+        artistJob?.cancel()
+        artistJob = scope.launch {
+            artistDiscoverLoading = true
+            artistAboutLoading = true
+            val collectionSongs = songsForArtist(artist)
+            val collectionAlbums = albumsForArtist(artist)
+            try {
+                val discoverDeferred = launch {
+                    val (songs, albums) = withContext(Dispatchers.IO) {
+                        ytClient.searchSongs(artist.name, limit = 30) to
+                            ytClient.searchAlbums(artist.name, limit = 25)
+                    }
+                    val name = artist.name
+                    fun matchesArtist(candidate: String): Boolean {
+                        if (candidate.isBlank() || candidate.equals("Unknown artist", true)) {
+                            return false
+                        }
+                        return candidate.contains(name, ignoreCase = true) ||
+                            name.contains(candidate, ignoreCase = true)
+                    }
+                    artistDiscoverSongs = ArtistDiscoverLogic.songsNotInCollection(
+                        songs.filter { matchesArtist(it.artist) },
+                        collectionSongs,
+                    )
+                    // Prefer artist-matching albums; if the subtitle parse missed the name,
+                    // still show the raw album search hits so discover is never empty by accident.
+                    val matchedAlbums = albums.filter { matchesArtist(it.artist) }
+                    artistDiscoverAlbums = ArtistDiscoverLogic.albumsNotInCollection(
+                        matchedAlbums.ifEmpty { albums },
+                        collectionAlbums,
+                    )
+                }
+                val aboutDeferred = launch {
+                    artistAbout = withContext(Dispatchers.IO) {
+                        artistAboutClient.fetch(artist.name)
+                    }
+                }
+                discoverDeferred.join()
+                aboutDeferred.join()
+            } finally {
+                artistDiscoverLoading = false
+                artistAboutLoading = false
+            }
+        }
     }
 
     fun openGenre(genre: Genre) {

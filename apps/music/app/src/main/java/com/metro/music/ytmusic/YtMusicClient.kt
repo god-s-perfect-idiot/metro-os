@@ -2,6 +2,7 @@ package com.metro.music.ytmusic
 
 import android.util.Log
 import com.metro.music.data.Playlist
+import com.metro.music.data.Album
 import com.metro.music.data.Song
 import com.metro.music.ytmusic.potoken.YtPoTokenSession
 import com.metro.music.ytmusic.potoken.appendStreamPoToken
@@ -53,12 +54,33 @@ class YtMusicClient(
         val body = webContext().apply {
             put("query", query)
             // Songs filter (ytmusicapi) — raw, not URL-encoded
-            put("params", "EgWKAQIIAWoKEAMQBBAJEAoQBQ==")
+            put("params", SEARCH_FILTER_SONGS)
         }
         val json = post("search", body, WEB_CLIENT) ?: return emptyList()
         return YtBrowseParser.parseSearch(json)
             .ifEmpty { YtBrowseParser.parse(json).songs }
             .take(limit)
+    }
+
+    fun searchAlbums(query: String, limit: Int = 25): List<Album> {
+        if (query.isBlank()) return emptyList()
+        val body = webContext().apply {
+            put("query", query)
+            put("params", SEARCH_FILTER_ALBUMS)
+        }
+        val json = post("search", body, WEB_CLIENT) ?: return emptyList()
+        return YtBrowseParser.parseSearchAlbums(json).take(limit)
+    }
+
+    /** Tracks on a YouTube Music album browse page (`MPREb_…`). */
+    fun albumSongs(browseId: String, limit: Int = YtLibrarySync.DEFAULT_LIMIT): List<Song> {
+        if (browseId.isBlank()) return emptyList()
+        return YtLibrarySync.collectBrowse(
+            browseId = browseId,
+            fetchBrowse = ::browsePost,
+            fetchContinuation = ::continuationPost,
+            limit = limit,
+        ).songs
     }
 
     fun librarySongs(limit: Int = YtLibrarySync.DEFAULT_LIMIT): YtSyncResult {
@@ -537,5 +559,11 @@ class YtMusicClient(
         private const val DESKTOP_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/130.0.0.0 Safari/537.36"
+
+        /** ytmusicapi search filter — songs (ignore_spelling=false). */
+        private const val SEARCH_FILTER_SONGS = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+
+        /** ytmusicapi search filter — albums. */
+        private const val SEARCH_FILTER_ALBUMS = "EgWKAQIYAWoMEA4QChADEAQQCRAF"
     }
 }
