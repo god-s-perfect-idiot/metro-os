@@ -7,6 +7,7 @@ import com.metro.hub.data.HubAppCategory
 import com.metro.hub.data.HubLogoDecoder
 import com.metro.hub.data.ReleaseApkAsset
 import com.metro.hub.data.toReleaseApkAsset
+import com.metro.hub.ui.HubState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -215,6 +216,35 @@ class HubCatalogTest {
     }
 
     @Test
+    fun thirdPartyGenericApkNamesStayUnique() {
+        fun doc(id: String) = FirestoreHubApp(
+            id = id,
+            name = id,
+            packageName = "com.example.$id",
+            description = "Unofficial",
+            versionName = "1.0",
+            versionCode = 1,
+            type = "core",
+            creator = "Community",
+            logoXml = null,
+            logoPngBase64 = null,
+            iconUrl = null,
+            backgroundColor = "#0078D7",
+            apkName = "app-release.apk",
+            apkUrl = "https://example.com/$id.apk",
+            releaseUrl = null,
+            githubRepo = null,
+            sizeBytes = 1L,
+            party = "third",
+        )
+        val a = doc("windows-phone-launcher").toReleaseApkAsset()
+        val b = doc("winboard").toReleaseApkAsset()
+        assertEquals("windows-phone-launcher-app-release.apk", a.name)
+        assertEquals("winboard-app-release.apk", b.name)
+        assertTrue(a.name != b.name)
+    }
+
+    @Test
     fun firstPartyShellTypeStillMapsToShell() {
         val app = FirestoreHubApp(
             id = "launcher",
@@ -245,6 +275,22 @@ class HubCatalogTest {
         assertTrue(HubLogoDecoder.isRemoteLogoUrl("  HTTP://cdn.example.com/logo.png  "))
         assertFalse(HubLogoDecoder.isRemoteLogoUrl("<vector xmlns:android="))
         assertFalse(HubLogoDecoder.isRemoteLogoUrl(""))
+    }
+
+    @Test
+    fun playStoreInstallerUrlsOpenExternally() {
+        assertTrue(
+            HubState.isExternalInstallerUrl(
+                "https://play.google.com/store/apps/details?id=com.tileshell",
+            ),
+        )
+        assertTrue(HubState.isExternalInstallerUrl("market://details?id=com.tileshell"))
+        assertFalse(
+            HubState.isExternalInstallerUrl(
+                "https://github.com/foo/bar/releases/download/v1/app.apk",
+            ),
+        )
+        assertFalse(HubState.isExternalInstallerUrl(""))
     }
 
     @Test

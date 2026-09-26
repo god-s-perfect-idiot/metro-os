@@ -112,7 +112,10 @@ fun SearchScreen(
                         bottom = ListBottomExtraPadding,
                     ),
                 ) {
-                    items(state.searchResults, key = { it.name }) { asset ->
+                    items(
+                        state.searchResults,
+                        key = { it.firestoreId ?: it.packageName + "/" + it.name },
+                    ) { asset ->
                         StoreAppRow(
                             asset = asset,
                             iconPath = state.iconPathFor(asset),

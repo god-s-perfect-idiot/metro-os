@@ -151,7 +151,10 @@ fun AppListScreen(
                         bottom = MetroAppBarDefaults.BarHeight + ListBottomExtraPadding,
                     ),
                 ) {
-                    items(state.visibleAssets, key = { it.name }) { asset ->
+                    items(
+                        state.visibleAssets,
+                        key = { it.firestoreId ?: it.packageName + "/" + it.name },
+                    ) { asset ->
                         StoreAppRow(
                             asset = asset,
                             iconPath = state.iconPathFor(asset),

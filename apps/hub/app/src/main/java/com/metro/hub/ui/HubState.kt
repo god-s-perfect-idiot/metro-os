@@ -598,6 +598,15 @@ class HubState(
             bump()
             return
         }
+        // Play Store / market / non-APK installer links open externally (no sideload).
+        if (isExternalInstallerUrl(asset.downloadUrl)) {
+            openExternalUrl(asset.downloadUrl)
+            if (fromBatch) {
+                suiteInstallQueue.removeAll { it.name == asset.name }
+                startNextSuiteInstall()
+            }
+            return
+        }
         if (!fromBatch) {
             cancelSuiteBatch()
         }
@@ -662,9 +671,14 @@ class HubState(
         }
     }
 
-    /** Shares the app's GitHub link (Firestore `githubRepo`, else the suite repo). */
+    /**
+     * Shares the app's GitHub link, else its installer URL (Play Store / APK),
+     * else the suite repo.
+     */
     fun shareApp(asset: ReleaseApkAsset) {
-        val url = asset.githubRepo?.takeIf { it.isNotBlank() } ?: GITHUB_URL
+        val url = asset.githubRepo?.takeIf { it.isNotBlank() }
+            ?: asset.downloadUrl.takeIf { it.isNotBlank() }
+            ?: GITHUB_URL
         runCatching {
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
@@ -979,5 +993,15 @@ class HubState(
 
         fun releaseUrlForTag(tag: String): String =
             "https://github.com/god-s-perfect-idiot/metro-os/releases/tag/$tag"
+
+        /** True when [url] is a store listing (Play / market) rather than a direct APK. */
+        fun isExternalInstallerUrl(url: String): Boolean {
+            val u = url.trim().lowercase()
+            if (u.isEmpty()) return false
+            if (u.startsWith("market:")) return true
+            if ("play.google.com/store" in u) return true
+            if ("play.app.goo.gl" in u) return true
+            return false
+        }
     }
 }

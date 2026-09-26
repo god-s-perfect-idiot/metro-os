@@ -2,6 +2,7 @@
 # Sync Hub catalog collections into Firestore.
 #   first-party  — metro-os suite APKs from a GitHub release (local aapt optional)
 #   second-party — curated external Metro apps; metadata from GitHub Releases API only
+#   third-party  — unofficial Metro / WP apps; Play Store listing OR GitHub release APK
 # Requires: firebase/service-account.json, network. gh optional for first-party.
 #
 # Hard rule (first-party): every release APK must resolve a Hub logo —
@@ -12,6 +13,7 @@
 #   ./scripts/sync-hub-firestore.sh
 #   ./scripts/sync-hub-firestore.sh --tag alpha-8
 #   ./scripts/sync-hub-firestore.sh --party second
+#   ./scripts/sync-hub-firestore.sh --party third
 #   ./scripts/sync-hub-firestore.sh --party all --tag alpha-8
 set -euo pipefail
 
@@ -32,7 +34,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     -h|--help)
-      sed -n '2,14p' "$0"
+      sed -n '2,18p' "$0"
       exit 0
       ;;
     *)
@@ -43,9 +45,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$PARTY" in
-  first|second|all) ;;
+  first|second|third|all) ;;
   *)
-    echo "ERROR: --party must be first|second|all (got: $PARTY)" >&2
+    echo "ERROR: --party must be first|second|third|all (got: $PARTY)" >&2
     exit 2
     ;;
 esac
@@ -878,6 +880,194 @@ console.log(`OK  second-party: upserted ${upserted}, deleted ${deleted}`);
 NODE
 }
 
+sync_third_party() {
+  cd "$ROOT"
+  export THIRD_CATALOG="$ROOT/scripts/hub-third-party-catalog.json"
+  if [[ ! -f "$THIRD_CATALOG" ]]; then
+    echo "ERROR: missing $THIRD_CATALOG" >&2
+    exit 1
+  fi
+  node --input-type=module <<'NODE'
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+let admin;
+try {
+  admin = require("firebase-admin");
+} catch {
+  console.error("Installing firebase-admin locally under firebase/ …");
+  execFileSync("npm", ["install", "--prefix", "firebase", "firebase-admin@13"], {
+    stdio: "inherit",
+  });
+  admin = require(join(process.env.ROOT, "firebase/node_modules/firebase-admin"));
+}
+
+const saPath = process.env.SA;
+const catalogPath = process.env.THIRD_CATALOG;
+const CATALOG = JSON.parse(readFileSync(catalogPath, "utf8"));
+
+async function fetchJson(url) {
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "metro-os-sync-hub-firestore",
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`GET ${url} → ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+async function latestRelease(repo, includePrerelease) {
+  if (includePrerelease) {
+    const list = await fetchJson(
+      `https://api.github.com/repos/${repo}/releases?per_page=5`,
+    );
+    if (!Array.isArray(list) || list.length === 0) {
+      throw new Error(`No releases for ${repo}`);
+    }
+    return list[0];
+  }
+  try {
+    return await fetchJson(`https://api.github.com/repos/${repo}/releases/latest`);
+  } catch (err) {
+    const list = await fetchJson(
+      `https://api.github.com/repos/${repo}/releases?per_page=5`,
+    );
+    if (!Array.isArray(list) || list.length === 0) throw err;
+    return list[0];
+  }
+}
+
+function pickApk(assets) {
+  const apks = (assets || []).filter((a) => /\.apk$/i.test(a.name || ""));
+  if (apks.length === 0) return null;
+  const score = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes("universal")) return 0;
+    if (n.includes("arm64")) return 1;
+    return 9;
+  };
+  return [...apks].sort((a, b) => score(a.name) - score(b.name))[0];
+}
+
+function isPlayStoreUrl(url) {
+  const u = String(url || "").toLowerCase();
+  return u.includes("play.google.com/store") || u.startsWith("market:");
+}
+
+const credential = admin.credential.cert(JSON.parse(readFileSync(saPath, "utf8")));
+if (!admin.apps.length) {
+  admin.initializeApp({ credential });
+}
+const db = admin.firestore();
+const col = db.collection("third-party");
+const batch = db.batch();
+const keepIds = new Set(["_meta"]);
+let upserted = 0;
+
+console.log(`Third-party: syncing ${CATALOG.length} curated app(s)…`);
+
+for (const app of CATALOG) {
+  let apkName = app.apkName || null;
+  let apkUrl = app.apkUrl || null;
+  let releaseUrl = app.releaseUrl || null;
+  let versionName = app.versionName || null;
+  let sizeBytes = app.sizeBytes ?? null;
+
+  if (app.githubApiRepo && !isPlayStoreUrl(apkUrl)) {
+    try {
+      const release = await latestRelease(app.githubApiRepo, !!app.includePrerelease);
+      const apk = pickApk(release.assets);
+      if (apk) {
+        apkName = apk.name;
+        apkUrl = apk.browser_download_url;
+        releaseUrl = release.html_url;
+        sizeBytes = apk.size ?? null;
+        versionName =
+          app.versionName ||
+          String(release.tag_name || "").replace(/^v/i, "") ||
+          versionName;
+      } else {
+        console.error(`  WARN ${app.id}: no .apk on ${app.githubApiRepo} — keeping pinned apkUrl`);
+      }
+    } catch (err) {
+      console.error(`  WARN ${app.id}: GitHub release fetch failed (${err.message})`);
+      if (!apkUrl) {
+        console.error(`  SKIP ${app.id}: no apkUrl fallback`);
+        continue;
+      }
+    }
+  }
+
+  if (!apkUrl) {
+    console.error(`  SKIP ${app.id}: missing apkUrl (Play Store or APK)`);
+    continue;
+  }
+
+  const doc = {
+    id: app.id,
+    name: app.name,
+    packageName: app.packageName,
+    description: app.description,
+    versionName,
+    versionCode: app.versionCode ?? null,
+    type: app.type || "core",
+    creator: app.creator,
+    backgroundColor: app.backgroundColor || null,
+    iconUrl: app.iconUrl || null,
+    logoXml: app.logoXml || null,
+    apkName,
+    apkUrl,
+    releaseUrl: releaseUrl || apkUrl,
+    githubRepo: app.githubRepo || null,
+    sizeBytes,
+    party: "third",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  const patch = Object.fromEntries(
+    Object.entries(doc).filter(([, v]) => v !== null && v !== undefined),
+  );
+  batch.set(col.doc(app.id), patch, { merge: true });
+  keepIds.add(app.id);
+  upserted += 1;
+  const via = isPlayStoreUrl(apkUrl) ? "Play Store" : "APK";
+  console.log(`  upsert third-party/${app.id}  ${versionName || "?"}  (${via})`);
+}
+
+await batch.commit();
+
+const existing = await col.get();
+let deleted = 0;
+const deleteBatch = db.batch();
+for (const doc of existing.docs) {
+  if (keepIds.has(doc.id)) continue;
+  deleteBatch.delete(doc.ref);
+  deleted += 1;
+  console.log(`  delete third-party/${doc.id}`);
+}
+if (deleted > 0) {
+  await deleteBatch.commit();
+}
+
+await col.doc("_meta").set(
+  {
+    description:
+      "third-party Hub catalog (unofficial). Same fields as first/second-party. apkUrl may be a direct .apk download OR a Google Play Store listing URL (Hub opens Play externally). Source: scripts/hub-third-party-catalog.json.",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  },
+  { merge: true },
+);
+
+console.log(`OK  third-party: upserted ${upserted}, deleted ${deleted}`);
+NODE
+}
+
 case "$PARTY" in
   first)
     sync_first_party
@@ -885,8 +1075,12 @@ case "$PARTY" in
   second)
     sync_second_party
     ;;
+  third)
+    sync_third_party
+    ;;
   all)
     sync_first_party
     sync_second_party
+    sync_third_party
     ;;
 esac

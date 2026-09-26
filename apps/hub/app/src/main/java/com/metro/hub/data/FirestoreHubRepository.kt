@@ -95,13 +95,26 @@ fun FirestoreHubApp.toReleaseApkAsset(): ReleaseApkAsset {
         }
     }
     val apk = apkName ?: "$id-debug.apk"
+    // LazyColumn / icon cache / download queue key off [ReleaseApkAsset.name].
+    // Many GitHub releases reuse generic names (app-release.apk) — prefix with the
+    // Firestore doc id so second/third-party rows stay unique. First-party keeps
+    // the real suite APK name so GitHub merge still matches.
+    val catalogName = when (category) {
+        HubAppCategory.SecondParty, HubAppCategory.ThirdParty ->
+            if (apk.startsWith("$id-", ignoreCase = true) || apk.equals("$id.apk", ignoreCase = true)) {
+                apk
+            } else {
+                "$id-$apk"
+            }
+        else -> apk
+    }
     // logoXml may be inline vector XML or a remote PNG URL pasted in Firestore.
     val logoIsUrl = !logoXml.isNullOrBlank() && HubLogoDecoder.isRemoteLogoUrl(logoXml)
     val resolvedIconUrl = iconUrl
         ?: logoXml?.takeIf { logoIsUrl }?.trim()
     val resolvedLogoXml = logoXml?.takeUnless { logoIsUrl }
     return ReleaseApkAsset(
-        name = apk,
+        name = catalogName,
         displayName = name,
         downloadUrl = apkUrl.orEmpty(),
         sizeBytes = sizeBytes ?: 0L,
