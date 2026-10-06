@@ -53,6 +53,7 @@ apps/<name>/references/
 | [calculator](calculator/) | `com.metro.calculator` | [AGENTS.md](calculator/AGENTS.md) |
 | [clock](clock/) | `com.metro.clock` | [AGENTS.md](clock/AGENTS.md) |
 | [files](files/) | `com.metro.files` | [AGENTS.md](files/AGENTS.md) |
+| [news](news/) | `com.metro.news` | [AGENTS.md](news/AGENTS.md) |
 
 ## Scaffold a new app
 

@@ -126,6 +126,7 @@ const shell = new Set([
 const core = new Set([
   "browser", "notes", "music", "calculator", "clock", "files", "settings", "store", "hub",
   "photos", "calendar", "mail", "messaging", "people", "dialer", "widgets", "conversations",
+  "news",
 ]);
 
 const descriptions = {
@@ -153,6 +154,7 @@ const descriptions = {
   hub: "About metro-os and suite app downloads.",
   widgets: "Homescreen widget catalog with Start-style live tiles.",
   conversations: "Reply inbox for third-party shade chats (RemoteInput).",
+  news: "Bing News–style panorama with RSS headlines and article summaries.",
 };
 
 const glyphFiles = {
@@ -180,6 +182,7 @@ const glyphFiles = {
   hub: "metro_app_hub.xml",
   widgets: "metro_app_widgets.xml",
   conversations: "metro_app_conversations.xml",
+  news: "metro_app_news.xml",
 };
 
 /** Catalog brand fills (MetroAppRegistry.brandHex) when launcher bg is missing. */
@@ -201,6 +204,7 @@ const brandHexFallback = {
   hub: "#1BA1E2",
   widgets: "#1BA1E2",
   conversations: "#00ABA9",
+  news: "#A20025",
 };
 
 const DEFAULT_BACKGROUND_COLOR = "#1BA1E2";

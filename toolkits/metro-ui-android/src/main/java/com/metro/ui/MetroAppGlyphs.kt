@@ -52,6 +52,7 @@ object MetroAppGlyphs {
     val Hub: Int get() = R.drawable.metro_app_hub
     val Widgets: Int get() = R.drawable.metro_app_widgets
     val Conversations: Int get() = R.drawable.metro_app_conversations
+    val News: Int get() = R.drawable.metro_app_news
 
     val NotificationPhone: Int get() = R.drawable.metro_notification_phone
     val NotificationMusic: Int get() = R.drawable.metro_notification_music
@@ -81,6 +82,7 @@ object MetroAppGlyphs {
         "com.metro.hub" to R.drawable.metro_app_hub,
         "com.metro.widgets" to R.drawable.metro_app_widgets,
         "com.metro.conversations" to R.drawable.metro_app_conversations,
+        "com.metro.news" to R.drawable.metro_app_news,
     )
 
     private val notificationByPackage: Map<String, Int> = mapOf(

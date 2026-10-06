@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WP8 Bing News–style folded newspaper glyph (monochrome for tile tinting). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M28,34 H80 V74 H28 Z
+                M34,40 H52 V54 H34 Z
+                M56,40 H74 V44 H56 Z
+                M56,48 H74 V52 H56 Z
+                M34,60 H74 V64 H34 Z
+                M34,68 H62 V72 H34 Z" />
+    </group>
+</vector>
