@@ -59,7 +59,12 @@ object HomeScreen : Screen() {
 
             val goToLibraryTab = { tabNavigator.current = LibraryTab }
 
-            BackHandler(enabled = tabNavigator.current != LibraryTab, onBack = goToLibraryTab)
+            // More is a MetroSubpageHost drill-in inside MetronHomeScaffold (page-pivot exit).
+            BackHandler(
+                enabled = tabNavigator.current != LibraryTab &&
+                    tabNavigator.current::class != MoreTab::class,
+                onBack = goToLibraryTab,
+            )
 
             LaunchedEffect(Unit) {
                 launch {

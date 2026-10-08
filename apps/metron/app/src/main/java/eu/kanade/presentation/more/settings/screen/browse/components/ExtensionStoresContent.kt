@@ -1,30 +1,20 @@
 package eu.kanade.presentation.more.settings.screen.browse.components
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.metro.ui.MetroCircleIconButton
+import com.metro.ui.MetroListItem
+import com.metro.ui.MetroSystemIconType
 import mihon.domain.extension.model.ExtensionStore
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.automirroredrounded.Label
-import mihon.icons.materialsymbols.rounded.ContentCopy
-import mihon.icons.materialsymbols.rounded.Delete
-import mihon.icons.materialsymbols.rounded.Public
-import mihon.icons.simpleicons.Discord
-import mihon.icons.simpleicons.SimpleIcons
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
@@ -41,20 +31,20 @@ fun ExtensionStoresContent(
     LazyColumn(
         state = lazyListState,
         contentPadding = paddingValues,
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         modifier = modifier,
     ) {
-        repos.forEach {
-            item {
-                ExtensionStoresListItem(
-                    modifier = Modifier.animateItem(),
-                    store = it,
-                    onOpenWebsite = { onOpenWebsite(it) },
-                    onOpenDiscord = { onOpenDiscord(it) },
-                    onCopy = { onCopy(it) },
-                    onDelete = { onClickDelete(it) },
-                )
-            }
+        items(
+            items = repos,
+            key = { it.indexUrl },
+        ) { store ->
+            ExtensionStoresListItem(
+                modifier = Modifier.animateItem(),
+                store = store,
+                onOpenWebsite = { onOpenWebsite(store) },
+                onOpenDiscord = { onOpenDiscord(store) },
+                onCopy = { onCopy(store) },
+                onDelete = { onClickDelete(store) },
+            )
         }
     }
 }
@@ -68,60 +58,39 @@ private fun ExtensionStoresListItem(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
+    val subtitle = store.contact.website.ifBlank { store.indexUrl }
+
+    MetroListItem(
+        title = store.name.lowercase(),
+        subtitle = subtitle.lowercase(),
         modifier = modifier,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = MaterialTheme.padding.medium,
-                    top = MaterialTheme.padding.medium,
-                    end = MaterialTheme.padding.medium,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(imageVector = MaterialSymbols.AutoMirroredRounded.Label, contentDescription = null)
-            Text(
-                text = store.name,
-                modifier = Modifier.padding(start = MaterialTheme.padding.medium),
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            IconButton(onClick = onOpenWebsite) {
-                Icon(
-                    imageVector = MaterialSymbols.Rounded.Public,
-                    contentDescription = stringResource(MR.strings.action_open_in_browser),
-                )
-            }
-
-            if (store.contact.discord != null) {
-                IconButton(onClick = onOpenDiscord) {
-                    Icon(
-                        imageVector = SimpleIcons.Discord,
-                        contentDescription = null,
+        onClick = onOpenWebsite,
+        trailing = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (store.contact.discord != null) {
+                    MetroCircleIconButton(
+                        type = MetroSystemIconType.Message,
+                        contentDescription = "discord",
+                        onClick = onOpenDiscord,
+                        glyphSize = 28.dp,
+                        modifier = Modifier.padding(start = 2.dp),
                     )
                 }
-            }
-
-            IconButton(onClick = onCopy) {
-                Icon(
-                    imageVector = MaterialSymbols.Rounded.ContentCopy,
+                MetroCircleIconButton(
+                    type = MetroSystemIconType.Copy,
                     contentDescription = stringResource(MR.strings.action_copy_to_clipboard),
+                    onClick = onCopy,
+                    glyphSize = 28.dp,
+                    modifier = Modifier.padding(start = 2.dp),
                 )
-            }
-
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = MaterialSymbols.Rounded.Delete,
+                MetroCircleIconButton(
+                    type = MetroSystemIconType.Delete,
                     contentDescription = stringResource(MR.strings.action_delete),
+                    onClick = onDelete,
+                    glyphSize = 28.dp,
+                    modifier = Modifier.padding(start = 2.dp),
                 )
             }
-        }
-    }
+        },
+    )
 }

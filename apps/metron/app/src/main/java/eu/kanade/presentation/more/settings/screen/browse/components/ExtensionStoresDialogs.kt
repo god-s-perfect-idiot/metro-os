@@ -1,25 +1,26 @@
 package eu.kanade.presentation.more.settings.screen.browse.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.metro.ui.MetroMessageDialog
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextBox
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -31,63 +32,65 @@ fun ExtensionStoreCreateDialog(
     processing: Boolean,
     errorMessage: String?,
 ) {
-    val state = rememberTextFieldState()
-    val storeAlreadyExists by remember(storeIndexUrls) {
-        derivedStateOf {
-            val indexUrl = state.text.toString()
-            storeIndexUrls.contains(indexUrl)
-        }
-    }
-
+    var url by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    val storeAlreadyExists = remember(url, storeIndexUrls) { storeIndexUrls.contains(url) }
+    val canCreate = url.isNotEmpty() && !storeAlreadyExists && !processing
 
-    AlertDialog(
+    MetroMessageDialog(
+        title = stringResource(MR.strings.extensionStoresScreen_addStore_title).lowercase(),
         onDismissRequest = onDismissRequest,
-        title = {
-            Text(text = stringResource(MR.strings.extensionStoresScreen_addStore_title))
+        confirmLabel = stringResource(
+            if (processing) {
+                MR.strings.extensionStoresScreen_addStore_processing
+            } else {
+                MR.strings.action_add
+            },
+        ).lowercase(),
+        onConfirm = {
+            if (canCreate) {
+                onCreate(url)
+            }
         },
-        text = {
-            OutlinedTextField(
+        dismissLabel = stringResource(MR.strings.action_cancel).lowercase(),
+        content = {
+            MetroTextBox(
+                value = url,
+                onValueChange = { url = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                state = state,
-                label = {
-                    Text(text = stringResource(MR.strings.extensionStoresScreen_addStoreInput_inputLabel))
-                },
-                supportingText = {
-                    val msgRes = if (storeAlreadyExists) {
-                        MR.strings.extensionStoresScreen_addStore_alreadyExists
-                    } else {
-                        MR.strings.information_required_plain
-                    }
-                    Text(text = errorMessage ?: stringResource(msgRes))
-                },
-                isError = errorMessage != null || storeAlreadyExists,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                lineLimits = TextFieldLineLimits.SingleLine,
+                placeholder = stringResource(
+                    MR.strings.extensionStoresScreen_addStoreInput_inputLabel,
+                ).lowercase(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (canCreate) {
+                            onCreate(url)
+                        }
+                    },
+                ),
             )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onCreate(state.text.toString()) },
-                enabled = !processing && state.text.isNotEmpty() && !storeAlreadyExists,
-            ) {
-                Text(
-                    text = stringResource(
-                        resource = if (processing) {
-                            MR.strings.extensionStoresScreen_addStore_processing
-                        } else {
-                            MR.strings.action_add
-                        },
-                    ),
-                )
+            val support = when {
+                errorMessage != null -> errorMessage
+                storeAlreadyExists -> stringResource(MR.strings.extensionStoresScreen_addStore_alreadyExists)
+                else -> stringResource(MR.strings.information_required_plain)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
+            MetroText(
+                text = support.lowercase(),
+                style = MetroTextStyle.ListItemSubtitle,
+                color = if (errorMessage != null || storeAlreadyExists) {
+                    MetroTheme.colors.accent
+                } else {
+                    MetroTheme.colors.secondaryText
+                },
+                modifier = Modifier.padding(top = 8.dp),
+            )
         },
     )
 
@@ -103,27 +106,20 @@ fun ExtensionStoreDeleteDialog(
     storeName: String,
     storeIndexUrl: String,
 ) {
-    AlertDialog(
+    MetroMessageDialog(
+        title = stringResource(MR.strings.extensionStoresScreen_deleteStore_title).lowercase(),
+        body = stringResource(
+            MR.strings.extensionStoresScreen_deleteStore_body,
+            storeName,
+            storeIndexUrl,
+        ).lowercase(),
         onDismissRequest = onDismissRequest,
-        title = {
-            Text(text = stringResource(MR.strings.extensionStoresScreen_deleteStore_title))
+        confirmLabel = stringResource(MR.strings.action_ok).lowercase(),
+        onConfirm = {
+            onDelete()
+            onDismissRequest()
         },
-        text = {
-            Text(text = stringResource(MR.strings.extensionStoresScreen_deleteStore_body, storeName, storeIndexUrl))
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onDelete()
-                onDismissRequest()
-            }) {
-                Text(text = stringResource(MR.strings.action_ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
-            }
-        },
+        dismissLabel = stringResource(MR.strings.action_cancel).lowercase(),
     )
 }
 
@@ -136,52 +132,43 @@ fun ExtensionStoreConfirmDialog(
     processing: Boolean,
     errorMessage: String?,
 ) {
-    val state = rememberTextFieldState(initialText = storeIndexUrl)
-    AlertDialog(
+    MetroMessageDialog(
+        title = stringResource(MR.strings.extensionStoresScreen_addStore_title).lowercase(),
+        body = stringResource(MR.strings.extensionStoresScreen_addStoreDeeplink_bodyText).lowercase(),
         onDismissRequest = onDismissRequest,
-        title = {
-            Text(text = stringResource(MR.strings.extensionStoresScreen_addStore_title))
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = stringResource(MR.strings.extensionStoresScreen_addStoreDeeplink_bodyText))
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    state = state,
-                    readOnly = true,
-                    supportingText = when {
-                        storeAlreadyExists -> {
-                            {
-                                Text(text = stringResource(MR.strings.extensionStoresScreen_addStore_alreadyExists))
-                            }
-                        }
-                        errorMessage != null -> {
-                            {
-                                Text(text = errorMessage)
-                            }
-                        }
-                        else -> null
-                    },
-                    isError = errorMessage != null || storeAlreadyExists,
-                )
+        confirmLabel = stringResource(
+            if (processing) {
+                MR.strings.extensionStoresScreen_addStore_processing
+            } else {
+                MR.strings.action_add
+            },
+        ).lowercase(),
+        onConfirm = {
+            if (!storeAlreadyExists && !processing) {
+                onCreate()
             }
         },
-        confirmButton = {
-            TextButton(onClick = onCreate, enabled = !storeAlreadyExists && !processing) {
-                Text(
-                    text = stringResource(
-                        resource = if (processing) {
-                            MR.strings.extensionStoresScreen_addStore_processing
-                        } else {
-                            MR.strings.action_add
-                        },
-                    ),
-                )
+        dismissLabel = stringResource(MR.strings.action_cancel).lowercase(),
+        content = {
+            MetroTextBox(
+                value = storeIndexUrl,
+                onValueChange = {},
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = false,
+            )
+            val support = when {
+                storeAlreadyExists -> stringResource(MR.strings.extensionStoresScreen_addStore_alreadyExists)
+                errorMessage != null -> errorMessage
+                else -> null
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = stringResource(MR.strings.action_cancel))
+            if (support != null) {
+                MetroText(
+                    text = support.lowercase(),
+                    style = MetroTextStyle.ListItemSubtitle,
+                    color = MetroTheme.colors.accent,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         },
     )

@@ -2,19 +2,18 @@ package mihon.feature.upcoming.components.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-private const val INDICATOR_SCALE = 12
-private const val INDICATOR_ALPHA_MULTIPLIER = 0.3f
-
+/**
+ * Square event tick for the upcoming month grid (WP8.1 calendar language).
+ * Kept for call sites that still pass an index-based alpha; prefer inline ticks in [CalendarDay].
+ */
 @Composable
 fun CalendarIndicator(
     index: Int,
@@ -22,11 +21,10 @@ fun CalendarIndicator(
     color: Color,
     modifier: Modifier = Modifier,
 ) {
+    val alpha = ((index + 1) * 0.3f).coerceAtMost(1f)
     Box(
         modifier = modifier
-            .padding(horizontal = 1.dp)
-            .clip(shape = CircleShape)
-            .background(color = color.copy(alpha = (index + 1) * INDICATOR_ALPHA_MULTIPLIER))
-            .size(size = size.div(INDICATOR_SCALE)),
+            .background(color = color.copy(alpha = alpha), shape = RectangleShape)
+            .size(width = size.div(7), height = 3.dp),
     )
 }

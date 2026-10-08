@@ -86,7 +86,7 @@ enum class MetroSystemIconType {
     Microphone,
     /** Funnel filter — library / browse filter chrome. */
     Filter,
-    /** Clear (X in circle) — clear history / clear selection chrome. */
+    /** Clear history / empty — bin glyph for clear-history chrome. */
     Clear,
 
     // SIP / keyboard chrome (prefer showCircle = false on keys / smartbar)
@@ -135,6 +135,12 @@ fun MetroSystemIcon(
     iconSize: Dp = 40.dp,
     color: Color = MetroTheme.colors.primaryText,
     showCircle: Boolean = true,
+    /**
+     * Drawn glyph size centered in [iconSize]. Defaults to [iconSize] (drawable glyphs
+     * still apply their built-in fill fraction). Pass a smaller value to inset the glyph
+     * without shrinking the press circle.
+     */
+    glyphSize: Dp = iconSize,
 ) {
     // Drawable-backed glyphs (Canvas approximations kept drifting from reference SVGs).
     val drawableId = when (type) {
@@ -149,8 +155,8 @@ fun MetroSystemIcon(
             MetroSystemIconType.Microphone -> 1f
             // Funnel fills the viewBox edge-to-edge — inset more so it sits like stroke glyphs.
             MetroSystemIconType.Filter -> 0.48f
-            // Clear already draws its own ring; keep inset so the ring reads inside the press circle.
-            MetroSystemIconType.Clear -> 0.78f
+            // Clear bin fills most of its viewBox — match Delete presence in the press circle.
+            MetroSystemIconType.Clear -> 0.62f
             MetroSystemIconType.Delete -> 0.62f
             else -> 0.72f
         }
@@ -172,7 +178,7 @@ fun MetroSystemIcon(
             Image(
                 painter = painterResource(id = drawableId),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(glyphFill),
+                modifier = Modifier.size(glyphSize * glyphFill),
                 colorFilter = ColorFilter.tint(color),
             )
         }
@@ -188,7 +194,17 @@ fun MetroSystemIcon(
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
             )
         }
-        drawMetroSystemIconGlyph(type, color)
+        val glyphPx = glyphSize.toPx()
+        val glyphScale = if (size.minDimension > 0f) glyphPx / size.minDimension else 1f
+        if (glyphScale != 1f) {
+            withTransform({
+                scale(glyphScale, glyphScale, pivot = center)
+            }) {
+                drawMetroSystemIconGlyph(type, color)
+            }
+        } else {
+            drawMetroSystemIconGlyph(type, color)
+        }
     }
 }
 
@@ -324,6 +340,13 @@ fun MetroCircleIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 44.dp,
+    /** Press-circle diameter; defaults to [size] × 0.82. */
+    iconSize: Dp = size * 0.82f,
+    /**
+     * Glyph size inside the press circle; defaults to [iconSize].
+     * Use a smaller value to inset the glyph without shrinking the ring.
+     */
+    glyphSize: Dp = iconSize,
     color: Color = MetroTheme.colors.primaryText,
     backgroundColor: Color? = null,
     enabled: Boolean = true,
@@ -354,7 +377,8 @@ fun MetroCircleIconButton(
     ) {
         MetroSystemIcon(
             type = type,
-            iconSize = size * 0.82f,
+            iconSize = iconSize,
+            glyphSize = glyphSize,
             color = if (enabled) color else color.copy(alpha = 0.4f),
         )
     }

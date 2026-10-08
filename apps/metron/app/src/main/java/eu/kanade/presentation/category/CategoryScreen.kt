@@ -209,7 +209,8 @@ private fun CategoryEditableRow(
             type = MetroSystemIconType.Delete,
             contentDescription = stringResource(MR.strings.action_delete),
             onClick = onClickDelete,
-            size = 32.dp,
+            size = 36.dp,
+            iconSize = 18.dp,
             modifier = Modifier.padding(start = 4.dp),
         )
     }

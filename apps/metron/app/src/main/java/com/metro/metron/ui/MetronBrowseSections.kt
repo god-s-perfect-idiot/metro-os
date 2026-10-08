@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -36,7 +37,6 @@ import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
-import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroDimens
 import com.metro.ui.MetroEmptyState
@@ -112,8 +112,9 @@ fun MetronBrowsePane(modifier: Modifier = Modifier) {
                     )
                     MetronBrowseAccentTile(
                         title = "settings",
-                        iconRes = MetroAppGlyphs.Settings,
+                        iconRes = R.drawable.metron_settings,
                         onClick = { navigator.push(SettingsScreen()) },
+                        iconSize = 52.dp,
                         modifier = Modifier.size(tileSize),
                     )
                 }
@@ -128,6 +129,7 @@ private fun MetronBrowseAccentTile(
     @DrawableRes iconRes: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    iconSize: Dp = 60.dp,
 ) {
     val background = MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
@@ -146,7 +148,7 @@ private fun MetronBrowseAccentTile(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             modifier = Modifier
-                .size(72.dp)
+                .size(iconSize)
                 .align(Alignment.Center),
             colorFilter = ColorFilter.tint(content),
         )

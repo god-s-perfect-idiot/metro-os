@@ -1,26 +1,30 @@
 package eu.kanade.presentation.more.settings.screen.browse.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import eu.kanade.presentation.category.components.CategoryFloatingActionButton
-import eu.kanade.presentation.components.AppBar
+import androidx.compose.ui.unit.dp
+import com.metro.ui.MetroAppBar
+import com.metro.ui.MetroAppBarDefaults
+import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroEmptyState
+import com.metro.ui.MetroSettingsHeader
+import com.metro.ui.MetroSystemIconType
+import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoreScreenState
 import mihon.domain.extension.model.ExtensionStore
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Refresh
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.screens.EmptyScreen
-import tachiyomi.presentation.core.util.plus
 
 @Composable
 fun ExtensionStoresScreen(
@@ -33,47 +37,58 @@ fun ExtensionStoresScreen(
     onClickRefresh: () -> Unit,
     navigateUp: () -> Unit,
 ) {
+    @Suppress("UNUSED_PARAMETER")
+    val unusedNavigateUp = navigateUp
     val lazyListState = rememberLazyListState()
-    Scaffold(
-        topBar = { scrollBehavior ->
-            AppBar(
-                navigateUp = navigateUp,
-                title = stringResource(MR.strings.extensionStores),
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    IconButton(onClick = onClickRefresh) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Refresh,
-                            contentDescription = stringResource(resource = MR.strings.action_webview_refresh),
-                        )
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            CategoryFloatingActionButton(
-                lazyListState = lazyListState,
-                onCreate = onClickCreate,
-            )
-        },
-    ) { paddingValues ->
-        if (state.isEmpty) {
-            EmptyScreen(
-                MR.strings.extensionStoresScreen_emptyLabel,
-                modifier = Modifier.padding(paddingValues),
-            )
-            return@Scaffold
-        }
 
-        ExtensionStoresContent(
-            repos = state.stores,
-            lazyListState = lazyListState,
-            paddingValues = paddingValues + topSmallPaddingValues +
-                PaddingValues(horizontal = MaterialTheme.padding.medium),
-            onCopy = onCopy,
-            onOpenWebsite = onOpenWebsite,
-            onOpenDiscord = onOpenDiscord,
-            onClickDelete = onClickDelete,
-        )
+    MetroSystemTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .metroNavBarPadding()
+                .background(MetroTheme.colors.background),
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                MetroSettingsHeader(
+                    pageTitle = stringResource(MR.strings.extensionStores).lowercase(),
+                    appTitle = "metron",
+                )
+                if (state.isEmpty) {
+                    MetroEmptyState(
+                        message = stringResource(MR.strings.extensionStoresScreen_emptyLabel).lowercase(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = MetroAppBarDefaults.BarHeight),
+                    )
+                } else {
+                    ExtensionStoresContent(
+                        repos = state.stores,
+                        lazyListState = lazyListState,
+                        paddingValues = PaddingValues(bottom = MetroAppBarDefaults.BarHeight + 32.dp),
+                        onCopy = onCopy,
+                        onOpenWebsite = onOpenWebsite,
+                        onOpenDiscord = onOpenDiscord,
+                        onClickDelete = onClickDelete,
+                    )
+                }
+            }
+
+            MetroAppBar(
+                icons = listOf(
+                    MetroAppBarIcon(
+                        type = MetroSystemIconType.Add,
+                        label = stringResource(MR.strings.action_add).lowercase(),
+                        onClick = onClickCreate,
+                    ),
+                    MetroAppBarIcon(
+                        type = MetroSystemIconType.Refresh,
+                        label = stringResource(MR.strings.action_webview_refresh).lowercase(),
+                        onClick = onClickRefresh,
+                    ),
+                ),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
 }

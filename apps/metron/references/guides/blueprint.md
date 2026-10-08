@@ -14,7 +14,21 @@ All library / source / reader data is real Mihon (SQLDelight, extensions, downlo
 - **Brand:** Giant panoramic title `metron` (Music ExtraLight treatment)
 - **Pane bodies:** Real Mihon `LibraryTab` / `UpdatesTab` / `HistoryTab` / `BrowseTab` content
   (upstream presentation until those screens are Metroized)
-- **App bar:** Standard — **search** (focuses library search); `…` → **more** / **downloads**
+- **Library motion:** Drill-ins (category, search, manga) use whole-page pivot enter/exit via
+  `DefaultNavigatorScreenTransition` — tiles themselves do not stagger-animate.
+- **App bar search (per pane):**
+  - **library** → dedicated library search page (not an in-panorama text box)
+  - **history** → animated in-pane search bar; hides when unfocused; tap search again to reopen
+  - **browse** → dedicated Metro global search page (tag buttons for pinned / all / has results)
+- **App bar options (sliding chrome card, not Material sheets):**
+  - Filter / sort / display / categories each slide up a full-width card (same `#1F1F1F`
+    bg as the app bar) from the bottom edge **over** the bar; dismiss slides it back down
+    (scrim tap, Back, or toggle the same action).
+  - **library** — filter icon; `…` → **sort** / **display** / **update library** / **more** /
+    **downloads**. Display is badge toggles only (no compact grid modes — fixed cover tiles).
+  - **updates** — filter icon; `…` → **categories** / **upcoming** / **more** / **downloads**.
+  - **history / browse** — unchanged icons + overflow
+- **App bar:** `…` → pane-specific text options (above) plus **more** / **downloads**
 - **Background:** Theme background. No Material bottom navigation bar.
 
 ### Page 2 — More (full page)
@@ -26,8 +40,18 @@ All library / source / reader data is real Mihon (SQLDelight, extensions, downlo
 ### Page 3 — Settings hub
 
 - Category list via `MetroSettingsHeader` (`metron` / `settings`) + `MetroListItem`
-- Bottom `MetroAppBar` (back + search); category screens use `PreferenceScaffold`
+- Bottom `MetroAppBar` (search); category screens use `PreferenceScaffold`
   (`MetroSettingsHeader` + preference rows with `MetroListItem` / `MetroToggleSwitch`)
+- Settings search: `MetroAppTitle` / hub title / `MetroTextBox` / `MetroListItem` results
+  (same language as library search) — not Material `TopAppBar`
+
+### Page 3b — Upcoming updates
+
+- Drill-in from updates `…` → **upcoming**
+- `MetroSettingsHeader` (`metron` / `upcoming`) + square month grid (calendar cell language)
+  + date section headers + cover `MetroListItem` rows
+- Bottom `MetroAppBar` (filter icon; `…` → guide); filter uses `MetronOptionsCard`
+  (not Material sheets / badges)
 
 ### Pages 4+ — Upstream Mihon flows
 

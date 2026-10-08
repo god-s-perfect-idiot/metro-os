@@ -17,6 +17,7 @@ import eu.kanade.presentation.more.settings.screen.SettingsDataScreen
 import eu.kanade.presentation.more.settings.screen.SettingsMainScreen
 import eu.kanade.presentation.more.settings.screen.SettingsTrackingScreen
 import eu.kanade.presentation.more.settings.screen.about.AboutScreen
+import com.metro.ui.LocalMetroSubpageExit
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
@@ -42,11 +43,12 @@ class SettingsScreen(
                 },
                 onBackPressed = null,
             ) {
+                val requestParentExit = LocalMetroSubpageExit.current
                 val pop: () -> Unit = {
                     if (it.canPop) {
                         it.pop()
                     } else {
-                        parentNavigator.pop()
+                        requestParentExit?.invoke() ?: parentNavigator.pop()
                     }
                 }
                 CompositionLocalProvider(LocalBackPress provides pop) {
@@ -69,7 +71,12 @@ class SettingsScreen(
                         .windowInsetsPadding(insets)
                         .consumeWindowInsets(insets),
                     startContent = {
-                        CompositionLocalProvider(LocalBackPress provides parentNavigator::pop) {
+                        val requestParentExit = LocalMetroSubpageExit.current
+                        CompositionLocalProvider(
+                            LocalBackPress provides {
+                                requestParentExit?.invoke() ?: parentNavigator.pop()
+                            },
+                        ) {
                             SettingsMainScreen.Content(twoPane = true)
                         }
                     },

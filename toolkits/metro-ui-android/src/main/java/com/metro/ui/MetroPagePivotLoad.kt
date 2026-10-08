@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -18,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -364,7 +366,10 @@ private fun MetroPagePivotMotion(
             },
         )
     }
-    LaunchedEffect(loadKey, exiting, delayMs, translateX, skipEnter) {
+    // Enter must wait for a real width — otherwise rotationY reads as a flat fade (or finishes
+    // before layout) and drill-ins look like they have exit-only pivots.
+    var laidOutWidthPx by remember(loadKey) { mutableFloatStateOf(0f) }
+    LaunchedEffect(loadKey, exiting, delayMs, translateX, skipEnter, laidOutWidthPx) {
         if (skipEnter && !exiting) {
             rotationY.snapTo(0f)
             alpha.snapTo(1f)
@@ -401,6 +406,17 @@ private fun MetroPagePivotMotion(
             }
             onExitComplete?.invoke()
         } else {
+            if (laidOutWidthPx <= 0f) {
+                // Keep the start pose / alpha 0 until the layer has a measurable width.
+                rotationY.snapTo(enterStartDegrees)
+                alpha.snapTo(0f)
+                if (translateX) {
+                    translationXFraction.snapTo(
+                        MetroTransitions.PagePivotLoadStartTranslationXFraction,
+                    )
+                }
+                return@LaunchedEffect
+            }
             rotationY.snapTo(enterStartDegrees)
             // Stay fully hidden until the (optional) stagger delay ends — otherwise waiting
             // Start tiles sit in a half-visible pre-swing pose.
@@ -429,40 +445,47 @@ private fun MetroPagePivotMotion(
         }
     }
     Box(
-        modifier = modifier.graphicsLayer {
-            this.rotationY = rotationY.value
-            this.alpha = alpha.value
-            val layerWidth = size.width.coerceAtLeast(1f)
-            if (translateX) {
-                translationX = translationXFraction.value * layerWidth
+        modifier = modifier
+            .onSizeChanged { size ->
+                val w = size.width.toFloat()
+                if (w > 0f && w != laidOutWidthPx) {
+                    laidOutWidthPx = w
+                }
             }
-            val cameraWidth = cameraWidthPx?.takeIf { it > 0f } ?: size.width
-            transformOrigin = if (exiting) {
-                // Shared page exit hinge at PagePivotExitOriginX × camera width from page left.
-                val exitHingePageX =
-                    MetroTransitions.PagePivotExitOriginX * cameraWidth.coerceAtLeast(1f)
-                TransformOrigin(
-                    pivotFractionX = (exitHingePageX - hingeInsetPx) / layerWidth,
-                    pivotFractionY = 0.5f,
-                )
-            } else {
-                // Shared page hinge: inset maps page-left into this layer's local origin.
-                TransformOrigin(
-                    pivotFractionX = MetroTransitions.PagePivotLoadOriginX -
-                        (hingeInsetPx / layerWidth),
-                    pivotFractionY = 0.5f,
-                )
-            }
-            clip = false
-            cameraDistance = metroPagePivotCameraDistance(
-                widthPx = cameraWidth,
-                widthFactor = if (exiting) {
-                    MetroTransitions.PagePivotExitCameraWidthFactor
+            .graphicsLayer {
+                this.rotationY = rotationY.value
+                this.alpha = alpha.value
+                val layerWidth = size.width.coerceAtLeast(1f)
+                if (translateX) {
+                    translationX = translationXFraction.value * layerWidth
+                }
+                val cameraWidth = cameraWidthPx?.takeIf { it > 0f } ?: size.width
+                transformOrigin = if (exiting) {
+                    // Shared page exit hinge at PagePivotExitOriginX × camera width from page left.
+                    val exitHingePageX =
+                        MetroTransitions.PagePivotExitOriginX * cameraWidth.coerceAtLeast(1f)
+                    TransformOrigin(
+                        pivotFractionX = (exitHingePageX - hingeInsetPx) / layerWidth,
+                        pivotFractionY = 0.5f,
+                    )
                 } else {
-                    enterCameraWidthFactor
-                },
-            )
-        },
+                    // Shared page hinge: inset maps page-left into this layer's local origin.
+                    TransformOrigin(
+                        pivotFractionX = MetroTransitions.PagePivotLoadOriginX -
+                            (hingeInsetPx / layerWidth),
+                        pivotFractionY = 0.5f,
+                    )
+                }
+                clip = false
+                cameraDistance = metroPagePivotCameraDistance(
+                    widthPx = cameraWidth,
+                    widthFactor = if (exiting) {
+                        MetroTransitions.PagePivotExitCameraWidthFactor
+                    } else {
+                        enterCameraWidthFactor
+                    },
+                )
+            },
     ) {
         content()
     }

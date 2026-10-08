@@ -233,7 +233,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 
 **Don't:** FAB, top toolbar, mixing icons and text buttons in the same bar, colored multi-hue icons, more than 4 icons "because slots exist".
 
-**Toolkit:** `MetroAppBar` (uncontrolled or `expanded`/`onExpandedChange` controlled), `MetroAppBarIcon` (icon-type or custom-glyph), `MetroAppBarTextButton` (Store-style outlined verbs), `MetroAppBarMenuItem`, `MetroAppBarDefaults`. Place it last in a bottom-aligned `Box` so the expanded panel overlays page content.
+**Toolkit:** `MetroAppBar` (uncontrolled or `expanded`/`onExpandedChange` controlled), `MetroAppBarIcon` (icon-type or custom-glyph), `MetroAppBarTextButton` (Store-style outlined verbs), `MetroAppBarMenuItem`, `MetroAppBarDefaults`. Place it last in a bottom-aligned `Box` so the expanded panel overlays page content. Apps that need filter/sort sheets should slide a separate chrome card over the bar (see Metron `MetronOptionsCard`), not replace app-bar content.
 
 ---
 

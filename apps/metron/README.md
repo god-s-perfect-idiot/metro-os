@@ -56,6 +56,7 @@ Apache-2.0 — see `LICENSE` / `MIHON-APACHE-2.0.txt`. Fork notes: `MIHON-FORK.t
 |----------------|--------------------|------------|
 | No WP manga reader | N/A | Music panorama + full Mihon engine |
 | Full Metro on every Mihon screen | Large surface area | Home Metro first; drill-ins Metroized incrementally |
+| Transient feedback via toast banner | Android Toast / Material Snackbar | In-app Metro toast overlay (`MetronToast`); snackbar actions ignored (use dialogs for confirm) |
 
 ## Agent postmortem
 

@@ -6,19 +6,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
 import com.cheonjaeung.compose.grid.SimpleGridCells
 import com.cheonjaeung.compose.grid.VerticalGrid
+import com.metro.ui.MetroDimens
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.minusMonth
@@ -26,13 +26,11 @@ import kotlinx.datetime.plusMonth
 import kotlinx.datetime.toJavaDayOfWeek
 import mihon.core.designsystem.utils.isExpandedWidthWindow
 import mihon.core.designsystem.utils.isMediumWidthWindow
-import tachiyomi.presentation.core.components.material.padding
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-private val FontSize = 16.sp
 private const val DAYS_OF_WEEK = 7
 
 @Composable
@@ -44,7 +42,9 @@ fun Calendar(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = MetroDimens.ScreenHorizontalMargin),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -54,8 +54,7 @@ fun Calendar(
             onNextClick = { setSelectedYearMonth(selectedYearMonth.plusMonth()) },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = MaterialTheme.padding.small)
-                .padding(start = MaterialTheme.padding.medium),
+                .padding(vertical = 8.dp),
         )
         CalendarGrid(
             selectedYearMonth = selectedYearMonth,
@@ -89,14 +88,15 @@ private fun CalendarGrid(
         },
     ) {
         weekDays.fastForEach { item ->
-            Text(
+            MetroText(
                 text = item.getDisplayName(
                     TextStyle.NARROW,
                     Locale.getDefault(),
                 ),
+                style = MetroTextStyle.ListItemSubtitle,
+                color = MetroTheme.colors.secondaryText,
                 textAlign = TextAlign.Center,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = FontSize,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         repeat(emptyFieldCount) { Box { } }

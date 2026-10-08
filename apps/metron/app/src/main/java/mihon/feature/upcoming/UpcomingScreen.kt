@@ -1,14 +1,8 @@
 package mihon.feature.upcoming
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,19 +14,20 @@ import androidx.compose.ui.util.fastForEachIndexed
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.metro.metron.ui.MetronOptionsCard
+import com.metro.ui.MetroCheckBox
+import com.metro.ui.MetroListItem
+import com.metro.ui.MetroLoadingDots
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.category.visualName
-import eu.kanade.presentation.components.TabbedDialog
-import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.SettingsItemsPaddings
-import tachiyomi.presentation.core.components.TriStateItem
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.collectAsState
 
 class UpcomingScreen : Screen() {
@@ -43,54 +38,55 @@ class UpcomingScreen : Screen() {
 
         val viewModel = metroViewModel<UpcomingViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
+        val filterVisible = state.dialog is UpcomingViewModel.Dialog.FilterSheet
 
-        when (state.dialog) {
-            is UpcomingViewModel.Dialog.FilterSheet -> {
-                UpcomingFilterDialog(
-                    viewModel = viewModel,
-                )
+        Box(modifier = Modifier.fillMaxSize()) {
+            UpcomingScreenContent(
+                state = state,
+                setSelectedYearMonth = viewModel::setSelectedYearMonth,
+                onClickUpcoming = { navigator.push(MangaScreen(it.id)) },
+                hasActiveFilters = state.hasActiveFilters,
+                onClickFilter = {
+                    if (filterVisible) {
+                        viewModel.resetDialog()
+                    } else {
+                        viewModel.showFilterDialog()
+                    }
+                },
+            )
+
+            MetronOptionsCard(
+                visible = filterVisible,
+                onDismiss = viewModel::resetDialog,
+            ) {
+                UpcomingCategoryFilterOptions(viewModel = viewModel)
             }
-
-            null -> {}
         }
-
-        UpcomingScreenContent(
-            state = state,
-            setSelectedYearMonth = viewModel::setSelectedYearMonth,
-            onClickUpcoming = { navigator.push(MangaScreen(it.id)) },
-            hasActiveFilters = state.hasActiveFilters,
-            onClickFilter = viewModel::showFilterDialog,
-        )
     }
 }
 
 @Composable
-private fun ColumnScope.CategoryFilterSheet(
+private fun UpcomingCategoryFilterOptions(
     viewModel: UpcomingViewModel,
 ) {
-    Text(
-        stringResource(MR.strings.pref_filter_upcoming_categories_details),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = SettingsItemsPaddings.Vertical,
-            ),
+    MetroText(
+        text = stringResource(MR.strings.pref_filter_upcoming_categories_details).lowercase(),
+        style = MetroTextStyle.Body,
+        color = MetroTheme.colors.secondaryText,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
     )
-
-    HorizontalDivider(modifier = Modifier.padding(MaterialTheme.padding.extraSmall))
 
     val allCategories by viewModel.getCategories.subscribe().collectAsState(initial = emptyList())
 
     if (allCategories.isEmpty()) {
-        LoadingScreen(modifier = Modifier.padding(16.dp))
+        MetroLoadingDots(modifier = Modifier.padding(16.dp))
         return
     }
 
     val excluded by viewModel.upcomingPreferences.filterExcludedCategories.collectAsState()
     val included by viewModel.upcomingPreferences.filterIncludedCategories.collectAsState()
 
-    val selected = remember {
+    val selected = remember(allCategories, included, excluded) {
         allCategories.map { category ->
             when (category.id) {
                 in included -> TriState.ENABLED_IS
@@ -100,37 +96,48 @@ private fun ColumnScope.CategoryFilterSheet(
         }.toMutableStateList()
     }
 
-    Column {
-        allCategories.fastForEachIndexed { idx, category ->
-            val state = selected[idx]
-            TriStateItem(
-                label = category.visualName,
-                state = state,
-                onClick = {
-                    selected[idx] = state.next()
-                    viewModel.cycleCategory(category)
-                },
-            )
-        }
+    allCategories.fastForEachIndexed { idx, category ->
+        val filterState = selected.getOrElse(idx) { TriState.DISABLED }
+        TriStateOptionRow(
+            label = category.visualName,
+            state = filterState,
+            onClick = {
+                selected[idx] = filterState.next()
+                viewModel.cycleCategory(category)
+            },
+        )
     }
 }
 
 @Composable
-fun UpcomingFilterDialog(
-    viewModel: UpcomingViewModel,
+private fun TriStateOptionRow(
+    label: String,
+    state: TriState,
+    onClick: () -> Unit,
 ) {
-    TabbedDialog(
-        onDismissRequest = viewModel::resetDialog,
-        tabTitles = listOf(
-            stringResource(MR.strings.categories),
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(vertical = TabbedDialogPaddings.Vertical)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            CategoryFilterSheet(viewModel = viewModel)
-        }
+    val status = when (state) {
+        TriState.DISABLED -> "any"
+        TriState.ENABLED_IS -> "include"
+        TriState.ENABLED_NOT -> "exclude"
     }
+    MetroListItem(
+        title = label.lowercase(),
+        subtitle = status,
+        singleLine = true,
+        leading = {
+            when (state) {
+                TriState.DISABLED -> MetroCheckBox(checked = false, onCheckedChange = null)
+                TriState.ENABLED_IS -> MetroCheckBox(checked = true, onCheckedChange = null)
+                TriState.ENABLED_NOT -> MetroText(
+                    text = "✕",
+                    style = MetroTextStyle.ListItemTitle,
+                    color = MetroTheme.colors.accent,
+                )
+            }
+        },
+        oneLineMinHeight = 48.dp,
+        twoLineMinHeight = 56.dp,
+        verticalPadding = 6.dp,
+        onClick = onClick,
+    )
 }

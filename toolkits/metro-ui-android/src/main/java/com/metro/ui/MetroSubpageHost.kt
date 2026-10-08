@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -91,13 +92,18 @@ fun <R : Any> MetroSubpageHost(
             }
             onRoot -> rootContent()
             else -> {
-                MetroSubpagePivot(
-                    loadKey = loadKeyOf(route),
-                    skipEnter = route == suppressEnterFor,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    CompositionLocalProvider(LocalMetroSubpageExit provides requestExit) {
-                        subpageContent(route)
+                val loadKey = loadKeyOf(route)
+                // Force a fresh enter pivot whenever the route changes — avoids Compose
+                // reusing exit-branch state and skipping the swing-in.
+                key(loadKey) {
+                    MetroSubpagePivot(
+                        loadKey = loadKey,
+                        skipEnter = route == suppressEnterFor,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        CompositionLocalProvider(LocalMetroSubpageExit provides requestExit) {
+                            subpageContent(route)
+                        }
                     }
                 }
             }

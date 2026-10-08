@@ -37,6 +37,9 @@ val MetroPanoramaTitleHeight = 64.dp
 /** Title region when panes use [MetroTextStyle.HubLink] (38sp) instead of HubTitle. */
 val MetroPanoramaHubLinkTitleHeight = 48.dp
 
+/** Title region when panes use [MetroTextStyle.SectionHeader] (20sp, Hub-style). */
+val MetroPanoramaSectionHeaderTitleHeight = 28.dp
+
 /** WP8.1 panorama — ~40dp of the next pane visible on the right (METRO-UX-LANGUAGE §6.8). */
 val MetroPanoramaContentPeek = 40.dp
 
@@ -48,7 +51,8 @@ val MetroPanoramaContentPeek = 40.dp
  * sticks into the current view.
  *
  * [titleStyle] defaults to [MetroTextStyle.HubTitle] (56sp). Hubs that treat pane labels
- * more like Music/Hub link rows (e.g. Metron) can pass [MetroTextStyle.HubLink].
+ * more like Music/Hub link rows can pass [MetroTextStyle.HubLink]; Hub-style section
+ * overlines use [MetroTextStyle.SectionHeader].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -68,6 +72,7 @@ fun MetroPanorama(
         val titleHeight = when {
             !showTitles -> 0.dp
             titleStyle == MetroTextStyle.HubLink -> MetroPanoramaHubLinkTitleHeight
+            titleStyle == MetroTextStyle.SectionHeader -> MetroPanoramaSectionHeaderTitleHeight
             else -> MetroPanoramaTitleHeight
         }
         val lastPageIndex = (pagerState.pageCount - 1).coerceAtLeast(0)

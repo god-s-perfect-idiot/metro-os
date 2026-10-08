@@ -17,7 +17,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.View.LAYER_TYPE_HARDWARE
 import android.view.WindowManager
-import android.widget.Toast
+import eu.kanade.tachiyomi.util.system.ToastHandle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
@@ -130,8 +130,8 @@ class ReaderActivity : BaseActivity() {
      */
     private var config: ReaderConfig? = null
 
-    private var menuToggleToast: Toast? = null
-    private var readingModeToast: Toast? = null
+    private var menuToggleToast: ToastHandle? = null
+    private var readingModeToast: ToastHandle? = null
     private val displayRefreshHost = DisplayRefreshHost()
 
     private val windowInsetsController by lazy { WindowInsetsControllerCompat(window, window.decorView) }
@@ -634,8 +634,8 @@ class ReaderActivity : BaseActivity() {
      */
     private fun setInitialChapterError(error: Throwable) {
         logcat(LogPriority.ERROR, error)
-        finish()
         toast(error.message)
+        finish()
     }
 
     /**

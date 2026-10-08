@@ -67,6 +67,7 @@ fun MetroTextBox(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    onFocusChange: ((Boolean) -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val accent = MetroTheme.colors.accent
@@ -100,7 +101,10 @@ fun MetroTextBox(
                     horizontal = MetroTextBoxDefaults.HorizontalPadding,
                     vertical = MetroTextBoxDefaults.VerticalPadding,
                 )
-                .onFocusChanged { focused = it.isFocused },
+                .onFocusChanged {
+                    focused = it.isFocused
+                    onFocusChange?.invoke(it.isFocused)
+                },
             decorationBox = { inner ->
                 Box(
                     modifier = Modifier.fillMaxWidth(),

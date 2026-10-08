@@ -1,10 +1,18 @@
 package com.metro.metron.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,13 +20,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -32,6 +47,7 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextBox
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroTransitions
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.HistoryUiModel
@@ -39,13 +55,11 @@ import eu.kanade.presentation.history.components.HistoryDeleteAllDialog
 import eu.kanade.presentation.history.components.HistoryDeleteDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
-import eu.kanade.presentation.updates.UpdatesFilterDialog
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
-import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import kotlinx.coroutines.flow.collectLatest
 import mihon.feature.migration.dialog.MigrateMangaDialog
@@ -56,7 +70,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun MetronUpdatesPane(
     viewModel: UpdatesViewModel,
-    settingsViewModel: UpdatesSettingsViewModel,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -112,10 +125,8 @@ fun MetronUpdatesPane(
             )
         }
         is UpdatesViewModel.Dialog.FilterSheet -> {
-            UpdatesFilterDialog(
-                onDismissRequest = { viewModel.setDialog(null) },
-                viewModel = settingsViewModel,
-            )
+            // Metro hosts filter/categories in the bottom app bar — ignore legacy sheet.
+            LaunchedEffect(dialog) { viewModel.setDialog(null) }
         }
         null -> Unit
     }
@@ -128,17 +139,69 @@ fun MetronHistoryPane(
 ) {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val searchVisible = state.searchQuery != null
+    val searchFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val imeVisible = WindowInsets.isImeVisible
+    var imeWasVisibleWhileSearching by remember { mutableStateOf(false) }
+    var everFocused by remember { mutableStateOf(false) }
+
+    val dismissSearch: () -> Unit = {
+        focusManager.clearFocus(force = true)
+        keyboard?.hide()
+        viewModel.updateSearchQuery(null)
+    }
+
+    // App-list pattern: hide once the IME has shown and then closed (Back / tap away).
+    LaunchedEffect(searchVisible, imeVisible) {
+        if (!searchVisible) {
+            imeWasVisibleWhileSearching = false
+            everFocused = false
+            return@LaunchedEffect
+        }
+        if (imeVisible) {
+            imeWasVisibleWhileSearching = true
+        } else if (imeWasVisibleWhileSearching) {
+            dismissSearch()
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
-        if (state.searchQuery != null) {
+        AnimatedVisibility(
+            visible = searchVisible,
+            enter = expandVertically(
+                animationSpec = tween(MetroTransitions.PageTransitionMs, easing = MetroTransitions.PageEasing),
+            ) + fadeIn(
+                animationSpec = tween(MetroTransitions.PageTransitionMs, easing = MetroTransitions.PageEasing),
+            ),
+            exit = shrinkVertically(
+                animationSpec = tween(MetroTransitions.PageTransitionMs, easing = MetroTransitions.PageEasing),
+            ) + fadeOut(
+                animationSpec = tween(MetroTransitions.PageTransitionMs, easing = MetroTransitions.PageEasing),
+            ),
+        ) {
+            LaunchedEffect(Unit) {
+                everFocused = false
+                searchFocus.requestFocus()
+                keyboard?.show()
+            }
             MetroTextBox(
                 value = state.searchQuery.orEmpty(),
-                onValueChange = viewModel::updateSearchQuery,
+                onValueChange = { viewModel.updateSearchQuery(it) },
                 placeholder = stringResource(MR.strings.action_search).lowercase(),
+                onFocusChange = { focused ->
+                    if (focused) {
+                        everFocused = true
+                    } else if (everFocused) {
+                        dismissSearch()
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = 8.dp),
+                    .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = 8.dp)
+                    .focusRequester(searchFocus),
             )
         }
 
@@ -192,6 +255,7 @@ fun MetronHistoryPane(
                                         MetronCoverThumb(cover = history.coverData)
                                     },
                                     onClick = {
+                                        if (searchVisible) dismissSearch()
                                         viewModel.getNextChapterForManga(
                                             history.mangaId,
                                             history.chapterId,

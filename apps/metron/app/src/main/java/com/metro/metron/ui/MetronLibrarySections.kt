@@ -1,5 +1,6 @@
 package com.metro.metron.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,22 +20,29 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +52,7 @@ import coil3.compose.AsyncImage
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroAppBarMenuItem
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroColors
@@ -61,9 +70,10 @@ import com.metro.ui.metroNavBarPadding
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.library.DeleteLibraryMangaDialog
-import eu.kanade.presentation.library.LibrarySettingsDialog
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
+import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
@@ -71,6 +81,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.library.LibraryViewModel
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.launch
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.model.Manga
@@ -87,7 +98,6 @@ private val CoverAspect = 1f
 @Composable
 fun MetronLibraryPane(
     viewModel: LibraryViewModel,
-    settingsViewModel: LibrarySettingsViewModel,
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -96,7 +106,12 @@ fun MetronLibraryPane(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val defaultCategoryTitle = stringResource(MR.strings.label_default)
 
-    LibraryTab.CollectSearchEvents(viewModel::search)
+    LibraryTab.CollectSearchEvents { query ->
+        viewModel.search(query)
+        if (navigator.lastItem !is MetronLibrarySearchScreen) {
+            navigator.push(MetronLibrarySearchScreen())
+        }
+    }
     LaunchedEffect(state.isLoading) {
         if (!state.isLoading) {
             (context as? MainActivity)?.ready = true
@@ -104,24 +119,13 @@ fun MetronLibraryPane(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        if (state.searchQuery != null) {
-            MetroTextBox(
-                value = state.searchQuery.orEmpty(),
-                onValueChange = viewModel::search,
-                placeholder = stringResource(MR.strings.action_search).lowercase(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MetroDimens.ScreenHorizontalMargin, vertical = 8.dp),
-            )
-        }
-
         when {
             state.isLoading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     MetroLoadingDots()
                 }
             }
-            state.searchQuery.isNullOrEmpty() && !state.hasActiveFilters && state.isLibraryEmpty -> {
+            !state.hasActiveFilters && state.isLibraryEmpty -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -136,18 +140,6 @@ fun MetronLibraryPane(
                     MetroBorderButton(
                         text = stringResource(MR.strings.getting_started_guide).lowercase(),
                         onClick = { uriHandler.openUri(GETTING_STARTED_URL) },
-                    )
-                }
-            }
-            state.searchQuery != null -> {
-                val matches = state.libraryData.favorites
-                if (matches.isEmpty()) {
-                    MetroEmptyState(message = stringResource(MR.strings.no_results_found))
-                } else {
-                    MetronMangaCoverGrid(
-                        items = matches,
-                        onClick = { navigator.push(MangaScreen(it.libraryManga.manga.id)) },
-                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
@@ -184,9 +176,105 @@ fun MetronLibraryPane(
 
     LibraryDialogs(
         viewModel = viewModel,
-        settingsViewModel = settingsViewModel,
         state = state,
     )
+}
+
+/**
+ * Dedicated library search page — opened from panorama / category app-bar search.
+ */
+class MetronLibrarySearchScreen : Screen() {
+
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        val handleBack = LocalBackPress.current
+        val viewModel = metroViewModel<LibraryViewModel>()
+        val state by viewModel.state.collectAsStateWithLifecycle()
+        val searchFocus = remember { FocusRequester() }
+        val keyboard = LocalSoftwareKeyboardController.current
+
+        LaunchedEffect(Unit) {
+            if (viewModel.state.value.searchQuery == null) {
+                viewModel.search("")
+            }
+            searchFocus.requestFocus()
+            keyboard?.show()
+        }
+        BackHandler {
+            viewModel.search(null)
+            handleBack?.invoke() ?: navigator.pop()
+        }
+
+        MetroSystemTheme {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .metroNavBarPadding()
+                    .background(MetroTheme.colors.background),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = MetroAppBarDefaults.BarHeight),
+                ) {
+                    MetroAppTitle(title = "metron")
+                    MetroText(
+                        text = "search",
+                        style = MetroTextStyle.HubTitle,
+                        modifier = Modifier.padding(start = MetroDimens.ScreenHorizontalMargin),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    MetroTextBox(
+                        value = state.searchQuery.orEmpty(),
+                        onValueChange = viewModel::search,
+                        placeholder = stringResource(MR.strings.action_search).lowercase(),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MetroDimens.ScreenHorizontalMargin)
+                            .focusRequester(searchFocus),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    when {
+                        state.isLoading -> {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                MetroLoadingDots()
+                            }
+                        }
+                        state.searchQuery.isNullOrEmpty() -> {
+                            MetroText(
+                                text = stringResource(MR.strings.action_search_hint).lowercase(),
+                                style = MetroTextStyle.Body,
+                                color = MetroTheme.colors.secondaryText,
+                                modifier = Modifier.padding(
+                                    horizontal = MetroDimens.ScreenHorizontalMargin,
+                                ),
+                            )
+                        }
+                        else -> {
+                            val matches = state.libraryData.favorites
+                            if (matches.isEmpty()) {
+                                MetroEmptyState(
+                                    message = stringResource(MR.strings.no_results_found),
+                                )
+                            } else {
+                                MetronMangaCoverGrid(
+                                    items = matches,
+                                    onClick = {
+                                        navigator.push(MangaScreen(it.libraryManga.manga.id))
+                                    },
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    }
+                }
+                MetroAppBar(modifier = Modifier.align(Alignment.BottomCenter))
+            }
+        }
+    }
 }
 
 /**
@@ -225,6 +313,26 @@ data class MetronLibraryCategoryScreen(
             }
         }
 
+        var appBarExpanded by remember { mutableStateOf(false) }
+        var libraryOptions by remember { mutableStateOf<MetronLibraryOptionsPanel?>(null) }
+        var retainedLibraryOptions by remember { mutableStateOf<MetronLibraryOptionsPanel?>(null) }
+        fun dismissOptions() {
+            libraryOptions = null
+        }
+        fun collapseAppBar() {
+            appBarExpanded = false
+        }
+        fun openLibraryOptions(panel: MetronLibraryOptionsPanel) {
+            collapseAppBar()
+            if (libraryOptions == panel) {
+                libraryOptions = null
+            } else {
+                retainedLibraryOptions = panel
+                libraryOptions = panel
+            }
+        }
+        val context = LocalContext.current
+
         MetroSystemTheme {
             Box(
                 modifier = Modifier
@@ -252,68 +360,46 @@ data class MetronLibraryCategoryScreen(
                                 .fillMaxSize()
                                 .padding(bottom = MetroAppBarDefaults.BarHeight),
                         ) {
-                            if (state.searchQuery != null) {
-                                MetroTextBox(
-                                    value = state.searchQuery.orEmpty(),
-                                    onValueChange = viewModel::search,
-                                    placeholder = stringResource(MR.strings.action_search)
-                                        .lowercase(),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(
-                                            horizontal = MetroDimens.ScreenHorizontalMargin,
-                                            vertical = 8.dp,
-                                        ),
-                                )
-                                val matches = state.libraryData.favorites
-                                if (matches.isEmpty()) {
-                                    MetroEmptyState(
-                                        message = stringResource(MR.strings.no_results_found),
-                                    )
-                                } else {
-                                    MetronMangaCoverGrid(
-                                        items = matches,
-                                        onClick = {
-                                            navigator.push(MangaScreen(it.libraryManga.manga.id))
-                                        },
-                                        modifier = Modifier.fillMaxSize(),
-                                    )
-                                }
-                            } else {
-                                MetroPivot(
-                                    titles = titles,
-                                    pagerState = pagerState,
-                                    modifier = Modifier.fillMaxSize(),
-                                    header = {
-                                        MetroAppTitle(title = "library")
-                                    },
-                                    onTitleClick = { index ->
-                                        scope.launch { pagerState.animateScrollToPage(index) }
-                                    },
-                                    pageContent = { page ->
-                                        val category = categories[page]
-                                        val items = state.getItemsForCategory(category)
-                                        if (items.isEmpty()) {
-                                            MetroEmptyState(
-                                                message = stringResource(
-                                                    MR.strings.information_no_manga_category,
-                                                ),
-                                            )
-                                        } else {
-                                            MetronMangaCoverGrid(
-                                                items = items,
-                                                onClick = {
-                                                    navigator.push(
-                                                        MangaScreen(it.libraryManga.manga.id),
-                                                    )
-                                                },
-                                                modifier = Modifier.fillMaxSize(),
-                                            )
-                                        }
-                                    },
-                                )
-                            }
+                            MetroPivot(
+                                titles = titles,
+                                pagerState = pagerState,
+                                modifier = Modifier.fillMaxSize(),
+                                header = {
+                                    MetroAppTitle(title = "library")
+                                },
+                                onTitleClick = { index ->
+                                    scope.launch { pagerState.animateScrollToPage(index) }
+                                },
+                                pageContent = { page ->
+                                    val category = categories[page]
+                                    val items = state.getItemsForCategory(category)
+                                    if (items.isEmpty()) {
+                                        MetroEmptyState(
+                                            message = stringResource(
+                                                MR.strings.information_no_manga_category,
+                                            ),
+                                        )
+                                    } else {
+                                        MetronMangaCoverGrid(
+                                            items = items,
+                                            onClick = {
+                                                navigator.push(
+                                                    MangaScreen(it.libraryManga.manga.id),
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+                                },
+                            )
                         }
+                    }
+                }
+
+                BackHandler(enabled = libraryOptions != null || appBarExpanded) {
+                    when {
+                        libraryOptions != null -> dismissOptions()
+                        else -> collapseAppBar()
                     }
                 }
 
@@ -322,22 +408,67 @@ data class MetronLibraryCategoryScreen(
                         MetroAppBarIcon(
                             type = MetroSystemIconType.Search,
                             label = "search",
-                            onClick = { viewModel.search("") },
+                            onClick = {
+                                dismissOptions()
+                                collapseAppBar()
+                                if (navigator.lastItem !is MetronLibrarySearchScreen) {
+                                    navigator.push(MetronLibrarySearchScreen())
+                                }
+                            },
                         ),
                         MetroAppBarIcon(
                             type = MetroSystemIconType.Filter,
                             label = "filter",
-                            onClick = viewModel::showSettingsDialog,
+                            onClick = {
+                                openLibraryOptions(MetronLibraryOptionsPanel.Filter)
+                            },
+                        ),
+                    ),
+                    expanded = appBarExpanded,
+                    onExpandedChange = { appBarExpanded = it },
+                    menuItems = listOf(
+                        MetroAppBarMenuItem(
+                            text = stringResource(MR.strings.action_sort).lowercase(),
+                            onClick = {
+                                openLibraryOptions(MetronLibraryOptionsPanel.Sort)
+                            },
+                        ),
+                        MetroAppBarMenuItem(
+                            text = stringResource(MR.strings.action_display).lowercase(),
+                            onClick = {
+                                openLibraryOptions(MetronLibraryOptionsPanel.Display)
+                            },
+                        ),
+                        MetroAppBarMenuItem(
+                            text = stringResource(MR.strings.action_update_category).lowercase(),
+                            onClick = {
+                                LibraryUpdateWorker.startNow(
+                                    context.workManager,
+                                    state.activeCategory,
+                                )
+                            },
                         ),
                     ),
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
+
+                MetronOptionsCard(
+                    visible = libraryOptions != null,
+                    onDismiss = ::dismissOptions,
+                ) {
+                    retainedLibraryOptions?.let { panel ->
+                        MetronLibraryOptionsBody(
+                            panel = panel,
+                            viewModel = settingsViewModel,
+                            category = state.activeCategory,
+                        )
+                    }
+                }
             }
         }
 
         LibraryDialogs(
             viewModel = viewModel,
-            settingsViewModel = settingsViewModel,
             state = state,
         )
     }
@@ -346,17 +477,13 @@ data class MetronLibraryCategoryScreen(
 @Composable
 private fun LibraryDialogs(
     viewModel: LibraryViewModel,
-    settingsViewModel: LibrarySettingsViewModel,
     state: LibraryViewModel.State,
 ) {
     val navigator = LocalNavigator.currentOrThrow
     when (val dialog = state.dialog) {
         is LibraryViewModel.Dialog.SettingsSheet -> {
-            LibrarySettingsDialog(
-                onDismissRequest = viewModel::closeDialog,
-                viewModel = settingsViewModel,
-                category = state.activeCategory,
-            )
+            // Metro hosts filter/sort/display in the bottom app bar — ignore legacy sheet.
+            LaunchedEffect(dialog) { viewModel.closeDialog() }
         }
         is LibraryViewModel.Dialog.ChangeCategory -> {
             ChangeCategoryDialog(

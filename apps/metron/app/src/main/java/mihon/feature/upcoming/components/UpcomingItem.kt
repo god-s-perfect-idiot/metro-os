@@ -1,25 +1,19 @@
 package mihon.feature.upcoming.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.manga.components.MangaCover
+import coil3.compose.AsyncImage
+import com.metro.ui.MetroListItem
+import com.metro.ui.MetroTheme
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.asMangaCover
-import tachiyomi.presentation.core.components.material.padding
-
-private val UpcomingItemHeight = 96.dp
 
 @Composable
 fun UpcomingItem(
@@ -27,28 +21,25 @@ fun UpcomingItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .height(UpcomingItemHeight)
-            .padding(
-                horizontal = MaterialTheme.padding.medium,
-                vertical = MaterialTheme.padding.small,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.large),
-    ) {
-        MangaCover.Book(
-            modifier = Modifier.fillMaxHeight(),
-            data = upcoming.asMangaCover(),
-        )
-        Text(
-            modifier = Modifier.weight(1f),
-            text = upcoming.title,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
+    MetroListItem(
+        title = upcoming.title,
+        singleLine = false,
+        leading = {
+            AsyncImage(
+                model = upcoming.asMangaCover(),
+                contentDescription = null,
+                placeholder = ColorPainter(Color(0x1F888888)),
+                error = ColorPainter(Color(0x1F888888)),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(width = 48.dp, height = 72.dp)
+                    .background(MetroTheme.colors.secondarySurface, RectangleShape),
+            )
+        },
+        oneLineMinHeight = 80.dp,
+        twoLineMinHeight = 88.dp,
+        verticalPadding = 8.dp,
+        onClick = onClick,
+        modifier = modifier,
+    )
 }
