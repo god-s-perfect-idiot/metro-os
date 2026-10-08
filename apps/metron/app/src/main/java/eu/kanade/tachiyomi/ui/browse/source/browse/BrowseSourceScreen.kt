@@ -287,7 +287,7 @@ data class BrowseSourceScreen(
                             state.listing !is Listing.Search
 
                     if (!showBrowsePivots) {
-                        MetroAppTitle(title = "metron")
+                        MetroAppTitle(title = source.name)
                     }
 
                     AnimatedVisibility(
@@ -361,7 +361,7 @@ data class BrowseSourceScreen(
                                 titles = pivotTitles,
                                 pagerState = pagerState,
                                 modifier = Modifier.weight(1f).fillMaxSize(),
-                                header = { MetroAppTitle(title = "metron") },
+                                header = { MetroAppTitle(title = source.name) },
                                 onTitleClick = { index ->
                                     scope.launch { pagerState.animateScrollToPage(index) }
                                 },
