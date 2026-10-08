@@ -10,15 +10,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -26,7 +20,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
@@ -34,16 +27,19 @@ import androidx.core.net.toUri
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroListItem
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
+import com.metro.ui.MetroToggleSwitch
 import eu.kanade.presentation.util.rememberRequestPackageInstallsPermissionState
 import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import eu.kanade.tachiyomi.util.system.telemetryIncluded
 import mihon.app.di.appGraph
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Check
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 internal class PermissionStep : OnboardingStep {
 
@@ -51,6 +47,9 @@ internal class PermissionStep : OnboardingStep {
     private var batteryGranted by mutableStateOf(false)
 
     override val isComplete: Boolean = true
+
+    @Composable
+    override fun title(): String = "permissions"
 
     @Composable
     override fun Content() {
@@ -80,35 +79,37 @@ internal class PermissionStep : OnboardingStep {
         }
 
         Column {
-            PermissionCheckbox(
-                title = stringResource(MR.strings.onboarding_permission_install_apps),
+            PermissionGrantRow(
+                title = stringResource(MR.strings.onboarding_permission_install_apps).lowercase(),
                 subtitle = stringResource(MR.strings.onboarding_permission_install_apps_description),
                 granted = installGranted,
-                onButtonClick = {
-                    context.launchRequestPackageInstallsPermission()
-                },
+                onGrantClick = { context.launchRequestPackageInstallsPermission() },
             )
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val permissionRequester = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission(),
                     onResult = {
-                        // no-op. resulting checks is being done on resume
+                        // Result is re-checked on resume.
                     },
                 )
-                PermissionCheckbox(
-                    title = stringResource(MR.strings.onboarding_permission_notifications),
+                PermissionGrantRow(
+                    title = stringResource(MR.strings.onboarding_permission_notifications).lowercase(),
                     subtitle = stringResource(MR.strings.onboarding_permission_notifications_description),
                     granted = notificationGranted,
-                    onButtonClick = { permissionRequester.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                    onGrantClick = {
+                        permissionRequester.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    },
                 )
             }
 
-            PermissionCheckbox(
-                title = stringResource(MR.strings.onboarding_permission_ignore_battery_opts),
-                subtitle = stringResource(MR.strings.onboarding_permission_ignore_battery_opts_description),
+            PermissionGrantRow(
+                title = stringResource(MR.strings.onboarding_permission_ignore_battery_opts).lowercase(),
+                subtitle = stringResource(
+                    MR.strings.onboarding_permission_ignore_battery_opts_description,
+                ),
                 granted = batteryGranted,
-                onButtonClick = {
+                onGrantClick = {
                     @SuppressLint("BatteryLife")
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                         data = "package:${context.packageName}".toUri()
@@ -119,96 +120,67 @@ internal class PermissionStep : OnboardingStep {
 
             if (!telemetryIncluded) return@Column
 
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
+            Spacer(modifier = Modifier.height(12.dp))
 
             val crashlyticsPref = privacyPreferences.crashlytics
             val crashlytics by crashlyticsPref.collectAsState()
-            PermissionSwitch(
-                title = stringResource(MR.strings.onboarding_permission_crashlytics),
-                subtitle = stringResource(MR.strings.onboarding_permission_crashlytics_description),
-                granted = crashlytics,
-                onToggleChange = crashlyticsPref::set,
+            MetroToggleSwitch(
+                checked = crashlytics,
+                onCheckedChange = crashlyticsPref::set,
+                label = stringResource(MR.strings.onboarding_permission_crashlytics).lowercase(),
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
+            MetroText(
+                text = stringResource(MR.strings.onboarding_permission_crashlytics_description),
+                style = MetroTextStyle.ListItemSubtitle,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             val analyticsPref = privacyPreferences.analytics
             val analytics by analyticsPref.collectAsState()
-            PermissionSwitch(
-                title = stringResource(MR.strings.onboarding_permission_analytics),
-                subtitle = stringResource(MR.strings.onboarding_permission_analytics_description),
-                granted = analytics,
-                onToggleChange = analyticsPref::set,
+            MetroToggleSwitch(
+                checked = analytics,
+                onCheckedChange = analyticsPref::set,
+                label = stringResource(MR.strings.onboarding_permission_analytics).lowercase(),
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+            MetroText(
+                text = stringResource(MR.strings.onboarding_permission_analytics_description),
+                style = MetroTextStyle.ListItemSubtitle,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
             )
         }
     }
 
     @Composable
-    private fun SectionHeader(
-        text: String,
-        modifier: Modifier = Modifier,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.titleLarge,
-            modifier = modifier
-                .padding(horizontal = 16.dp)
-                .secondaryItemAlpha(),
-        )
-    }
-
-    @Composable
-    private fun PermissionCheckbox(
+    private fun PermissionGrantRow(
         title: String,
         subtitle: String,
         granted: Boolean,
-        modifier: Modifier = Modifier,
-        onButtonClick: () -> Unit,
+        onGrantClick: () -> Unit,
     ) {
-        ListItem(
-            modifier = modifier,
-            trailingContent = {
-                OutlinedButton(
-                    enabled = !granted,
-                    onClick = onButtonClick,
-                ) {
-                    if (granted) {
-                        Icon(
-                            imageVector = MaterialSymbols.Rounded.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    } else {
-                        Text(stringResource(MR.strings.onboarding_permission_action_grant))
-                    }
-                }
-            },
-            supportingContent = { Text(text = subtitle) },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            content = { Text(text = title) },
-        )
-    }
-
-    @Composable
-    private fun PermissionSwitch(
-        title: String,
-        subtitle: String,
-        granted: Boolean,
-        modifier: Modifier = Modifier,
-        onToggleChange: (Boolean) -> Unit,
-    ) {
-        ListItem(
-            modifier = modifier,
-            trailingContent = {
-                Switch(
-                    checked = granted,
-                    onCheckedChange = onToggleChange,
+        Column {
+            MetroListItem(
+                title = title,
+                subtitle = subtitle,
+                oneLineMinHeight = 64.dp,
+                twoLineMinHeight = 72.dp,
+                verticalPadding = 8.dp,
+                titleColor = if (granted) MetroTheme.colors.accent else null,
+            )
+            if (!granted) {
+                MetroBorderButton(
+                    text = stringResource(MR.strings.onboarding_permission_action_grant).lowercase(),
+                    onClick = onGrantClick,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                 )
-            },
-            supportingContent = { Text(text = subtitle) },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            content = { Text(text = title) },
-        )
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
     }
 }

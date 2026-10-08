@@ -5,8 +5,12 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
 import androidx.appcompat.view.ContextThemeWrapper
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -16,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
@@ -32,7 +37,11 @@ import androidx.preference.forEach
 import androidx.preference.getOnBindEditTextListener
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import eu.kanade.presentation.components.AppBar
+import com.metro.ui.MetroAppBarDefaults
+import com.metro.ui.MetroSettingsHeader
+import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.preference.SharedPreferencesDataStore
 import eu.kanade.tachiyomi.source.ConfigurableSource
@@ -41,7 +50,6 @@ import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.widget.TachiyomiTextInputEditText.Companion.setIncognito
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
-import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class SourcePreferencesScreen(val sourceId: Long) : Screen() {
@@ -50,6 +58,8 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
+        @Suppress("UNUSED_PARAMETER")
+        val unusedNavigator = navigator
 
         val source by produceState<Source?>(initialValue = null) {
             value = context.appGraph.sourceManager.getOrStub(sourceId)
@@ -60,22 +70,28 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
             return
         }
 
-        Scaffold(
-            topBar = {
-                AppBar(
-                    title = source.toString(),
-                    navigateUp = navigator::pop,
-                    scrollBehavior = it,
-                )
-            },
-        ) { contentPadding ->
-            FragmentContainer(
-                fragmentManager = (context as FragmentActivity).supportFragmentManager,
+        MetroSystemTheme {
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(contentPadding),
+                    .statusBarsPadding()
+                    .metroNavBarPadding()
+                    .background(MetroTheme.colors.background),
             ) {
-                add(it, SourcePreferencesFragment.getInstance(sourceId), null)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    MetroSettingsHeader(
+                        pageTitle = source.toString().lowercase(),
+                        appTitle = "metron",
+                    )
+                    FragmentContainer(
+                        fragmentManager = (context as FragmentActivity).supportFragmentManager,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = MetroAppBarDefaults.BarHeight + 8.dp),
+                    ) {
+                        add(it, SourcePreferencesFragment.getInstance(sourceId), null)
+                    }
+                }
             }
         }
     }
@@ -95,8 +111,8 @@ class SourcePreferencesScreen(val sourceId: Long) : Screen() {
         var initialized by rememberSaveable { mutableStateOf(false) }
         AndroidView(
             modifier = modifier,
-            factory = { context ->
-                FragmentContainerView(context)
+            factory = { ctx ->
+                FragmentContainerView(ctx)
                     .apply { id = containerId }
             },
             update = { view ->

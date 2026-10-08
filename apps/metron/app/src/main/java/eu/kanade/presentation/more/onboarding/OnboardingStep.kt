@@ -7,5 +7,8 @@ internal interface OnboardingStep {
     val isComplete: Boolean
 
     @Composable
+    fun title(): String
+
+    @Composable
     fun Content()
 }

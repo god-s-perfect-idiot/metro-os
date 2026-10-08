@@ -936,10 +936,10 @@
     <string name="empty_screen">Well, this is awkward</string>
     <string name="not_installed">Not installed</string>
 
-    <!-- Crash screen -->
-    <string name="crash_screen_title">Whoops!</string>
-    <string name="crash_screen_description">%s ran into an unexpected error. We suggest you share the crash logs in our support channel on Discord.</string>
-    <string name="crash_screen_restart_application">Restart the application</string>
+    <!-- Crash screen — Windows Phone 8.1 / Windows 8 BSOD language -->
+    <string name="crash_screen_title">Your phone ran into a problem and needs to restart.</string>
+    <string name="crash_screen_description">We\'re just collecting some error info about %s, and then you can restart.</string>
+    <string name="crash_screen_restart_application">Restart</string>
 
     <!-- Stats screen -->
     <string name="label_overview_section">Overview</string>

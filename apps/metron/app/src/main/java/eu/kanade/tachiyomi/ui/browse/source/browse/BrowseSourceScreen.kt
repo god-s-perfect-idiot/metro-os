@@ -1,43 +1,53 @@
 package eu.kanade.tachiyomi.ui.browse.source.browse
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.metro.ui.MetroAppBar
+import com.metro.ui.MetroAppBarDefaults
+import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroAppBarMenuItem
+import com.metro.ui.MetroHubTitleMode
+import com.metro.ui.MetroHubTitleRow
+import com.metro.ui.MetroSettingsHeader
+import com.metro.ui.MetroSystemIconType
+import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroTextBox
+import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.browse.MissingSourceScreen
-import eu.kanade.presentation.browse.components.BrowseSourceToolbar
 import eu.kanade.presentation.browse.components.RemoveMangaDialog
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
@@ -48,17 +58,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import mihon.feature.migration.dialog.MigrateMangaDialog
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.FilterList
-import mihon.icons.materialsymbols.rounded.NewReleases
-import mihon.icons.materialsymbols.roundedfilled.Favorite
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.source.local.LocalSource
@@ -123,119 +128,175 @@ data class BrowseSourceScreen(
             assistUrl = (source as? HttpSource)?.getHomeUrl()
         }
 
-        Scaffold(
-            topBar = {
-                Column(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surface)
-                        .pointerInput(Unit) {},
-                ) {
-                    BrowseSourceToolbar(
-                        searchQuery = state.toolbarQuery,
-                        onSearchQueryChange = viewModel::setToolbarQuery,
-                        source = source,
-                        displayMode = viewModel.displayMode,
-                        onDisplayModeChange = { viewModel.displayMode = it },
-                        navigateUp = navigateUp,
-                        onWebViewClick = onWebViewClick,
-                        onHelpClick = onHelpClick,
-                        onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
-                        onSearch = viewModel::search,
-                    )
+        val listingTitles = buildList {
+            add(stringResource(MR.strings.popular).lowercase())
+            if (source.supportsLatest) {
+                add(stringResource(MR.strings.latest).lowercase())
+            }
+            if (state.filters.isNotEmpty()) {
+                add(stringResource(MR.strings.action_filter).lowercase())
+            }
+        }
+        val selectedListingIndex = when {
+            state.listing == Listing.Popular -> 0
+            state.listing == Listing.Latest -> 1
+            state.listing is Listing.Search && state.filters.isNotEmpty() ->
+                if (source.supportsLatest) 2 else 1
+            else -> 0
+        }
 
-                    Row(
+        MetroSystemTheme {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .metroNavBarPadding()
+                    .background(MetroTheme.colors.background),
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    MetroSettingsHeader(
+                        pageTitle = source.name.lowercase(),
+                        appTitle = "metron",
+                    )
+                    MetroTextBox(
+                        value = state.toolbarQuery.orEmpty(),
+                        onValueChange = { viewModel.setToolbarQuery(it.ifBlank { null }) },
+                        placeholder = stringResource(MR.strings.action_search_hint).lowercase(),
                         modifier = Modifier
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = MaterialTheme.padding.small),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                    ) {
-                        FilterChip(
-                            selected = state.listing == Listing.Popular,
-                            onClick = {
-                                viewModel.resetFilters()
-                                viewModel.setListing(Listing.Popular)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { viewModel.search(state.toolbarQuery.orEmpty()) },
+                        ),
+                    )
+                    if (listingTitles.isNotEmpty()) {
+                        MetroHubTitleRow(
+                            titles = listingTitles,
+                            selectedIndex = selectedListingIndex.coerceIn(0, listingTitles.lastIndex),
+                            mode = MetroHubTitleMode.Pivot,
+                            onTitleClick = { index ->
+                                when {
+                                    index == 0 -> {
+                                        viewModel.resetFilters()
+                                        viewModel.setListing(Listing.Popular)
+                                    }
+                                    source.supportsLatest && index == 1 -> {
+                                        viewModel.resetFilters()
+                                        viewModel.setListing(Listing.Latest)
+                                    }
+                                    else -> viewModel.openFilterSheet()
+                                }
                             },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = MaterialSymbols.RoundedFilled.Favorite,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(FilterChipDefaults.IconSize),
-                                )
-                            },
-                            label = {
-                                Text(text = stringResource(MR.strings.popular))
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                        BrowseSourceContent(
+                            source = source,
+                            mangaList = viewModel.mangaPagerFlowFlow.collectAsLazyPagingItems(),
+                            columns = viewModel.getColumnsPreference(
+                                LocalConfiguration.current.orientation,
+                            ),
+                            displayMode = viewModel.displayMode,
+                            snackbarHostState = snackbarHostState,
+                            contentPadding = PaddingValues(
+                                bottom = MetroAppBarDefaults.BarHeight + 32.dp,
+                            ),
+                            onWebViewClick = onWebViewClick,
+                            onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
+                            onLocalSourceHelpClick = onHelpClick,
+                            onMangaClick = { navigator.push(MangaScreen(it.id, true)) },
+                            onMangaLongClick = { manga ->
+                                scope.launchIO {
+                                    val duplicates = viewModel.getDuplicateLibraryManga(manga)
+                                    when {
+                                        manga.favorite -> viewModel.setDialog(
+                                            BrowseSourceViewModel.Dialog.RemoveManga(manga),
+                                        )
+                                        duplicates.isNotEmpty() -> viewModel.setDialog(
+                                            BrowseSourceViewModel.Dialog.AddDuplicateManga(
+                                                manga,
+                                                duplicates,
+                                            ),
+                                        )
+                                        else -> viewModel.addFavorite(manga)
+                                    }
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
                             },
                         )
-                        if (source.supportsLatest) {
-                            FilterChip(
-                                selected = state.listing == Listing.Latest,
-                                onClick = {
-                                    viewModel.resetFilters()
-                                    viewModel.setListing(Listing.Latest)
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = MaterialSymbols.Rounded.NewReleases,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(FilterChipDefaults.IconSize),
-                                    )
-                                },
-                                label = {
-                                    Text(text = stringResource(MR.strings.latest))
-                                },
-                            )
-                        }
-                        if (state.filters.isNotEmpty()) {
-                            FilterChip(
-                                selected = state.listing is Listing.Search,
-                                onClick = viewModel::openFilterSheet,
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = MaterialSymbols.Rounded.FilterList,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(FilterChipDefaults.IconSize),
-                                    )
-                                },
-                                label = {
-                                    Text(text = stringResource(MR.strings.action_filter))
-                                },
-                            )
-                        }
+                        com.metro.metron.ui.MetronSnackbarHost(hostState = snackbarHostState)
                     }
-
-                    HorizontalDivider()
                 }
-            },
-            snackbarHost = { com.metro.metron.ui.MetronSnackbarHost(hostState = snackbarHostState) },
-        ) { paddingValues ->
-            BrowseSourceContent(
-                source = source,
-                mangaList = viewModel.mangaPagerFlowFlow.collectAsLazyPagingItems(),
-                columns = viewModel.getColumnsPreference(LocalConfiguration.current.orientation),
-                displayMode = viewModel.displayMode,
-                snackbarHostState = snackbarHostState,
-                contentPadding = paddingValues,
-                onWebViewClick = onWebViewClick,
-                onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
-                onLocalSourceHelpClick = onHelpClick,
-                onMangaClick = { navigator.push((MangaScreen(it.id, true))) },
-                onMangaLongClick = { manga ->
-                    scope.launchIO {
-                        val duplicates = viewModel.getDuplicateLibraryManga(manga)
-                        when {
-                            manga.favorite -> viewModel.setDialog(BrowseSourceViewModel.Dialog.RemoveManga(manga))
-                            duplicates.isNotEmpty() -> viewModel.setDialog(
-                                BrowseSourceViewModel.Dialog.AddDuplicateManga(manga, duplicates),
+
+                MetroAppBar(
+                    icons = listOf(
+                        MetroAppBarIcon(
+                            type = MetroSystemIconType.Search,
+                            label = stringResource(MR.strings.action_search).lowercase(),
+                            onClick = {
+                                viewModel.search(state.toolbarQuery.orEmpty())
+                            },
+                        ),
+                    ),
+                    menuItems = buildList {
+                        add(
+                            MetroAppBarMenuItem(
+                                text = stringResource(MR.strings.action_display_comfortable_grid)
+                                    .lowercase(),
+                                onClick = {
+                                    viewModel.displayMode = LibraryDisplayMode.ComfortableGrid
+                                },
+                            ),
+                        )
+                        add(
+                            MetroAppBarMenuItem(
+                                text = stringResource(MR.strings.action_display_grid)
+                                    .lowercase(),
+                                onClick = {
+                                    viewModel.displayMode = LibraryDisplayMode.CompactGrid
+                                },
+                            ),
+                        )
+                        add(
+                            MetroAppBarMenuItem(
+                                text = stringResource(MR.strings.action_display_list).lowercase(),
+                                onClick = {
+                                    viewModel.displayMode = LibraryDisplayMode.List
+                                },
+                            ),
+                        )
+                        if (source is LocalSource) {
+                            add(
+                                MetroAppBarMenuItem(
+                                    text = stringResource(MR.strings.label_help).lowercase(),
+                                    onClick = onHelpClick,
+                                ),
                             )
-                            else -> viewModel.addFavorite(manga)
+                        } else {
+                            add(
+                                MetroAppBarMenuItem(
+                                    text = stringResource(MR.strings.action_open_in_web_view)
+                                        .lowercase(),
+                                    onClick = onWebViewClick,
+                                ),
+                            )
                         }
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    }
-                },
-            )
+                        if (source is ConfigurableSource) {
+                            add(
+                                MetroAppBarMenuItem(
+                                    text = stringResource(MR.strings.action_settings).lowercase(),
+                                    onClick = {
+                                        navigator.push(SourcePreferencesScreen(sourceId))
+                                    },
+                                ),
+                            )
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
         }
 
         val onDismissRequest = { viewModel.setDialog(null) }
@@ -255,7 +316,9 @@ data class BrowseSourceScreen(
                     onDismissRequest = onDismissRequest,
                     onConfirm = { viewModel.addFavorite(dialog.manga) },
                     onOpenManga = { navigator.push(MangaScreen(it.id)) },
-                    onMigrate = { viewModel.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, it)) },
+                    onMigrate = {
+                        viewModel.setDialog(BrowseSourceViewModel.Dialog.Migrate(dialog.manga, it))
+                    },
                 )
             }
 
@@ -263,7 +326,6 @@ data class BrowseSourceScreen(
                 MigrateMangaDialog(
                     current = dialog.current,
                     target = dialog.target,
-                    // Initiated from the context of [dialog.target] so we show [dialog.current].
                     onClickTitle = { navigator.push(MangaScreen(dialog.current.id)) },
                     onDismissRequest = onDismissRequest,
                 )

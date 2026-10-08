@@ -393,19 +393,18 @@ fun MetronMangaDetail(
                                 onClick = onFilterClicked,
                             ),
                         )
+                    },
+                    menuItems = buildList {
                         if (onDownloadActionClicked != null) {
                             add(
-                                MetroAppBarIcon(
-                                    type = MetroSystemIconType.Save,
-                                    label = stringResource(MR.strings.manga_download).lowercase(),
+                                MetroAppBarMenuItem(
+                                    text = stringResource(MR.strings.manga_download).lowercase(),
                                     onClick = {
                                         onDownloadActionClicked(DownloadAction.NEXT_5_CHAPTERS)
                                     },
                                 ),
                             )
                         }
-                    },
-                    menuItems = buildList {
                         add(
                             MetroAppBarMenuItem(
                                 text = stringResource(MR.strings.action_webview_refresh).lowercase(),

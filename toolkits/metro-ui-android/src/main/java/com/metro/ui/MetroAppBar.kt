@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -193,6 +194,12 @@ fun MetroAppBar(
     visible: Boolean = true,
     /** When non-null, replays the enter animation whenever this value changes while [visible]. */
     enterKey: Any? = null,
+    /**
+     * Equal-width slots in the text-button row. Defaults to the button count (buttons fill the
+     * row). Pass a larger value so fewer buttons leave trailing empty slots — e.g. `2` with one
+     * button yields a half-width Store verb.
+     */
+    textButtonSlots: Int? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(visible) {
@@ -210,6 +217,7 @@ fun MetroAppBar(
         minimized = minimized,
         visible = visible,
         enterKey = enterKey,
+        textButtonSlots = textButtonSlots,
     )
 }
 
@@ -220,8 +228,9 @@ fun MetroAppBar(
  * @param minimized when true the collapsed bar shows only the `…` ellipsis (mandatory on
  *   panorama pages); the primary row appears once expanded.
  * @param textButtons when non-empty, renders Store-style outlined text buttons that share the
- *   bar width equally (a single button still fills the row). Do not pass both [icons] and
- *   [textButtons].
+ *   bar width equally (a single button still fills the row unless [textButtonSlots] is larger).
+ *   Do not pass both [icons] and [textButtons].
+ * @param textButtonSlots equal-width slots for the text-button row; null = button count.
  */
 @Composable
 fun MetroAppBar(
@@ -236,6 +245,7 @@ fun MetroAppBar(
     visible: Boolean = true,
     /** When non-null, replays the enter animation whenever this value changes while [visible]. */
     enterKey: Any? = null,
+    textButtonSlots: Int? = null,
 ) {
     require(icons.isEmpty() || textButtons.isEmpty()) {
         "MetroAppBar: pass icons or textButtons, not both"
@@ -321,6 +331,9 @@ fun MetroAppBar(
                 val showPrimaryRow = expanded || !minimized
                 if (showPrimaryRow) {
                     if (useTextButtons) {
+                        val slotCount = (textButtonSlots ?: visibleTextButtons.size)
+                            .coerceAtLeast(visibleTextButtons.size)
+                            .coerceAtMost(MetroAppBarDefaults.MaxTextButtons)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -341,6 +354,9 @@ fun MetroAppBar(
                                         .fillMaxHeight()
                                         .padding(vertical = MetroAppBarDefaults.TextButtonVerticalInset),
                                 )
+                            }
+                            repeat(slotCount - visibleTextButtons.size) {
+                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
                     } else {
