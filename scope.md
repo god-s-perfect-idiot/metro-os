@@ -48,6 +48,7 @@ These apps form the **Metro Shell** (launcher, status bar, notifications, naviga
 | App | Package | Role |
 |-----|---------|------|
 | **Photos** | `com.metro.photos` | Hub + date/ album pivots |
+| **Camera** | `com.metro.camera` | WP8.1 Microsoft Camera viewfinder (Open Camera engine fork): photo / burst / video, left quick settings |
 | **Calendar** | `com.metro.calendar` | Agenda / day / month pivots |
 | **Mail** | `com.metro.mail` | Linked inboxes, conversation view |
 | **Messaging** | `com.metro.messaging` | SMS/MMS thread list |
@@ -62,6 +63,7 @@ These apps form the **Metro Shell** (launcher, status bar, notifications, naviga
 | **Widgets** | `com.metro.widgets` | Homescreen widget catalog: Start-style 4-column grid of custom live tiles (Time, Battery, Notifier, Analog clock, Torch, Lock) |
 | **Conversations** | `com.metro.conversations` | Replyable chats from the notification shade; panorama home with per-app tiles (SMS off by default; opt-in via connected apps) |
 | **News** | `com.metro.news` | Bing/MSN News–style panorama: top-story hero + category headline panes; RSS-backed articles |
+| **Metron** | `com.metro.metron` | Mihon manga-reader fork with Metro UI: panorama home (library / updates / browse / history), series detail, reader |
 
 New apps are added only after they have an entry in this table and a folder scaffold under `apps/`.
 

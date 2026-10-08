@@ -1,0 +1,82 @@
+package tachiyomi.data.track
+
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.flow.Flow
+import tachiyomi.data.Database
+import tachiyomi.data.subscribeToList
+import tachiyomi.domain.track.model.Track
+import tachiyomi.domain.track.repository.TrackRepository
+
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
+class TrackRepositoryImpl(
+    private val database: Database,
+) : TrackRepository {
+
+    override suspend fun getTrackById(id: Long): Track? {
+        return database.manga_trackQueries
+            .getTrackById(id, TrackMapper::mapTrack)
+            .awaitAsOneOrNull()
+    }
+
+    override suspend fun getTracksByMangaId(mangaId: Long): List<Track> {
+        return database.manga_trackQueries
+            .getTracksByMangaId(mangaId, TrackMapper::mapTrack)
+            .awaitAsList()
+    }
+
+    override fun getTracksAsFlow(): Flow<List<Track>> {
+        return database.manga_trackQueries
+            .getTracks(TrackMapper::mapTrack)
+            .subscribeToList()
+    }
+
+    override fun getTracksByMangaIdAsFlow(mangaId: Long): Flow<List<Track>> {
+        return database.manga_trackQueries
+            .getTracksByMangaId(mangaId, TrackMapper::mapTrack)
+            .subscribeToList()
+    }
+
+    override suspend fun delete(mangaId: Long, trackerId: Long) {
+        database.manga_trackQueries.delete(
+            mangaId = mangaId,
+            trackerId = trackerId,
+        )
+    }
+
+    override suspend fun upsert(track: Track) {
+        upsertValues(track)
+    }
+
+    override suspend fun upsertAll(tracks: List<Track>) {
+        upsertValues(*tracks.toTypedArray())
+    }
+
+    private suspend fun upsertValues(vararg tracks: Track) {
+        database.transaction {
+            tracks.forEach { mangaTrack ->
+                database.manga_trackQueries.upsert(
+                    mangaId = mangaTrack.mangaId,
+                    trackerId = mangaTrack.trackerId,
+                    remoteId = mangaTrack.remoteId,
+                    libraryId = mangaTrack.libraryId,
+                    title = mangaTrack.title,
+                    lastChapterRead = mangaTrack.lastChapterRead,
+                    totalChapters = mangaTrack.totalChapters,
+                    status = mangaTrack.status,
+                    score = mangaTrack.score,
+                    remoteUrl = mangaTrack.remoteUrl,
+                    startDate = mangaTrack.startDate,
+                    finishDate = mangaTrack.finishDate,
+                    private = mangaTrack.private,
+                )
+            }
+        }
+    }
+}

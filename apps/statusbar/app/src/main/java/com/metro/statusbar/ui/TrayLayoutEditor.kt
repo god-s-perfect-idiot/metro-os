@@ -23,7 +23,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -33,11 +32,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.core.graphics.PathParser
 import com.metro.statusbar.TrayIconFlags
 import com.metro.statusbar.TrayLayout
 import com.metro.statusbar.TrayLayoutSlot
 import com.metro.statusbar.TraySpec
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroClickable
 import kotlin.math.abs
@@ -55,9 +55,6 @@ private val ThumbGap = 2.dp
 /** Rounded delete control above spacer slots. */
 private val DeleteButtonSize = 36.dp
 private val DeleteGap = 8.dp
-/** Filled trash can (512×512 viewBox). */
-private const val DeleteTrashPathData =
-    "M42.7 469.3c0 23.5 19.1 42.7 42.7 42.7h341.3c23.5 0 42.7-19.1 42.7-42.7V192H42.7zm320-213.3h42.7v192h-42.7zm-128 0h42.7v192h-42.7zm-128 0h42.7v192h-42.7zm384-170.7h-128V42.7C362.7 19.1 343.5 0 320 0H192c-23.5 0-42.7 19.1-42.7 42.7v42.7h-128C9.5 85.3 0 94.9 0 106.7V128c0 11.8 9.5 21.3 21.3 21.3h469.3c11.8 0 21.3-9.5 21.3-21.3v-21.3c.1-11.8-9.4-21.4-21.2-21.4m-170.7 0H192V42.7h128z"
 /**
  * Configure-page tray arrange panel. The strip is the same [TrayPreview] / [StatusTray]
  * renderer as the live overlay (1:1). Accent thumbs sit under each slot; drag shifts the
@@ -209,30 +206,18 @@ fun TrayLayoutEditor(
     }
 }
 
-/** White circle + filled trash glyph for removing a spacer. */
+/** Circle + toolkit filled trash glyph for removing a spacer. */
 @Composable
 private fun SpacerDeleteButton(
     modifier: Modifier = Modifier,
 ) {
-    Canvas(modifier = modifier.size(DeleteButtonSize)) {
-        val stroke = 1.5.dp.toPx()
-        val circleRadius = size.minDimension * 0.46f - stroke * 0.5f
-        drawCircle(
-            color = Color.White,
-            radius = circleRadius,
-            style = Stroke(width = stroke, cap = StrokeCap.Butt),
-        )
-        // Scale the 512×512 trash path into the inner disc.
-        val glyphPad = size.minDimension * 0.28f
-        val glyphSize = size.minDimension - glyphPad * 2f
-        val androidPath = PathParser.createPathFromPathData(DeleteTrashPathData)
-        val matrix = android.graphics.Matrix().apply {
-            setScale(glyphSize / 512f, glyphSize / 512f)
-            postTranslate(glyphPad, glyphPad)
-        }
-        androidPath.transform(matrix)
-        drawPath(androidPath.asComposePath(), color = Color.White)
-    }
+    MetroSystemIcon(
+        type = MetroSystemIconType.Delete,
+        iconSize = DeleteButtonSize,
+        color = Color.White,
+        showCircle = true,
+        modifier = modifier,
+    )
 }
 
 /** Accent square with a sharp upward cone and three grip lines. */

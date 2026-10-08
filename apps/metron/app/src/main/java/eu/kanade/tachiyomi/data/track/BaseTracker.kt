@@ -1,0 +1,186 @@
+package eu.kanade.tachiyomi.data.track
+
+import android.content.Context
+import androidx.annotation.CallSuper
+import eu.kanade.domain.track.interactor.AddTracks
+import eu.kanade.domain.track.model.toDomainTrack
+import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import logcat.LogPriority
+import mihon.app.di.appGraph
+import okhttp3.OkHttpClient
+import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.track.interactor.UpsertTrack
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import tachiyomi.domain.track.model.Track as DomainTrack
+
+abstract class BaseTracker(
+    override val id: Long,
+    override val name: String,
+) : Tracker {
+
+    protected val appGraph get() = Injekt.get<Context>().appGraph
+
+    val trackPreferences: TrackPreferences by lazy { appGraph.trackPreferences }
+    val networkService: NetworkHelper by lazy { appGraph.networkHelper }
+
+    private val context: Context by lazy { appGraph.context }
+    private val addTracks: AddTracks by lazy { appGraph.addTracks }
+    private val upsertTrack: UpsertTrack by lazy { appGraph.upsertTrack }
+
+    override val client: OkHttpClient
+        get() = networkService.client
+
+    // Application and remote support for reading dates
+    override val supportsReadingDates: Boolean = false
+
+    override val supportsPrivateTracking: Boolean = false
+
+    // TODO: Store all scores as 10 point in the future maybe?
+    override fun get10PointScore(track: DomainTrack): Double {
+        return track.score
+    }
+
+    override fun indexToScore(index: Int): Double {
+        return index.toDouble()
+    }
+
+    @CallSuper
+    override fun logout() {
+        trackPreferences.setCredentials(this, "", "")
+    }
+
+    override val isLoggedIn: Boolean
+        get() = getUsername().isNotEmpty() &&
+            getPassword().isNotEmpty()
+
+    override val isLoggedInFlow: Flow<Boolean> by lazy {
+        combine(
+            trackPreferences.trackUsername(this).changes(),
+            trackPreferences.trackPassword(this).changes(),
+        ) { username, password ->
+            username.isNotEmpty() && password.isNotEmpty()
+        }
+    }
+
+    final override val isRefreshingFlow: StateFlow<Boolean>
+        field: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    final override val refreshResultFlow: SharedFlow<RefreshResult>
+        field: MutableSharedFlow<RefreshResult> = MutableSharedFlow(extraBufferCapacity = 1)
+
+    final override suspend fun refreshUser() {
+        isRefreshingFlow.value = true
+        try {
+            updateUserConfig()
+            refreshResultFlow.emit(RefreshResult.Success)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logcat(LogPriority.ERROR, e) { "Failed to update user config id=$id" }
+            refreshResultFlow.emit(RefreshResult.Error(e.message ?: "Failed with unknown error"))
+        } finally {
+            isRefreshingFlow.value = false
+        }
+    }
+
+    // does the actual remote calls shielded from outside access to guarantee proper refresh flow setting
+    protected abstract suspend fun updateUserConfig()
+
+    override fun getUsername() = trackPreferences.trackUsername(this).get()
+
+    override fun getDisplayUsername(): String = trackPreferences.trackDisplayUsername(this).get()
+
+    override fun saveDisplayUsername(displayName: String) = trackPreferences.trackDisplayUsername(this).set(displayName)
+
+    override fun getPassword() = trackPreferences.trackPassword(this).get()
+
+    override fun saveCredentials(username: String, password: String) {
+        trackPreferences.setCredentials(this, username, password)
+    }
+
+    override suspend fun register(item: Track, mangaId: Long) {
+        item.manga_id = mangaId
+        try {
+            addTracks.bind(this, item, mangaId)
+        } catch (e: Throwable) {
+            withUIContext {
+                context.toast(e.message)
+            }
+        }
+    }
+
+    override suspend fun setRemoteStatus(track: Track, status: Long) {
+        track.status = status
+        if (track.status == getCompletionStatus() && track.total_chapters != 0L) {
+            track.last_chapter_read = track.total_chapters.toDouble()
+        }
+        updateRemote(track)
+    }
+
+    override suspend fun setRemoteLastChapterRead(track: Track, chapterNumber: Int) {
+        if (
+            track.last_chapter_read == 0.0 &&
+            track.last_chapter_read < chapterNumber &&
+            track.status != getRereadingStatus()
+        ) {
+            track.status = getReadingStatus()
+        }
+        track.last_chapter_read = chapterNumber.toDouble()
+        if (track.total_chapters != 0L && track.last_chapter_read.toLong() == track.total_chapters) {
+            track.status = getCompletionStatus()
+            track.finished_reading_date = System.currentTimeMillis()
+        }
+        updateRemote(track)
+    }
+
+    override suspend fun setRemoteScore(track: Track, scoreString: String) {
+        track.score = indexToScore(getScoreList().indexOf(scoreString))
+        updateRemote(track)
+    }
+
+    override suspend fun setRemoteStartDate(track: Track, epochMillis: Long) {
+        track.started_reading_date = epochMillis
+        updateRemote(track)
+    }
+
+    override suspend fun setRemoteFinishDate(track: Track, epochMillis: Long) {
+        track.finished_reading_date = epochMillis
+        updateRemote(track)
+    }
+
+    override suspend fun setRemotePrivate(track: Track, private: Boolean) {
+        track.private = private
+        updateRemote(track)
+    }
+
+    private suspend fun updateRemote(track: Track): Unit = withIOContext {
+        try {
+            update(track)
+            track.toDomainTrack(idRequired = false)?.let {
+                upsertTrack.await(it)
+            }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to update remote track data id=$id" }
+            withUIContext {
+                context.toast(e.message)
+            }
+        }
+    }
+}
+
+sealed interface RefreshResult {
+    data object Success : RefreshResult
+    data class Error(val msg: String) : RefreshResult
+}

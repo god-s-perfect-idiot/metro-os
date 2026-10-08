@@ -125,8 +125,8 @@ const shell = new Set([
 ]);
 const core = new Set([
   "browser", "notes", "music", "calculator", "clock", "files", "settings", "store", "hub",
-  "photos", "calendar", "mail", "messaging", "people", "dialer", "widgets", "conversations",
-  "news",
+  "photos", "camera", "calendar", "mail", "messaging", "people", "dialer", "widgets", "conversations",
+  "news", "metron",
 ]);
 
 const descriptions = {
@@ -141,6 +141,7 @@ const descriptions = {
   notes: "OneNote-style notebooks, sections, and pages.",
   music: "Xbox Music–style player with local and streaming library.",
   photos: "Photo hub with date and album pivots.",
+  camera: "WP8.1 Microsoft Camera viewfinder (Open Camera engine fork).",
   calendar: "Agenda, day, and month calendar views.",
   mail: "Linked inboxes and conversation mail.",
   messaging: "SMS and MMS message threads.",
@@ -155,6 +156,7 @@ const descriptions = {
   widgets: "Homescreen widget catalog with Start-style live tiles.",
   conversations: "Reply inbox for third-party shade chats (RemoteInput).",
   news: "Bing News–style panorama with RSS headlines and article summaries.",
+  metron: "Mihon manga-reader fork with Metro panorama UI.",
 };
 
 const glyphFiles = {
@@ -164,6 +166,7 @@ const glyphFiles = {
   settings: "metro_app_settings.xml",
   store: "metro_app_store.xml",
   photos: "metro_app_photos.xml",
+  camera: "metro_app_camera.xml",
   calendar: "metro_app_calendar.xml",
   mail: "metro_app_mail.xml",
   messaging: "metro_app_messaging.xml",
@@ -183,6 +186,7 @@ const glyphFiles = {
   widgets: "metro_app_widgets.xml",
   conversations: "metro_app_conversations.xml",
   news: "metro_app_news.xml",
+  metron: "metro_app_metron.xml",
 };
 
 /** Catalog brand fills (MetroAppRegistry.brandHex) when launcher bg is missing. */
@@ -193,6 +197,7 @@ const brandHexFallback = {
   settings: "#F09609",
   store: "#7CB342",
   photos: "#EB3C00",
+  camera: "#1BA1E2",
   calendar: "#0078D7",
   mail: "#0078D7",
   messaging: "#0078D7",
@@ -205,6 +210,7 @@ const brandHexFallback = {
   widgets: "#1BA1E2",
   conversations: "#00ABA9",
   news: "#A20025",
+  metron: "#AA00FF",
 };
 
 const DEFAULT_BACKGROUND_COLOR = "#1BA1E2";

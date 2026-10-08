@@ -43,6 +43,7 @@ apps/<name>/references/
 | App | Package | AGENTS |
 |-----|---------|--------|
 | [photos](photos/) | `com.metro.photos` | [AGENTS.md](photos/AGENTS.md) |
+| [camera](camera/) | `com.metro.camera` | [AGENTS.md](camera/AGENTS.md) |
 | [calendar](calendar/) | `com.metro.calendar` | [AGENTS.md](calendar/AGENTS.md) |
 | [mail](mail/) | `com.metro.mail` | [AGENTS.md](mail/AGENTS.md) |
 | [messaging](messaging/) | `com.metro.messaging` | [AGENTS.md](messaging/AGENTS.md) |
@@ -54,6 +55,7 @@ apps/<name>/references/
 | [clock](clock/) | `com.metro.clock` | [AGENTS.md](clock/AGENTS.md) |
 | [files](files/) | `com.metro.files` | [AGENTS.md](files/AGENTS.md) |
 | [news](news/) | `com.metro.news` | [AGENTS.md](news/AGENTS.md) |
+| [metron](metron/) | `com.metro.metron` | [AGENTS.md](metron/AGENTS.md) |
 
 ## Scaffold a new app
 

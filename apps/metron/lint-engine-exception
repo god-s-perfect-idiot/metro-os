@@ -1,0 +1,2 @@
+# Vendored Mihon / Tachiyomi engine packages may retain upstream patterns.
+# lint-metro.sh scans only com.metro.* when this file is present.

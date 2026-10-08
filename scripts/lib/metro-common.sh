@@ -186,11 +186,28 @@ PY
   return 1
 }
 
+metro_app_namespace() {
+  local app_dir="$1"
+  local gradle="$app_dir/app/build.gradle.kts"
+  if [[ -f "$gradle" ]]; then
+    python3 - "$gradle" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+m = re.search(r'namespace\s*=\s*"([^"]+)"', text)
+print(m.group(1) if m else "", end="")
+PY
+  fi
+}
+
 metro_app_launch_activity() {
   local app_dir="$1"
   local manifest="$app_dir/app/src/main/AndroidManifest.xml"
-  local pkg activity
+  local pkg ns activity
   pkg="$(metro_app_package "$app_dir")"
+  ns="$(metro_app_namespace "$app_dir")"
+  if [[ -z "$ns" ]]; then
+    ns="$pkg"
+  fi
   if [[ -f "$manifest" ]]; then
     activity="$(python3 - "$manifest" <<'PY'
 import re, sys
@@ -209,16 +226,14 @@ PY
   if [[ -z "${activity:-}" ]]; then
     activity=".MainActivity"
   fi
-  # am start -n requires package/component. Fully-qualified activity names still need the package prefix.
+  # Relative names (".Foo") resolve against the manifest namespace, which may differ
+  # from applicationId (e.g. Metron: com.metro.metron vs eu.kanade.tachiyomi).
   if [[ "$activity" == .* ]]; then
-    echo "${pkg}/${activity}"
-  elif [[ "$activity" == "${pkg}."* ]]; then
-    echo "${pkg}/${activity}"
-  elif [[ "$activity" == *.* ]]; then
-    echo "${pkg}/${activity}"
-  else
-    echo "${pkg}/.${activity}"
+    activity="${ns}${activity}"
+  elif [[ "$activity" != *.* ]]; then
+    activity="${ns}.${activity}"
   fi
+  echo "${pkg}/${activity}"
 }
 
 metro_agent_bin() {

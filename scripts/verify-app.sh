@@ -105,9 +105,9 @@ fi
 record_step "structure" "true" 0
 echo "PASS  structure"
 
-# Keyboard (AGP 9) cannot includeBuild AGP 8 toolkits — it reads mavenLocal.
-if [[ "$APP" == "keyboard" ]]; then
-  echo "==> publish toolkits → mavenLocal (required by keyboard)"
+# AGP 9 apps cannot includeBuild AGP 8 toolkits — they read mavenLocal.
+if [[ "$APP" == "keyboard" || "$APP" == "metron" ]]; then
+  echo "==> publish toolkits → mavenLocal (required by $APP)"
   (cd "$ROOT/toolkits/metro-system-sdk" && ./gradlew publishToMavenLocal --quiet)
   (cd "$ROOT/toolkits/metro-ui-android" && ./gradlew publishToMavenLocal --quiet)
 fi
@@ -116,13 +116,28 @@ cd "$APP_DIR"
 
 # Step 1: build
 if [[ -f "./gradlew" ]]; then
-  run_step "build" ./gradlew :app:assembleDebug --quiet
-  run_step "unit_tests" ./gradlew :app:test --quiet
-  if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -q "device$"; then
-    run_step "instrumented_tests" ./gradlew :app:connectedDebugAndroidTest --quiet
+  if [[ "$APP" == "metron" ]]; then
+    # Full Mihon fork — FOSS local flags avoid Firebase / updater during verify.
+    run_step "build" ./gradlew :app:assembleDebug \
+      -Pdist=foss -Pinclude-telemetry=false -Penable-updater=false --quiet
+    run_step "unit_tests" ./gradlew :app:testDebugUnitTest \
+      -Pdist=foss -Pinclude-telemetry=false -Penable-updater=false --quiet
+    if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -q "device$"; then
+      run_step "instrumented_tests" ./gradlew :app:connectedDebugAndroidTest \
+        -Pdist=foss -Pinclude-telemetry=false -Penable-updater=false --quiet
+    else
+      record_step "instrumented_tests" "true" 0
+      echo "WARN  instrumented_tests skipped (no device)"
+    fi
   else
-    record_step "instrumented_tests" "true" 0
-    echo "WARN  instrumented_tests skipped (no device)"
+    run_step "build" ./gradlew :app:assembleDebug --quiet
+    run_step "unit_tests" ./gradlew :app:test --quiet
+    if command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -q "device$"; then
+      run_step "instrumented_tests" ./gradlew :app:connectedDebugAndroidTest --quiet
+    else
+      record_step "instrumented_tests" "true" 0
+      echo "WARN  instrumented_tests skipped (no device)"
+    fi
   fi
 else
   record_failure "build" "No gradlew in apps/$APP" "Scaffold the app first"

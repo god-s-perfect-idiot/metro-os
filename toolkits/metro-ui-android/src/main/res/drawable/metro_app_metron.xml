@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Metron app glyph — open book / manga reader (adaptive foreground, 72dp safe zone). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="2048"
+    android:viewportHeight="2048">
+    <group
+        android:pivotX="1024"
+        android:pivotY="1024"
+        android:scaleX="0.62"
+        android:scaleY="0.62">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M256,256h704v1536H256zM1088,256h704v1536h-704zM960,320v1408h128V320z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M384,512h448v96H384zM384,768h448v96H384zM384,1024h320v96H384zM1216,512h448v96h-448zM1216,768h448v96h-448zM1216,1024h320v96h-320z" />
+    </group>
+</vector>

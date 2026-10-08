@@ -34,6 +34,9 @@ import kotlin.math.roundToInt
 /** Height of the panorama title region — tight to hub title line height. */
 val MetroPanoramaTitleHeight = 64.dp
 
+/** Title region when panes use [MetroTextStyle.HubLink] (38sp) instead of HubTitle. */
+val MetroPanoramaHubLinkTitleHeight = 48.dp
+
 /** WP8.1 panorama — ~40dp of the next pane visible on the right (METRO-UX-LANGUAGE §6.8). */
 val MetroPanoramaContentPeek = 40.dp
 
@@ -43,6 +46,9 @@ val MetroPanoramaContentPeek = 40.dp
  * Section titles sit one pane-width apart so only a sliver of the next title hangs into
  * view, and each content pane is narrower than the viewport so the next pane's content
  * sticks into the current view.
+ *
+ * [titleStyle] defaults to [MetroTextStyle.HubTitle] (56sp). Hubs that treat pane labels
+ * more like Music/Hub link rows (e.g. Metron) can pass [MetroTextStyle.HubLink].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -51,6 +57,7 @@ fun MetroPanorama(
     pagerState: PagerState,
     modifier: Modifier = Modifier,
     contentPeek: Dp = MetroPanoramaContentPeek,
+    titleStyle: MetroTextStyle = MetroTextStyle.HubTitle,
     onTitleClick: ((Int) -> Unit)? = null,
     pageContent: @Composable (Int) -> Unit,
 ) {
@@ -58,7 +65,11 @@ fun MetroPanorama(
         val viewportWidth = maxWidth
         val paneWidth = (viewportWidth - contentPeek).coerceAtLeast(0.dp)
         val showTitles = titles.any { it.isNotBlank() }
-        val titleHeight = if (showTitles) MetroPanoramaTitleHeight else 0.dp
+        val titleHeight = when {
+            !showTitles -> 0.dp
+            titleStyle == MetroTextStyle.HubLink -> MetroPanoramaHubLinkTitleHeight
+            else -> MetroPanoramaTitleHeight
+        }
         val lastPageIndex = (pagerState.pageCount - 1).coerceAtLeast(0)
         val density = LocalDensity.current
         val paneStridePx = remember(paneWidth, density) {
@@ -79,6 +90,7 @@ fun MetroPanorama(
                         paneWidth = paneWidth,
                         viewportWidth = viewportWidth,
                         paneStridePx = paneStridePx,
+                        titleStyle = titleStyle,
                         onTitleClick = onTitleClick,
                     )
                 }
@@ -119,6 +131,7 @@ internal fun MetroPanoramaTitleRow(
     paneWidth: Dp,
     viewportWidth: Dp,
     paneStridePx: Int,
+    titleStyle: MetroTextStyle,
     onTitleClick: ((Int) -> Unit)?,
 ) {
     val scrollOffsetPx by remember(pagerState, paneStridePx) {
@@ -164,7 +177,7 @@ internal fun MetroPanoramaTitleRow(
                 // instead of measuring at unbounded width and overlapping neighbours.
                 BasicText(
                     text = title,
-                    style = MetroTextStyle.HubTitle.toTextStyle(MetroTheme.fontFamily).copy(
+                    style = titleStyle.toTextStyle(MetroTheme.fontFamily).copy(
                         color = if (index == activeIndex) {
                             MetroTheme.colors.primaryText
                         } else {

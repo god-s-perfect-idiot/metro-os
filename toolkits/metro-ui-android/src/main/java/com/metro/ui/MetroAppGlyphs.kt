@@ -33,6 +33,7 @@ object MetroAppGlyphs {
     val Settings: Int get() = R.drawable.metro_app_settings
     val Store: Int get() = R.drawable.metro_app_store
     val Photos: Int get() = R.drawable.metro_app_photos
+    val Camera: Int get() = R.drawable.metro_app_camera
     val Calendar: Int get() = R.drawable.metro_app_calendar
     val Mail: Int get() = R.drawable.metro_app_mail
     val Messaging: Int get() = R.drawable.metro_app_messaging
@@ -53,6 +54,7 @@ object MetroAppGlyphs {
     val Widgets: Int get() = R.drawable.metro_app_widgets
     val Conversations: Int get() = R.drawable.metro_app_conversations
     val News: Int get() = R.drawable.metro_app_news
+    val Metron: Int get() = R.drawable.metro_app_metron
 
     val NotificationPhone: Int get() = R.drawable.metro_notification_phone
     val NotificationMusic: Int get() = R.drawable.metro_notification_music
@@ -64,6 +66,7 @@ object MetroAppGlyphs {
         "com.metro.settings" to R.drawable.metro_app_settings,
         "com.metro.store" to R.drawable.metro_app_store,
         "com.metro.photos" to R.drawable.metro_app_photos,
+        "com.metro.camera" to R.drawable.metro_app_camera,
         "com.metro.calendar" to R.drawable.metro_app_calendar,
         "com.metro.mail" to R.drawable.metro_app_mail,
         "com.metro.messaging" to R.drawable.metro_app_messaging,
@@ -83,6 +86,7 @@ object MetroAppGlyphs {
         "com.metro.widgets" to R.drawable.metro_app_widgets,
         "com.metro.conversations" to R.drawable.metro_app_conversations,
         "com.metro.news" to R.drawable.metro_app_news,
+        "com.metro.metron" to R.drawable.metro_app_metron,
     )
 
     private val notificationByPackage: Map<String, Int> = mapOf(

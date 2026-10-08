@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="flash_off">Flash Off</string>
+    <string name="flash_auto">Flash Auto</string>
+    <string name="flash_on">Flash On</string>
+    <string name="flash_torch">Torch</string>
+    <string name="flash_red_eye">Red Eye</string>
+    <string name="flash_frontscreen_auto">Screen Flash Auto</string>
+    <string name="flash_frontscreen_on">Screen Flash On</string>
+    <string name="flash_frontscreen_torch">Screen Torch</string>
+
+    <string name="back_camera">Back Camera</string>
+    <string name="bottom_of_screen">at bottom of screen</string>
+    <string name="cancelled_focus_bracketing">Cancelled focus bracketing</string>
+    <string name="cancelled_repeat_mode">Cancelled repeat mode</string>
+    <string name="cancelled_timer">Cancelled timer</string>
+    <string name="centre_of_screen">at centre</string>
+    <string name="error_features_4k">4K UHD</string>
+    <string name="error_features_bitrate">Bitrate</string>
+    <string name="error_features_frame_rate">Frame rate</string>
+    <string name="error_features_slow_motion">Slow motion</string>
+    <string name="exposure_compensation">Exposure compensation</string>
+    <string name="external_camera">External camera</string>
+    <string name="face_detected">face</string>
+    <string name="faces_detected">faces</string>
+    <string name="focus_bracketing_source_distance">Focus bracketing source distance</string>
+    <string name="focus_bracketing_target_distance">Focus bracketing target distance</string>
+    <string name="focus_distance">Focus distance</string>
+    <string name="fps">FPS</string>
+    <string name="front_camera">Front Camera</string>
+    <string name="infinite">Infinite</string>
+    <string name="iso">ISO</string>
+    <string name="left_of_screen">at left of screen</string>
+    <string name="location_not_available">GPS location not available</string>
+    <string name="metres_abbreviation">m</string>
+    <string name="no_burst">no burst</string>
+    <string name="permission_record_audio_not_available">Microphone permission is not available</string>
+    <string name="preference_nr_mode_low_light_message">Low light mode: please hold the camera steady</string>
+    <string name="repeats_to_go">repeats to go</string>
+    <string name="right_of_screen">at right of screen</string>
+    <string name="seconds_abbreviation">s</string>
+    <string name="started_timer">Started timer</string>
+    <string name="top_of_screen">at top of screen</string>
+    <string name="ultrawide">Ultra-wide</string>
+    <string name="video_no_free_space">Not enough free space to record video</string>
+    <string name="video_pause">Video paused</string>
+    <string name="video_power_critical">Video stopped\nBattery level critically low</string>
+    <string name="video_resume">Video resumed</string>
+    <string name="white_balance">White balance</string>
+    <string-array name="flash_entries">
+        <item>@string/flash_off</item>
+        <item>@string/flash_auto</item>
+        <item>@string/flash_on</item>
+        <item>@string/flash_torch</item>
+        <item>@string/flash_red_eye</item>
+        <item>@string/flash_frontscreen_auto</item>
+        <item>@string/flash_frontscreen_on</item>
+        <item>@string/flash_frontscreen_torch</item>
+    </string-array>
+    <string-array name="flash_icons">
+        <item>drawable/flash_off</item>
+        <item>drawable/flash_auto</item>
+        <item>drawable/flash_on</item>
+        <item>drawable/baseline_highlight_white_48</item>
+        <item>drawable/baseline_remove_red_eye_white_48</item>
+        <item>drawable/flash_auto</item>
+        <item>drawable/flash_on</item>
+        <item>drawable/baseline_highlight_white_48</item>
+    </string-array>
+    <string-array name="flash_values">
+        <item>flash_off</item>
+        <item>flash_auto</item>
+        <item>flash_on</item>
+        <item>flash_torch</item>
+        <item>flash_red_eye</item>
+        <item>flash_frontscreen_auto</item>
+        <item>flash_frontscreen_on</item>
+        <item>flash_frontscreen_torch</item>
+    </string-array>
+    <string-array name="focus_mode_entries">
+        <item>Focus Auto</item>
+        <item>Focus Infinity</item>
+        <item>Focus Macro</item>
+        <item>Focus Locked</item>
+        <item>Focus Manual</item>
+        <item>Focus Fixed</item>
+        <item>Focus EDOF</item>
+        <item>Focus Continuous Picture</item>
+        <item>Focus Continuous Video</item>
+    </string-array>
+    <string-array name="focus_mode_values">
+        <item>focus_mode_auto</item>
+        <item>focus_mode_infinity</item>
+        <item>focus_mode_macro</item>
+        <item>focus_mode_locked</item>
+        <item>focus_mode_manual2</item>
+        <item>focus_mode_fixed</item>
+        <item>focus_mode_edof</item>
+        <item>focus_mode_continuous_picture</item>
+        <item>focus_mode_continuous_video</item>
+    </string-array>
+</resources>

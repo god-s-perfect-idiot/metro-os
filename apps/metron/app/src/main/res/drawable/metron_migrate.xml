@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Migrate export arrow — from provided reference SVG (20×20). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,6h6V4H2v12.01h8V14H4zm2,2h6V5l6,5l-6,5v-3H6z" />
+</vector>

@@ -22,8 +22,15 @@ fun metroSystemIconPainter(
 
 @Composable
 fun rememberMetroSystemIconPainter(type: MetroSystemIconType): Painter {
-    if (type == MetroSystemIconType.Microphone) {
-        return painterResource(id = R.drawable.metro_system_microphone)
+    val drawableId = when (type) {
+        MetroSystemIconType.Microphone -> R.drawable.metro_system_microphone
+        MetroSystemIconType.Filter -> R.drawable.metro_system_filter
+        MetroSystemIconType.Clear -> R.drawable.metro_system_clear
+        MetroSystemIconType.Delete -> R.drawable.metro_system_delete
+        else -> null
+    }
+    if (drawableId != null) {
+        return painterResource(id = drawableId)
     }
     return remember(type) { metroSystemIconPainter(type) }
 }

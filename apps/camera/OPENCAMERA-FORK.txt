@@ -1,0 +1,12 @@
+Metro Camera forks Mark Harman's Open Camera (GPL-3.0-or-later).
+
+Upstream: https://sourceforge.net/p/opencamera/code/
+Mirror used: https://github.com/AntumDeluge/Open_Camera
+Licence: see OPENCAMERA-GPL-3.0.txt
+
+Fork level (per upstream opencamera_source.txt guidance):
+  CameraController/ + Preview/ + BasicApplicationInterface
+Metro supplies the WP8.1 Microsoft Camera UI and ApplicationInterface.
+
+Package retained for engine sources: net.sourceforge.opencamera.*
+App id / Metro shell: com.metro.camera

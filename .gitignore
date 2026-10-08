@@ -49,3 +49,4 @@ firebase/.runtimeconfig.json
 firebase/node_modules/
 firebase/package-lock.json
 firebase/package.json
+vendor/

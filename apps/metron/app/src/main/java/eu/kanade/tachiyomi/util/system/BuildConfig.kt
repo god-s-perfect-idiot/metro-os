@@ -1,0 +1,27 @@
+@file:Suppress("UNUSED", "KotlinConstantConditions")
+
+package eu.kanade.tachiyomi.util.system
+
+import eu.kanade.tachiyomi.BuildConfig
+
+val telemetryIncluded: Boolean
+    inline get() = BuildConfig.TELEMETRY_INCLUDED
+
+/** Always false in Metron — no in-app APK OTA / Mihon release listening. */
+val updaterEnabled: Boolean
+    inline get() = false
+
+val isDebugBuildType: Boolean
+    inline get() = BuildConfig.BUILD_TYPE == "debug"
+
+val isNightlyBuildType: Boolean
+    inline get() = BuildConfig.BUILD_TYPE == "nightly"
+
+val isReleaseBuildType: Boolean
+    inline get() = BuildConfig.BUILD_TYPE == "release"
+
+val isFossBuildType: Boolean
+    inline get() = BuildConfig.BUILD_TYPE == "foss"
+
+val isBenchmarkBuildType: Boolean
+    inline get() = BuildConfig.BUILD_TYPE.contains("nonMinified") || BuildConfig.BUILD_TYPE.contains("benchmark")

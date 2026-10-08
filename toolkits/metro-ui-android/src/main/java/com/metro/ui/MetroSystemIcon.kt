@@ -84,6 +84,10 @@ enum class MetroSystemIconType {
     Save,
     Attach,
     Microphone,
+    /** Funnel filter — library / browse filter chrome. */
+    Filter,
+    /** Clear (X in circle) — clear history / clear selection chrome. */
+    Clear,
 
     // SIP / keyboard chrome (prefer showCircle = false on keys / smartbar)
     Shift,
@@ -132,8 +136,24 @@ fun MetroSystemIcon(
     color: Color = MetroTheme.colors.primaryText,
     showCircle: Boolean = true,
 ) {
-    // Microphone uses the traced reference vector (Canvas approximations kept drifting).
-    if (type == MetroSystemIconType.Microphone) {
+    // Drawable-backed glyphs (Canvas approximations kept drifting from reference SVGs).
+    val drawableId = when (type) {
+        MetroSystemIconType.Microphone -> R.drawable.metro_system_microphone
+        MetroSystemIconType.Filter -> R.drawable.metro_system_filter
+        MetroSystemIconType.Clear -> R.drawable.metro_system_clear
+        MetroSystemIconType.Delete -> R.drawable.metro_system_delete
+        else -> null
+    }
+    if (drawableId != null) {
+        val glyphFill = when (type) {
+            MetroSystemIconType.Microphone -> 1f
+            // Funnel fills the viewBox edge-to-edge — inset more so it sits like stroke glyphs.
+            MetroSystemIconType.Filter -> 0.48f
+            // Clear already draws its own ring; keep inset so the ring reads inside the press circle.
+            MetroSystemIconType.Clear -> 0.78f
+            MetroSystemIconType.Delete -> 0.62f
+            else -> 0.72f
+        }
         Box(
             modifier = modifier.size(iconSize),
             contentAlignment = Alignment.Center,
@@ -150,9 +170,9 @@ fun MetroSystemIcon(
                 }
             }
             Image(
-                painter = painterResource(id = R.drawable.metro_system_microphone),
+                painter = painterResource(id = drawableId),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize(glyphFill),
                 colorFilter = ColorFilter.tint(color),
             )
         }
@@ -211,11 +231,15 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.HeartSlash -> drawHeartSlashGlyph(color)
         MetroSystemIconType.DialPad -> drawDialPadGlyph(color, glyphStroke)
         MetroSystemIconType.People -> drawPeopleGlyph(color, glyphStroke)
-        MetroSystemIconType.Delete -> drawDeleteGlyph(color, glyphStroke)
+        MetroSystemIconType.Delete -> Unit // Drawable-backed; see MetroSystemIcon.
         MetroSystemIconType.Check -> drawCheckGlyph(color)
         MetroSystemIconType.Save -> drawSaveGlyph(color)
         MetroSystemIconType.Attach -> drawAttachGlyph(color, glyphStroke)
         MetroSystemIconType.Microphone -> drawMicrophoneGlyph(color, glyphStroke)
+        MetroSystemIconType.Filter,
+        MetroSystemIconType.Clear,
+        MetroSystemIconType.Delete,
+        -> Unit // Drawable-backed; see MetroSystemIcon / rememberMetroSystemIconPainter.
         MetroSystemIconType.Shift -> drawShiftGlyph(color, locked = false)
         MetroSystemIconType.ShiftLocked -> drawShiftGlyph(color, locked = true)
         MetroSystemIconType.Backspace -> drawBackspaceGlyph(color)
@@ -712,23 +736,6 @@ private fun DrawScope.drawPeopleGlyph(color: Color, stroke: Stroke) {
         )
     }
     drawPath(path, color, style = stroke)
-}
-
-private fun DrawScope.drawDeleteGlyph(color: Color, stroke: Stroke) {
-    val s = size.minDimension
-    val cx = size.width / 2f
-    val top = size.height * 0.22f
-    val lidY = size.height * 0.32f
-    val bottom = size.height * 0.78f
-    val left = cx - s * 0.22f
-    val right = cx + s * 0.22f
-    val cap = StrokeCap.Butt
-    drawLine(color, Offset(cx - s * 0.12f, top), Offset(cx + s * 0.12f, top), stroke.width, cap)
-    drawLine(color, Offset(left - s * 0.06f, lidY), Offset(right + s * 0.06f, lidY), stroke.width, cap)
-    drawLine(color, Offset(left, lidY), Offset(left + s * 0.04f, bottom), stroke.width, cap)
-    drawLine(color, Offset(right, lidY), Offset(right - s * 0.04f, bottom), stroke.width, cap)
-    drawLine(color, Offset(left + s * 0.04f, bottom), Offset(right - s * 0.04f, bottom), stroke.width, cap)
-    drawLine(color, Offset(cx, lidY + s * 0.06f), Offset(cx, bottom - s * 0.06f), stroke.width, cap)
 }
 
 /** WP paperclip / attach affordance. */

@@ -49,8 +49,35 @@ fi
 
 PKG="$(metro_app_package "$APP_DIR")"
 COMPONENT="$(metro_app_launch_activity "$APP_DIR")"
-APK_BUILD="$APP_DIR/app/build/outputs/apk/debug/app-debug.apk"
+APK_DIR="$APP_DIR/app/build/outputs/apk/debug"
 APK_DEPLOY="$APP_DIR/deploy/app-debug.apk"
+
+# Resolve debug APK path. Suite apps emit app-debug.apk; Mihon/Metron uses ABI splits
+# (+ universal). Prefer universal, then device ABI, then any debug apk.
+resolve_debug_apk() {
+  local dir="$1"
+  if [[ -f "$dir/app-debug.apk" ]]; then
+    echo "$dir/app-debug.apk"
+    return 0
+  fi
+  if [[ -f "$dir/app-universal-debug.apk" ]]; then
+    echo "$dir/app-universal-debug.apk"
+    return 0
+  fi
+  local abi
+  abi="$(adb shell getprop ro.product.cpu.abi 2>/dev/null | tr -d '\r' || true)"
+  if [[ -n "$abi" && -f "$dir/app-${abi}-debug.apk" ]]; then
+    echo "$dir/app-${abi}-debug.apk"
+    return 0
+  fi
+  local found
+  found="$(ls -1 "$dir"/app-*-debug.apk "$dir"/app-debug.apk 2>/dev/null | head -1 || true)"
+  if [[ -n "$found" && -f "$found" ]]; then
+    echo "$found"
+    return 0
+  fi
+  return 1
+}
 
 echo "==> run-app: $APP ($PKG)"
 metro_ensure_avd
@@ -58,16 +85,31 @@ metro_ensure_user_unlocked
 
 if [[ "$DO_BUILD" -eq 1 ]]; then
   echo "==> build"
-  (cd "$APP_DIR" && ./gradlew :app:assembleDebug --quiet)
+  # AGP 9 apps (keyboard, metron) need toolkits in mavenLocal.
+  if [[ "$APP" == "keyboard" || "$APP" == "metron" ]]; then
+    echo "==> publish toolkits → mavenLocal (required by $APP)"
+    (cd "$ROOT/toolkits/metro-system-sdk" && ./gradlew publishToMavenLocal --quiet)
+    (cd "$ROOT/toolkits/metro-ui-android" && ./gradlew publishToMavenLocal --quiet)
+  fi
+  if [[ "$APP" == "metron" ]]; then
+    (cd "$APP_DIR" && ./gradlew :app:assembleDebug \
+      -Pdist=foss -Pinclude-telemetry=false -Penable-updater=false --quiet)
+  else
+    (cd "$APP_DIR" && ./gradlew :app:assembleDebug --quiet)
+  fi
 fi
 
-if [[ ! -f "$APK_BUILD" ]]; then
-  echo "ERROR: APK missing at $APK_BUILD — build failed or --no-build without prior build" >&2
+APK_BUILD=""
+if APK_BUILD="$(resolve_debug_apk "$APK_DIR")"; then
+  :
+else
+  echo "ERROR: APK missing under $APK_DIR — build failed or --no-build without prior build" >&2
   exit 1
 fi
 
 mkdir -p "$APP_DIR/deploy"
 cp -f "$APK_BUILD" "$APK_DEPLOY"
+echo "OK  apk: $(basename "$APK_BUILD")"
 
 echo "==> install"
 adb install -r "$APK_DEPLOY"

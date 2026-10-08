@@ -1,0 +1,20 @@
+Metron is a full fork of Mihon (Apache-2.0), the Tachiyomi-lineage manga reader.
+
+Upstream: https://github.com/mihonapp/mihon
+Licence: LICENSE + MIHON-APACHE-2.0.txt
+
+Fork level:
+  - Entire multi-module Mihon tree vendored under apps/metron/
+    (app, domain, data, source-api, source-local, presentation-*, core/*, i18n, …)
+  - applicationId: com.metro.metron (was app.mihon)
+  - Display name: metron
+  - Home chrome: Metro panorama (library / updates / history / browse) via
+    com.metro.metron.ui.MetronHomeScaffold — replaces Material NavigationSuiteScaffold
+  - Drill-in screens still use upstream Mihon presentation until Metroized incrementally
+  - App OTA / GitHub release updater permanently disabled (no poll of mihonapp/mihon;
+    UPDATER_ENABLED=false; AppUpdateChecker is a no-op). Suite updates via Hub.
+
+Package retained for engine / presentation: eu.kanade.* / mihon.* / tachiyomi.*
+Metro chrome package: com.metro.metron.*
+
+lint-engine-exception: metro lint scans com.metro.* only (upstream Material remains until replaced).
