@@ -33,7 +33,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroJumpList` | Find-by-letter overlay (`#`, a–z, globe); accent = active |
 | `MetroLetterTile` | Accent/inactive letter square for list anchors and jump grid |
 | `metroStickyLetterHeader` | LazyColumn sticky letter section marker (pins until next letter pushes it) |
-| `MetroMessageDialog` | Centered modal dialog |
+| `MetroMessageDialog` | Top-anchored full-width message dialog (flip enter/exit) |
 | `MetroLoadingScreen` | Full-page await — centered label + dancing dots |
 | `MetroLoadingDots` | Inline WP8.1 indeterminate dancing-dots indicator |
 | `MetroSplashLoadingScreen` | Accent splash + app glyph + white dancing dots (no label) |

@@ -57,6 +57,7 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
+import eu.kanade.tachiyomi.ui.explore.ExploreTab
 import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.history.HistoryViewModel
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
@@ -85,6 +86,7 @@ private val BrandStyle = TextStyle(
 )
 
 private val HubTabs: List<Tab> = listOf(
+    ExploreTab,
     LibraryTab,
     UpdatesTab,
     HistoryTab,
@@ -99,7 +101,7 @@ private enum class MetronHomeSurface {
 
 /**
  * WP8.1 panorama home chrome with Metro list panes over real Mihon ViewModels
- * (library / updates / history / browse). Replaces Material tab Content() embedding.
+ * (explore / library / updates / history / browse). Replaces Material tab Content() embedding.
  *
  * [MoreTab] is a [MetroSubpageHost] drill-in (page-pivot) via the app-bar overflow menu —
  * not a panorama pane.
@@ -180,7 +182,7 @@ fun MetronHomeScaffold(
             isRoot = { it == MetronHomeSurface.Panorama },
             parentOf = { MetronHomeSurface.Panorama },
             onGoBack = {
-                tabNavigator.current = LibraryTab
+                tabNavigator.current = ExploreTab
             },
             modifier = modifier
                 .fillMaxSize()
@@ -225,7 +227,7 @@ fun MetronHomeScaffold(
                             skipEnter = introPlayed,
                         ) {
                             MetroPanorama(
-                                titles = listOf("LIBRARY", "UPDATES", "HISTORY", "BROWSE"),
+                                titles = listOf("EXPLORE", "LIBRARY", "UPDATES", "HISTORY", "BROWSE"),
                                 pagerState = pagerState,
                                 titleStyle = MetroTextStyle.SectionHeader,
                                 modifier = Modifier
@@ -233,15 +235,20 @@ fun MetronHomeScaffold(
                                     .padding(bottom = MetroAppBarDefaults.BarHeight),
                                 pageContent = { page ->
                                     when (page) {
-                                        0 -> MetronLibraryPane(
+                                        0 -> MetronExplorePane(
+                                            historyViewModel = historyViewModel,
+                                            libraryViewModel = libraryViewModel,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                        1 -> MetronLibraryPane(
                                             viewModel = libraryViewModel,
                                             modifier = Modifier.fillMaxSize(),
                                         )
-                                        1 -> MetronUpdatesPane(
+                                        2 -> MetronUpdatesPane(
                                             viewModel = updatesViewModel,
                                             modifier = Modifier.fillMaxSize(),
                                         )
-                                        2 -> MetronHistoryPane(
+                                        3 -> MetronHistoryPane(
                                             viewModel = historyViewModel,
                                             modifier = Modifier.fillMaxSize(),
                                         )
@@ -256,6 +263,22 @@ fun MetronHomeScaffold(
 
                     val (icons, menuItems) = when (page) {
                         0 -> {
+                            listOf(
+                                MetroAppBarIcon(
+                                    type = MetroSystemIconType.Search,
+                                    label = "search",
+                                    onClick = {
+                                        dismissOptions()
+                                        collapseAppBar()
+                                        navigator.push(GlobalSearchScreen())
+                                    },
+                                ),
+                            ) to listOf(
+                                MetroAppBarMenuItem("more", onClick = onOpenMore),
+                                MetroAppBarMenuItem("downloads", onClick = onOpenDownloads),
+                            )
+                        }
+                        1 -> {
                             val icons = listOf(
                                 MetroAppBarIcon(
                                     type = MetroSystemIconType.Search,
@@ -300,7 +323,7 @@ fun MetronHomeScaffold(
                             )
                             icons to menus
                         }
-                        1 -> {
+                        2 -> {
                             listOf(
                                 MetroAppBarIcon(
                                     type = MetroSystemIconType.Filter,
@@ -333,7 +356,7 @@ fun MetronHomeScaffold(
                                 MetroAppBarMenuItem("downloads", onClick = onOpenDownloads),
                             )
                         }
-                        2 -> {
+                        3 -> {
                             val icons = listOf(
                                 MetroAppBarIcon(
                                     type = MetroSystemIconType.Search,

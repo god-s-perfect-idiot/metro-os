@@ -5,8 +5,9 @@
 **Engine:** Entire Mihon tree (Apache-2.0). See `MIHON-FORK.txt`. Do not reintroduce Material
 `NavigationSuiteScaffold` on home — use `com.metro.metron.ui.MetronHomeScaffold`.
 
-Home: **4-pane `MetroPanorama`** over real `LibraryTab` / `UpdatesTab` / `HistoryTab` / `BrowseTab`.
-More via app-bar menu. `lint-engine-exception` → lint scans `com.metro.*` only.
+Home: **5-pane `MetroPanorama`** — `ExploreTab` then real `LibraryTab` / `UpdatesTab` /
+`HistoryTab` / `BrowseTab`. More via app-bar menu. `lint-engine-exception` → lint scans
+`com.metro.*` only.
 
 Verify: `../../scripts/verify-app.sh metron`
 

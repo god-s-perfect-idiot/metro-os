@@ -13,7 +13,7 @@ Mihon database, sources, downloads, reader, and extensions.
 ## App role
 
 Manga / comic reader forked from Mihon with WP8.1 Metro home (panorama panes for
-library / updates / history / browse; More via app-bar menu).
+explore / library / updates / history / browse; More via app-bar menu).
 
 ## Build gate
 
@@ -22,7 +22,8 @@ library / updates / history / browse; More via app-bar menu).
 
 ## Screen inventory
 
-1. **Panorama home** — brand `metron`; panes library / updates / history / browse (real Mihon tabs)
+1. **Panorama home** — brand `metron`; panes explore / library / updates / history / browse
+   (explore = latest reads; other panes are real Mihon tabs)
 2. **More** — full-page Metro settings chrome (`MetroSettingsHeader` / list / toggles)
 3. **Settings hub + categories** — Metro `PreferenceScaffold` over Mihon preference graphs
 4. **All other Mihon screens** — manga detail, reader, browse source, extensions, trackers, …

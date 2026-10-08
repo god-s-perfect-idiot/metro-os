@@ -50,7 +50,7 @@ Use **sharp 0dp corner radius** unless a control is listed in §2.2.
 | **Progress bar** | Rectangular track and fill |
 | **Slider thumb** | 10×32dp **rectangle** on a rectangular track |
 | **ToggleSwitch** | **52×20dp rectangle** track, rectangular thumb, 0dp corners |
-| **Message dialog** | Centered rectangle panel; square corners |
+| **Message dialog** | Top-anchored full-width rectangle panel; square corners |
 | **ListPicker** | Square-bordered collapsed field; inverted rectangular expanded panel |
 | **Text box** | Light-fill rectangle, **0dp** corners; 3dp border (gray rest, accent when focused) |
 | **Panorama section headers** | Flush-left text blocks over imagery |
@@ -255,7 +255,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Width | Intrinsic to label — **do not** `fillMaxWidth()` |
 | Label | Max 2 words; verb-first ("save", "delete", "connect") |
 
-**Dialog button order:** Affirmative (**ok**, **yes**, **save**) on the **left**; dismissive (**cancel**, **no**) on the **right**.
+**Dialog button order:** Affirmative (**ok**, **yes**, **save**) on the **left**; dismissive (**cancel**, **no**) on the **right**. In `MetroMessageDialog` only, action buttons **share the panel width equally** (WP MessageBox); that stretch is owned by the dialog, not by `MetroBorderButton`.
 
 **Setup / permission screens:** Apply the 12dp content margin on the button itself
 (`Modifier = Modifier.padding(horizontal = 12.dp)`). Do **not** put `padding(horizontal)` on a
@@ -467,14 +467,16 @@ Full-page await surface — use whenever a page is blocked on async work (> 500m
 
 ### 6.15 Message dialog (`MetroMessageDialog`)
 
+WP8.1 MessageBox — top strip confirmation (reset phone, delete, add store, etc.). Not a centered card.
+
 | Property | Spec |
 |----------|------|
-| Panel | Centered rectangle, **0dp** corners, secondary surface background |
+| Panel | **Top-anchored**, **full width**, **0dp** corners, secondary surface background (`#1F1F1F` dark) |
 | Title | 24sp |
 | Body | 16sp |
-| Buttons | `MetroBorderButton` row — affirmative left, cancel right |
-| Scrim | `#80000000` over page |
-| Entry | Fade + slight scale — no Material bottom sheet |
+| Buttons | Equal-width outlined row spanning the panel — affirmative left, cancel right (dialog-only stretch; in-page `MetroBorderButton` still hugs label) |
+| Scrim | `#80000000` over page; tap dismisses |
+| Entry / exit | Perspective `rotationX` flip 90° ↔ 0° (300ms, same camera sizing as toast) — no Material bottom sheet |
 
 ---
 

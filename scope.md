@@ -63,7 +63,7 @@ These apps form the **Metro Shell** (launcher, status bar, notifications, naviga
 | **Widgets** | `com.metro.widgets` | Homescreen widget catalog: Start-style 4-column grid of custom live tiles (Time, Battery, Notifier, Analog clock, Torch, Lock) |
 | **Conversations** | `com.metro.conversations` | Replyable chats from the notification shade; panorama home with per-app tiles (SMS off by default; opt-in via connected apps) |
 | **News** | `com.metro.news` | Bing/MSN News–style panorama: top-story hero + category headline panes; RSS-backed articles |
-| **Metron** | `com.metro.metron` | Mihon manga-reader fork with Metro UI: panorama home (library / updates / browse / history), series detail, reader |
+| **Metron** | `com.metro.metron` | Mihon manga-reader fork with Metro UI: panorama home (explore / library / updates / history / browse), series detail, reader |
 
 New apps are added only after they have an entry in this table and a folder scaffold under `apps/`.
 
@@ -285,7 +285,7 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 | `ListBox` / `LongListSelector` | `MetroListItem` | Press-nudge on tap (~4dp down-left; never Material ripple) |
 | `TextBox` | Underline style when focused | Accent underline, no Material TextInputLayout |
 | `ApplicationBar` | `MetroAppBar` | See App bar section |
-| `MessageDialog` | Centered modal | Title 24sp, body 16sp, accent buttons |
+| `MessageDialog` | Top-anchored full-width modal | Title 24sp, body 16sp, equal-width border buttons; flip enter/exit |
 | `ListPicker` | `MetroListPicker` | Bordered field; expands inline to inverted options panel (no Material menu) |
 | `CustomDatePicker` / `TimePicker` | Looping selectors | WP8.1 scroll-wheel style |
 | `LiveTile` | App tile widget → launcher | See Tiles section; apps export data, launcher renders |

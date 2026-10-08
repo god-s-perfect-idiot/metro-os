@@ -10,13 +10,19 @@ All library / source / reader data is real Mihon (SQLDelight, extensions, downlo
 
 ### Page 1 — Panorama home
 
-- **Control model:** `MetroPanorama` with **4 panes**: `library` → `updates` → `history` → `browse`
+- **Control model:** `MetroPanorama` with **5 panes**: `explore` → `library` → `updates` →
+  `history` → `browse`
 - **Brand:** Giant panoramic title `metron` (Music ExtraLight treatment)
-- **Pane bodies:** Real Mihon `LibraryTab` / `UpdatesTab` / `HistoryTab` / `BrowseTab` content
-  (upstream presentation until those screens are Metroized)
+- **Pane bodies:** Explore (recent reads) + real Mihon `LibraryTab` / `UpdatesTab` /
+  `HistoryTab` / `BrowseTab` content (upstream presentation until those screens are Metroized)
+- **Explore:** Up to **4 unique** recently read books (history `readAt` descending), as
+  **full-width square cover tiles** (larger than normal library/browse 2-up squares). Tap opens
+  manga detail. If nothing read yet → one random library book. If library empty → placeholder
+  “maybe you should read something :)”.
 - **Library motion:** Drill-ins (category, search, manga) use whole-page pivot enter/exit via
   `DefaultNavigatorScreenTransition` — tiles themselves do not stagger-animate.
 - **App bar search (per pane):**
+  - **explore** → global search; `…` → **more** / **downloads**
   - **library** → dedicated library search page (not an in-panorama text box)
   - **history** → animated in-pane search bar; hides when unfocused; tap search again to reopen
   - **browse** → dedicated Metro global search page (tag buttons for pinned / all / has results)
@@ -35,7 +41,7 @@ All library / source / reader data is real Mihon (SQLDelight, extensions, downlo
 
 - Mihon `MoreTab` chrome via toolkit: `MetroSettingsHeader` (`metron` / `more`),
   `MetroToggleSwitch` (downloaded-only / incognito), `MetroListItem` rows
-- App bar back → library pane (owned by `MetronHomeScaffold`)
+- App bar back → explore pane (owned by `MetronHomeScaffold`)
 
 ### Page 3 — Settings hub
 

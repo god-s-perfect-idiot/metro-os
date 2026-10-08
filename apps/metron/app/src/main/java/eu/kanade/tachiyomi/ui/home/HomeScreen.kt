@@ -12,6 +12,7 @@ import com.metro.metron.ui.MetronHomeScaffold
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import eu.kanade.tachiyomi.ui.explore.ExploreTab
 import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
@@ -40,7 +41,7 @@ object HomeScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
         TabNavigator(
-            tab = LibraryTab,
+            tab = ExploreTab,
             key = TabNavigatorKey,
         ) { tabNavigator ->
             CompositionLocalProvider(LocalNavigator provides navigator) {
@@ -57,13 +58,14 @@ object HomeScreen : Screen() {
                 )
             }
 
+            val goToExploreTab = { tabNavigator.current = ExploreTab }
             val goToLibraryTab = { tabNavigator.current = LibraryTab }
 
             // More is a MetroSubpageHost drill-in inside MetronHomeScaffold (page-pivot exit).
             BackHandler(
-                enabled = tabNavigator.current != LibraryTab &&
+                enabled = tabNavigator.current != ExploreTab &&
                     tabNavigator.current::class != MoreTab::class,
-                onBack = goToLibraryTab,
+                onBack = goToExploreTab,
             )
 
             LaunchedEffect(Unit) {
