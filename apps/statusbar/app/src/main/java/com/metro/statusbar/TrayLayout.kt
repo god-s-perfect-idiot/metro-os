@@ -53,12 +53,14 @@ sealed class TrayLayoutSlot {
 
 object TrayLayout {
     const val DEFAULT_SPACER_WIDTH_DP = 40
+    /** Compact spacer for fine notch / privacy-dot clearance. */
+    const val TINY_SPACER_WIDTH_DP = 16
 
     /**
-     * Absolute spacer ceiling. Practical max is lower when most icons are enabled —
-     * see [maxSpacers].
+     * Safety ceiling so a pathological available-width never loops forever. Practical max is
+     * whatever fits without folding — see [maxSpacers].
      */
-    const val MAX_SPACERS = 3
+    const val ABSOLUTE_MAX_SPACERS = 16
 
     /** Icons the user can toggle off (clock is always shown). */
     val TOGGLEABLE_ICONS: List<TrayLayoutIcon> =
@@ -74,40 +76,107 @@ object TrayLayout {
         TOGGLEABLE_ICONS.count { !it.isEnabled(flags) }
 
     /**
-     * Spacers allowed for the current icons-tab set: **1** when every toggleable icon is
-     * on (full tray; more wraps the clock), plus one more per disabled icon, capped at
-     * [MAX_SPACERS].
+     * Estimated intrinsic width (dp) for a layout icon — matches tray glyph sizes so spacer
+     * budgeting mirrors real folding.
      */
-    fun maxSpacers(flags: TrayIconFlags): Int =
-        (1 + disabledToggleableCount(flags)).coerceIn(1, MAX_SPACERS)
+    fun estimatedIconWidthDp(kind: TrayLayoutIcon): Int = when (kind) {
+        TrayLayoutIcon.Network -> 42 // cellular 18 + gap 2 + data label 22
+        TrayLayoutIcon.Wifi -> 13
+        TrayLayoutIcon.Mute -> 18
+        TrayLayoutIcon.Notifications -> 20
+        TrayLayoutIcon.Hotspot -> 20
+        TrayLayoutIcon.BluetoothAudio -> 20
+        TrayLayoutIcon.Battery -> 29
+        TrayLayoutIcon.Clock -> 36 // ~"12:00" at tray clock size
+    }
 
-    fun canAddSpacer(slots: List<TrayLayoutSlot>, flags: TrayIconFlags): Boolean =
-        spacerCount(slots) < maxSpacers(flags)
+    /** Estimated intrinsic content width for [slots] (SpaceBetween free gaps do not add). */
+    fun estimatedContentWidthDp(slots: List<TrayLayoutSlot>): Int {
+        if (slots.isEmpty()) return 0
+        return slots.sumOf { slot ->
+            when (slot) {
+                is TrayLayoutSlot.Icon -> estimatedIconWidthDp(slot.kind)
+                is TrayLayoutSlot.Spacer -> slot.widthDp
+            }
+        }
+    }
 
     /**
-     * Drops trailing excess spacers when icons are re-enabled and the allowance shrinks.
-     * Keeps earlier spacers (left-to-right) so notch placement stays put.
+     * True when [slots] (already filtered to visible) would exceed [availableWidthDp] —
+     * the only hard limit for spacers.
+     */
+    fun wouldFold(
+        slots: List<TrayLayoutSlot>,
+        availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+    ): Boolean =
+        estimatedContentWidthDp(slots) > availableWidthDp.coerceAtLeast(0)
+
+    /**
+     * Spacers allowed for the current icons-tab set: as many as fit without folding.
+     * Disabled icons free width for more.
+     */
+    fun maxSpacers(
+        flags: TrayIconFlags,
+        availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+    ): Int {
+        val icons = TrayLayoutIcon.entries
+            .filter { it.isEnabled(flags) }
+            .map { TrayLayoutSlot.Icon(it) }
+        var allowed = 0
+        while (allowed < ABSOLUTE_MAX_SPACERS) {
+            val trial = icons + List(allowed + 1) {
+                TrayLayoutSlot.Spacer(id = "budget_$it")
+            }
+            if (wouldFold(trial, availableWidthDp)) break
+            allowed++
+        }
+        return allowed
+    }
+
+    fun canAddSpacer(
+        slots: List<TrayLayoutSlot>,
+        flags: TrayIconFlags,
+        availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+        widthDp: Int = DEFAULT_SPACER_WIDTH_DP,
+    ): Boolean {
+        if (spacerCount(slots) >= ABSOLUTE_MAX_SPACERS) return false
+        val withSpacer = slots + TrayLayoutSlot.Spacer(id = "probe", widthDp = widthDp)
+        val visible = withSpacer.filter { slot ->
+            when (slot) {
+                is TrayLayoutSlot.Spacer -> true
+                is TrayLayoutSlot.Icon -> slot.kind.isEnabled(flags)
+            }
+        }
+        return !wouldFold(visible, availableWidthDp)
+    }
+
+    /**
+     * Drops trailing excess spacers when icons are re-enabled and the folding budget shrinks.
+     * Keeps earlier spacers (left-to-right) so notch placement stays; respects each spacer's
+     * actual width (tiny vs default).
      */
     fun trimSpacersToMax(
         slots: List<TrayLayoutSlot>,
         flags: TrayIconFlags,
+        availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
     ): List<TrayLayoutSlot> {
-        val max = maxSpacers(flags)
-        if (spacerCount(slots) <= max) return slots
-        var kept = 0
-        return slots.mapNotNull { slot ->
-            when (slot) {
-                is TrayLayoutSlot.Icon -> slot
-                is TrayLayoutSlot.Spacer -> {
-                    if (kept < max) {
-                        kept++
-                        slot
-                    } else {
-                        null
-                    }
+        fun visibleOf(list: List<TrayLayoutSlot>): List<TrayLayoutSlot> =
+            list.filter { slot ->
+                when (slot) {
+                    is TrayLayoutSlot.Spacer -> true
+                    is TrayLayoutSlot.Icon -> slot.kind.isEnabled(flags)
                 }
             }
+        var result = slots
+        while (
+            spacerCount(result) > 0 &&
+            wouldFold(visibleOf(result), availableWidthDp)
+        ) {
+            val dropAt = result.indexOfLast { it is TrayLayoutSlot.Spacer }
+            if (dropAt < 0) break
+            result = result.filterIndexed { index, _ -> index != dropAt }
         }
+        return result
     }
 
     fun serialize(slots: List<TrayLayoutSlot>): String =
@@ -154,8 +223,12 @@ object TrayLayout {
         return parsed
     }
 
-    /** Visible configure / tray slots for the current icon flags; spacers trimmed to [maxSpacers]. */
-    fun visible(slots: List<TrayLayoutSlot>, flags: TrayIconFlags): List<TrayLayoutSlot> =
+    /** Visible configure / tray slots; spacers trimmed to the folding budget. */
+    fun visible(
+        slots: List<TrayLayoutSlot>,
+        flags: TrayIconFlags,
+        availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+    ): List<TrayLayoutSlot> =
         trimSpacersToMax(
             slots = slots.filter { slot ->
                 when (slot) {
@@ -164,18 +237,20 @@ object TrayLayout {
                 }
             },
             flags = flags,
+            availableWidthDp = availableWidthDp,
         )
 
     /**
      * Slots that occupy space in the live / preview tray: every icons-tab–enabled icon plus
-     * spacers (within [maxSpacers]). Live telemetry does **not** drop a slot — unavailable
-     * glyphs stay reserved and are drawn invisible via [isGlyphVisible] so the justified
-     * layout stays stable.
+     * spacers (within the folding budget). Live telemetry does **not** drop a slot —
+     * unavailable glyphs stay reserved and are drawn invisible via [isGlyphVisible] so the
+     * justified layout stays stable.
      */
     fun liveOccupying(
         slots: List<TrayLayoutSlot>,
         flags: TrayIconFlags,
-    ): List<TrayLayoutSlot> = visible(slots, flags)
+        availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+    ): List<TrayLayoutSlot> = visible(slots, flags, availableWidthDp)
 
     /**
      * Whether the glyph for [kind] should paint. When false the slot still occupies layout
@@ -207,6 +282,32 @@ object TrayLayout {
         slots.indexOfLast { it is TrayLayoutSlot.Icon }
 
     /**
+     * True for spacers that sit after the persistent rightmost icon — they stay reserved in
+     * the collapsed tray (after auto-hide), outside the SpaceBetween row so the clock does
+     * not pick up a free-justify gap that disappears on collapse.
+     */
+    fun isTrailingSpacer(slots: List<TrayLayoutSlot>, index: Int): Boolean {
+        if (index !in slots.indices) return false
+        if (slots[index] !is TrayLayoutSlot.Spacer) return false
+        val rightmost = rightmostIconIndex(slots)
+        return rightmost >= 0 && index > rightmost
+    }
+
+    /** Indices of slots that participate in SpaceBetween (everything up to and including the rightmost icon). */
+    fun justifiedIndices(slots: List<TrayLayoutSlot>): List<Int> {
+        val rightmost = rightmostIconIndex(slots)
+        if (rightmost < 0) return emptyList()
+        return (0..rightmost).toList()
+    }
+
+    /** Indices of spacers after the rightmost icon. */
+    fun trailingSpacerIndices(slots: List<TrayLayoutSlot>): List<Int> {
+        val rightmost = rightmostIconIndex(slots)
+        if (rightmost < 0) return emptyList()
+        return ((rightmost + 1) until slots.size).filter { slots[it] is TrayLayoutSlot.Spacer }
+    }
+
+    /**
      * Icons that stagger on expand/collapse — every occupying icon except the persistent
      * rightmost.
      */
@@ -225,9 +326,16 @@ object TrayLayout {
         return mutable
     }
 
-    fun addSpacer(slots: List<TrayLayoutSlot>, flags: TrayIconFlags): List<TrayLayoutSlot> {
-        if (!canAddSpacer(slots, flags)) return slots
-        return slots + TrayLayoutSlot.Spacer(id = newSpacerId())
+    fun addSpacer(
+        slots: List<TrayLayoutSlot>,
+        flags: TrayIconFlags,
+        availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+        widthDp: Int = DEFAULT_SPACER_WIDTH_DP,
+    ): List<TrayLayoutSlot> {
+        if (!canAddSpacer(slots, flags, availableWidthDp, widthDp)) {
+            return slots
+        }
+        return slots + TrayLayoutSlot.Spacer(id = newSpacerId(), widthDp = widthDp)
     }
 
     fun removeSpacer(slots: List<TrayLayoutSlot>, spacerId: String): List<TrayLayoutSlot> =

@@ -21,8 +21,10 @@
     <string name="configure_statusbar_subtitle">Add spacers, move icons around.</string>
     <string name="configure_page_title">configure</string>
     <string name="configure_add_spacer">add spacer</string>
-    <string name="configure_add_spacer_hint">You can use spacers to cover the notch and active mic areas. Tap the delete button above a spacer to remove it.</string>
-    <string name="configure_add_spacer_max_hint">Spacer limit reached for the icons you have enabled. Turn off icons or remove a spacer to add another.</string>
+
+    <string name="configure_add_tiny_spacer">add tiny spacer</string>
+    <string name="configure_add_spacer_hint">You can use spacers to cover the notch and active mic areas. Spacers after the last icon stay visible when icons auto-hide. Tap the delete button above a spacer to remove it.</string>
+    <string name="configure_add_spacer_max_hint">No more spacers fit without folding the tray. Turn off icons or remove a spacer to add another.</string>
     <string name="statusbar_background_label">Statusbar background</string>
     <string name="statusbar_background_default_black">Default black background</string>
     <string name="statusbar_background_match_app">Match app background</string>

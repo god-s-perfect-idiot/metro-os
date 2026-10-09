@@ -315,7 +315,16 @@ private fun ConfigurePage(
     val visibleSlots = remember(layout, iconFlags) {
         TrayLayout.visible(layout, iconFlags)
     }
-    val canAddSpacer = TrayLayout.canAddSpacer(layout, iconFlags)
+    val canAddSpacer = TrayLayout.canAddSpacer(
+        slots = layout,
+        flags = iconFlags,
+        widthDp = TrayLayout.DEFAULT_SPACER_WIDTH_DP,
+    )
+    val canAddTinySpacer = TrayLayout.canAddSpacer(
+        slots = layout,
+        flags = iconFlags,
+        widthDp = TrayLayout.TINY_SPACER_WIDTH_DP,
+    )
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -353,14 +362,36 @@ private fun ConfigurePage(
             text = stringResource(R.string.configure_add_spacer),
             enabled = canAddSpacer,
             onClick = {
-                onLayoutChange(TrayLayout.addSpacer(layout, iconFlags))
+                onLayoutChange(
+                    TrayLayout.addSpacer(
+                        slots = layout,
+                        flags = iconFlags,
+                        widthDp = TrayLayout.DEFAULT_SPACER_WIDTH_DP,
+                    ),
+                )
+            },
+            modifier = Modifier.padding(horizontal = 12.dp),
+            fontSize = 15.sp,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        MetroBorderButton(
+            text = stringResource(R.string.configure_add_tiny_spacer),
+            enabled = canAddTinySpacer,
+            onClick = {
+                onLayoutChange(
+                    TrayLayout.addSpacer(
+                        slots = layout,
+                        flags = iconFlags,
+                        widthDp = TrayLayout.TINY_SPACER_WIDTH_DP,
+                    ),
+                )
             },
             modifier = Modifier.padding(horizontal = 12.dp),
             fontSize = 15.sp,
         )
         MetroText(
             text = stringResource(
-                if (canAddSpacer) {
+                if (canAddSpacer || canAddTinySpacer) {
                     R.string.configure_add_spacer_hint
                 } else {
                     R.string.configure_add_spacer_max_hint

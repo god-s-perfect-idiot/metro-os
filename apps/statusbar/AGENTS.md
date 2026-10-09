@@ -18,7 +18,7 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 
 | Surface | Behavior | Reference |
 |---------|----------|-----------|
-| Collapsed tray | Rightmost layout icon only (usually clock), trailing-aligned | `references/images/collapsed_dark.png` |
+| Collapsed tray | Rightmost layout icon (usually clock) + trailing spacers/padding, trailing-aligned | `references/images/collapsed_dark.png` |
 | Expanded tray | All icons freely justified across the tray; then collapse (default 5s; 3/5/10s/never from setup) | `references/images/expanded_dark.png` |
 | Progress state | Accent spinner in tray | `references/images/progress_dark.png` |
 | Setup | pivot `customise` \| `icons` (customise: toggles + preview + permissions; icons: glyph toggles + preview strip) | `blueprint.md` § Page 4 |
@@ -27,7 +27,7 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 ## WP8.1 rules
 
 - Height **32dp**; no Material status bar icons
-- Indicator order L→R (default layout): cellular + data label, Wi-Fi, mute, notification app, hotspot, Bluetooth audio, battery, clock — freely justified across the tray with uniform group padding
+- Indicator order L→R (default layout): cellular + data label, Wi-Fi, mute, notification app, hotspot, Bluetooth audio, battery, clock — freely justified across the tray (trailing spacers stay when collapsed)
 - Tap tray / go home → indicators drop in L→R from above; hold **3s / 5s / 10s** or **Never** (setup ListPicker, default **5000ms**); exit upward L→R until only the rightmost icon remains
 - Per-app: apps request opaque / translucent (0.5) / hidden via `metro-system-sdk` API; fullscreen surfaces use `MetroStatusBarFullscreenEffect`
 - Immersive: when Android status bars are hidden, the Metro tray creeps away (same motion as `MODE_HIDDEN`)
@@ -35,7 +35,7 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 
 ## Primary flows
 
-1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **Statusbar background** ListPicker chooses **Default black background** (solid black; default), **Match app background** (Metro suite → black; other apps → icon tile brand / adaptive background), or **Show accent color** (always system accent). **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds) or **Never** (indicators stay expanded). **configure statusbar** drills into **configure**: centered tray preview with accent thumbs under each icon/spacer to drag-reorder; **add spacer** at the bottom (hint: cover notch and active mic areas). On device rotate the tray slides out and back in from the new top.
+1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **Statusbar background** ListPicker chooses **Default black background** (solid black; default), **Match app background** (Metro suite → black; other apps → icon tile brand / adaptive background), or **Show accent color** (always system accent). **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds) or **Never** (indicators stay expanded). **configure statusbar** drills into **configure**: centered tray preview with accent thumbs under each icon/spacer to drag-reorder; **add spacer** / **add tiny spacer** at the bottom (hint: cover notch and active mic areas; trailing spacers stay after auto-hide). On device rotate the tray slides out and back in from the new top.
 2. Overlay draws **above the system status bar** via `TYPE_ACCESSIBILITY_OVERLAY`
    (`StatusBarAccessibilityService`); falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the
    system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —

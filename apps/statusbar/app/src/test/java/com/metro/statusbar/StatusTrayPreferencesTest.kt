@@ -222,4 +222,5 @@ class StatusTrayPreferencesTest {
         val again = StatusTrayPreferences(RuntimeEnvironment.getApplication()).layout
         assertEquals(TrayLayout.serialize(slots), TrayLayout.serialize(again))
     }
+
 }

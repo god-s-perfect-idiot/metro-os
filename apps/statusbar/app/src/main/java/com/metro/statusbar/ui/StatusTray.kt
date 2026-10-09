@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
@@ -131,10 +130,12 @@ private const val DataLabelTextSizeFactor = 0.98f
 /**
  * WP8.1 system tray.
  *
- * Expanded = all live layout groups freely justified across the tray (equal SpaceBetween
- * gaps, uniform group padding). Collapsed = only the rightmost layout icon remains (often
- * clock, but any rightmost slot). Tap or going home drops the other icons in one-by-one from
- * above (left → right); they exit upward the same way until only the rightmost is left.
+ * Expanded = icons and mid-row spacers freely justified (`SpaceBetween`); spacers after the
+ * rightmost icon sit outside that row so the clock stays flush against them. Collapsed = only
+ * the rightmost icon remains in the justified row (plus those trailing spacers) — same clock
+ * inset, no jump. Tap or going home drops the other icons in one-by-one from above
+ * (left → right); they exit upward the same way until only the rightmost icon and its
+ * trailing spacers remain.
  * Per-app [TrayVisibilityMode.Hidden] and immersive system-bar hide creep the whole strip into /
  * out of the top edge (200ms). Swipe down opens the Android notification shade and hides this
  * overlay while the shade is expanded. [barHeightDp] lets the overlay fill the whole system
@@ -291,7 +292,7 @@ fun StatusTray(
     )
 
     // Keep the full SpaceBetween layout until stagger exit finishes so icons fade/slide
-    // out in place instead of reshuffling as each AnimatedVisibility child leaves the row.
+    // out in place instead of reshuffling as each child leaves the row.
     var holdJustifiedLayout by remember { mutableStateOf(snapshot.expanded) }
     LaunchedEffect(snapshot.expanded, animatingIcons.size) {
         if (snapshot.expanded) {
@@ -307,7 +308,27 @@ fun StatusTray(
         }
     }
 
-    val justifiedArrangement = if (holdJustifiedLayout && layoutSlots.size > 1) {
+    // Trailing spacers sit outside SpaceBetween so the rightmost icon stays flush against
+    // them when expanded and when collapsed — otherwise the free-justify gap between clock
+    // and those spacers vanishes on auto-hide and the clock jumps.
+    val justifiedSlotIndices = remember(layoutSlots) {
+        TrayLayout.justifiedIndices(layoutSlots)
+    }
+    val trailingSpacerIndices = remember(layoutSlots) {
+        TrayLayout.trailingSpacerIndices(layoutSlots)
+    }
+    val justifiedVisibleIndices = remember(
+        justifiedSlotIndices,
+        holdJustifiedLayout,
+        rightmostIconIndex,
+    ) {
+        if (holdJustifiedLayout) {
+            justifiedSlotIndices
+        } else {
+            justifiedSlotIndices.filter { it == rightmostIconIndex }
+        }
+    }
+    val justifiedArrangement = if (holdJustifiedLayout && justifiedVisibleIndices.size > 1) {
         Arrangement.SpaceBetween
     } else {
         Arrangement.End
@@ -319,8 +340,75 @@ fun StatusTray(
     var trayRootCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     fun publishSlotCentersIfReady() {
         val callback = onSlotCentersChanged ?: return
-        if (slotCenterScratch.any { it.isNaN() }) return
+        // Trailing spacers may leave holes in the scratch array when none exist — only
+        // require centers for composed slots.
+        val required = justifiedVisibleIndices + trailingSpacerIndices
+        if (required.any { it !in slotCenterScratch.indices || slotCenterScratch[it].isNaN() }) {
+            return
+        }
         callback(slotCenterScratch.toList())
+    }
+    fun measureModFor(index: Int): Modifier {
+        if (onSlotCentersChanged == null) return Modifier
+        return Modifier.onGloballyPositioned { coords ->
+            val root = trayRootCoords ?: return@onGloballyPositioned
+            if (!root.isAttached || !coords.isAttached) return@onGloballyPositioned
+            val center = root.localPositionOf(
+                sourceCoordinates = coords,
+                relativeToSource = Offset(
+                    coords.size.width / 2f,
+                    coords.size.height / 2f,
+                ),
+            ).x
+            if (index in slotCenterScratch.indices && slotCenterScratch[index] != center) {
+                slotCenterScratch[index] = center
+                publishSlotCentersIfReady()
+            }
+        }
+    }
+
+    @Composable
+    fun TrayJustifiedSlot(index: Int, slot: TrayLayoutSlot) {
+        val measureMod = measureModFor(index)
+        when (slot) {
+            is TrayLayoutSlot.Spacer -> {
+                Spacer(modifier = measureMod.width(slot.widthDp.dp))
+            }
+            is TrayLayoutSlot.Icon -> {
+                val isRightmost = index == rightmostIconIndex
+                val forwardIndex = animatingIcons.indexOf(slot.kind).coerceAtLeast(0)
+                val glyphLive = glyphVisibility[slot.kind] == true
+                Box(modifier = measureMod) {
+                    TrayLayoutGroup(
+                        targetVisible = snapshot.expanded || isRightmost,
+                        animate = !isRightmost,
+                        forwardIndex = forwardIndex,
+                    ) {
+                        TraySlotGlyph(
+                            kind = slot.kind,
+                            foreground = foreground,
+                            backdrop = backdrop,
+                            inactiveColor = if (paintTheme.darkTheme) {
+                                SignalInactiveDark
+                            } else {
+                                SignalInactiveLight
+                            },
+                            accentColor = paintTheme.accentColor,
+                            clockText = snapshot.clockText,
+                            showProgress = snapshot.showProgress,
+                            battery = snapshot.battery,
+                            dataConnectionLabel = snapshot.dataConnectionLabel,
+                            signalBars = snapshot.signalBars,
+                            bluetoothAudio = snapshot.bluetoothAudio,
+                            notificationPackage = snapshot.notificationPackage,
+                            modifier = Modifier.graphicsLayer {
+                                alpha = if (glyphLive) 1f else 0f
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
 
     Box(
@@ -367,80 +455,24 @@ fun StatusTray(
                 )
                 .testTag("metro_status_tray"),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = justifiedArrangement,
+            horizontalArrangement = Arrangement.Start,
         ) {
-            layoutSlots.forEachIndexed { index, slot ->
-                val edgePad = Modifier.trayGroupEdgePadding(
-                    index = index,
-                    count = layoutSlots.size,
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = justifiedArrangement,
+            ) {
+                justifiedVisibleIndices.forEach { index ->
+                    TrayJustifiedSlot(index = index, slot = layoutSlots[index])
+                }
+            }
+            trailingSpacerIndices.forEach { index ->
+                val spacer = layoutSlots[index] as TrayLayoutSlot.Spacer
+                Spacer(
+                    modifier = measureModFor(index).width(spacer.widthDp.dp),
                 )
-                val measureMod = if (onSlotCentersChanged != null) {
-                    Modifier.onGloballyPositioned { coords ->
-                        val root = trayRootCoords ?: return@onGloballyPositioned
-                        if (!root.isAttached || !coords.isAttached) return@onGloballyPositioned
-                        val center = root.localPositionOf(
-                            sourceCoordinates = coords,
-                            relativeToSource = Offset(
-                                coords.size.width / 2f,
-                                coords.size.height / 2f,
-                            ),
-                        ).x
-                        if (index in slotCenterScratch.indices &&
-                            slotCenterScratch[index] != center
-                        ) {
-                            slotCenterScratch[index] = center
-                            publishSlotCentersIfReady()
-                        }
-                    }
-                } else {
-                    Modifier
-                }
-                when (slot) {
-                    is TrayLayoutSlot.Spacer -> {
-                        if (holdJustifiedLayout) {
-                            Spacer(
-                                modifier = measureMod.then(edgePad).width(slot.widthDp.dp),
-                            )
-                        }
-                    }
-                    is TrayLayoutSlot.Icon -> {
-                        val isRightmost = index == rightmostIconIndex
-                        if (!holdJustifiedLayout && !isRightmost) return@forEachIndexed
-                        val forwardIndex = animatingIcons.indexOf(slot.kind).coerceAtLeast(0)
-                        val glyphLive = glyphVisibility[slot.kind] == true
-                        Box(modifier = measureMod) {
-                            TrayLayoutGroup(
-                                targetVisible = snapshot.expanded || isRightmost,
-                                // Rightmost never staggers; others slide in place L→R.
-                                animate = !isRightmost,
-                                forwardIndex = forwardIndex,
-                            ) {
-                                TraySlotGlyph(
-                                    kind = slot.kind,
-                                    foreground = foreground,
-                                    backdrop = backdrop,
-                                    inactiveColor = if (paintTheme.darkTheme) {
-                                        SignalInactiveDark
-                                    } else {
-                                        SignalInactiveLight
-                                    },
-                                    accentColor = paintTheme.accentColor,
-                                    clockText = snapshot.clockText,
-                                    showProgress = snapshot.showProgress,
-                                    battery = snapshot.battery,
-                                    dataConnectionLabel = snapshot.dataConnectionLabel,
-                                    signalBars = snapshot.signalBars,
-                                    bluetoothAudio = snapshot.bluetoothAudio,
-                                    notificationPackage = snapshot.notificationPackage,
-                                    // Unavailable glyphs stay measured (reserved gap) but invisible.
-                                    modifier = edgePad.graphicsLayer {
-                                        alpha = if (glyphLive) 1f else 0f
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -529,18 +561,6 @@ private fun rememberNotificationIconBitmap(packageName: String?): ImageBitmap? {
     }
 }
 
-/**
- * Symmetric group padding between icons only — no extra inset on the first/last slot so the
- * clock (usually rightmost) sits flush against the tray end padding.
- */
-internal fun Modifier.trayGroupEdgePadding(index: Int, count: Int): Modifier {
-    if (count <= 0) return this
-    val pad = TraySpec.ICON_GROUP_PADDING_DP.dp
-    return padding(
-        start = if (index <= 0) 0.dp else pad,
-        end = if (index >= count - 1) 0.dp else pad,
-    )
-}
 
 /**
  * One tray group glyph (network cluster, Wi-Fi, battery, clock, …). Shared by the live

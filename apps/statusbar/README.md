@@ -28,9 +28,10 @@ contrast), or **Show accent color** (always the system accent). **Hide icons aft
 (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never** (stay
 expanded; WP default 5s). **configure statusbar** opens **configure**: a centered live-looking
 tray preview with accent drag thumbs sticking out under each enabled icon (and any spacers).
-Drag thumbs to rearrange; **add spacer** at the bottom of the page inserts a blank slot
-(multiple allowed; tap a spacer thumb to remove). Subtext: *You can use spacers to cover the
-notch and active mic areas.* Layout order and spacers persist and drive the live overlay.
+Drag thumbs to rearrange; **add spacer** / **add tiny spacer** at the bottom insert blank slots
+(40dp / 16dp; multiple allowed; tap a spacer thumb to remove). Spacers after the last icon stay
+visible when icons auto-hide. Subtext: *You can use spacers to cover the notch and active mic
+areas.* Layout order and spacers persist and drive the live overlay.
 Boot
 auto-starts only when that toggle is on and permissions are granted. Per-app tray styling goes
 through `MetroStatusBar` in `metro-system-sdk`.
@@ -92,7 +93,7 @@ It does not host Action Center, toasts, or a notification shade.
 ### 1. Collapsed tray
 
 - Default resting state
-- Rightmost layout icon only (usually clock), trailing-aligned; all other groups hidden
+- Rightmost layout icon (usually clock) trailing-aligned, plus any spacers after that icon (with group padding); all other groups hidden
 - Overlay window is sized to the full system status-bar inset (incl. notch/cutout) so the Android bar is fully covered
 - Horizontal padding uses physical safe edges: display-cutout / waterfall insets and top rounded-corner chords (API 31+) — so icons are not clipped on heavily rounded screens
 - When Android privacy dots (camera / mic / location) appear near the trailing edge, content animates a small end nudge left (200ms); the tray stays opaque and the system dots paint on top
@@ -101,7 +102,7 @@ It does not host Action Center, toasts, or a notification shade.
 ### 2. Expanded tray
 
 - Triggered by tap on tray or returning home / Start
-- All enabled groups freely justify across the tray (`SpaceBetween`) with uniform group padding
+- All enabled groups freely justify across the tray (`SpaceBetween`)
 - Indicators drop in one-by-one from above, left → right
 - Hold fully visible for 3, 5, or 10 seconds (setup ListPicker; default 5s), or **Never** (stay expanded); timed options then exit upward one-by-one (same L→R order) until only the rightmost remains
 - Expected reference: `references/images/expanded_dark.png`
@@ -124,7 +125,7 @@ It does not host Action Center, toasts, or a notification shade.
 ### Time and indicator state
 
 - Clock updates every minute with zero visible layout jump
-- Default layout order L→R: network (cellular + data), Wi-Fi, mute, notifications, hotspot, Bluetooth audio, battery, clock — freely justified with uniform group padding
+- Default layout order L→R: network (cellular + data), Wi-Fi, mute, notifications, hotspot, Bluetooth audio, battery, clock — freely justified across the tray
 - Cellular bars, data label, Wi-Fi arcs, and battery use device telemetry
 
 ### Theme and app integration

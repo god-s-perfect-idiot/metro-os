@@ -2,6 +2,7 @@ package com.metro.statusbar
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class TrayLayoutTest {
@@ -71,21 +72,72 @@ class TrayLayoutTest {
     }
 
     @Test
-    fun maxSpacers_oneWhenAllIconsEnabled_growsAsIconsDisabled() {
+    fun addTinySpacer_usesCompactWidth() {
+        val flags = TrayIconFlags()
+        val withTiny = TrayLayout.addSpacer(
+            TrayLayout.DEFAULT,
+            flags,
+            widthDp = TrayLayout.TINY_SPACER_WIDTH_DP,
+        )
+        val spacer = withTiny.last() as TrayLayoutSlot.Spacer
+        assertEquals(TrayLayout.TINY_SPACER_WIDTH_DP, spacer.widthDp)
+    }
+
+    @Test
+    fun isTrailingSpacer_onlyAfterRightmostIcon() {
+        val slots = listOf(
+            TrayLayoutSlot.Spacer(id = "lead"),
+            TrayLayoutSlot.Icon(TrayLayoutIcon.Network),
+            TrayLayoutSlot.Icon(TrayLayoutIcon.Clock),
+            TrayLayoutSlot.Spacer(id = "tail"),
+        )
+        assertFalse(TrayLayout.isTrailingSpacer(slots, 0))
+        assertFalse(TrayLayout.isTrailingSpacer(slots, 1))
+        assertFalse(TrayLayout.isTrailingSpacer(slots, 2))
+        assertTrue(TrayLayout.isTrailingSpacer(slots, 3))
+        assertEquals(listOf(0, 1, 2), TrayLayout.justifiedIndices(slots))
+        assertEquals(listOf(3), TrayLayout.trailingSpacerIndices(slots))
+    }
+
+    @Test
+    fun maxSpacers_growsWhenIconsDisabled() {
         val allOn = TrayIconFlags()
-        assertEquals(1, TrayLayout.maxSpacers(allOn))
-        assertTrue(TrayLayout.canAddSpacer(TrayLayout.DEFAULT, allOn))
+        val withAll = TrayLayout.maxSpacers(allOn)
+        assertTrue(withAll >= 1)
+
         val oneSpacer = TrayLayout.addSpacer(TrayLayout.DEFAULT, allOn)
         assertEquals(1, TrayLayout.spacerCount(oneSpacer))
-        assertTrue(!TrayLayout.canAddSpacer(oneSpacer, allOn))
-        assertEquals(oneSpacer, TrayLayout.addSpacer(oneSpacer, allOn))
 
         val oneOff = allOn.copy(wifi = false)
-        assertEquals(2, TrayLayout.maxSpacers(oneOff))
-        assertTrue(TrayLayout.canAddSpacer(oneSpacer, oneOff))
+        assertTrue(TrayLayout.maxSpacers(oneOff) >= TrayLayout.maxSpacers(allOn))
+    }
 
-        val threeOff = allOn.copy(wifi = false, mute = false, hotspot = false)
-        assertEquals(TrayLayout.MAX_SPACERS, TrayLayout.maxSpacers(threeOff))
+    @Test
+    fun canAddSpacer_onlyBlockedWhenNextWouldFold() {
+        val flags = TrayIconFlags()
+        assertFalse(
+            TrayLayout.canAddSpacer(
+                slots = TrayLayout.DEFAULT,
+                flags = flags,
+                availableWidthDp = 200,
+            ),
+        )
+        var slots = TrayLayout.DEFAULT
+        repeat(3) {
+            assertTrue(
+                TrayLayout.canAddSpacer(
+                    slots = slots,
+                    flags = flags,
+                    availableWidthDp = 500,
+                ),
+            )
+            slots = TrayLayout.addSpacer(
+                slots = slots,
+                flags = flags,
+                availableWidthDp = 500,
+            )
+        }
+        assertEquals(3, TrayLayout.spacerCount(slots))
     }
 
     @Test
@@ -100,12 +152,26 @@ class TrayLayoutTest {
             battery = true,
         )
         var slots = TrayLayout.DEFAULT
-        repeat(TrayLayout.MAX_SPACERS) {
-            slots = TrayLayout.addSpacer(slots, fewIcons)
+        repeat(4) {
+            slots = TrayLayout.addSpacer(
+                slots = slots,
+                flags = fewIcons,
+                availableWidthDp = 500,
+            )
         }
-        assertEquals(TrayLayout.MAX_SPACERS, TrayLayout.spacerCount(slots))
+        assertEquals(4, TrayLayout.spacerCount(slots))
         val trimmed = TrayLayout.trimSpacersToMax(slots, TrayIconFlags())
-        assertEquals(1, TrayLayout.spacerCount(trimmed))
+        assertTrue(TrayLayout.spacerCount(trimmed) < 4)
+        assertTrue(
+            TrayLayout.spacerCount(trimmed) <= TrayLayout.maxSpacers(TrayIconFlags()),
+        )
+    }
+
+    @Test
+    fun wouldFold_trueWhenContentExceedsWidth() {
+        val slots = TrayLayout.DEFAULT
+        assertFalse(TrayLayout.wouldFold(slots, availableWidthDp = 500))
+        assertTrue(TrayLayout.wouldFold(slots, availableWidthDp = 100))
     }
 
     @Test

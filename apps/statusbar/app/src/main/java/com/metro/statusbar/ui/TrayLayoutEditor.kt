@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -83,6 +85,7 @@ fun TrayLayoutEditor(
     var slotCenters by remember { mutableStateOf<List<Float>>(emptyList()) }
     var dragSlotId by remember { mutableStateOf<String?>(null) }
     var dragFingerX by remember { mutableFloatStateOf(0f) }
+    var editorWidthPx by remember { mutableIntStateOf(0) }
     // After a live swap, freeze until StatusTray republishes centers so we don't
     // cascade multiple shifts on stale geometry.
     var centersFreeze by remember { mutableStateOf<List<Float>?>(null) }
@@ -91,13 +94,19 @@ fun TrayLayoutEditor(
     val onChangeRef = rememberUpdatedState(onSlotsChange)
     val centersRef = rememberUpdatedState(slotCenters)
 
+    fun clampOverlayX(centerX: Float, overlayWidthPx: Float): Float {
+        val maxX = (editorWidthPx - overlayWidthPx).coerceAtLeast(0f)
+        return (centerX - overlayWidthPx / 2f).coerceIn(0f, maxX)
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(
                 DeleteButtonSize + DeleteGap +
                     TraySpec.TRAY_HEIGHT_DP.dp + ThumbGap + ThumbTotalHeight,
-            ),
+            )
+            .onSizeChanged { editorWidthPx = it.width },
     ) {
         TrayPreview(
             flags = iconFlags,
@@ -126,7 +135,8 @@ fun TrayLayoutEditor(
                             .zIndex(if (isDragging) 2f else 1f)
                             .offset {
                                 IntOffset(
-                                    x = (thumbCenterX - deleteButtonSizePx / 2f).roundToInt(),
+                                    x = clampOverlayX(thumbCenterX, deleteButtonSizePx)
+                                        .roundToInt(),
                                     y = 0,
                                 )
                             }
@@ -152,7 +162,7 @@ fun TrayLayoutEditor(
                         .zIndex(if (isDragging) 2f else 0f)
                         .offset {
                             IntOffset(
-                                x = (thumbCenterX - thumbHitWidthPx / 2f).roundToInt(),
+                                x = clampOverlayX(thumbCenterX, thumbHitWidthPx).roundToInt(),
                                 y = thumbTopPx.roundToInt(),
                             )
                         }

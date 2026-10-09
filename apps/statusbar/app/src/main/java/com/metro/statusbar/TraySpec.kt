@@ -24,11 +24,10 @@ object TraySpec {
     /** Gap between cellular signal bars and the data connection label (4G, 5G, …). */
     const val CELLULAR_DATA_LABEL_GAP_DP = 2
     /**
-     * Symmetric horizontal padding applied between tray groups (not on the outer edges).
-     * Edge groups sit flush against [START_PADDING_DP] / [END_PADDING_DP] so the clock
-     * does not pick up an extra trailing inset.
+     * Conservative tray content width (after side insets) used to budget spacers when a
+     * measured width is unavailable. Only the folding budget caps spacer count.
      */
-    const val ICON_GROUP_PADDING_DP = 4
+    const val DEFAULT_CONTENT_WIDTH_DP = 340
     /** Per-icon slide duration when dropping in or exiting upward. */
     const val EXPAND_ANIMATION_MS = 200L
     const val COLLAPSE_ANIMATION_MS = 200L
