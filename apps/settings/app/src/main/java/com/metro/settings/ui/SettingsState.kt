@@ -13,11 +13,13 @@ import androidx.compose.ui.graphics.Color
 import com.metro.settings.data.ApplicationsBridge
 import com.metro.settings.data.InstalledAppEntry
 import com.metro.settings.data.SystemSettingsBridge
+import com.metro.settings.R
 import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStartBackground
 import com.metro.system.MetroTypeface
+import com.metro.system.MetroUninstallResult
 
 enum class SettingsRoute {
     Root,
@@ -123,6 +125,10 @@ class SettingsState(
         private set
 
     var showUninstallConfirm by mutableStateOf(false)
+        private set
+
+    /** One-shot Metro toast after uninstall (success or failure). */
+    var uninstallToastMessage by mutableStateOf<String?>(null)
         private set
 
     var galleryAppPackages by mutableStateOf(prefs.galleryAppPackages)
@@ -311,9 +317,32 @@ class SettingsState(
     }
 
     fun confirmUninstallSelectedApp() {
-        val pkg = selectedApp?.packageName ?: return
+        val app = selectedApp ?: return
+        if (!app.canUninstall) return
         showUninstallConfirm = false
-        applications.requestUninstall(pkg)
+        val label = app.title
+        applications.requestUninstall(app.packageName) { result ->
+            when (result) {
+                is MetroUninstallResult.Success -> {
+                    uninstallToastMessage =
+                        appContext.getString(R.string.settings_app_uninstall_done_toast, label)
+                    selectedApp = null
+                    showUninstallConfirm = false
+                    rootPivot = PIVOT_APPLICATIONS
+                    route = SettingsRoute.Root
+                    refreshSystemReads()
+                }
+                is MetroUninstallResult.Failed -> {
+                    uninstallToastMessage =
+                        appContext.getString(R.string.settings_app_uninstall_failed_toast, label)
+                }
+                is MetroUninstallResult.Cancelled -> Unit
+            }
+        }
+    }
+
+    fun consumeUninstallToast() {
+        uninstallToastMessage = null
     }
 
     fun applyGalleryAppPackages(packages: Set<String>) {

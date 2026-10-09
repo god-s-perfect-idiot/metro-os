@@ -4,8 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.net.Uri
 import com.metro.system.MetroAppDiscovery
+import com.metro.system.MetroPackageUninstaller
+import com.metro.system.MetroUninstallResult
 import java.io.File
 
 /**
@@ -92,12 +93,11 @@ class ApplicationsBridge(context: Context) {
         return toEntry(packageName, label, isSystem, selfPackageName)
     }
 
-    fun requestUninstall(packageName: String) {
-        if (packageName == appContext.packageName) return
-        val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        appContext.startActivity(intent)
+    fun requestUninstall(
+        packageName: String,
+        onResult: (MetroUninstallResult) -> Unit,
+    ) {
+        MetroPackageUninstaller.uninstall(appContext, packageName, onResult)
     }
 
     fun launchApp(packageName: String) {

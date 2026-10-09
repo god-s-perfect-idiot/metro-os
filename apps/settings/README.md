@@ -86,7 +86,7 @@ cd apps/settings
 | Full system settings list | Large OEM surface | v1 implements personalization + brightness, storage, shell setup launches, keyboard, about + applications pivot |
 | Applications hubs (IE, photos+camera, …) live inside Settings | Suite apps lack per-app hubs | Shared application detail page for every launchable package |
 | OS notification / background kill for other packages | Privileged AppOps | Toggles store metro-os `metro_app_policy` prefs; suite enforcement when agents exist |
-| Uninstall confirmation | Package installer is a system activity | `MetroMessageDialog` then `ACTION_DELETE` (same as launcher); not Android Settings |
+| Uninstall is MessageBox then done (no stock UI) | Ordinary sideload installs still need the stock confirm step (no `DELETE_PACKAGES`) | `MetroMessageDialog` → `MetroPackageUninstaller` (silent when privileged; else PackageInstaller confirm) → `MetroToast` on success |
 | start+theme Background ListPicker | Deferred | Theme stays dark (`theme_mode` default); UI matches Accent colour combo only |
 | Icon packs on Start | WP8.1 had no third-party icon packs | Settings → start+theme Icon pack ListPicker drills into `MetroIconPackPickerScreen`; launcher applies via `MetroIconPacks` / `appfilter.xml` |
 | Icon packs on Start | WP8.1 had no third-party icon packs | Settings → start+theme Icon pack ListPicker drills into `MetroIconPackPickerScreen`; launcher applies via `MetroIconPacks` / `appfilter.xml` |

@@ -77,11 +77,11 @@ fun AppDetailScreen(
 
     if (state.showUninstallConfirm) {
         MetroMessageDialog(
-            title = stringResource(R.string.settings_app_uninstall_title),
-            body = stringResource(R.string.settings_app_uninstall_body, app.title),
-            confirmLabel = stringResource(R.string.settings_app_uninstall),
+            title = stringResource(R.string.settings_app_uninstall_title, app.title),
+            body = stringResource(R.string.settings_app_uninstall_body),
+            confirmLabel = stringResource(R.string.settings_app_uninstall_yes),
             onConfirm = state::confirmUninstallSelectedApp,
-            dismissLabel = stringResource(R.string.settings_app_uninstall_cancel),
+            dismissLabel = stringResource(R.string.settings_app_uninstall_no),
             onDismissRequest = state::dismissUninstallConfirm,
         )
     }

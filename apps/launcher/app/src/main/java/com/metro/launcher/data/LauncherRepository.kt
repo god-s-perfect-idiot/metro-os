@@ -1,28 +1,24 @@
 package com.metro.launcher.data
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
-import com.metro.launcher.data.AppLauncherOption
-import com.metro.launcher.data.AppLauncherOptions
+import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppDiscovery
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroIntents
+import com.metro.system.MetroPackageUninstaller
+import com.metro.system.MetroPreferences
+import com.metro.system.MetroStartBackground
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileData
 import com.metro.system.MetroTilePhotoGrid
 import com.metro.system.MetroTileWidgetFace
 import com.metro.system.MetroTileWidgetFaceKind
-import com.metro.launcher.data.adaptTilesToColumnCount
-import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT
-import com.metro.system.MetroAppBranding
-import com.metro.system.MetroPreferences
-import com.metro.system.MetroStartBackground
-import com.metro.launcher.data.CustomTileBranding
+import com.metro.system.MetroUninstallResult
 import com.metro.ui.MetroActivities
 
 data class DisplayTile(
@@ -135,13 +131,12 @@ class LauncherRepository(private val context: Context) {
     fun launchAppOption(option: AppLauncherOption, launchContext: Context = context) =
         AppLauncherOptions.launch(launchContext, option)
 
-    fun requestUninstall(hostContext: Context, packageName: String) {
-        if (packageName == hostContext.packageName) return
-        val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
-        if (hostContext !is Activity) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        hostContext.startActivity(intent)
+    fun requestUninstall(
+        hostContext: Context,
+        packageName: String,
+        onResult: (MetroUninstallResult) -> Unit,
+    ) {
+        MetroPackageUninstaller.uninstall(hostContext, packageName, onResult)
     }
 
     fun launchApp(

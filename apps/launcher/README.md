@@ -183,7 +183,7 @@ cd apps/launcher
 | Wide tiles were limited in WP8.1 device/OEM contexts | Device support varies and may not be worth shipping in v1 | Keep wide tiles behind `BuildConfig.WIDE_TILES`, default off |
 | Xbox Music live tile was display-only (art / visualization) | Android Start needs MediaSession transport for play/pause on-tile | Album art + metadata match Xbox Music; 1×1 / medium / wide expose Metro transport controls via the active session |
 | No third-party icon packs | Android themes advertise ADW/GO/Nova intents | Settings → start+theme Icon pack; launcher reads `appfilter.xml` via `MetroIconPacks` |
-| No third-party icon packs | Android themes advertise ADW/GO/Nova intents | Settings → start+theme Icon pack; launcher reads `appfilter.xml` via `MetroIconPacks` |
+| Uninstall is MessageBox then done (no stock UI) | Ordinary sideload installs still need the stock confirm step (no `DELETE_PACKAGES`) | `MetroMessageDialog` → `MetroPackageUninstaller` (silent when privileged; else PackageInstaller confirm) → `MetroToast` on success |
 
 ## Agent postmortem
 

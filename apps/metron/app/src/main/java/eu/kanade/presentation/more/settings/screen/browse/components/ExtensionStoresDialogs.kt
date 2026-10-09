@@ -47,10 +47,9 @@ fun ExtensionStoreCreateDialog(
                 MR.strings.action_add
             },
         ).lowercase(),
+        confirmEnabled = canCreate,
         onConfirm = {
-            if (canCreate) {
-                onCreate(url)
-            }
+            onCreate(url)
         },
         dismissLabel = stringResource(MR.strings.action_cancel).lowercase(),
         content = {
@@ -143,11 +142,8 @@ fun ExtensionStoreConfirmDialog(
                 MR.strings.action_add
             },
         ).lowercase(),
-        onConfirm = {
-            if (!storeAlreadyExists && !processing) {
-                onCreate()
-            }
-        },
+        confirmEnabled = !storeAlreadyExists && !processing,
+        onConfirm = onCreate,
         dismissLabel = stringResource(MR.strings.action_cancel).lowercase(),
         content = {
             MetroTextBox(

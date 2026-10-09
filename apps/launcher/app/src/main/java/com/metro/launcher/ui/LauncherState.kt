@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import com.metro.launcher.BuildConfig
+import com.metro.launcher.R
 import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.CustomTileBranding
 import com.metro.launcher.data.DisplayTile
@@ -55,6 +56,7 @@ import com.metro.system.MetroThemeMode
 import com.metro.system.MetroTypeface
 import com.metro.system.MetroTileContract
 import com.metro.system.MetroTileWidgetFaceKind
+import com.metro.system.MetroUninstallResult
 import com.metro.ui.MetroAppPickerEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -184,6 +186,12 @@ class LauncherState(context: Context) {
     private var pendingWidgetBindEntryKey: TileKey? = null
     private var pendingWidgetBindId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
     var showNotificationAccessPrompt by mutableStateOf(false)
+    /** App awaiting Metro uninstall confirmation from the app-list context menu. */
+    var pendingUninstallApp by mutableStateOf<MetroAppInfo?>(null)
+        private set
+    /** One-shot Metro toast after uninstall (success or failure). */
+    var uninstallToastMessage by mutableStateOf<String?>(null)
+        private set
     /** Non-null while Start is playing the system-wide splash open for a package. */
     var appOpenSplash by mutableStateOf<AppOpenSplashRequest?>(null)
         private set
@@ -1193,10 +1201,38 @@ class LauncherState(context: Context) {
 
     fun uninstallApp(app: MetroAppInfo) {
         if (app.isSystemApp) return
+        pendingUninstallApp = app
+    }
+
+    fun dismissUninstallConfirm() {
+        pendingUninstallApp = null
+    }
+
+    fun confirmUninstallApp() {
+        val app = pendingUninstallApp ?: return
+        pendingUninstallApp = null
+        if (app.isSystemApp) return
         pinnedEntries
             .filter { it.packageName == app.packageName }
             .forEach { unpinTile(it) }
-        repository.requestUninstall(hostContext, app.packageName)
+        repository.requestUninstall(hostContext, app.packageName) { result ->
+            when (result) {
+                is MetroUninstallResult.Success -> {
+                    uninstallToastMessage =
+                        hostContext.getString(R.string.uninstall_done_toast, app.label)
+                    refreshAll()
+                }
+                is MetroUninstallResult.Failed -> {
+                    uninstallToastMessage =
+                        hostContext.getString(R.string.uninstall_failed_toast, app.label)
+                }
+                is MetroUninstallResult.Cancelled -> Unit
+            }
+        }
+    }
+
+    fun consumeUninstallToast() {
+        uninstallToastMessage = null
     }
 
     suspend fun queryAppOptions(packageName: String): List<AppLauncherOption> =

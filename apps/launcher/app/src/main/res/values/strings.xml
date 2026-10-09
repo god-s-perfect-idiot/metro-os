@@ -31,4 +31,10 @@
     <string name="tile_customize_widget_empty">This app has no Android widgets.</string>
     <string name="tile_customize_save">save</string>
     <string name="tile_customize_close">close</string>
+    <string name="uninstall_title">Uninstall %1$s?</string>
+    <string name="uninstall_body">This app, as well as data and supporting files for the app, will be deleted. Are you sure you want to uninstall it?</string>
+    <string name="uninstall_yes">yes</string>
+    <string name="uninstall_no">no</string>
+    <string name="uninstall_done_toast">%1$s was uninstalled.</string>
+    <string name="uninstall_failed_toast">Couldn\'t uninstall %1$s.</string>
 </resources>

@@ -18,9 +18,12 @@
     <string name="settings_app_notifications_help">Stores a metro-os preference for this app. Suite apps honor it when posting notifications.</string>
     <string name="settings_app_open">open</string>
     <string name="settings_app_uninstall">uninstall</string>
-    <string name="settings_app_uninstall_title">uninstall app?</string>
-    <string name="settings_app_uninstall_body">Do you want to uninstall %1$s?</string>
-    <string name="settings_app_uninstall_cancel">cancel</string>
+    <string name="settings_app_uninstall_title">Uninstall %1$s?</string>
+    <string name="settings_app_uninstall_body">This app, as well as data and supporting files for the app, will be deleted. Are you sure you want to uninstall it?</string>
+    <string name="settings_app_uninstall_yes">yes</string>
+    <string name="settings_app_uninstall_no">no</string>
+    <string name="settings_app_uninstall_done_toast">%1$s was uninstalled.</string>
+    <string name="settings_app_uninstall_failed_toast">Couldn\'t uninstall %1$s.</string>
     <string name="settings_app_uninstall_blocked">System apps can\'t be uninstalled.</string>
     <string name="settings_start_theme">start+theme</string>
     <string name="settings_ease_of_access">ease of access</string>

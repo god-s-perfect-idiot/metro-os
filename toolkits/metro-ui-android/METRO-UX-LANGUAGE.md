@@ -467,16 +467,18 @@ Full-page await surface — use whenever a page is blocked on async work (> 500m
 
 ### 6.15 Message dialog (`MetroMessageDialog`)
 
-WP8.1 MessageBox — top strip confirmation (reset phone, delete, add store, etc.). Not a centered card.
+WP8.1 MessageBox — top strip confirmation (uninstall, reset phone, delete, add store, etc.). Not a centered card.
 
 | Property | Spec |
 |----------|------|
-| Panel | **Top-anchored**, **full width**, **0dp** corners, secondary surface background (`#1F1F1F` dark) |
-| Title | 24sp |
-| Body | 16sp |
-| Buttons | Equal-width outlined row spanning the panel — affirmative left, cancel right (dialog-only stretch; in-page `MetroBorderButton` still hugs label) |
+| Panel | **Top-anchored** below the status bar, **full width**, **0dp** corners, theme **background** (`#000000` dark / white light) so it reads as the WP MessageBox strip |
+| Title | 24sp Regular, primary foreground (sentence case OK — do not force lowercase) |
+| Body | 16sp Regular, primary foreground |
+| Buttons | Equal-width outlined row spanning the panel — affirmative (**yes** / **ok**) left, dismissive (**no** / **cancel**) right (dialog-only stretch; in-page `MetroBorderButton` still hugs label). Labels render lowercase. |
 | Scrim | `#80000000` over page; tap dismisses |
-| Entry / exit | Perspective `rotationX` flip 90° ↔ 0° (300ms, same camera sizing as toast) — no Material bottom sheet |
+| Entry / exit | Perspective `rotationX` flip 90° ↔ 0° (300ms, same camera sizing as toast) on enter **and** every dismiss path (scrim, back, all action buttons) — no Material bottom sheet |
+
+**Agent rule:** Destructive / binary confirms (uninstall, delete, reset) use **yes** / **no**. Prefer this shared dialog over per-app popups or Android `AlertDialog`.
 
 ---
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
@@ -49,11 +50,13 @@ private const val MessageDialogFlipCameraWidthFactor = 0.9f
 private const val MessageDialogFlipCameraDefaultInches = 8f
 
 /**
- * WP8.1 message dialog — top-anchored full-width panel, 0dp corners (METRO-UX-LANGUAGE §6.15).
+ * WP8.1 message dialog — top-anchored full-width panel below the status bar, 0dp corners
+ * (METRO-UX-LANGUAGE §6.15). Matches WP MessageBox / CustomMessageBox confirmations
+ * (title + body + equal-width outlined yes/no).
  *
- * Enters with a perspective `rotationX` flip (90° → 0°); dismiss flips out then invokes
- * [onDismissRequest]. Affirmative action is leftmost; cancel/dismiss is rightmost. Action
- * buttons share the panel width equally.
+ * Enters with a perspective `rotationX` flip (90° → 0°); every dismiss path (scrim, back,
+ * action buttons) flips out before invoking the matching callback. Affirmative action is
+ * leftmost; cancel/dismiss is rightmost. Action buttons share the panel width equally.
  */
 @Composable
 fun MetroMessageDialog(
@@ -63,10 +66,12 @@ fun MetroMessageDialog(
     body: String? = null,
     confirmLabel: String? = null,
     onConfirm: (() -> Unit)? = null,
+    confirmEnabled: Boolean = true,
     dismissLabel: String? = null,
     onDismiss: (() -> Unit)? = null,
     neutralLabel: String? = null,
     onNeutral: (() -> Unit)? = null,
+    neutralEnabled: Boolean = true,
     content: (@Composable () -> Unit)? = null,
 ) {
     var exiting by remember { mutableStateOf(false) }
@@ -99,11 +104,12 @@ fun MetroMessageDialog(
             MessageDialogFlip(
                 exiting = exiting,
                 onExitComplete = { exitActionRef[0]() },
+                modifier = Modifier.statusBarsPadding(),
             ) {
                 Column(
                     modifier = modifier
                         .fillMaxWidth()
-                        .background(MetroTheme.colors.secondarySurface, RectangleShape)
+                        .background(MetroTheme.colors.background, RectangleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -134,18 +140,38 @@ fun MetroMessageDialog(
                             content()
                         }
                     }
+                    data class DialogAction(
+                        val label: String,
+                        val onClick: () -> Unit,
+                        val enabled: Boolean = true,
+                    )
                     val buttons = buildList {
                         if (!confirmLabel.isNullOrBlank() && onConfirm != null) {
-                            add(confirmLabel.lowercase() to onConfirm)
+                            add(
+                                DialogAction(
+                                    label = confirmLabel.lowercase(),
+                                    onClick = { requestExit(onConfirm) },
+                                    enabled = confirmEnabled,
+                                ),
+                            )
                         }
                         if (!neutralLabel.isNullOrBlank() && onNeutral != null) {
-                            add(neutralLabel.lowercase() to onNeutral)
+                            add(
+                                DialogAction(
+                                    label = neutralLabel.lowercase(),
+                                    onClick = { requestExit(onNeutral) },
+                                    enabled = neutralEnabled,
+                                ),
+                            )
                         }
                         if (!dismissLabel.isNullOrBlank()) {
                             add(
-                                dismissLabel.lowercase() to {
-                                    requestExit(onDismiss ?: onDismissRequest)
-                                },
+                                DialogAction(
+                                    label = dismissLabel.lowercase(),
+                                    onClick = {
+                                        requestExit(onDismiss ?: onDismissRequest)
+                                    },
+                                ),
                             )
                         }
                     }
@@ -157,10 +183,11 @@ fun MetroMessageDialog(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             val shareWidth = buttons.size > 1
-                            buttons.forEach { (label, onClick) ->
+                            buttons.forEach { action ->
                                 MessageDialogBorderButton(
-                                    text = label,
-                                    onClick = onClick,
+                                    text = action.label,
+                                    onClick = action.onClick,
+                                    enabled = action.enabled,
                                     modifier = if (shareWidth) Modifier.weight(1f) else Modifier,
                                 )
                             }
@@ -268,9 +295,9 @@ private fun messageDialogFlipCameraInches(widthPx: Float): Float {
 private fun MetroMessageDialogPreview() {
     MetroTheme(darkTheme = true) {
         MetroMessageDialog(
-            title = "warning!",
-            body = "Resetting your phone will erase all your personal content, " +
-                "apps and settings. It can't be undone.",
+            title = "Uninstall selected apps?",
+            body = "The selected apps, as well as data and supporting files for the apps, " +
+                "will be deleted. Are you sure you want to uninstall them?",
             confirmLabel = "yes",
             onConfirm = {},
             dismissLabel = "no",

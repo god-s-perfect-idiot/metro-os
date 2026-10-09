@@ -42,11 +42,10 @@ fun CategoryCreateDialog(
         title = stringResource(MR.strings.action_add_category).lowercase(),
         onDismissRequest = onDismissRequest,
         confirmLabel = stringResource(MR.strings.action_add).lowercase(),
+        confirmEnabled = canCreate,
         onConfirm = {
-            if (canCreate) {
-                onCreate(name)
-                onDismissRequest()
-            }
+            onCreate(name)
+            onDismissRequest()
         },
         dismissLabel = stringResource(MR.strings.action_cancel).lowercase(),
         content = {

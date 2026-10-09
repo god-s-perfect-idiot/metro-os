@@ -63,13 +63,16 @@ import com.metro.ui.MetroAppGlyphs
 import com.metro.ui.MetroAppOpenSplash
 import com.metro.ui.MetroAppPickerScreen
 import com.metro.ui.MetroLoadingScreen
+import com.metro.ui.MetroMessageDialog
 import com.metro.ui.MetroPagePivotLoad
 import com.metro.ui.MetroSplashLoadingScreen
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
+import com.metro.ui.MetroToastHost
 import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
 import com.metro.ui.metroPagePivotCameraDistance
+import com.metro.ui.rememberMetroToastController
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -471,6 +474,29 @@ fun LauncherShell(
                 state.clearAppOpenSplash()
             }
         }
+
+        val pendingUninstall = state.pendingUninstallApp
+        if (pendingUninstall != null) {
+            MetroMessageDialog(
+                title = stringResource(R.string.uninstall_title, pendingUninstall.label),
+                body = stringResource(R.string.uninstall_body),
+                confirmLabel = stringResource(R.string.uninstall_yes),
+                onConfirm = state::confirmUninstallApp,
+                dismissLabel = stringResource(R.string.uninstall_no),
+                onDismissRequest = state::dismissUninstallConfirm,
+            )
+        }
+
+        val uninstallToast = rememberMetroToastController()
+        LaunchedEffect(state.uninstallToastMessage) {
+            val message = state.uninstallToastMessage ?: return@LaunchedEffect
+            uninstallToast.show(message)
+            state.consumeUninstallToast()
+        }
+        MetroToastHost(
+            controller = uninstallToast,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
     }
 }
 

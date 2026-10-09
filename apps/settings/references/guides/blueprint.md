@@ -34,8 +34,8 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   - **Allow app to run in the background** (`MetroToggleSwitch`)
   - **Notifications** (`MetroToggleSwitch`)
   Then border buttons: `open` (launches the app), `uninstall` (user apps only). System / suite-protected apps show helper text instead of uninstall.
-- **Navigation:** Back → applications pivot (root). After uninstall, returning from the package installer refreshes the list; missing package pops to applications.
-- **Interactions:** Toggles write Settings-owned `metro_app_policy` prefs per package. Uninstall shows `MetroMessageDialog` then `ACTION_DELETE` (system package installer UI — not Android Settings). Never open Android Settings.
+- **Navigation:** Back → applications pivot (root). After a successful silent uninstall, detail pops to applications and the list refreshes.
+- **Interactions:** Toggles write Settings-owned `metro_app_policy` prefs per package. Uninstall shows `MetroMessageDialog`, then silent remove via `MetroPackageUninstaller` + `MetroToast` (no stock package-installer UI). Never open Android Settings.
 - **Background:** Theme background.
 - **Reference gap:** `applications_detail_dark.png` — see known-gaps.
 
@@ -159,4 +159,4 @@ Missing device captures for root / brightness / storage / extras+info → see [`
 - Sync my settings / Microsoft account
 - In-Settings application hubs (IE advanced, photos+camera auto-upload, people filter options, …) — applications pivot uses a shared app-detail page for all launchable packages
 - OS-level notification / background enforcement for third-party apps (requires privileged AppOps); toggles persist metro-os policy prefs
-- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard`, `com.metro.navbar`, `com.metro.statusbar`, `com.metro.notifications`, `com.metro.volume`, and `com.metro.lockscreen` are allowed; package installer uninstall UI is allowed)
+- Launching the Android Settings app from any Settings page (suite apps such as `com.metro.keyboard`, `com.metro.navbar`, `com.metro.statusbar`, `com.metro.notifications`, `com.metro.volume`, and `com.metro.lockscreen` are allowed). Stock package-installer uninstall UI is not used.
