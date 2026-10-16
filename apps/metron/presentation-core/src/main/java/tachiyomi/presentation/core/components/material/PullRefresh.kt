@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
  * @param onRefresh Lambda which is invoked when a swipe to refresh gesture is completed.
  * @param enabled Whether the the layout should react to swipe gestures or not.
  * @param indicatorPadding Content padding for the indicator, to inset the indicator in if required.
+ * @param showIndicator When false, keeps the pull gesture but hides the Material circle (host draws its own loader).
  * @param content The content containing a vertically scrollable composable.
  */
 @Composable
@@ -26,6 +27,7 @@ fun PullRefresh(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     indicatorPadding: PaddingValues = PaddingValues(0.dp),
+    showIndicator: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val state = rememberPullToRefreshState()
@@ -40,14 +42,16 @@ fun PullRefresh(
     ) {
         content()
 
-        PullToRefreshDefaults.Indicator(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(indicatorPadding),
-            isRefreshing = refreshing,
-            state = state,
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (showIndicator) {
+            PullToRefreshDefaults.Indicator(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(indicatorPadding),
+                isRefreshing = refreshing,
+                state = state,
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

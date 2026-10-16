@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +20,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -41,6 +46,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metro.launcher.R
 import com.metro.launcher.data.DisplayTile
@@ -49,8 +55,11 @@ import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileBackgroundMode
 import com.metro.launcher.data.TileCustomIcon
 import com.metro.launcher.data.TileWidgetOption
+import com.metro.launcher.data.resolvedIconPackage
 import com.metro.launcher.data.supportsCustomWidget
 import com.metro.system.MetroAccentPalette
+import com.metro.system.MetroIconPackInfo
+import com.metro.system.MetroIconPacks
 import com.metro.system.MetroPreferences
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
@@ -73,6 +82,10 @@ private val TileIconThumbSize = 108.dp
 
 private val TileIconPlaceholderGray = Color(0xFF6E6E6E)
 
+/** Icon-pack picker grid — same density as Start / accents (4 columns, 8dp gaps). */
+private const val IconPackGridColumns = 4
+private val IconPackGridGap = 8.dp
+
 /**
  * Draft values for the tile customize page — applied only when Save is tapped.
  */
@@ -81,6 +94,11 @@ data class TileCustomizeDraft(
     val customBackgroundHex: String?,
     val launchTargetPackage: String?,
     val useCustomIcon: Boolean,
+    /**
+     * Per-tile icon pack. Null = follow suite global; blank = force system icons;
+     * otherwise that pack package name.
+     */
+    val iconPackPackage: String?,
     val iconScale: Float,
     val customTitle: String,
     val hideTitle: Boolean,
@@ -212,7 +230,13 @@ fun TileCustomizeScreen(
                 draftRevealsWindow = draftRevealsWindow,
                 draftTileFill = draftTileFill,
             )
-            else -> TilesCustomizePage()
+            else -> TilesCustomizePage(
+                tile = tile,
+                draft = draft,
+                onDraftChange = onDraftChange,
+                draftRevealsWindow = draftRevealsWindow,
+                draftTileFill = draftTileFill,
+            )
         }
     }
 }
@@ -566,21 +590,244 @@ private fun WidgetsCustomizePage(
     }
 }
 
+/**
+ * Per-tile icon-pack picker: each cell is a Start-sized preview of this pin under that pack.
+ * Selection updates the customize draft (applied on Save) — not the suite-wide preference.
+ */
 @Composable
-private fun TilesCustomizePage() {
-    Box(
+private fun TilesCustomizePage(
+    tile: DisplayTile,
+    draft: TileCustomizeDraft,
+    onDraftChange: (TileCustomizeDraft) -> Unit,
+    draftRevealsWindow: Boolean,
+    draftTileFill: Color,
+) {
+    val context = LocalContext.current
+    var packs by remember { mutableStateOf<List<MetroIconPackInfo>?>(null) }
+    LaunchedEffect(Unit) {
+        packs = withContext(Dispatchers.IO) {
+            MetroIconPacks.listInstalled(context)
+        }
+    }
+
+    val noneLabel = stringResource(R.string.tile_customize_tiles_none)
+    val chromeOldLabel = stringResource(R.string.tile_customize_tiles_chrome_old)
+    val showChromeOldOption = isChromeTilePackage(tile.entry.packageName)
+    val installedPacks = packs
+    val options: List<IconPackGridOption> = remember(
+        installedPacks,
+        noneLabel,
+        chromeOldLabel,
+        showChromeOldOption,
+    ) {
+        val installed = installedPacks.orEmpty()
+        buildList {
+            add(IconPackGridOption(packageName = null, label = noneLabel))
+            if (showChromeOldOption) {
+                add(
+                    IconPackGridOption(
+                        packageName = PinnedTileEntry.CHROME_LEGACY_FACE,
+                        label = chromeOldLabel,
+                    ),
+                )
+            }
+            installed.forEach { pack ->
+                add(IconPackGridOption(packageName = pack.packageName, label = pack.label))
+            }
+        }
+    }
+    val packsLoaded = installedPacks != null
+
+    val tileAspect = when (tile.entry.size) {
+        PinnedTileSize.FourByTwo -> 2f
+        else -> 1f
+    }
+    val iconPackage = tile.entry.resolvedIconPackage()
+    val faceTitle = draft.customTitle.takeIf { it.isNotBlank() } ?: tile.title
+    val showTitle = tile.entry.size != PinnedTileSize.OneByOne && !draft.hideTitle
+    val contentColor = if (draftRevealsWindow) {
+        Color.White
+    } else {
+        MetroTheme.colors.primaryText
+    }
+    // Null draft = follow suite global — highlight whatever Start would show today.
+    val globalPack = LocalIconPackPackage.current
+    val highlightPack = when {
+        draft.iconPackPackage == PinnedTileEntry.CHROME_LEGACY_FACE ->
+            PinnedTileEntry.CHROME_LEGACY_FACE
+        draft.iconPackPackage != null -> draft.iconPackPackage.takeIf { it.isNotBlank() }
+        else -> globalPack
+    }
+
+    if (!packsLoaded) return
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(
-                horizontal = MetroDimens.ScreenHorizontalMargin,
-                vertical = 24.dp,
+            .padding(bottom = 88.dp),
+    ) {
+        if (options.count() <= 1) {
+            MetroText(
+                text = stringResource(R.string.tile_customize_tiles_empty),
+                style = MetroTextStyle.Body,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier.padding(
+                    horizontal = MetroDimens.ScreenHorizontalMargin,
+                    vertical = 12.dp,
+                ),
+            )
+        }
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(
+                    horizontal = MetroDimens.ScreenHorizontalMargin,
+                    vertical = 12.dp,
+                ),
+        ) {
+            val cellWidth =
+                (maxWidth - IconPackGridGap * (IconPackGridColumns - 1)) / IconPackGridColumns
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(IconPackGridColumns),
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(IconPackGridGap),
+                verticalArrangement = Arrangement.spacedBy(IconPackGridGap),
+            ) {
+                items(
+                    items = options,
+                    key = { option: IconPackGridOption -> option.packageName ?: "none" },
+                ) { option: IconPackGridOption ->
+                    val selected = option.packageName == highlightPack ||
+                        (option.packageName == null && highlightPack.isNullOrBlank())
+                    val chromeLegacy =
+                        option.packageName == PinnedTileEntry.CHROME_LEGACY_FACE
+                    IconPackPreviewTile(
+                        packageName = iconPackage,
+                        iconPackPackage = option.packageName,
+                        label = option.label,
+                        title = faceTitle.takeIf { showTitle },
+                        selected = selected,
+                        chromeLegacy = chromeLegacy,
+                        aspectRatio = tileAspect,
+                        cellWidth = cellWidth,
+                        tileSize = tile.entry.size,
+                        iconScale = draft.iconScale,
+                        useWindowFill = draftRevealsWindow && !chromeLegacy,
+                        tileFill = draftTileFill,
+                        contentColor = contentColor,
+                        onClick = {
+                            onDraftChange(
+                                draft.copy(
+                                    // null option → blank = force system for this tile only.
+                                    iconPackPackage = option.packageName.orEmpty(),
+                                    useCustomIcon = false,
+                                ),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class IconPackGridOption(
+    val packageName: String?,
+    val label: String,
+)
+
+/**
+ * Mini Start tile showing [packageName]'s glyph under [iconPackPackage] (null = system),
+ * or the legacy Chrome wedge face when [chromeLegacy] is true.
+ */
+@Composable
+private fun IconPackPreviewTile(
+    packageName: String,
+    iconPackPackage: String?,
+    label: String,
+    title: String?,
+    selected: Boolean,
+    chromeLegacy: Boolean,
+    aspectRatio: Float,
+    cellWidth: Dp,
+    tileSize: PinnedTileSize,
+    iconScale: Float,
+    useWindowFill: Boolean,
+    tileFill: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+) {
+    val chrome = TileChrome.Standard
+    val cellHeight = cellWidth / aspectRatio
+    val iconSize = chrome.iconSize(cellWidth, cellHeight, tileSize) *
+        PinnedTileEntry.clampIconScale(iconScale)
+    val borderWidth = if (selected) 4.dp else 0.dp
+    val borderColor = MetroTheme.colors.accent
+    val startBackground = LocalStartBackgroundViewport.current
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(aspectRatio)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .then(
+                when {
+                    chromeLegacy -> Modifier
+                    useWindowFill -> Modifier.drawStartBackgroundWindow(startBackground)
+                    else -> Modifier.background(tileFill)
+                },
+            )
+            .then(
+                if (selected) {
+                    Modifier.border(borderWidth, borderColor)
+                } else {
+                    Modifier
+                },
             ),
     ) {
-        MetroText(
-            text = stringResource(R.string.tile_customize_tiles_empty),
-            style = MetroTextStyle.Body,
-            color = MetroTheme.colors.secondaryText,
-        )
+        if (chromeLegacy) {
+            // Title is drawn inside ChromeTileContent (white on brand wedges).
+            ChromeTileContent(
+                title = title,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                // Blank pack string forces system icons for the "none" cell.
+                MetroAppIcon(
+                    packageName = packageName,
+                    size = iconSize,
+                    modifier = Modifier.size(iconSize),
+                    contentDescription = label,
+                    fallbackLabel = title ?: label,
+                    fallbackColor = contentColor,
+                    iconPackPackage = iconPackPackage.orEmpty(),
+                )
+            }
+            if (!title.isNullOrBlank()) {
+                TileText(
+                    text = title,
+                    style = chrome.titleStyle,
+                    color = contentColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(
+                            horizontal = chrome.titlePaddingH,
+                            vertical = chrome.titlePaddingV,
+                        ),
+                )
+            }
+        }
     }
 }
 

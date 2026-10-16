@@ -9,7 +9,9 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatTextView
-import com.google.android.material.progressindicator.CircularProgressIndicator
+import androidx.compose.ui.graphics.toArgb
+import com.metro.ui.MetroColors
+import com.metro.ui.MetroLoadingDotsView
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderButton
@@ -105,16 +107,10 @@ class PagerTransitionHolder(
      * Sets the loading state on the pages container.
      */
     private fun setLoading() {
-        val progress = CircularProgressIndicator(context)
-        progress.isIndeterminate = true
-
-        val textView = AppCompatTextView(context).apply {
-            wrapContent()
-            text = context.stringResource(MR.strings.transition_pages_loading)
+        val dots = MetroLoadingDotsView(context).apply {
+            dotColor = MetroColors.AccentBlue.toArgb()
         }
-
-        pagesContainer.addView(progress)
-        pagesContainer.addView(textView)
+        pagesContainer.addView(dots)
     }
 
     /**

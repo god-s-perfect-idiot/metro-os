@@ -64,6 +64,8 @@ fun MetroMessageDialog(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     body: String? = null,
+    titleStyle: MetroTextStyle = MetroTextStyle.DialogTitle,
+    bodyStyle: MetroTextStyle = MetroTextStyle.DialogBody,
     confirmLabel: String? = null,
     onConfirm: (() -> Unit)? = null,
     confirmEnabled: Boolean = true,
@@ -119,13 +121,13 @@ fun MetroMessageDialog(
                 ) {
                     MetroText(
                         text = title,
-                        style = MetroTextStyle.DialogTitle,
+                        style = titleStyle,
                         color = MetroTheme.colors.primaryText,
                     )
                     if (!body.isNullOrBlank()) {
                         MetroText(
                             text = body,
-                            style = MetroTextStyle.DialogBody,
+                            style = bodyStyle,
                             color = MetroTheme.colors.primaryText,
                             modifier = Modifier.padding(top = 12.dp),
                         )

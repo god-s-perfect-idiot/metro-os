@@ -47,6 +47,8 @@ class PinnedTileStore(context: Context) {
                         tile.iconPackage?.takeIf { it.isNotBlank() }?.let {
                             put("iconPackage", it)
                         }
+                        // Distinguish unset (omit → follow global) from blank (force system).
+                        tile.iconPackPackage?.let { put("iconPackPackage", it) }
                         if (tile.useCustomIcon) put("useCustomIcon", true)
                         if (tile.iconScale != PinnedTileEntry.DEFAULT_ICON_SCALE) {
                             put(
@@ -105,6 +107,11 @@ class PinnedTileStore(context: Context) {
                                 .takeIf { it.isNotBlank() },
                             iconPackage = obj.optString("iconPackage", "")
                                 .takeIf { it.isNotBlank() },
+                            iconPackPackage = if (obj.has("iconPackPackage")) {
+                                obj.optString("iconPackPackage", "")
+                            } else {
+                                null
+                            },
                             useCustomIcon = obj.optBoolean("useCustomIcon", false),
                             iconScale = PinnedTileEntry.clampIconScale(
                                 obj.optDouble(

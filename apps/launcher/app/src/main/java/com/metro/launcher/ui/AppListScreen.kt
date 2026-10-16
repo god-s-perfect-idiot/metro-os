@@ -436,16 +436,12 @@ fun AppListScreen(
                 ) {
                     grouped.forEach { (letter, sectionApps) ->
                         val letterKey = AppListPivotLogic.letterWaveKey(letter)
-                        // During exit, use a normal item so sticky overlay cannot cover
-                        // peels (apps were sliding out from under the pinned letter).
-                        if (isExiting) {
-                            item(key = letterKey, contentType = "metro-letter-header") {
-                                LetterMarkerRow(letter = letter, letterKey = letterKey)
-                            }
-                        } else {
-                            metroStickyLetterHeader(letter = letter, key = letterKey) {
-                                LetterMarkerRow(letter = letter, letterKey = letterKey)
-                            }
+                        // Keep sticky through exit — demoting to a normal item unsticks the
+                        // hanging letter and lets the app under it jump into that slot.
+                        // Row peels are vertically clipped so they stay in their band under
+                        // the pinned opaque marker until the marker itself peels.
+                        metroStickyLetterHeader(letter = letter, key = letterKey) {
+                            LetterMarkerRow(letter = letter, letterKey = letterKey)
                         }
                         items(
                             items = sectionApps,
@@ -800,10 +796,14 @@ private fun AppListAppRow(
             )
         },
         labelContent = {
+            // WP8.1 app list: one line; long names clip at the row edge (no wrap, no ellipsis).
             MetroText(
                 text = labelText,
                 style = MetroTextStyle.ListItemTitle,
                 color = MetroColors.DarkPrimaryText,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier.fillMaxWidth(),
             )
         },

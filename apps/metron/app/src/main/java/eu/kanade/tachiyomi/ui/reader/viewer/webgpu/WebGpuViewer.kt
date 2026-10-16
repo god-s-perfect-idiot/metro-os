@@ -8,9 +8,7 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
@@ -39,6 +37,7 @@ import ca.mpreg.webgpuviewer.viewer.AnimationFrame
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuousState
 import com.google.android.material.color.MaterialColors
+import com.metro.ui.MetroColors
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.loader.HttpPageLoader
@@ -62,6 +61,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
@@ -112,6 +112,28 @@ open class WebGpuViewer(
     ).also { cachedOnBackgroundColor = it }
 
     protected val scope = MainScope()
+
+    /** Keeps [ProgressPage] dancing-dots frames ticking even when ImagePage.scope is unset. */
+    private var progressDotsJob: Job? = null
+
+    private fun ensureProgressDotsAnimating() {
+        if (progressDotsJob?.isActive == true || destroyed) return
+        progressDotsJob = scope.launch {
+            while (isActive && !destroyed) {
+                val needsTick = synchronized(lock) {
+                    pageCache.values.any { page ->
+                        page is ViewerReaderPage &&
+                            page.imagePage is ProgressPage &&
+                            !page.imagePage.destroyed
+                    }
+                }
+                if (needsTick) {
+                    pager.state.invalidate()
+                }
+                delay(16.milliseconds)
+            }
+        }
+    }
 
     // Dedicated thread for decode worker to avoid blocking Dispatchers.Default pool
     private val decodeExecutor = Executors.newSingleThreadExecutor { r ->
@@ -543,7 +565,9 @@ open class WebGpuViewer(
         }
     }
 
-    inner class ProgressPage(foregroundColor: Int = readerOnBackgroundColor()) : ImagePage.Render(0, 0) {
+    inner class ProgressPage(
+        foregroundColor: Int = MetroColors.AccentBlue.toArgb(),
+    ) : ImagePage.Render(0, 0) {
         override val width: Int
             get() = viewportPageWidth(isDualPageMode())
         override val height: Int
@@ -553,47 +577,21 @@ open class WebGpuViewer(
             minScale = 1f
             maxScale = 1f
             homeScale = 1f
+            // Drive redraws from the viewer scope — ImagePage.scope is often null on first paint.
+            ensureProgressDotsAnimating()
         }
 
         @Volatile
         private var progressValue: Float = 0f
-        private var progressJob: Job? = null
         var progress: Float
             get() = progressValue
             set(value) {
-                val target = value.fastCoerceIn(0f, 1f)
-                synchronized(this) {
-                    progressJob?.cancel()
-                    progressJob = null
-
-                    if (destroyed || progressValue == target) return
-
-                    val scope = scope ?: run {
-                        progressValue = target
-                        invalidate()
-                        return
-                    }
-
-                    val start = progressValue
-                    progressJob = scope.launch {
-                        animate(
-                            start,
-                            target,
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                        ) { current, _ ->
-                            progressValue = current
-                            invalidate()
-                        }
-                    }
-                }
+                // Dots are indeterminate; keep the setter so download watchers stay compatible.
+                progressValue = value.fastCoerceIn(0f, 1f)
             }
 
         override fun cleanup() {
             super.cleanup()
-            synchronized(this) {
-                progressJob?.cancel()
-                progressJob = null
-            }
         }
 
         var foregroundColor: Int = foregroundColor
@@ -607,17 +605,78 @@ open class WebGpuViewer(
         override fun render(dst: GPUTexture, x: Float, y: Float, scale: Float) {
             // Its own footprint, so the page carries its background wherever a transition puts it.
             fillPage(dst, x, y, scale, backgroundColor)
+            ensureProgressDotsAnimating()
 
-            val cx = dst.width * (0.5f + scale * x)
-            val cy = dst.height * (0.5f + scale * y)
+            val density = pager.state.density
+            // Match MetroLoadingDots track: 140×3dp, animated squares sweeping across.
+            val trackW = with(density) { 140.dp.toPx() } * scale / dst.width
+            val dotH = (with(density) { 3.dp.toPx() } * scale / dst.height).coerceAtLeast(2f / dst.height)
+            val dotW = (with(density) { 3.dp.toPx() } * scale / dst.width).coerceAtLeast(2f / dst.width)
+            val cx = 0.5f + scale * x
+            val cy = 0.5f + scale * y
+            val trackLeft = cx - trackW / 2f
+            val trackTop = cy - dotH / 2f
+            val trackRight = trackLeft + trackW
 
-            val full = min(width, height) * 0.25f * scale
+            val cycleMs = 1800L
+            val t = (SystemClock.uptimeMillis() % cycleMs).toFloat() / cycleMs
+            val containerShift = if (t < 0.25f) {
+                0f
+            } else {
+                ((t - 0.25f) / 0.75f).fastCoerceIn(0f, 1f) *
+                    with(density) { 20.dp.toPx() } * scale / dst.width
+            }
 
-            circle(cx, cy, full / 2f, 0xAAAAAAAA.toInt())
+            val startOffsetsDp = floatArrayOf(-13f, -26f, -39f, -52f)
+            val delaysMs = intArrayOf(150, 300, 450, 600)
+            val midTravel = with(density) { 98.dp.toPx() } * scale / dst.width
+            val endTravel = with(density) { 212.dp.toPx() } * scale / dst.width
+            val now = SystemClock.uptimeMillis()
+            val accent = foregroundColor or 0xFF000000.toInt()
 
-            val diameter = full * progress.fastCoerceIn(0f, 1f)
-            if (diameter > 0) {
-                circle(cx, cy, diameter / 2f, foregroundColor)
+            var drewAny = false
+            for (i in 0 until 4) {
+                val localT = ((now + cycleMs - delaysMs[i].toLong()) % cycleMs).toFloat() / cycleMs
+                val start = with(density) { startOffsetsDp[i].dp.toPx() } * scale / dst.width
+                val travel = when {
+                    localT < 0.55f -> {
+                        val u = localT / 0.55f
+                        val e = 1f - (1f - u) * (1f - u)
+                        start + midTravel * e
+                    }
+                    localT < 0.75f -> {
+                        val u = (localT - 0.55f) / 0.20f
+                        val e = u * u * (3f - 2f * u)
+                        start + midTravel + (endTravel - midTravel) * e
+                    }
+                    else -> start + endTravel
+                }
+                val alpha = when {
+                    localT < 0.55f -> 1f
+                    localT < 0.90f -> 1f - 0.8f * ((localT - 0.55f) / 0.35f)
+                    else -> 0.2f + 0.8f * ((localT - 0.90f) / 0.10f)
+                }.fastCoerceIn(0.25f, 1f)
+
+                val left = trackLeft + containerShift + travel
+                val right = left + dotW
+                // Clip to the page (not only the 140dp track) so dots stay visible while entering/exiting.
+                val pageLeft = cx - (width * scale / (2f * dst.width))
+                val pageRight = cx + (width * scale / (2f * dst.width))
+                if (right < pageLeft || left > pageRight) continue
+                val clippedLeft = left.coerceIn(pageLeft, pageRight)
+                val clippedRight = right.coerceIn(pageLeft, pageRight)
+                if (clippedRight - clippedLeft < 1f / dst.width) continue
+                // Prefer dots that intersect the Metro track, but still draw off-track pilgrims.
+                val a = (alpha * 255f).toInt().coerceIn(64, 255)
+                val color = (a shl 24) or (accent and 0x00FFFFFF)
+                rect(clippedLeft, trackTop, clippedRight, trackTop + dotH, color)
+                drewAny = true
+            }
+
+            // Guarantee a visible cue if the cycle momentarily parks every square off-screen.
+            if (!drewAny) {
+                val mid = (trackLeft + trackRight) / 2f
+                rect(mid - dotW / 2f, trackTop, mid + dotW / 2f, trackTop + dotH, accent)
             }
         }
     }

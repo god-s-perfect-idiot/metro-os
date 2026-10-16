@@ -2,12 +2,11 @@ package eu.kanade.presentation.browse
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
-import eu.kanade.presentation.browse.components.GlobalSearchToolbar
+import com.metro.metron.ui.MetronGlobalSearchContent
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.presentation.core.components.material.Scaffold
 
 @Composable
 fun MigrateSearchScreen(
@@ -23,32 +22,21 @@ fun MigrateSearchScreen(
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
 ) {
-    Scaffold(
-        topBar = { scrollBehavior ->
-            GlobalSearchToolbar(
-                searchQuery = state.searchQuery,
-                progress = state.progress,
-                total = state.total,
-                navigateUp = navigateUp,
-                onChangeSearchQuery = onChangeSearchQuery,
-                onSearch = onSearch,
-                hideSourceFilter = true,
-                sourceFilter = state.sourceFilter,
-                onChangeSearchFilter = onChangeSearchFilter,
-                onlyShowHasResults = state.onlyShowHasResults,
-                onToggleResults = onToggleResults,
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { paddingValues ->
-        GlobalSearchContent(
-            fromSourceId = fromSourceId,
-            items = state.filteredItems,
-            contentPadding = paddingValues,
-            getManga = getManga,
-            onClickSource = onClickSource,
-            onClickItem = onClickItem,
-            onLongClickItem = onLongClickItem,
-        )
-    }
+    @Suppress("UNUSED_PARAMETER")
+    val unusedNavigateUp = navigateUp
+    @Suppress("UNUSED_PARAMETER")
+    val unusedLongClick = onLongClickItem
+
+    MetronGlobalSearchContent(
+        state = state,
+        fromSourceId = fromSourceId,
+        hideSourceFilter = true,
+        onChangeSearchQuery = onChangeSearchQuery,
+        onSearch = onSearch,
+        onChangeSearchFilter = onChangeSearchFilter,
+        onToggleResults = onToggleResults,
+        getManga = getManga,
+        onClickSource = onClickSource,
+        onClickItem = onClickItem,
+    )
 }

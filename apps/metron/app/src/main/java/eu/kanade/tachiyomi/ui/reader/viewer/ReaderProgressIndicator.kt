@@ -3,54 +3,51 @@ package eu.kanade.tachiyomi.ui.reader.viewer
 import android.content.Context
 import android.util.AttributeSet
 import android.view.Gravity
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.annotation.IntRange
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.AbstractComposeView
-import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.isVisible
-import com.google.android.material.progressindicator.CircularProgressIndicator
-import eu.kanade.presentation.theme.TachiyomiTheme
-import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
+import com.metro.ui.MetroColors
+import com.metro.ui.MetroLoadingDotsView
 
 /**
- * A wrapper for [CircularProgressIndicator] that always rotates.
+ * WP8.1 dancing-dots loader for reader page buffering.
  *
- * By always rotating we give the feedback to the user that the application isn't 'stuck'.
+ * View-backed (not Compose) so measure size is reliable inside pager/webtoon holders.
  */
 class ReaderProgressIndicator @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-) : AbstractComposeView(context, attrs, defStyleAttr) {
+) : FrameLayout(context, attrs, defStyleAttr) {
 
-    init {
-        layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER)
-        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+    private val dots = MetroLoadingDotsView(context).apply {
+        dotColor = MetroColors.AccentBlue.toArgb()
     }
 
-    private var progress by mutableFloatStateOf(0f)
-
-    @Composable
-    override fun Content() {
-        TachiyomiTheme {
-            CombinedCircularProgressIndicator(progress = { progress })
-        }
+    init {
+        layoutParams = LayoutParams(
+            LayoutParams.WRAP_CONTENT,
+            LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER,
+        )
+        addView(
+            dots,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER),
+        )
     }
 
     fun show() {
         isVisible = true
+        dots.ensureStarted()
     }
 
     fun hide() {
         isVisible = false
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun setProgress(@IntRange(from = 0, to = 100) progress: Int) {
-        this.progress = progress / 100f
+        // Dots are indeterminate; progress is ignored.
     }
 }

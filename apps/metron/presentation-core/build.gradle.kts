@@ -27,6 +27,7 @@ dependencies {
     api(projects.core.common)
     api(projects.i18n)
     implementation(projects.icons.materialSymbols)
+    implementation("com.metro.ui:metro-ui-android:1.0.0")
 
     // Compose
     implementation(libs.androidx.activity.compose)

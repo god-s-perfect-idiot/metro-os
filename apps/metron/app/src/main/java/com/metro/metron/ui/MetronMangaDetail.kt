@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -33,6 +34,7 @@ import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
 import com.metro.ui.MetroListItem
+import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroSettingsHeader
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroSystemTheme
@@ -195,6 +197,18 @@ fun MetronMangaDetail(
                                 bottom = 4.dp,
                             ),
                         )
+                    }
+                    if (state.isRefreshingData) {
+                        item(key = "chapters-refreshing") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                                contentAlignment = Alignment.CenterStart,
+                            ) {
+                                MetroLoadingDots()
+                            }
+                        }
                     }
                     items(
                         items = listItems,

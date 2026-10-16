@@ -40,9 +40,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastMap
+import com.metro.ui.MetroLoadingDots
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterHeader
@@ -441,6 +443,7 @@ fun MangaScreenLargeImpl(
             refreshing = state.isRefreshingData,
             onRefresh = onRefresh,
             enabled = !isAnySelected,
+            showIndicator = false,
             indicatorPadding = PaddingValues(
                 start = insetPadding.calculateStartPadding(layoutDirection),
                 top = with(density) { topBarHeight.toDp() },
@@ -516,6 +519,19 @@ fun MangaScreenLargeImpl(
                                     missingChapterCount = missingChapterCount,
                                     onClick = onFilterButtonClicked,
                                 )
+                            }
+
+                            if (state.isRefreshingData) {
+                                item(key = "chapters-refreshing") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 16.dp),
+                                        contentAlignment = Alignment.CenterStart,
+                                    ) {
+                                        MetroLoadingDots()
+                                    }
+                                }
                             }
 
                             sharedChapterItems(

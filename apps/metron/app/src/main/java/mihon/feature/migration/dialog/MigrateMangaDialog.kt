@@ -2,24 +2,36 @@ package mihon.feature.migration.dialog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
 import androidx.lifecycle.ViewModel
 import cafe.adriel.voyager.core.screen.Screen
+import com.metro.ui.MetroBorderButton
+import com.metro.ui.MetroCheckBox
+import com.metro.ui.MetroLoadingDots
+import com.metro.ui.MetroMessageDialog
+import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
+import com.metro.ui.metroClickable
+import com.metro.ui.metroNavBarPadding
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -40,10 +52,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.LabeledCheckbox
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.screens.LoadingScreen
 
 @Composable
 internal fun Screen.MigrateMangaDialog(
@@ -64,65 +73,75 @@ internal fun Screen.MigrateMangaDialog(
     if (state.isMigrated) return
 
     if (state.isMigrating) {
-        LoadingScreen(
-            modifier = Modifier.background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f)),
-        )
+        MetroSystemTheme {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .metroNavBarPadding()
+                    .background(MetroTheme.colors.background.copy(alpha = 0.7f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                MetroLoadingDots()
+            }
+        }
         return
     }
 
-    AlertDialog(
+    MetroMessageDialog(
+        title = stringResource(MR.strings.migration_dialog_what_to_include).lowercase(),
+        titleStyle = MetroTextStyle.DialogBody,
         onDismissRequest = onDismissRequest,
-        title = {
-            Text(text = stringResource(MR.strings.migration_dialog_what_to_include))
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            ) {
-                state.applicableFlags.fastForEach { flag ->
-                    LabeledCheckbox(
-                        label = stringResource(flag.getLabel()),
-                        checked = flag in state.selectedFlags,
-                        onCheckedChange = { viewModel.toggleSelection(flag) },
-                    )
-                }
+        confirmLabel = stringResource(MR.strings.migrate).lowercase(),
+        onConfirm = {
+            scope.launchIO {
+                viewModel.migrateManga(replace = true)
+                withUIContext { onComplete() }
             }
         },
-        confirmButton = {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
-            ) {
-                TextButton(
+        dismissLabel = stringResource(MR.strings.action_cancel).lowercase(),
+        neutralLabel = stringResource(MR.strings.copy).lowercase(),
+        onNeutral = {
+            scope.launchIO {
+                viewModel.migrateManga(replace = false)
+                withUIContext { onComplete() }
+            }
+        },
+        content = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                state.applicableFlags.fastForEach { flag ->
+                    val checked = flag in state.selectedFlags
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 40.dp)
+                            .metroClickable { viewModel.toggleSelection(flag) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        MetroCheckBox(
+                            checked = checked,
+                            onCheckedChange = null,
+                            size = 20.dp,
+                        )
+                        MetroText(
+                            text = stringResource(flag.getLabel()).lowercase(),
+                            style = MetroTextStyle.DialogBody,
+                            color = MetroTheme.colors.primaryText,
+                            maxLines = 1,
+                        )
+                    }
+                }
+                MetroBorderButton(
+                    text = stringResource(MR.strings.action_show_manga).lowercase(),
                     onClick = {
                         onDismissRequest()
                         onClickTitle()
                     },
-                ) {
-                    Text(text = stringResource(MR.strings.action_show_manga))
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                TextButton(
-                    onClick = {
-                        scope.launchIO {
-                            viewModel.migrateManga(replace = false)
-                            withUIContext { onComplete() }
-                        }
-                    },
-                ) {
-                    Text(text = stringResource(MR.strings.copy))
-                }
-                TextButton(
-                    onClick = {
-                        scope.launchIO {
-                            viewModel.migrateManga(replace = true)
-                            withUIContext { onComplete() }
-                        }
-                    },
-                ) {
-                    Text(text = stringResource(MR.strings.migrate))
-                }
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
             }
         },
     )

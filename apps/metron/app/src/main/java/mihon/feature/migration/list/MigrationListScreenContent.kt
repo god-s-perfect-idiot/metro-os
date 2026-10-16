@@ -2,11 +2,11 @@ package mihon.feature.migration.list
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -14,16 +14,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,38 +27,37 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.components.AppBarActions
-import eu.kanade.presentation.manga.components.MangaCover
+import coil3.compose.AsyncImage
+import com.metro.metron.ui.MetronOptionsCard
+import com.metro.ui.MetroAppBar
+import com.metro.ui.MetroAppBarDefaults
+import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroCircleIconButton
+import com.metro.ui.MetroLoadingDots
+import com.metro.ui.MetroSettingsHeader
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconType
+import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
+import com.metro.ui.metroClickable
+import com.metro.ui.metroNavBarPadding
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.presentation.util.rememberResourceBitmapPainter
 import eu.kanade.tachiyomi.R
 import mihon.feature.migration.list.models.MigratingManga
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
-import mihon.icons.materialsymbols.rounded.Close
-import mihon.icons.materialsymbols.rounded.ContentCopy
-import mihon.icons.materialsymbols.rounded.CopyAll
-import mihon.icons.materialsymbols.rounded.Done
-import mihon.icons.materialsymbols.rounded.DoneAll
-import mihon.icons.materialsymbols.rounded.MoreVert
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.Badge
-import tachiyomi.presentation.core.components.BadgeGroup
-import tachiyomi.presentation.core.components.FastScrollLazyColumn
-import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.components.material.padding
-import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.plus
+
+private const val CoverAspect = 3f / 4f
 
 @Composable
 fun MigrationListScreenContent(
@@ -78,102 +71,194 @@ fun MigrationListScreenContent(
     onCopy: (Long) -> Unit,
     openMigrationDialog: (Boolean) -> Unit,
 ) {
-    Scaffold(
-        topBar = { scrollBehavior ->
-            AppBar(
-                title = if (items.isNotEmpty()) {
-                    stringResource(MR.strings.migrationListScreenTitleWithProgress, finishedCount, items.size)
-                } else {
-                    stringResource(MR.strings.migrationListScreenTitle)
-                },
-                actions = {
-                    AppBarActions(
-                        listOf(
-                            AppBar.Action(
-                                title = stringResource(MR.strings.migrationListScreen_copyActionLabel),
-                                icon = if (items.size ==
-                                    1
-                                ) {
-                                    MaterialSymbols.Rounded.ContentCopy
-                                } else {
-                                    MaterialSymbols.Rounded.CopyAll
-                                },
-                                onClick = { openMigrationDialog(true) },
-                                enabled = migrationComplete,
-                            ),
-                            AppBar.Action(
-                                title = stringResource(MR.strings.migrationListScreen_migrateActionLabel),
-                                icon = if (items.size ==
-                                    1
-                                ) {
-                                    MaterialSymbols.Rounded.Done
-                                } else {
-                                    MaterialSymbols.Rounded.DoneAll
-                                },
-                                onClick = { openMigrationDialog(false) },
-                                enabled = migrationComplete,
-                            ),
-                        ),
-                    )
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { contentPadding ->
-        FastScrollLazyColumn(contentPadding = contentPadding + topSmallPaddingValues) {
-            items(items, key = { it.manga.id }) { item ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .animateItem()
-                        .padding(
-                            start = MaterialTheme.padding.medium,
-                            end = MaterialTheme.padding.small,
-                        )
-                        .height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+    val title = if (items.isNotEmpty()) {
+        stringResource(MR.strings.migrationListScreenTitleWithProgress, finishedCount, items.size)
+    } else {
+        stringResource(MR.strings.migrationListScreenTitle)
+    }
+    var actionItemId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var actionCanMigrate by rememberSaveable { mutableStateOf(false) }
+    val actionItem = items.find { it.manga.id == actionItemId }
+
+    MetroSystemTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .metroNavBarPadding()
+                .background(MetroTheme.colors.background),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = MetroAppBarDefaults.BarHeight),
+            ) {
+                MetroSettingsHeader(
+                    pageTitle = title.lowercase(),
+                    appTitle = "metron",
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 32.dp),
                 ) {
-                    MigrationListItem(
-                        modifier = Modifier
-                            .weight(1f)
-                            .align(Alignment.Top)
-                            .fillMaxHeight(),
-                        manga = item.manga,
-                        source = item.source,
-                        chapterCount = item.chapterCount,
-                        latestChapter = item.latestChapter,
-                        onClick = { onItemClick(item.manga) },
-                    )
+                    items(items, key = { it.manga.id }) { item ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .animateItem()
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            MigrationListItem(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .align(Alignment.Top)
+                                    .fillMaxHeight(),
+                                manga = item.manga,
+                                source = item.source,
+                                chapterCount = item.chapterCount,
+                                latestChapter = item.latestChapter,
+                                onClick = { onItemClick(item.manga) },
+                            )
 
-                    Icon(
-                        imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.weight(0.2f),
-                    )
+                            MetroSystemIcon(
+                                type = MetroSystemIconType.Forward,
+                                iconSize = 28.dp,
+                                color = MetroTheme.colors.primaryText,
+                                showCircle = false,
+                            )
 
-                    val result by item.searchResult.collectAsState()
-                    MigrationListItemResult(
-                        modifier = Modifier
-                            .weight(1f)
-                            .align(Alignment.Top)
-                            .fillMaxHeight(),
-                        result = result,
-                        onItemClick = onItemClick,
-                    )
+                            val result by item.searchResult.collectAsState()
+                            MigrationListItemResult(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .align(Alignment.Top)
+                                    .fillMaxHeight(),
+                                result = result,
+                                onItemClick = onItemClick,
+                            )
 
-                    MigrationListItemAction(
-                        modifier = Modifier.weight(0.2f),
-                        result = result,
-                        onSearchManually = { onSearchManually(item) },
-                        onSkip = { onSkip(item.manga.id) },
-                        onMigrate = { onMigrate(item.manga.id) },
-                        onCopy = { onCopy(item.manga.id) },
+                            when (result) {
+                                MigratingManga.SearchResult.Searching -> {
+                                    MetroCircleIconButton(
+                                        type = MetroSystemIconType.Close,
+                                        contentDescription = stringResource(
+                                            MR.strings.migrationListScreen_skipActionLabel,
+                                        ).lowercase(),
+                                        onClick = { onSkip(item.manga.id) },
+                                        glyphSize = 28.dp,
+                                    )
+                                }
+                                MigratingManga.SearchResult.NotFound,
+                                is MigratingManga.SearchResult.Success,
+                                -> {
+                                    MetroCircleIconButton(
+                                        type = MetroSystemIconType.More,
+                                        contentDescription = "more",
+                                        onClick = {
+                                            actionItemId = item.manga.id
+                                            actionCanMigrate =
+                                                result is MigratingManga.SearchResult.Success
+                                        },
+                                        glyphSize = 28.dp,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            MetroAppBar(
+                icons = listOf(
+                    MetroAppBarIcon(
+                        type = MetroSystemIconType.Copy,
+                        label = stringResource(MR.strings.migrationListScreen_copyActionLabel)
+                            .lowercase(),
+                        onClick = { openMigrationDialog(true) },
+                        enabled = migrationComplete,
+                    ),
+                    MetroAppBarIcon(
+                        type = MetroSystemIconType.Check,
+                        label = stringResource(MR.strings.migrationListScreen_migrateActionLabel)
+                            .lowercase(),
+                        onClick = { openMigrationDialog(false) },
+                        enabled = migrationComplete,
+                    ),
+                ),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+
+            MetronOptionsCard(
+                visible = actionItem != null,
+                onDismiss = {
+                    actionItemId = null
+                    actionCanMigrate = false
+                },
+            ) {
+                OptionsRow(
+                    text = stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)
+                        .lowercase(),
+                    onClick = {
+                        val item = actionItem ?: return@OptionsRow
+                        actionItemId = null
+                        actionCanMigrate = false
+                        onSearchManually(item)
+                    },
+                )
+                OptionsRow(
+                    text = stringResource(MR.strings.migrationListScreen_skipActionLabel)
+                        .lowercase(),
+                    onClick = {
+                        val id = actionItemId ?: return@OptionsRow
+                        actionItemId = null
+                        actionCanMigrate = false
+                        onSkip(id)
+                    },
+                )
+                if (actionCanMigrate) {
+                    OptionsRow(
+                        text = stringResource(MR.strings.migrationListScreen_migrateNowActionLabel)
+                            .lowercase(),
+                        onClick = {
+                            val id = actionItemId ?: return@OptionsRow
+                            actionItemId = null
+                            actionCanMigrate = false
+                            onMigrate(id)
+                        },
+                    )
+                    OptionsRow(
+                        text = stringResource(MR.strings.migrationListScreen_copyNowActionLabel)
+                            .lowercase(),
+                        onClick = {
+                            val id = actionItemId ?: return@OptionsRow
+                            actionItemId = null
+                            actionCanMigrate = false
+                            onCopy(id)
+                        },
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun OptionsRow(
+    text: String,
+    onClick: () -> Unit,
+) {
+    MetroText(
+        text = text,
+        style = MetroTextStyle.ListItemTitle,
+        color = MetroTheme.colors.primaryText,
+        modifier = Modifier
+            .fillMaxWidth()
+            .metroClickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    )
 }
 
 @Composable
@@ -189,68 +274,74 @@ fun MigrationListItem(
         modifier = modifier
             .widthIn(max = 150.dp)
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
+            .metroClickable(onClick = onClick)
             .padding(4.dp),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(MangaCover.Book.ratio),
+                .aspectRatio(CoverAspect)
+                .background(MetroTheme.colors.secondarySurface, RectangleShape),
         ) {
-            MangaCover.Book(
-                modifier = Modifier.fillMaxWidth(),
-                data = manga,
+            AsyncImage(
+                model = manga.asMangaCover(),
+                contentDescription = null,
+                placeholder = ColorPainter(Color(0x1F888888)),
+                error = ColorPainter(Color(0x1F888888)),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
             )
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            0f to Color.Transparent,
-                            1f to MaterialTheme.colorScheme.background,
-                        ),
-                    )
-                    .fillMaxHeight(0.4f)
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter),
-            )
-            Text(
+                    .align(Alignment.TopStart)
+                    .padding(4.dp)
+                    .background(MetroTheme.colors.accent, RectangleShape)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                MetroText(
+                    text = "$chapterCount",
+                    style = MetroTextStyle.ListItemSubtitle,
+                    color = MetroTheme.colors.primaryText,
+                )
+            }
+            Box(
                 modifier = Modifier
-                    .padding(8.dp)
-                    .align(Alignment.BottomStart),
-                text = manga.title,
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 2,
-                style = MaterialTheme.typography.labelMedium,
-            )
-            BadgeGroup(modifier = Modifier.padding(4.dp)) {
-                Badge(text = "$chapterCount")
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(Color(0xCC000000))
+                    .padding(6.dp),
+            ) {
+                MetroText(
+                    text = manga.title,
+                    style = MetroTextStyle.ListItemSubtitle,
+                    color = MetroTheme.colors.primaryText,
+                    maxLines = 2,
+                )
             }
         }
 
         Column(
-            modifier = Modifier
-                .padding(MaterialTheme.padding.extraSmall),
+            modifier = Modifier.padding(top = 6.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(
+            MetroText(
                 text = source,
-                overflow = TextOverflow.Ellipsis,
+                style = MetroTextStyle.ListItemTitle,
+                color = MetroTheme.colors.primaryText,
                 maxLines = 1,
-                style = MaterialTheme.typography.titleSmall,
             )
             val formattedLatestChapters = remember(latestChapter) {
                 latestChapter?.let(::formatChapterNumber)
             }
-            Text(
+            MetroText(
                 text = stringResource(
                     MR.strings.migrationListScreen_latestChapterLabel,
-                    formattedLatestChapters ?: stringResource(MR.strings.migrationListScreen_unknownLatestChapter),
+                    formattedLatestChapters
+                        ?: stringResource(MR.strings.migrationListScreen_unknownLatestChapter),
                 ),
-                overflow = TextOverflow.Ellipsis,
+                style = MetroTextStyle.ListItemSubtitle,
+                color = MetroTheme.colors.secondaryText,
                 maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }
@@ -269,10 +360,10 @@ fun MigrationListItemResult(
                     modifier = Modifier
                         .widthIn(max = 150.dp)
                         .fillMaxSize()
-                        .aspectRatio(MangaCover.Book.ratio),
+                        .aspectRatio(CoverAspect),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
+                    MetroLoadingDots()
                 }
             }
             MigratingManga.SearchResult.NotFound -> {
@@ -287,14 +378,15 @@ fun MigrationListItemResult(
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(MangaCover.Book.ratio)
-                            .clip(MaterialTheme.shapes.extraSmall),
+                            .aspectRatio(CoverAspect)
+                            .background(MetroTheme.colors.secondarySurface, RectangleShape),
                         contentScale = ContentScale.Crop,
                     )
-                    Text(
+                    MetroText(
                         text = stringResource(MR.strings.migrationListScreen_noMatchFoundText),
-                        modifier = Modifier.padding(MaterialTheme.padding.extraSmall),
-                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 6.dp),
+                        style = MetroTextStyle.ListItemTitle,
+                        color = MetroTheme.colors.secondaryText,
                     )
                 }
             }
@@ -307,75 +399,6 @@ fun MigrationListItemResult(
                     latestChapter = result.latestChapter,
                     onClick = { onItemClick(result.manga) },
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MigrationListItemAction(
-    modifier: Modifier,
-    result: MigratingManga.SearchResult,
-    onSearchManually: () -> Unit,
-    onSkip: () -> Unit,
-    onMigrate: () -> Unit,
-    onCopy: () -> Unit,
-) {
-    var menuExpanded by rememberSaveable { mutableStateOf(false) }
-    val closeMenu = { menuExpanded = false }
-    Box(modifier) {
-        when (result) {
-            MigratingManga.SearchResult.Searching -> {
-                IconButton(onClick = onSkip) {
-                    Icon(
-                        imageVector = MaterialSymbols.Rounded.Close,
-                        contentDescription = null,
-                    )
-                }
-            }
-            MigratingManga.SearchResult.NotFound, is MigratingManga.SearchResult.Success -> {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(
-                        imageVector = MaterialSymbols.Rounded.MoreVert,
-                        contentDescription = null,
-                    )
-                }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = closeMenu,
-                    offset = DpOffset(8.dp, (-56).dp),
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(MR.strings.migrationListScreen_searchManuallyActionLabel)) },
-                        onClick = {
-                            closeMenu()
-                            onSearchManually()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(MR.strings.migrationListScreen_skipActionLabel)) },
-                        onClick = {
-                            closeMenu()
-                            onSkip()
-                        },
-                    )
-                    if (result is MigratingManga.SearchResult.Success) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(MR.strings.migrationListScreen_migrateNowActionLabel)) },
-                            onClick = {
-                                closeMenu()
-                                onMigrate()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(MR.strings.migrationListScreen_copyNowActionLabel)) },
-                            onClick = {
-                                closeMenu()
-                                onCopy()
-                            },
-                        )
-                    }
-                }
             }
         }
     }

@@ -89,7 +89,9 @@ import com.metro.launcher.data.rowCompactionMap
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.hasActiveCustomWidget
 import com.metro.launcher.data.resolvedIconPackage
+import com.metro.launcher.data.resolvedIconPackOverride
 import com.metro.launcher.data.resolvedIconScale
+import com.metro.launcher.data.usesChromeLegacyFace
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import kotlin.math.abs
@@ -1277,6 +1279,8 @@ private fun LauncherTileCell(
     }
     val chrome = LocalTileChrome.current
     val iconPackage = tile.entry.resolvedIconPackage()
+    // Null = follow suite global pack; blank = force system; else = per-tile pack.
+    val iconPackOverride = tile.entry.resolvedIconPackOverride()
     val hasIconOverride = tile.entry.useCustomIcon || !tile.entry.iconPackage.isNullOrBlank()
     val iconSize = chrome.iconSize(width, height, tile.entry.size) *
         tile.entry.resolvedIconScale()
@@ -1316,6 +1320,12 @@ private fun LauncherTileCell(
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMusicNowPlaying &&
         !showCustomWidget && !showWidgetFace && !showCustomIcon
+    // Legacy Chrome wedge face — opt-in via tile customize → tiles ("old tile").
+    val showChromeFace = tile.entry.usesChromeLegacyFace() &&
+        isChromeTilePackage(tile.entry.packageName) &&
+        !showCustomIcon &&
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
+        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
     val startBackground = LocalStartBackgroundViewport.current
     // Custom App Widgets and Metro widget faces keep the same transparent-window fill as
     // accent tiles so they read as Metro tiles (wallpaper windows when Start bg is set).
@@ -1323,6 +1333,7 @@ private fun LauncherTileCell(
         startBackground != null &&
         !showPhotoContent &&
         !showStaticPhoto &&
+        !showChromeFace &&
         !showMusicNowPlaying &&
         !showCustomIcon
     val contentColor = if (useWindowFill) {
@@ -1337,6 +1348,7 @@ private fun LauncherTileCell(
         !showPhotoGrid &&
         !showAgenda &&
         !showMessagingUnreadFace &&
+        !showChromeFace &&
         !showMusicNowPlaying &&
         !showCustomWidget &&
         !showWidgetFace &&
@@ -1354,7 +1366,7 @@ private fun LauncherTileCell(
     // and nudges the icon left so the numeral does not sit on top of it.
     val tileMinEdge = min(width.value, height.value).dp
     val showSmallIconBadge = isSmall && badgeCount != null &&
-        !showPhotoContent && !showStaticPhoto && !showMusicNowPlaying &&
+        !showPhotoContent && !showStaticPhoto && !showChromeFace && !showMusicNowPlaying &&
         !showCustomWidget && !showWidgetFace && !showCustomIcon
     val iconBadgeShift = when {
         badgeCount == null -> 0.dp
@@ -1427,8 +1439,8 @@ private fun LauncherTileCell(
                             showWidgetFace && useWindowFill ->
                                 Modifier.drawStartBackgroundWindow(startBackground)
                             showWidgetFace -> Modifier.background(tile.backgroundColor)
-                            showPhotoContent || showStaticPhoto || showMusicNowPlaying ||
-                                showCustomIcon -> Modifier
+                            showPhotoContent || showStaticPhoto || showChromeFace ||
+                                showMusicNowPlaying || showCustomIcon -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
                             showProgressOverlay -> if (useWindowFill) {
                                 Modifier.drawStartBackgroundWindow(startBackground)
@@ -1493,9 +1505,16 @@ private fun LauncherTileCell(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        showChromeFace -> {
+                            ChromeTileContent(
+                                title = if (isSmall) null else faceTitle,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                         forceStaticEditFace && !isSmall -> {
                             StaticIconTileContent(
                                 packageName = iconPackage,
+                                iconPackPackage = iconPackOverride,
                                 title = faceTitle,
                                 iconSize = iconSize,
                                 contentColor = contentColor,
@@ -1513,6 +1532,7 @@ private fun LauncherTileCell(
                                 contentDescription = tile.title,
                                 fallbackLabel = tile.title,
                                 fallbackColor = contentColor,
+                                iconPackPackage = iconPackOverride,
                             )
                         }
                         showMusicNowPlaying -> {
@@ -1619,6 +1639,7 @@ private fun LauncherTileCell(
                                     contentDescription = tile.title,
                                     fallbackLabel = tile.title,
                                     fallbackColor = contentColor,
+                                    iconPackPackage = iconPackOverride,
                                 )
                             }
                         }
@@ -1632,11 +1653,13 @@ private fun LauncherTileCell(
                                 contentDescription = tile.title,
                                 fallbackLabel = tile.title,
                                 fallbackColor = contentColor,
+                                iconPackPackage = iconPackOverride,
                             )
                         }
                         else -> {
                             StaticIconTileContent(
                                 packageName = iconPackage,
+                                iconPackPackage = iconPackOverride,
                                 title = faceTitle,
                                 iconSize = iconSize,
                                 contentColor = contentColor,
@@ -1649,10 +1672,10 @@ private fun LauncherTileCell(
                 // Edge-to-edge faces skip chrome content inset on the container; pad the badge
                 // itself so the numeral keeps the same margin as inset tiles.
                 val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto ||
-                    showMusicNowPlaying || showProgressOverlay || showWidgetFace ||
-                    showCustomIcon || (canFlip && tile.flipToIcon)
+                    showChromeFace || showMusicNowPlaying || showProgressOverlay ||
+                    showWidgetFace || showCustomIcon || (canFlip && tile.flipToIcon)
                 val insetFront = showProgressOverlay &&
-                    !showPhotoContent && !showStaticPhoto &&
+                    !showPhotoContent && !showStaticPhoto && !showChromeFace &&
                     !showMusicNowPlaying && !showWidgetFace && !showCustomIcon && !canFlip
                 val wrappedFront: @Composable () -> Unit = {
                     if (insetFront) {
@@ -1702,6 +1725,7 @@ private fun LauncherTileCell(
                             if (tile.flipToIcon) {
                                 StaticIconTileContent(
                                     packageName = iconPackage,
+                                    iconPackPackage = iconPackOverride,
                                     title = faceTitle,
                                     iconSize = iconSize,
                                     contentColor = contentColor,
@@ -1748,6 +1772,7 @@ private fun LauncherTileCell(
                                     alignBottom = peekFace,
                                     iconPackageName = peekIconPackage,
                                     iconTitle = tile.title,
+                                    iconPackPackage = iconPackOverride,
                                 )
                             }
                         },
@@ -1962,6 +1987,7 @@ private fun BoxScope.TileNotificationBadge(
     alignBottom: Boolean = false,
     iconPackageName: String? = null,
     iconTitle: String? = null,
+    iconPackPackage: String? = null,
 ) {
     val chrome = LocalTileChrome.current
     val display = tileNotificationDisplayCount(count)
@@ -2002,6 +2028,7 @@ private fun BoxScope.TileNotificationBadge(
                 contentDescription = iconTitle,
                 fallbackLabel = iconTitle,
                 fallbackColor = contentColor,
+                iconPackPackage = iconPackPackage,
             )
             Spacer(modifier = Modifier.size(6.dp))
         }
@@ -2144,6 +2171,7 @@ private fun StaticIconTileContent(
     contentColor: Color,
     modifier: Modifier = Modifier,
     iconOffsetX: Dp = 0.dp,
+    iconPackPackage: String? = null,
 ) {
     val chrome = LocalTileChrome.current
     val showTitle = !title.isNullOrBlank()
@@ -2163,6 +2191,7 @@ private fun StaticIconTileContent(
                 contentDescription = title,
                 fallbackLabel = title,
                 fallbackColor = contentColor,
+                iconPackPackage = iconPackPackage,
             )
         }
         if (showTitle) {

@@ -14,6 +14,7 @@ import com.metro.launcher.data.hasActiveCustomWidget
 import com.metro.launcher.data.mergePinnedDisplayTiles
 import com.metro.launcher.data.normalizeLaunchTargetPackage
 import com.metro.launcher.data.resolvedIconPackage
+import com.metro.launcher.data.resolvedIconPackOverride
 import com.metro.launcher.data.resolvedIconScale
 import com.metro.launcher.data.resolvedLaunchTargetForPicker
 import com.metro.launcher.data.supportsCustomWidget
@@ -209,6 +210,7 @@ class TileGridTest {
             size = PinnedTileSize.TwoByTwo,
             launchTargetPackage = "com.metro.dialer",
             iconPackage = "com.metro.messaging",
+            iconPackPackage = "com.example.iconpack",
             useCustomIcon = true,
             iconScale = 1.25f,
             customTitle = "Inbox",
@@ -216,6 +218,8 @@ class TileGridTest {
         )
         assertEquals("com.metro.dialer", entry.launchTargetPackage)
         assertEquals("com.metro.messaging", entry.iconPackage)
+        assertEquals("com.example.iconpack", entry.iconPackPackage)
+        assertEquals("com.example.iconpack", entry.resolvedIconPackOverride())
         assertTrue(entry.useCustomIcon)
         assertEquals(1.25f, entry.iconScale, 0.001f)
         assertEquals("Inbox", entry.customTitle)
@@ -228,6 +232,8 @@ class TileGridTest {
             "com.example.app",
             entry.copy(iconPackage = null).resolvedIconPackage(),
         )
+        assertNull(entry.copy(iconPackPackage = null).resolvedIconPackOverride())
+        assertEquals("", entry.copy(iconPackPackage = "").resolvedIconPackOverride())
     }
 
     @Test

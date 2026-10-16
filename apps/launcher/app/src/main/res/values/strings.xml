@@ -25,7 +25,9 @@
     <string name="tile_customize_tab_customise">customise</string>
     <string name="tile_customize_tab_widgets">widgets</string>
     <string name="tile_customize_tab_tiles">tiles</string>
-    <string name="tile_customize_tiles_empty">No tiles yet.</string>
+    <string name="tile_customize_tiles_empty">No icon packs installed.</string>
+    <string name="tile_customize_tiles_none">none</string>
+    <string name="tile_customize_tiles_chrome_old">old tile</string>
     <string name="tile_customize_widget_label">Use custom widgets</string>
     <string name="tile_customize_widget_pick">choose a widget</string>
     <string name="tile_customize_widget_empty">This app has no Android widgets.</string>

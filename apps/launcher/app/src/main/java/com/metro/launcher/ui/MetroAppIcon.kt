@@ -27,6 +27,9 @@ import com.metro.ui.MetroTextStyle
  *
  * Order: active icon pack mapping → [CustomTileBranding] Metro override → installed launcher
  * icon (adaptive foreground unwrapped by [MetroAppBranding]).
+ *
+ * @param iconPackPackage When non-null, load from this pack (blank = system icons). When null,
+ *   uses [LocalIconPackPackage].
  */
 @Composable
 fun MetroAppIcon(
@@ -36,16 +39,18 @@ fun MetroAppIcon(
     contentDescription: String? = null,
     fallbackLabel: String? = null,
     fallbackColor: Color = MetroColors.DarkPrimaryText,
+    iconPackPackage: String? = null,
 ) {
     val context = LocalContext.current
-    val iconPackPackage = LocalIconPackPackage.current
+    val localPack = LocalIconPackPackage.current
+    val resolvedPack = iconPackPackage ?: localPack
     val pixelSize = with(LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
 
-    val packIcon = remember(packageName, pixelSize, iconPackPackage) {
-        if (iconPackPackage.isNullOrBlank()) {
+    val packIcon = remember(packageName, pixelSize, resolvedPack) {
+        if (resolvedPack.isNullOrBlank()) {
             null
         } else {
-            MetroIconPacks.loadIconForPackage(context, iconPackPackage, packageName)
+            MetroIconPacks.loadIconForPackage(context, resolvedPack, packageName)
                 ?.toBitmap(pixelSize, pixelSize)
                 ?.asImageBitmap()
         }
@@ -75,7 +80,7 @@ fun MetroAppIcon(
         return
     }
 
-    val installedIcon = remember(packageName, pixelSize, iconPackPackage) {
+    val installedIcon = remember(packageName, pixelSize, resolvedPack) {
         MetroAppBranding.loadAppIcon(context, packageName)?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
     }
 

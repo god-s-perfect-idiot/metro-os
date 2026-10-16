@@ -1,22 +1,17 @@
 package mihon.feature.migration.config
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallExtendedFloatingActionButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -27,14 +22,26 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.metro.ui.MetroAppBar
+import com.metro.ui.MetroAppBarDefaults
+import com.metro.ui.MetroAppBarIcon
+import com.metro.ui.MetroAppBarMenuItem
+import com.metro.ui.MetroCircleIconButton
+import com.metro.ui.MetroLoadingDots
+import com.metro.ui.MetroMultiSelectRow
+import com.metro.ui.MetroSettingsHeader
+import com.metro.ui.MetroSystemIconType
+import com.metro.ui.MetroSystemTheme
+import com.metro.ui.MetroText
+import com.metro.ui.MetroTextStyle
+import com.metro.ui.MetroTheme
+import com.metro.ui.metroNavBarPadding
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -43,8 +50,6 @@ import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.browse.components.SourceIcon
-import eu.kanade.presentation.components.AppBar
-import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.migration.search.MigrateSearchScreen
@@ -53,12 +58,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import mihon.feature.migration.list.MigrationListScreen
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
-import mihon.icons.materialsymbols.rounded.Deselect
-import mihon.icons.materialsymbols.rounded.DragHandle
-import mihon.icons.materialsymbols.rounded.SelectAll
-import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -66,13 +65,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.FastScrollLazyColumn
-import tachiyomi.presentation.core.components.Pill
-import tachiyomi.presentation.core.components.material.Scaffold
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.util.shouldExpandFAB
 
 class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
 
@@ -102,7 +95,18 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
         }
 
         if (state.isLoading) {
-            LoadingScreen()
+            MetroSystemTheme {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .metroNavBarPadding()
+                        .background(MetroTheme.colors.background),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    MetroLoadingDots()
+                }
+            }
             return
         }
 
@@ -114,100 +118,119 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
         }
 
         val lazyListState = rememberLazyListState()
-        Scaffold(
-            topBar = {
-                AppBar(
-                    title = null,
-                    navigateUp = navigator::pop,
-                    scrollBehavior = it,
-                    actions = {
-                        AppBarActions(
-                            listOf(
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectAllLabel),
-                                    icon = MaterialSymbols.Rounded.SelectAll,
-                                    onClick = { viewModel.toggleSelection(Model.SelectionConfig.All) },
-                                ),
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
-                                    icon = MaterialSymbols.Rounded.Deselect,
-                                    onClick = { viewModel.toggleSelection(Model.SelectionConfig.None) },
-                                ),
-                                AppBar.OverflowAction(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectEnabledLabel),
-                                    onClick = { viewModel.toggleSelection(Model.SelectionConfig.Enabled) },
-                                ),
-                                AppBar.OverflowAction(
-                                    title = stringResource(MR.strings.migrationConfigScreen_selectPinnedLabel),
-                                    onClick = { viewModel.toggleSelection(Model.SelectionConfig.Pinned) },
-                                ),
-                            ),
-                        )
-                    },
-                )
-            },
-            floatingActionButton = {
-                SmallExtendedFloatingActionButton(
-                    text = { Text(text = stringResource(MR.strings.migrationConfigScreen_continueButtonText)) },
-                    icon = {
-                        Icon(imageVector = MaterialSymbols.AutoMirroredRounded.ArrowForward, contentDescription = null)
-                    },
-                    onClick = {
-                        viewModel.saveSources()
-                        continueMigration(openSheet = true, extraSearchQuery = null)
-                    },
-                    expanded = lazyListState.shouldExpandFAB(),
-                )
-            },
-        ) { contentPadding ->
-            val reorderableState = rememberReorderableLazyListState(lazyListState, contentPadding) { from, to ->
-                val fromIndex = selectedSources.indexOfFirst { it.id == from.key }
-                val toIndex = selectedSources.indexOfFirst { it.id == to.key }
-                if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
-                viewModel.orderSource(fromIndex, toIndex)
-            }
+        val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+            val fromIndex = selectedSources.indexOfFirst { it.id == from.key }
+            val toIndex = selectedSources.indexOfFirst { it.id == to.key }
+            if (fromIndex == -1 || toIndex == -1) return@rememberReorderableLazyListState
+            viewModel.orderSource(fromIndex, toIndex)
+        }
 
-            FastScrollLazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = lazyListState,
-                contentPadding = contentPadding,
+        MetroSystemTheme {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .metroNavBarPadding()
+                    .background(MetroTheme.colors.background),
             ) {
-                listOf(selectedSources, availableSources).fastForEachIndexed { listIndex, sources ->
-                    val selectedSourceList = listIndex == 0
-                    if (sources.isNotEmpty()) {
-                        val headerPrefix = if (selectedSourceList) "selected" else "available"
-                        item("$headerPrefix-header") {
-                            Text(
-                                text = stringResource(
-                                    resource = if (selectedSourceList) {
-                                        MR.strings.migrationConfigScreen_selectedHeader
-                                    } else {
-                                        MR.strings.migrationConfigScreen_availableHeader
-                                    },
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier
-                                    .padding(MaterialTheme.padding.medium)
-                                    .animateItem(),
-                            )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = MetroAppBarDefaults.BarHeight),
+                ) {
+                    MetroSettingsHeader(
+                        pageTitle = stringResource(MR.strings.label_migration).lowercase(),
+                        appTitle = "metron",
+                    )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = lazyListState,
+                        contentPadding = PaddingValues(bottom = 32.dp),
+                    ) {
+                        listOf(selectedSources, availableSources).fastForEachIndexed { listIndex, sources ->
+                            val selectedSourceList = listIndex == 0
+                            if (sources.isNotEmpty()) {
+                                val headerPrefix = if (selectedSourceList) "selected" else "available"
+                                item("$headerPrefix-header") {
+                                    MetroText(
+                                        text = stringResource(
+                                            resource = if (selectedSourceList) {
+                                                MR.strings.migrationConfigScreen_selectedHeader
+                                            } else {
+                                                MR.strings.migrationConfigScreen_availableHeader
+                                            },
+                                        ).lowercase(),
+                                        style = MetroTextStyle.SectionHeader,
+                                        color = MetroTheme.colors.accent,
+                                        modifier = Modifier
+                                            .padding(
+                                                start = 12.dp,
+                                                top = 12.dp,
+                                                bottom = 4.dp,
+                                            )
+                                            .animateItem(),
+                                    )
+                                }
+                            }
+                            itemsIndexed(
+                                items = sources,
+                                key = { _, item -> item.id },
+                            ) { _, item ->
+                                SourceItemContainer(
+                                    source = item,
+                                    showLanguage = showLanguage,
+                                    dragEnabled = selectedSourceList && sources.size > 1,
+                                    state = reorderableState,
+                                    key = { if (selectedSourceList) it.id else "available-${it.id}" },
+                                    onClick = { viewModel.toggleSelection(item.id) },
+                                )
+                            }
                         }
                     }
-                    itemsIndexed(
-                        items = sources,
-                        key = { _, item -> item.id },
-                    ) { index, item ->
-                        SourceItemContainer(
-                            firstItem = index == 0,
-                            lastItem = index == (sources.size - 1),
-                            source = item,
-                            showLanguage = showLanguage,
-                            dragEnabled = selectedSourceList && sources.size > 1,
-                            state = reorderableState,
-                            key = { if (selectedSourceList) it.id else "available-${it.id}" },
-                            onClick = { viewModel.toggleSelection(item.id) },
-                        )
-                    }
                 }
+
+                MetroAppBar(
+                    icons = listOf(
+                        MetroAppBarIcon(
+                            type = MetroSystemIconType.Forward,
+                            label = stringResource(
+                                MR.strings.migrationConfigScreen_continueButtonText,
+                            ).lowercase(),
+                            onClick = {
+                                viewModel.saveSources()
+                                continueMigration(openSheet = true, extraSearchQuery = null)
+                            },
+                        ),
+                        MetroAppBarIcon(
+                            type = MetroSystemIconType.SelectAll,
+                            label = stringResource(
+                                MR.strings.migrationConfigScreen_selectAllLabel,
+                            ).lowercase(),
+                            onClick = { viewModel.toggleSelection(Model.SelectionConfig.All) },
+                        ),
+                    ),
+                    menuItems = listOf(
+                        MetroAppBarMenuItem(
+                            text = stringResource(
+                                MR.strings.migrationConfigScreen_selectNoneLabel,
+                            ).lowercase(),
+                            onClick = { viewModel.toggleSelection(Model.SelectionConfig.None) },
+                        ),
+                        MetroAppBarMenuItem(
+                            text = stringResource(
+                                MR.strings.migrationConfigScreen_selectEnabledLabel,
+                            ).lowercase(),
+                            onClick = { viewModel.toggleSelection(Model.SelectionConfig.Enabled) },
+                        ),
+                        MetroAppBarMenuItem(
+                            text = stringResource(
+                                MR.strings.migrationConfigScreen_selectPinnedLabel,
+                            ).lowercase(),
+                            onClick = { viewModel.toggleSelection(Model.SelectionConfig.Pinned) },
+                        ),
+                    ),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
         }
 
@@ -225,8 +248,6 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
 
     @Composable
     private fun LazyItemScope.SourceItemContainer(
-        firstItem: Boolean,
-        lastItem: Boolean,
         source: MigrationSource,
         showLanguage: Boolean,
         dragEnabled: Boolean,
@@ -234,79 +255,37 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
         key: (MigrationSource) -> Any,
         onClick: () -> Unit,
     ) {
-        val shape = remember(firstItem, lastItem) {
-            val top = if (firstItem) 12.dp else 0.dp
-            val bottom = if (lastItem) 12.dp else 0.dp
-            RoundedCornerShape(top, top, bottom, bottom)
+        val title = if (showLanguage) {
+            "${source.name} (${LocaleHelper.getShortDisplayName(source.shortLanguage, uppercase = true)})"
+        } else {
+            source.name
         }
-
         ReorderableItem(
             state = state,
             key = key(source),
             enabled = dragEnabled,
         ) { _ ->
-            ElevatedCard(
-                shape = shape,
-                modifier = Modifier
-                    .padding(horizontal = MaterialTheme.padding.medium)
-                    .animateItem(),
-            ) {
-                SourceItem(
-                    source = source,
-                    showLanguage = showLanguage,
-                    dragEnabled = dragEnabled,
-                    scope = this@ReorderableItem,
+            Box(modifier = Modifier.animateItem()) {
+                MetroMultiSelectRow(
+                    title = title,
+                    checked = source.isSelected,
                     onClick = onClick,
+                    leading = {
+                        SourceIcon(source = source.source, modifier = Modifier.size(40.dp))
+                    },
                 )
-            }
-        }
-
-        if (!lastItem) {
-            HorizontalDivider(modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium))
-        }
-    }
-
-    @Composable
-    private fun SourceItem(
-        source: MigrationSource,
-        showLanguage: Boolean,
-        dragEnabled: Boolean,
-        scope: ReorderableCollectionItemScope,
-        onClick: () -> Unit,
-    ) {
-        ListItem(
-            modifier = Modifier.clickable(onClick = onClick),
-            trailingContent = if (dragEnabled) {
-                {
-                    Icon(
-                        imageVector = MaterialSymbols.Rounded.DragHandle,
-                        contentDescription = null,
-                        modifier = with(scope) {
-                            Modifier.draggableHandle()
+                if (dragEnabled) {
+                    MetroCircleIconButton(
+                        type = MetroSystemIconType.More,
+                        contentDescription = "reorder",
+                        onClick = {},
+                        glyphSize = 28.dp,
+                        modifier = with(this@ReorderableItem) {
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 4.dp)
+                                .draggableHandle()
                         },
-                    )
-                }
-            } else {
-                null
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SourceIcon(source = source.source)
-                Text(
-                    text = source.name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                if (showLanguage) {
-                    Pill(
-                        text = LocaleHelper.getShortDisplayName(source.shortLanguage, uppercase = true),
-                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }

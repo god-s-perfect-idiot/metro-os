@@ -73,6 +73,16 @@ data class PinnedTileEntry(
      */
     val iconPackage: String? = null,
     /**
+     * Optional Android icon-pack package for this tile's glyph only.
+     * - Null → follow suite [com.metro.system.MetroPreferences.iconPackPackage]
+     * - Blank → force system / suite glyphs (ignore the global pack)
+     * - [CHROME_LEGACY_FACE] → composed Chrome wedge face (Chrome packages only)
+     * - Otherwise → that pack for this pin
+     *
+     * Ignored when [useCustomIcon] is true.
+     */
+    val iconPackPackage: String? = null,
+    /**
      * When true, draw the user-cropped photo from [TileCustomIcon] instead of the app glyph.
      */
     val useCustomIcon: Boolean = false,
@@ -92,6 +102,12 @@ data class PinnedTileEntry(
         const val MIN_ICON_SCALE = 0.5f
         const val MAX_ICON_SCALE = 1.5f
 
+        /**
+         * Sentinel stored in [iconPackPackage] for the legacy Chrome wedge Start face
+         * (tile customize → tiles). Not a real Android package name.
+         */
+        const val CHROME_LEGACY_FACE = "__metro_chrome_legacy__"
+
         fun clampIconScale(value: Float): Float =
             value.coerceIn(MIN_ICON_SCALE, MAX_ICON_SCALE)
     }
@@ -100,6 +116,18 @@ data class PinnedTileEntry(
 /** Package used for [com.metro.launcher.ui.MetroAppIcon] on this pin. */
 fun PinnedTileEntry.resolvedIconPackage(): String =
     iconPackage?.takeIf { it.isNotBlank() } ?: packageName
+
+/**
+ * Icon-pack override for [com.metro.launcher.ui.MetroAppIcon].
+ * Null → caller should use the suite global pack; blank → force system icons;
+ * [CHROME_LEGACY_FACE] → not an icon pack (composed face); otherwise → that pack.
+ */
+fun PinnedTileEntry.resolvedIconPackOverride(): String? =
+    iconPackPackage.takeUnless { it == PinnedTileEntry.CHROME_LEGACY_FACE }
+
+/** True when this pin should draw the composed Chrome wedge face. */
+fun PinnedTileEntry.usesChromeLegacyFace(): Boolean =
+    iconPackPackage == PinnedTileEntry.CHROME_LEGACY_FACE
 
 fun PinnedTileEntry.resolvedIconScale(): Float =
     PinnedTileEntry.clampIconScale(iconScale)
