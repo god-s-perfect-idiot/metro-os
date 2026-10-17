@@ -49,6 +49,7 @@ before painting accent-dependent UI when Settings may still be waking.
 | `PIN_TILE` | `com.metro.action.PIN_TILE` | `package`, `tile_id`, optional `tile_size` (`1x1` / `2x2` / `4x2`) |
 | `TILE_TAP` | `com.metro.action.TILE_TAP` | `package`, `tile_id` — or app-private action via `MetroTileData.tapAction` |
 | `ADD_SPEED_DIAL` | `com.metro.action.ADD_SPEED_DIAL` | `display_name`, `phone_number` |
+| `NEW_CONTACT` | `com.metro.action.NEW_CONTACT` | optional `phone_number`, `display_name` — use `MetroIntents.openNewContact` |
 
 ### Custom Start widget faces (`MetroTileWidgetFace`)
 

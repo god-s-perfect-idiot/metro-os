@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -30,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import com.metro.dialer.R
 import com.metro.dialer.data.CallDirection
 import com.metro.dialer.data.CallGroup
+import com.metro.dialer.data.ContactSuggestion
 import com.metro.dialer.data.DialerCallLogic
 import com.metro.dialer.telecom.DialPadTonePlayer
 import com.metro.ui.MetroAppBar
@@ -211,28 +215,51 @@ fun CallDetailScreen(
 
 @Composable
 fun DialPadPane(
-    suggestions: List<com.metro.dialer.data.ContactSuggestion>,
+    dialString: String,
+    suggestions: List<ContactSuggestion>,
     onAppend: (Char) -> Unit,
-    onLongPressZero: () -> Unit,
-    onSuggestionClick: (com.metro.dialer.data.ContactSuggestion) -> Unit,
+    onDelete: () -> Unit,
+    onClear: () -> Unit,
+    onReplace: (String) -> Unit,
+    onSuggestionClick: (ContactSuggestion) -> Unit,
     onCall: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    var numberSelected by remember { mutableStateOf(false) }
+    val numberSelectedLatest by rememberUpdatedState(numberSelected)
+    LaunchedEffect(dialString) {
+        // External dial-string changes (suggestion fill, intent) drop selection.
+        numberSelected = false
+    }
     DisposableEffect(Unit) {
         onDispose { DialPadTonePlayer.release() }
     }
-    val appendWithTone: (Char) -> Unit = remember(onAppend) {
-        { digit ->
-            DialPadTonePlayer.play(context, digit)
+    val appendDigit: (Char) -> Unit = { digit ->
+        DialPadTonePlayer.play(context, digit)
+        if (numberSelectedLatest) {
+            onReplace(digit.toString())
+            numberSelected = false
+        } else {
             onAppend(digit)
         }
     }
-    val longPressZeroWithTone: () -> Unit = remember(onLongPressZero) {
-        {
-            DialPadTonePlayer.play(context, '+')
-            onLongPressZero()
+    val longPressZeroWithTone: () -> Unit = {
+        DialPadTonePlayer.play(context, '+')
+        if (numberSelectedLatest) {
+            onReplace("+")
+            numberSelected = false
+        } else {
+            onAppend('+')
+        }
+    }
+    val onBackspace: () -> Unit = {
+        if (numberSelected) {
+            onClear()
+            numberSelected = false
+        } else {
+            onDelete()
         }
     }
 
@@ -241,31 +268,41 @@ fun DialPadPane(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        if (suggestions.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                suggestions.forEach { suggestion ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSuggestionClick(suggestion) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        MetroText(text = suggestion.displayName, style = MetroTextStyle.ListItemTitle)
-                        MetroText(
-                            text = suggestion.phoneNumber,
-                            style = MetroTextStyle.ListItemSubtitle,
-                            color = MetroTheme.colors.secondaryText,
-                        )
-                    }
+        DialNumberField(
+            dialString = dialString,
+            selected = numberSelected,
+            onDelete = onBackspace,
+            onLongPressSelect = {
+                if (dialString.isNotEmpty()) numberSelected = true
+            },
+            onClearSelection = { numberSelected = false },
+        )
+
+        // Always the same slot (LazyColumn) so empty ↔ suggestions does not restructure the
+        // page mid-swipe when the dial-pad pane stays composed beside history / speed dial.
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            items(
+                items = suggestions,
+                key = { "${it.normalizedNumber}|${it.displayName}" },
+            ) { suggestion ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSuggestionClick(suggestion) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    MetroText(text = suggestion.displayName, style = MetroTextStyle.ListItemTitle)
+                    MetroText(
+                        text = suggestion.phoneNumber,
+                        style = MetroTextStyle.ListItemSubtitle,
+                        color = MetroTheme.colors.secondaryText,
+                    )
                 }
             }
-        } else {
-            Spacer(modifier = Modifier.weight(1f))
         }
 
         Column(
@@ -276,12 +313,12 @@ fun DialPadPane(
                 .padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(DialKeyGap),
         ) {
-            KeypadRow(listOf("1" to "", "2" to "ABC", "3" to "DEF"), appendWithTone)
-            KeypadRow(listOf("4" to "GHI", "5" to "JKL", "6" to "MNO"), appendWithTone)
-            KeypadRow(listOf("7" to "PQRS", "8" to "TUV", "9" to "WXYZ"), appendWithTone)
+            KeypadRow(listOf("1" to "", "2" to "ABC", "3" to "DEF"), appendDigit)
+            KeypadRow(listOf("4" to "GHI", "5" to "JKL", "6" to "MNO"), appendDigit)
+            KeypadRow(listOf("7" to "PQRS", "8" to "TUV", "9" to "WXYZ"), appendDigit)
             KeypadRow(
                 keys = listOf("*" to "", "0" to "+", "#" to ""),
-                onAppend = appendWithTone,
+                onAppend = appendDigit,
                 onLongPress = mapOf("0" to longPressZeroWithTone),
             )
             Row(
@@ -303,11 +340,15 @@ fun DialPadPane(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun DialNumberField(
     dialString: String,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onLongPressSelect: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
 ) {
     Row(
         modifier = modifier
@@ -316,12 +357,34 @@ internal fun DialNumberField(
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AutoScaleDialNumberText(
-            text = dialString,
-            baseStyle = DialNumberStyle,
-            color = MetroTheme.colors.primaryText,
-            modifier = Modifier.weight(1f),
-        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClearSelection,
+                    onLongClick = onLongPressSelect,
+                )
+                .semantics {
+                    contentDescription = "dialed number"
+                }
+                .then(
+                    if (selected && dialString.isNotEmpty()) {
+                        Modifier.background(MetroTheme.colors.accent.copy(alpha = 0.35f))
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(vertical = 4.dp),
+        ) {
+            AutoScaleDialNumberText(
+                text = dialString,
+                baseStyle = DialNumberStyle,
+                color = MetroTheme.colors.primaryText,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         if (dialString.isNotEmpty()) {
             BackspaceIcon(
                 onClick = onDelete,

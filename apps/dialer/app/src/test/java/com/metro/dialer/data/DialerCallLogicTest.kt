@@ -138,6 +138,34 @@ class DialerCallLogicTest {
     }
 
     @Test
+    fun contactSuggestions_matchesT9Initials() {
+        val contacts = listOf(
+            ContactSuggestion("John Smith", "5551111", "5551111"),
+            ContactSuggestion("Bob", "4449999", "4449999"),
+        )
+        // 57 = J… S… (John Smith initials)
+        val matches = DialerCallLogic.contactSuggestions("57", contacts)
+        assertEquals(1, matches.size)
+        assertEquals("John Smith", matches.first().displayName)
+    }
+
+    @Test
+    fun contactSuggestions_returnsScrollableListBeyondThree() {
+        val contacts = (1..12).map { index ->
+            ContactSuggestion("Alice $index", "555000$index", "555000$index")
+        }
+        val matches = DialerCallLogic.contactSuggestions("555", contacts)
+        assertEquals(12, matches.size)
+    }
+
+    @Test
+    fun matchesT9_matchesInitialsAndCompactedName() {
+        assertTrue(DialerCallLogic.matchesT9("John Smith", "57"))
+        assertTrue(DialerCallLogic.matchesT9("John Smith", "56467")) // johns…
+        assertTrue(!DialerCallLogic.matchesT9("John Smith", "58"))
+    }
+
+    @Test
     fun mergeContactSuggestions_prefersProviderMatches() {
         val provider = listOf(
             ContactSuggestion("Alice", "555-9999", "5559999"),

@@ -11,12 +11,17 @@ import com.metro.launcher.data.PinnedTileSize
  * Start-tile icon / title metrics for the active grid density.
  *
  * [Standard] matches the default 4-column Start (2 medium tiles across).
- * [Dense] is Settings → show more columns (6-column / 3 medium across): tighter side
- * gutters, fuller glyphs, and slightly smaller titles (still readable) like WP8.1.
+ * [Dense] is Settings → show more columns (6-column / 3 medium across): same side
+ * gutters and inter-tile gap as Standard, with slightly calmer glyphs and smaller
+ * titles for the denser cell size.
  */
 data class TileChrome(
-    /** Start screen left/right gutter outside the tile grid. */
+    /** Start screen left gutter outside the tile grid. */
     val horizontalPadding: Dp,
+    /** Start screen right gutter. Matches [horizontalPadding] for a balanced Start. */
+    val endPadding: Dp,
+    /** Inter-tile gutter — same on 4-col and 6-col Start. */
+    val gap: Dp,
     val contentInset: Dp,
     val smallIconInset: Dp,
     val mediumIconFraction: Float,
@@ -68,6 +73,8 @@ data class TileChrome(
         /** 4-column Start — default density metrics. */
         val Standard = TileChrome(
             horizontalPadding = 12.dp,
+            endPadding = 12.dp,
+            gap = 8.dp,
             contentInset = 8.dp,
             // Slightly fuller 1×1 glyphs than the legacy 10.dp inset.
             smallIconInset = 6.dp,
@@ -86,15 +93,18 @@ data class TileChrome(
         )
 
         /**
-         * 6-column Start — narrower side gutters reclaim width; icons fill more of each
-         * cell; titles sit between Standard and the denser WP8.1 label scale for readability.
+         * 6-column Start — same gap as Standard, slightly tighter side gutters so
+         * three mediums breathe without looking edge-clamped. Icons fill more of each
+         * smaller cell; titles stay a step smaller for readability.
          */
         val Dense = TileChrome(
             horizontalPadding = 8.dp,
+            endPadding = 8.dp,
+            gap = Standard.gap,
             contentInset = 4.dp,
-            smallIconInset = 3.dp,
-            mediumIconFraction = 0.68f,
-            wideIconFraction = 0.55f,
+            smallIconInset = 2.dp,
+            mediumIconFraction = 0.70f,
+            wideIconFraction = 0.58f,
             titleSp = 14f,
             titleLineHeightSp = 17f,
             titlePaddingH = 4.dp,

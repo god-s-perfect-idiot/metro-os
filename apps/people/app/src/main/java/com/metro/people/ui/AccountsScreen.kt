@@ -1,7 +1,6 @@
 package com.metro.people.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +21,7 @@ import com.metro.people.data.AccountOption
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.metroClickable
 
 @Composable
 fun AccountsScreen(
@@ -46,7 +46,7 @@ fun AccountsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onSelect(option) }
+                    .metroClickable { onSelect(option) }
                     .padding(vertical = 12.dp),
             ) {
                 MetroText(text = option.label, style = MetroTextStyle.ListItemTitle)
@@ -64,7 +64,7 @@ fun AccountsScreen(
             text = "back",
             style = MetroTextStyle.Body,
             color = MetroTheme.colors.accent,
-            modifier = Modifier.clickable(onClick = onBack),
+            modifier = Modifier.metroClickable(onClick = onBack),
         )
     }
 }

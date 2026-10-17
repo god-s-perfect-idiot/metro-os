@@ -27,11 +27,12 @@ WP 8.1 moved **call** and **save** from the bottom app bar into the tile grid â€
 
 ### T9 / autocomplete
 
-As digits are entered, show up to **3 matching contacts** above the grid:
+As digits are entered, show a **scrollable** list of matching contacts above the grid:
 
-- Match against contact name (T9 mapping) and number prefix.
+- Match against contact name (T9 mapping, word prefixes, initials) and number prefix.
 - Row: name (24sp) + number (grey 16sp).
 - Tap suggestion: populate number field; second tap or explicit call button places call.
+- Long-press the dialed number to select all, then backspace to clear.
 
 Reference: `images/dialpad_dark_blue.jpg`.
 

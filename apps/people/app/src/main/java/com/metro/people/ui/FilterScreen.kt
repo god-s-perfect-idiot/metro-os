@@ -1,7 +1,6 @@
 package com.metro.people.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +29,7 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroToggleSwitch
+import com.metro.ui.metroClickable
 
 @Composable
 fun FilterScreen(
@@ -77,7 +77,7 @@ fun FilterScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
+                    .metroClickable {
                         visible = if (checked) visible - account else visible + account
                     }
                     .padding(vertical = 8.dp),

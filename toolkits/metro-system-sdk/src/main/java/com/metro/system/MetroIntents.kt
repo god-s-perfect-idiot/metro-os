@@ -15,6 +15,11 @@ object MetroIntents {
     const val ACTION_TILE_TAP = "com.metro.action.TILE_TAP"
     /** Explicit broadcast to Phone — extras [EXTRA_DISPLAY_NAME], [EXTRA_PHONE_NUMBER]. */
     const val ACTION_ADD_SPEED_DIAL = "com.metro.action.ADD_SPEED_DIAL"
+    /**
+     * Open People new-contact editor. Optional extras: [EXTRA_PHONE_NUMBER], [EXTRA_DISPLAY_NAME].
+     * Prefer [openNewContact] so the package + flags are set correctly.
+     */
+    const val ACTION_NEW_CONTACT = "com.metro.action.NEW_CONTACT"
 
     const val EXTRA_PACKAGE = "package"
     const val EXTRA_QUERY = "query"
@@ -89,6 +94,31 @@ object MetroIntents {
             putExtra(EXTRA_PHONE_NUMBER, trimmed)
         }
         context.sendBroadcast(intent)
+    }
+
+    /**
+     * Launch People on the new-contact form, optionally prefilling phone / display name.
+     * @return false when People is not installed / cannot be resolved.
+     */
+    fun openNewContact(
+        context: Context,
+        phoneNumber: String? = null,
+        displayName: String? = null,
+    ): Boolean {
+        val intent = Intent(ACTION_NEW_CONTACT).apply {
+            setPackage(PACKAGE_PEOPLE)
+            phoneNumber?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                putExtra(EXTRA_PHONE_NUMBER, it)
+            }
+            displayName?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                putExtra(EXTRA_DISPLAY_NAME, it)
+            }
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        return runCatching {
+            context.startActivity(intent)
+            true
+        }.getOrDefault(false)
     }
 }
 

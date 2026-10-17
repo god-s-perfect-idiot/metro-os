@@ -91,8 +91,9 @@ object DialerCallLogic {
     }
 
     /**
-     * WP-style smart dial: consecutive T9 letters from the start of the display name
-     * or from the start of any word (so `76` matches "John Smith").
+     * WP-style smart dial: consecutive T9 letters from the start of the display name,
+     * from the start of any word (so `76` matches "John Smith"), initials across words
+     * (`57` → John Smith), or the compacted name without spaces.
      */
     fun matchesT9(name: String, digits: String): Boolean {
         val t9Digits = digits.filter { it in '2'..'9' }
@@ -101,7 +102,10 @@ object DialerCallLogic {
             .split(Regex("[^a-z]+"))
             .filter { it.isNotEmpty() }
         if (words.isEmpty()) return false
-        return words.any { wordMatchesT9Prefix(it, t9Digits) }
+        if (words.any { wordMatchesT9Prefix(it, t9Digits) }) return true
+        if (matchesT9Initials(words, t9Digits)) return true
+        val compacted = words.joinToString("")
+        return wordMatchesT9Prefix(compacted, t9Digits)
     }
 
     private fun wordMatchesT9Prefix(letters: String, digits: String): Boolean {
@@ -113,35 +117,74 @@ object DialerCallLogic {
         return true
     }
 
+    /** Match digit sequence to first letters of consecutive words (WP smart-dial initials). */
+    private fun matchesT9Initials(words: List<String>, digits: String): Boolean {
+        if (digits.length < 2 || digits.length > words.size) return false
+        digits.forEachIndexed { index, digit ->
+            val keyLetters = t9Key(digit)
+            if (keyLetters.isEmpty() || !keyLetters.contains(words[index].first())) return false
+        }
+        return true
+    }
+
+    /**
+     * Ranked contact suggestions for the dial pad.
+     * Number-prefix hits rank above T9 name hits; within each tier, longer / earlier matches win.
+     * Default [limit] is high so the dial-pad list can scroll through many matches.
+     */
     fun contactSuggestions(
         queryDigits: String,
         contacts: List<ContactSuggestion>,
-        limit: Int = 3,
+        limit: Int = 50,
     ): List<ContactSuggestion> {
         if (queryDigits.isEmpty()) return emptyList()
         val t9Digits = queryDigits.filter { it in '2'..'9' }
+        val queryLen = digitsOnly(queryDigits).length
         return contacts.mapNotNull { contact ->
             val numberMatch = matchesNumberPrefix(contact.normalizedNumber, queryDigits) ||
                 matchesNumberPrefix(contact.phoneNumber, queryDigits)
             val nameMatch = t9Digits.isNotEmpty() && matchesT9(contact.displayName, t9Digits)
             when {
-                numberMatch -> contact to 0
-                nameMatch -> contact to 1
+                numberMatch -> contact to SuggestionRank(
+                    tier = 0,
+                    // Prefer contacts whose national number is closer in length to the query.
+                    specificity = -queryLen,
+                )
+                nameMatch -> contact to SuggestionRank(
+                    tier = 1,
+                    specificity = t9NameSpecificity(contact.displayName, t9Digits),
+                )
                 else -> null
             }
         }
             .sortedWith(
-                compareBy<Pair<ContactSuggestion, Int>> { it.second }
+                compareBy<Pair<ContactSuggestion, SuggestionRank>> { it.second.tier }
+                    .thenBy { it.second.specificity }
                     .thenBy { it.first.displayName.lowercase(Locale.US) },
             )
             .map { it.first }
             .take(limit)
     }
 
+    private data class SuggestionRank(val tier: Int, val specificity: Int)
+
+    /** Lower is better — first-word / initials matches outrank later-word-only hits. */
+    private fun t9NameSpecificity(name: String, t9Digits: String): Int {
+        val words = name.lowercase(Locale.US)
+            .split(Regex("[^a-z]+"))
+            .filter { it.isNotEmpty() }
+        if (words.isEmpty()) return 100
+        if (wordMatchesT9Prefix(words.first(), t9Digits)) return 0
+        if (matchesT9Initials(words, t9Digits)) return 1
+        if (wordMatchesT9Prefix(words.joinToString(""), t9Digits)) return 2
+        val laterIndex = words.indexOfFirst { wordMatchesT9Prefix(it, t9Digits) }
+        return if (laterIndex >= 0) 3 + laterIndex else 50
+    }
+
     fun mergeContactSuggestions(
         primary: List<ContactSuggestion>,
         secondary: List<ContactSuggestion>,
-        limit: Int = 3,
+        limit: Int = 50,
     ): List<ContactSuggestion> {
         val seen = linkedSetOf<String>()
         val merged = mutableListOf<ContactSuggestion>()

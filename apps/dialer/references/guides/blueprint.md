@@ -65,8 +65,8 @@ Target: **Windows Phone 8.1 GDR2+** Phone app on a portrait phone (768×1280 / x
 ### Page 3 — Dial pad
 
 - **Layout:**
-  - Top: dialed number field (32sp+, left-aligned, accent when non-empty).
-  - Below number: T9 contact suggestion list (max 3 rows) — name + number; tap fills number and calls or selects.
+  - Top: dialed number field (32sp+, left-aligned; long-press selects all for clear). Lives inside the dial-pad pager page so pivot swipes do not jump.
+  - Below number: scrollable T9 contact suggestion list — name + number; tap fills number and calls or selects.
   - Key grid (square tiles, no rounded corners):
     - Rows 1–3: digits 1–9 with letter hints (`2 ABC`, etc.) in smaller grey sub-label.
     - Row 4: `*` | `0` with `+` hint | `#`.

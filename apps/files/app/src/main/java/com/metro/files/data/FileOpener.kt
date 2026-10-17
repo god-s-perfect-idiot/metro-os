@@ -126,11 +126,87 @@ object FileOpener {
         return any.isNotEmpty()
     }
 
+    /**
+     * Shares [entry] via the system share sheet ([Intent.ACTION_SEND] + FileProvider).
+     */
+    fun share(context: Context, entry: FileEntry): ShareResult {
+        if (entry.kind != FileKind.FILE) {
+            return ShareResult.NotAFile
+        }
+        val file = File(entry.absolutePath)
+        if (!file.exists() || !file.isFile) {
+            return ShareResult.Missing
+        }
+        val mime = entry.mimeType ?: FilesLogic.mimeTypeForName(entry.name)
+        val uri = try {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.files",
+                file,
+            )
+        } catch (_: IllegalArgumentException) {
+            return ShareResult.Denied
+        }
+
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newRawUri("", uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(send, null)
+        if (context !is Activity) {
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return try {
+            context.startActivity(chooser)
+            ShareResult.Started
+        } catch (_: ActivityNotFoundException) {
+            ShareResult.NoHandler
+        } catch (_: SecurityException) {
+            ShareResult.Denied
+        }
+    }
+
+    /**
+     * Deletes a file or directory (recursive). Volumes are refused.
+     */
+    fun delete(entry: FileEntry): DeleteResult {
+        if (entry.kind == FileKind.VOLUME) {
+            return DeleteResult.NotAllowed
+        }
+        val file = File(entry.absolutePath)
+        if (!file.exists()) {
+            return DeleteResult.Missing
+        }
+        val removed = if (file.isDirectory) {
+            file.deleteRecursively()
+        } else {
+            file.delete()
+        }
+        return if (removed) DeleteResult.Deleted else DeleteResult.Failed
+    }
+
     enum class OpenResult {
         Started,
         NoHandler,
         Missing,
         Denied,
         NotAFile,
+    }
+
+    enum class ShareResult {
+        Started,
+        NoHandler,
+        Missing,
+        Denied,
+        NotAFile,
+    }
+
+    enum class DeleteResult {
+        Deleted,
+        Missing,
+        Failed,
+        NotAllowed,
     }
 }

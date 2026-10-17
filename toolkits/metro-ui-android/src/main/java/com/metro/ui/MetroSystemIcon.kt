@@ -708,25 +708,28 @@ internal fun DrawScope.drawHeartSlashGlyph(color: Color) {
     )
 }
 
-/** Filled download / save — 512 viewBox path (arrow into tray). */
+/** Filled floppy / save — 1024 viewBox path. */
 private const val SAVE_GLYPH_PATH =
-    "M442.2 186.2H302.5V0h-93.1v186.2H69.8L256 418.9l186.2-232.7zm23.3 186.2v93.1h-419v-93.1H0V512h512V372.4h-46.5z"
+    "M893.3 293.3L730.7 130.7c-12-12-28.3-18.7-45.3-18.7H144c-17.7 0-32 14.3-32 32v736c0 17.7 " +
+        "14.3 32 32 32h736c17.7 0 32-14.3 32-32V338.5c0-17-6.7-33.2-18.7-45.2M384 176h256v112H384zm" +
+        "128 554c-79.5 0-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144s-64.5 144-144 144m0-224" +
+        "c-44.2 0-80 35.8-80 80s35.8 80 80 80s80-35.8 80-80s-35.8-80-80-80"
 
 private val saveGlyphPath: Path by lazy {
     PathParser().parsePathString(SAVE_GLYPH_PATH).toPath()
 }
 
-/** WP download / save-to tray — filled arrow pointing into a bottom bar. */
+/** Filled floppy disk save glyph. */
 private fun DrawScope.drawSaveGlyph(color: Color) {
     // Slightly larger than ring-inset chrome (0.38) so the glyph reads on dial-pad /
     // border tiles where showCircle = false.
-    val scale = size.minDimension / 512f * 0.55f
+    val scale = size.minDimension / 1024f * 0.58f
     val cx = size.width / 2f
     val cy = size.height / 2f
     withTransform({
         translate(left = cx, top = cy)
         scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
-        translate(left = -256f, top = -256f)
+        translate(left = -512f, top = -512f)
     }) {
         drawPath(saveGlyphPath, color)
     }

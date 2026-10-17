@@ -5,7 +5,7 @@
 
 ## Status
 
-Implemented (v1) — browse all readable storage, filter by content pivot, open files in their respective apps. Copy/move/rename/delete/share deferred.
+Implemented (v1) — browse all readable storage, filter by content pivot, open files in their respective apps, long-press open/share/delete, image tile previews. Copy/move/rename deferred.
 
 ## App role
 
@@ -36,8 +36,11 @@ It should feel structured and lightweight, not like a modern Android file manage
 
 - **v1 browse:** full shared storage via `MANAGE_EXTERNAL_STORAGE` (legacy `READ_EXTERNAL_STORAGE` below API 30)
 - Tap file → `ACTION_VIEW` through `FileProvider` (`com.metro.files.files`) so the system opens the matching app / chooser
+- Long-press file/folder → `MetroContextMenuPopup` (open / share / delete); delete confirms with `MetroMessageDialog`
+- Share → `ACTION_SEND` chooser via the same FileProvider
 - File-type detection via extension → MIME map in `FilesLogic` (deterministic)
-- Deferred: copy / move / rename / delete / new folder / multi-select share / search
+- Picture rows decode a cropped tile preview from the file path
+- Deferred: copy / move / rename / new folder / multi-select / search
 
 ## UI and interaction guardrails
 
@@ -45,7 +48,8 @@ It should feel structured and lightweight, not like a modern Android file manage
 - Leading accent / type tiles before name (phone / SD glyphs at volume root; folder count badge; Office-style file badges)
 - `MetroPivot` controls the active file class filter
 - No Material drawers, bottom sheets, or card tiles
-- Breadcrumbs stay text-forward (`phone > Pictures`)
+- Breadcrumbs stay text-forward (`phone > Pictures`), single line left-aligned; on overflow the end of the path stays visible
+- List titles/subtitles use `MetroListItem(singleLine = true)` (clip overflow, no wrap)
 
 ## Data and state model
 

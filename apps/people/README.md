@@ -44,12 +44,19 @@ Authoritative spec: [`references/guides/blueprint.md`](references/guides/bluepri
 - Reference: `references/images/detail_dark_blue.jpg`
 - Supplementary: `references/guides/contact-detail.md`
 
+### 5. New contact
+
+- Form for creating a contact via `ContactsContract` (name, photo, phones, emails, org, postal, website, IM, events, notes, relation)
+- `+` app bar on hub; Dialer save-number launches via `MetroIntents.openNewContact` / `ACTION_INSERT`
+- Collapsed fields expand with **more**; account picker before save
+
 ## System functions and contracts
 
-- Use `ContactsContract` for local contacts in v1
+- Use `ContactsContract` for local contacts in v1 (`READ_CONTACTS` + `WRITE_CONTACTS`)
 - Define sorting, grouping, and display-name fallback rules explicitly
 - Social integration is part of scope language but should be treated as stubbed or informational until a real backend exists
 - Keep avatar loading/fallbacks simple and deterministic
+- New-contact launch: `com.metro.action.NEW_CONTACT`, `Intent.ACTION_INSERT` (`vnd.android.cursor.dir/contact`), or `metro://people/new`
 
 ## UI and interaction guardrails
 

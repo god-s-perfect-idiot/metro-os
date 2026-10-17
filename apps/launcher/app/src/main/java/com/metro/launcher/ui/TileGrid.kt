@@ -115,7 +115,8 @@ private const val MESSAGING_PACKAGE = "com.metro.messaging"
 
 const val TILE_GRID_COLUMNS = 4
 const val TILE_GRID_COLUMNS_EXPANDED = 6
-val TILE_GRID_GAP = 8.dp
+/** Inter-tile gutter for the default 4-column Start. Dense (3-across) uses [TileChrome.gap]. */
+val TILE_GRID_GAP = TileChrome.Standard.gap
 
 private val NeverSuspendEditMotion: State<Boolean> = mutableStateOf(false)
 /** Default (4-col) Start side gutter — dense grid uses [TileChrome.horizontalPadding]. */
@@ -136,11 +137,11 @@ private const val TILE_FLIP_HOLD_JITTER_MS = 1_200L
 private const val TILE_FLIP_CAMERA_DISTANCE = 16f
 /**
  * Live-tile / press-tilt perspective may spill into the inter-tile gutter. Clip at the
- * neighboring tile edge ([TILE_GRID_GAP] past each side) — not at the tile bounds, which
+ * neighboring tile edge ([gap] past each side) — not at the tile bounds, which
  * reads as cutting the 3D protrusion mid-padding while a stationary neighbor sits next door.
  */
-private fun Modifier.clipThroughTileGap(): Modifier = drawWithContent {
-    val gutter = TILE_GRID_GAP.toPx()
+private fun Modifier.clipThroughTileGap(gap: Dp = TILE_GRID_GAP): Modifier = drawWithContent {
+    val gutter = gap.toPx()
     // clipRect's block is DrawScope — keep ContentDrawScope for drawContent().
     val contentScope = this
     clipRect(
@@ -373,17 +374,19 @@ internal fun startGridUnitPx(
     density: Density,
 ): Float {
     val chrome = TileChrome.forColumns(columns)
-    val padPx = with(density) { chrome.horizontalPadding.toPx() }
-    val gapPx = with(density) { TILE_GRID_GAP.toPx() }
-    return (viewportWidthPx - padPx * 2f - gapPx * (columns - 1)) / columns
+    val startPadPx = with(density) { chrome.horizontalPadding.toPx() }
+    val endPadPx = with(density) { chrome.endPadding.toPx() }
+    val gapPx = with(density) { chrome.gap.toPx() }
+    return (viewportWidthPx - startPadPx - endPadPx - gapPx * (columns - 1)) / columns
 }
 
 internal fun startTileTopPx(
     row: Int,
     unitPx: Float,
     density: Density,
+    columns: Int = TILE_GRID_COLUMNS,
 ): Float {
-    val gapPx = with(density) { TILE_GRID_GAP.toPx() }
+    val gapPx = with(density) { TileChrome.forColumns(columns).gap.toPx() }
     val topPadPx = with(density) { tileGridTopPadding().toPx() }
     return topPadPx + row * (unitPx + gapPx)
 }
@@ -589,16 +592,18 @@ fun TileGrid(
     val chrome = remember(columns) { TileChrome.forColumns(columns) }
     CompositionLocalProvider(LocalTileChrome provides chrome) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        // Side gutters from [TileChrome.horizontalPadding]. Corner discs hang into that gutter
-        // so edit mode never widens the grid or reflows `unit` — recess is graphics-only.
+        // Side gutters from [TileChrome] start/end padding. Corner discs hang into that
+        // gutter so edit mode never widens the grid or reflows `unit` — recess is graphics-only.
         // Top keeps half-button room so the unpin disc above row 0 is not clipped by scroll.
         val cornerOverhang = TileCornerButtonSize / 2
-        val horizontalPad = chrome.horizontalPadding
-        val cornerSideHang = tileCornerSideHang(horizontalPad)
+        val startPad = chrome.horizontalPadding
+        val endPad = chrome.endPadding
+        val gap = chrome.gap
+        val cornerSideHang = tileCornerSideHang(minOf(startPad, endPad))
         val topPad = tileGridTopPadding()
-        val unit = (maxWidth - horizontalPad * 2 - TILE_GRID_GAP * (columns - 1)) /
+        val unit = (maxWidth - startPad - endPad - gap * (columns - 1)) /
             columns
-        val cellStridePx = with(density) { (unit + TILE_GRID_GAP).toPx() }
+        val cellStridePx = with(density) { (unit + gap).toPx() }
         val placed = if (isDragging && draggingKey != null) {
             val dragged = tiles.firstOrNull { it.tileKey() == draggingKey }
             val baseline = dragBaselinePositions
@@ -613,7 +618,6 @@ fun TileGrid(
         val (enterMaxRight, enterMaxBottom) = tileEnterGridExtents(placed)
         val enterMaxDiagonal = tileEnterMaxDiagonal(placed)
         val pageWidthPx = with(density) { maxWidth.toPx() }
-        val horizontalPadPx = with(density) { horizontalPad.toPx() }
         // Hold live-tile flips/pans until the enter wave finishes (or was already consumed).
         // Key on duration, not [placed] identity — a live-tile payload refresh must not
         // restart this and flash People/Photos bitmaps.
@@ -640,7 +644,7 @@ fun TileGrid(
             if (restPoseRequestId <= 0) return@LaunchedEffect
             liveMotionEnabled = true
         }
-        val contentHeight = gridContentHeight(unit, placed)
+        val contentHeight = gridContentHeight(unit, placed, gap = gap)
         val editBottomReserveDp =
             START_ARROW_ROW_HEIGHT + START_BOTTOM_SCROLL_PADDING + START_EDIT_EXTRA_BOTTOM_PADDING
         val editOverhang = (16.dp + cornerOverhang + editBottomReserveDp) * editProgress
@@ -727,8 +731,8 @@ fun TileGrid(
         Box(
             modifier = Modifier
                 .padding(
-                    start = horizontalPad,
-                    end = horizontalPad,
+                    start = startPad,
+                    end = endPad,
                     top = topPad,
                 )
                 .size(width = maxWidth, height = totalHeight)
@@ -767,14 +771,15 @@ fun TileGrid(
                 val tileKey = tile.tileKey()
                 val isActive = editMode && activeTile != null && sameTile(activeTile, tile)
                 val tileIsDragging = draggingKey == tileKey
-                val layoutX = (unit + TILE_GRID_GAP) * placement.col
-                val layoutY = (unit + TILE_GRID_GAP) * placement.row
+                val layoutX = (unit + gap) * placement.col
+                val layoutY = (unit + gap) * placement.row
 
                 key(tile.entry.packageName, tile.entry.tileId) {
                     val (tileWidth, tileHeight) = tilePixelSize(
                         unit,
                         tile.entry.size.colSpan,
                         tile.entry.size.rowSpan,
+                        gap = gap,
                     )
                     val bounds = rememberAnimatedTileBounds(
                         width = tileWidth,
@@ -1428,7 +1433,7 @@ private fun LauncherTileCell(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clipThroughTileGap()
+                    .clipThroughTileGap(LocalTileChrome.current.gap)
                     .then(
                         when {
                             showCustomWidget && useWindowFill ->
@@ -1804,10 +1809,11 @@ private fun LauncherTileCell(
             }
         }
         if (editMode && isActive) {
-            // Vertical hang is half the disc; horizontal hang matches the grid gutter so edge
-            // tiles never paint past the screen (scroll clips overflow).
+            // Vertical hang is half the disc; horizontal hang matches the near-side gutter so
+            // edge tiles never paint past the screen (scroll clips overflow).
             val cornerOffsetY = TileCornerButtonSize / 2
-            val cornerSideHang = tileCornerSideHang(chrome.horizontalPadding)
+            val cornerHangEnd = tileCornerSideHang(chrome.endPadding)
+            val cornerHangStart = tileCornerSideHang(chrome.horizontalPadding)
             val controlsVisible = !isDragging
             TileEditCornerButton(
                 onClick = {
@@ -1818,7 +1824,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = cornerSideHang, y = -cornerOffsetY)
+                    .offset(x = cornerHangEnd, y = -cornerOffsetY)
                     // Keep composed while dragging so removing the clickable child cannot
                     // cancel the tile's in-progress pointerInput gesture.
                     .alpha(if (controlsVisible) 1f else 0f),
@@ -1831,7 +1837,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = cornerSideHang, y = cornerOffsetY)
+                    .offset(x = cornerHangEnd, y = cornerOffsetY)
                     .alpha(if (controlsVisible) 1f else 0f),
             )
             TileEditCornerButton(
@@ -1842,7 +1848,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .offset(x = -cornerSideHang, y = cornerOffsetY)
+                    .offset(x = -cornerHangStart, y = cornerOffsetY)
                     .alpha(if (controlsVisible) 1f else 0f),
             )
         }
@@ -1865,23 +1871,33 @@ private fun SmallTileIconBadgeContent(
     val digits = display.length
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
+    val dense = LocalTileChrome.current == TileChrome.Dense
     BoxWithConstraints(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
-        val gap = 4.dp
+        val gap = if (dense) 3.dp else 4.dp
         val availableW = maxWidth.value
         val availableH = maxHeight.value
         val gapV = gap.value
         // Multi-digit counts need a larger share; glyph takes the rest.
+        // Dense (3-col) cells are smaller — give glyph/count a fuller share so they read.
         val countShare = when {
-            digits <= 1 -> 0.30f
-            else -> 0.40f
+            digits <= 1 -> if (dense) 0.28f else 0.30f
+            else -> if (dense) 0.36f else 0.40f
         }
-        val maxGlyph = min(availableH * 0.68f, 36f)
-        val minGlyph = 14f
-        val maxFont = min(availableH * 0.48f, 28f)
-        val minFont = 9f
+        val maxGlyph = if (dense) {
+            min(availableH * 0.82f, 42f)
+        } else {
+            min(availableH * 0.68f, 36f)
+        }
+        val minGlyph = if (dense) 16f else 14f
+        val maxFont = if (dense) {
+            min(availableH * 0.58f, 32f)
+        } else {
+            min(availableH * 0.48f, 28f)
+        }
+        val minFont = if (dense) 11f else 9f
         val preferredGlyph = min(maxGlyph, (availableW - gapV) * (1f - countShare))
             .coerceAtLeast(minGlyph)
         val countBudgetPx = with(density) {
@@ -1993,26 +2009,27 @@ private fun BoxScope.TileNotificationBadge(
     val display = tileNotificationDisplayCount(count)
     val digits = display.length
     // Multi-digit counts shrink so "12" / "99" stay on one line beside the icon.
-    val baseRatio = 0.22f
+    val dense = chrome == TileChrome.Dense
+    val baseRatio = if (dense) 0.28f else 0.22f
     val digitScale = when {
         digits <= 1 -> 1f
         else -> 0.78f
     }
     // Floor scales with digits — keep two-digit counts from wrapping on small overlays.
-    val dense = chrome == TileChrome.Dense
+    // Dense bumps floors/ceilings so 3-col badges stay readable on smaller tiles.
     val minSp = when {
-        digits <= 1 -> if (dense) 12f else 16f
-        else -> if (dense) 10f else 13f
+        digits <= 1 -> if (dense) 14f else 16f
+        else -> if (dense) 12f else 13f
     }
-    val maxSp = if (dense) 28f else 40f
+    val maxSp = if (dense) 34f else 40f
     val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
     val alignment = when {
         alignBottom || tileSize == PinnedTileSize.FourByTwo -> Alignment.BottomEnd
         else -> Alignment.CenterEnd
     }
-    val badgeIconSize = (tileMinEdge.value * 0.28f).coerceIn(
-        if (dense) 16f else 20f,
-        if (dense) 28f else 36f,
+    val badgeIconSize = (tileMinEdge.value * if (dense) 0.34f else 0.28f).coerceIn(
+        if (dense) 18f else 20f,
+        if (dense) 34f else 36f,
     ).dp
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -2061,18 +2078,19 @@ private fun peekBadgeEndReserve(
     val digits = display.length
     val digitScale = if (digits <= 1) 1f else 0.78f
     val dense = chrome == TileChrome.Dense
+    val baseRatio = if (dense) 0.28f else 0.22f
     val minSp = when {
-        digits <= 1 -> if (dense) 12f else 16f
-        else -> if (dense) 10f else 13f
+        digits <= 1 -> if (dense) 14f else 16f
+        else -> if (dense) 12f else 13f
     }
-    val maxSp = if (dense) 28f else 40f
-    val fontSp = (tileMinEdge.value * 0.22f * digitScale).coerceIn(minSp, maxSp)
+    val maxSp = if (dense) 34f else 40f
+    val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
     // Approximate glyph advance (~0.62em) × digits, plus a small gap before the count.
     var reserve = fontSp * digits * 0.62f + 4f
     if (withIcon) {
-        val icon = (tileMinEdge.value * 0.28f).coerceIn(
-            if (dense) 16f else 20f,
-            if (dense) 28f else 36f,
+        val icon = (tileMinEdge.value * if (dense) 0.34f else 0.28f).coerceIn(
+            if (dense) 18f else 20f,
+            if (dense) 34f else 36f,
         )
         reserve += icon + 6f
     }

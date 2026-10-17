@@ -30,9 +30,15 @@ import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
     private val requestContacts = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        permissionResult?.invoke(granted)
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        // Always re-read both READ/WRITE from the package manager — on some devices the
+        // permissions are granted independently even though they share a group.
+        permissionResult?.invoke(true)
+        peopleState?.let { state ->
+            state.refreshPermission(this)
+            state.onPermissionResult(state.hasContactsPermission)
+        }
     }
 
     private var permissionResult: ((Boolean) -> Unit)? = null
@@ -48,16 +54,16 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val state = remember { PeopleState(context).also { peopleState = it } }
             var permissionTick by remember { mutableStateOf(0) }
-            var deepLinkTick by remember { mutableStateOf(0) }
-            var latestDeepLink by remember { mutableStateOf(intent) }
+            var launchTick by remember { mutableStateOf(0) }
+            var latestLaunch by remember { mutableStateOf(intent) }
             val generation = state.generation
             @Suppress("UNUSED_VARIABLE")
             val observePeopleState = generation
 
             DisposableEffect(Unit) {
                 onDeepLink = { deepIntent ->
-                    latestDeepLink = deepIntent
-                    deepLinkTick++
+                    latestLaunch = deepIntent
+                    launchTick++
                 }
                 onDispose { onDeepLink = null }
             }
@@ -81,9 +87,19 @@ class MainActivity : ComponentActivity() {
                 onDispose { }
             }
 
-            LaunchedEffect(deepLinkTick, latestDeepLink, state.hasContactsPermission) {
-                if (state.hasContactsPermission) {
-                    state.openDeepLink(latestDeepLink?.data)
+            // Process cold-start / onNewIntent once permissions are known. Do not key on
+            // hasContactsPermission — pendingOpenNewContact covers the grant path.
+            LaunchedEffect(launchTick, state.permissionsChecked) {
+                if (!state.permissionsChecked) return@LaunchedEffect
+                val launch = latestLaunch
+                state.handleLaunchIntent(launch)
+                // Clear sticky insert/prefill intents so rotation does not reopen the editor.
+                if (PeopleState.isNewContactIntent(launch) ||
+                    PeopleState.parseContactPrefill(launch) != null
+                ) {
+                    val clean = Intent(this@MainActivity, MainActivity::class.java)
+                    setIntent(clean)
+                    latestLaunch = clean
                 }
             }
 
@@ -99,16 +115,27 @@ class MainActivity : ComponentActivity() {
                         state.hasContactsPermission -> {
                             PeopleShell(
                                 state = state,
+                                onRequestWriteContacts = {
+                                    requestContacts.launch(
+                                        arrayOf(Manifest.permission.WRITE_CONTACTS),
+                                    )
+                                },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
                         else -> {
                             PermissionScreen(
                                 onRequestPermission = {
-                                    permissionResult = { granted ->
-                                        state.onPermissionResult(granted)
+                                    permissionResult = { _ ->
+                                        state.refreshPermission(this@MainActivity)
+                                        state.onPermissionResult(state.hasContactsPermission)
                                     }
-                                    requestContacts.launch(Manifest.permission.READ_CONTACTS)
+                                    requestContacts.launch(
+                                        arrayOf(
+                                            Manifest.permission.READ_CONTACTS,
+                                            Manifest.permission.WRITE_CONTACTS,
+                                        ),
+                                    )
                                 },
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -122,6 +149,6 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        onDeepLink?.invoke(intent) ?: peopleState?.openDeepLink(intent.data)
+        onDeepLink?.invoke(intent) ?: peopleState?.handleLaunchIntent(intent)
     }
 }

@@ -43,6 +43,10 @@ class FilesState(context: Context) {
     var openMessage by mutableStateOf<String?>(null)
         private set
 
+    /** File/folder awaiting delete confirmation. */
+    var pendingDelete by mutableStateOf<FileEntry?>(null)
+        private set
+
     var generation by mutableIntStateOf(0)
         private set
 
@@ -91,6 +95,57 @@ class FilesState(context: Context) {
                 bump()
             }
         }
+    }
+
+    fun shareEntry(entry: FileEntry) {
+        openMessage = null
+        when (FileOpener.share(launchContext, entry)) {
+            FileOpener.ShareResult.Started -> Unit
+            FileOpener.ShareResult.NoHandler -> {
+                openMessage = "no app can share this file"
+            }
+            FileOpener.ShareResult.Missing -> {
+                openMessage = "file not found"
+                reload()
+            }
+            FileOpener.ShareResult.Denied -> {
+                openMessage = "could not share file"
+            }
+            FileOpener.ShareResult.NotAFile -> {
+                openMessage = "only files can be shared"
+            }
+        }
+        bump()
+    }
+
+    fun requestDelete(entry: FileEntry) {
+        if (entry.kind == FileKind.VOLUME) return
+        pendingDelete = entry
+        bump()
+    }
+
+    fun dismissDeleteConfirm() {
+        pendingDelete = null
+        bump()
+    }
+
+    fun confirmDelete() {
+        val entry = pendingDelete ?: return
+        pendingDelete = null
+        openMessage = null
+        when (FileOpener.delete(entry)) {
+            FileOpener.DeleteResult.Deleted -> Unit
+            FileOpener.DeleteResult.Missing -> {
+                openMessage = "file not found"
+            }
+            FileOpener.DeleteResult.Failed -> {
+                openMessage = "could not delete"
+            }
+            FileOpener.DeleteResult.NotAllowed -> {
+                openMessage = "could not delete"
+            }
+        }
+        reload()
     }
 
     /** @return true if handled (navigated up), false if already at root */

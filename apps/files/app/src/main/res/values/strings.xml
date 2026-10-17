@@ -6,4 +6,11 @@
     <string name="grant_access">allow access</string>
     <string name="empty_folder">folder is empty</string>
     <string name="empty_volumes">no storage found</string>
+    <string name="action_open">open</string>
+    <string name="action_share">share</string>
+    <string name="action_delete">delete</string>
+    <string name="delete_confirm_title">delete %1$s?</string>
+    <string name="delete_confirm_body">this can\'t be undone.</string>
+    <string name="delete_confirm_yes">yes</string>
+    <string name="delete_confirm_no">no</string>
 </resources>

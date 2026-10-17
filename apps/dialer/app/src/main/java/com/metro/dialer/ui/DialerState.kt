@@ -59,6 +59,10 @@ class DialerState(context: Context) {
     var dialString by mutableStateOf("")
         private set
 
+    /** Cached T9 hits — recomputed only when [dialString] or the contact cache changes. */
+    var t9Suggestions by mutableStateOf<List<ContactSuggestion>>(emptyList())
+        private set
+
     var searchQuery by mutableStateOf("")
         private set
 
@@ -70,14 +74,6 @@ class DialerState(context: Context) {
 
     val filteredGroups: List<CallGroup>
         get() = DialerCallLogic.filterGroups(callGroups, searchQuery)
-
-    val t9Suggestions: List<ContactSuggestion>
-        get() {
-            val dialQuery = dialString.filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
-            if (dialQuery.isEmpty() || !hasContactsPermission) return emptyList()
-            // Smart dial: T9 name prefixes (per word) + number prefixes against the contact cache.
-            return DialerCallLogic.contactSuggestions(dialQuery, contactSuggestions)
-        }
 
     init {
         refreshPermissions(appContext)
@@ -112,6 +108,7 @@ class DialerState(context: Context) {
             reloadContacts()
         } else {
             contactSuggestions = emptyList()
+            t9Suggestions = emptyList()
         }
         if (callLogGranted) {
             reloadCallLog()
@@ -121,15 +118,18 @@ class DialerState(context: Context) {
     fun reloadContacts() {
         if (!hasContactsPermission) {
             contactSuggestions = emptyList()
+            refreshT9Suggestions()
             return
         }
         contactSuggestions = contactsLookup.loadPhoneContacts()
+        refreshT9Suggestions()
     }
 
     fun handleDialIntent(uri: Uri?) {
         val number = uri?.schemeSpecificPart?.trim().orEmpty()
         if (number.isNotEmpty()) {
             dialString = number
+            refreshT9Suggestions()
             pivot = PhonePivot.DialPad
             route = DialerRoute.Main
         }
@@ -149,15 +149,11 @@ class DialerState(context: Context) {
     }
 
     fun setPivot(index: Int) {
-        val next = when (index) {
+        pivot = when (index) {
             1 -> PhonePivot.DialPad
             2 -> PhonePivot.SpeedDial
             else -> PhonePivot.History
         }
-        if (next == PhonePivot.DialPad && pivot != PhonePivot.DialPad) {
-            reloadContacts()
-        }
-        pivot = next
     }
 
     fun openDialPad() {
@@ -173,16 +169,24 @@ class DialerState(context: Context) {
 
     fun appendDialChar(char: Char) {
         dialString += char
+        refreshT9Suggestions()
     }
 
     fun deleteDialChar() {
         if (dialString.isNotEmpty()) {
             dialString = dialString.dropLast(1)
+            refreshT9Suggestions()
         }
+    }
+
+    fun clearDialString() {
+        dialString = ""
+        refreshT9Suggestions()
     }
 
     fun replaceDialString(value: String) {
         dialString = value
+        refreshT9Suggestions()
     }
 
     /** First tap fills the dial field; second tap on the same suggestion places the call. */
@@ -193,6 +197,20 @@ class DialerState(context: Context) {
             placeCall(suggestion.phoneNumber, suggestion.displayName)
         } else {
             dialString = suggestion.phoneNumber
+            refreshT9Suggestions()
+        }
+    }
+
+    private fun refreshT9Suggestions() {
+        if (!hasContactsPermission) {
+            t9Suggestions = emptyList()
+            return
+        }
+        val dialQuery = dialString.filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
+        t9Suggestions = if (dialQuery.isEmpty()) {
+            emptyList()
+        } else {
+            DialerCallLogic.contactSuggestions(dialQuery, contactSuggestions)
         }
     }
 
@@ -289,14 +307,9 @@ class DialerState(context: Context) {
             Toast.makeText(appContext, R.string.save_contact_empty, Toast.LENGTH_SHORT).show()
             return
         }
-        val intent = appContext.packageManager.getLaunchIntentForPackage(PEOPLE_PACKAGE)
-        if (intent == null) {
+        if (!MetroIntents.openNewContact(appContext, phoneNumber = trimmed)) {
             Toast.makeText(appContext, R.string.people_unavailable, Toast.LENGTH_SHORT).show()
-            return
         }
-        intent.putExtra(EXTRA_PREFILL_PHONE, trimmed)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        appContext.startActivity(intent)
     }
 
     fun showSettingsStub() {
@@ -305,6 +318,5 @@ class DialerState(context: Context) {
 
     companion object {
         const val PEOPLE_PACKAGE = "com.metro.people"
-        const val EXTRA_PREFILL_PHONE = "com.metro.dialer.extra.PREFILL_PHONE"
     }
 }

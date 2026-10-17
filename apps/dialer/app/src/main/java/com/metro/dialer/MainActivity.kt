@@ -79,6 +79,11 @@ class MainActivity : ComponentActivity() {
                 if (state.hasCallLogPermission) {
                     state.reloadCallLog()
                 }
+                // People may have added/edited contacts while Dialer stayed alive — reload
+                // so T9 / PhoneLookup suggestions include the latest address book.
+                if (state.hasContactsPermission) {
+                    state.reloadContacts()
+                }
                 // People (and others) may have added entries via AddSpeedDialReceiver while
                 // this process stayed alive — reload so the pivot updates without a restart.
                 state.reloadSpeedDial()

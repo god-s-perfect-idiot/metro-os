@@ -47,6 +47,7 @@ import com.metro.ui.MetroContextMenuItem
 import com.metro.ui.MetroContextMenuPopup
 import com.metro.ui.MetroJumpListLogic
 import com.metro.ui.MetroLetterTile
+import com.metro.ui.MetroMessageDialog
 import com.metro.ui.MetroShowingLabel
 import com.metro.ui.MetroSystemIcon
 import com.metro.ui.MetroSystemIconType
@@ -73,6 +74,7 @@ fun AllPane(
     onOpenDetail: (PersonSummary) -> Unit,
     onAddToSpeedDial: (PersonSummary) -> Unit,
     onPinToStart: (PersonSummary) -> Unit,
+    onDeleteContact: (PersonSummary) -> Unit,
     scrollToLetter: Char?,
     onScrollConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -104,6 +106,7 @@ fun AllPane(
     }
 
     var contextMenuPerson by remember { mutableStateOf<PersonSummary?>(null) }
+    var pendingDeletePerson by remember { mutableStateOf<PersonSummary?>(null) }
     var contextMenuAnchor by remember { mutableStateOf(Rect.Zero) }
     var contextMenuRoot by remember { mutableStateOf(Rect.Zero) }
     val contextMenuVisible = remember { MutableTransitionState(false) }
@@ -199,6 +202,7 @@ fun AllPane(
         contextMenuPerson?.let { person ->
             val speedDialLabel = stringResource(R.string.add_to_speed_dial)
             val pinLabel = stringResource(R.string.pin_to_start)
+            val deleteLabel = stringResource(R.string.delete_contact)
             MetroContextMenuPopup(
                 visibleState = contextMenuVisible,
                 anchorBounds = contextMenuAnchor,
@@ -219,8 +223,30 @@ fun AllPane(
                             dismissContextMenu()
                         },
                     ),
+                    MetroContextMenuItem(
+                        label = deleteLabel,
+                        onClick = {
+                            pendingDeletePerson = person
+                            dismissContextMenu()
+                        },
+                    ),
                 ),
                 onDismissRequest = dismissContextMenu,
+            )
+        }
+
+        pendingDeletePerson?.let { person ->
+            MetroMessageDialog(
+                title = stringResource(R.string.delete_contact_title),
+                body = stringResource(R.string.delete_contact_body),
+                confirmLabel = stringResource(R.string.delete_contact),
+                onConfirm = {
+                    onDeleteContact(person)
+                    pendingDeletePerson = null
+                },
+                dismissLabel = stringResource(R.string.cancel),
+                onDismiss = { pendingDeletePerson = null },
+                onDismissRequest = { pendingDeletePerson = null },
             )
         }
     }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -63,21 +64,24 @@ fun DialerShell(
                 pageCount = { 3 },
             )
             val scope = rememberCoroutineScope()
-            val onDialPad = pagerState.currentPage == 1
 
+            // Programmatic pivot changes (dial intent / openDialPad) — do not run while the
+            // user is already dragging/animating or we cancel the smooth scroll with a snap.
             LaunchedEffect(state.pivot) {
                 val targetPage = when (state.pivot) {
                     PhonePivot.History -> 0
                     PhonePivot.DialPad -> 1
                     PhonePivot.SpeedDial -> 2
                 }
-                if (pagerState.currentPage != targetPage) {
+                if (pagerState.currentPage != targetPage && !pagerState.isScrollInProgress) {
                     pagerState.scrollToPage(targetPage)
                 }
             }
 
-            LaunchedEffect(pagerState.currentPage) {
-                state.setPivot(pagerState.currentPage)
+            LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+                if (!pagerState.isScrollInProgress) {
+                    state.setPivot(pagerState.currentPage)
+                }
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
@@ -95,18 +99,11 @@ fun DialerShell(
                     selectedIndex = pagerState.currentPage,
                     mode = MetroHubTitleMode.Pivot,
                     onTitleClick = { index ->
+                        // Pager owns the animation; settle updates pivot via currentPage.
                         scope.launch { pagerState.animateScrollToPage(index) }
-                        state.setPivot(index)
                     },
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
-
-                if (onDialPad) {
-                    DialNumberField(
-                        dialString = state.dialString,
-                        onDelete = state::deleteDialChar,
-                    )
-                }
 
                 HorizontalPager(
                     state = pagerState,
@@ -114,6 +111,9 @@ fun DialerShell(
                         .fillMaxWidth()
                         .weight(1f),
                     beyondViewportPageCount = 1,
+                    // Hang pages from the title row (MetroPivot) — avoids vertical recenter jank
+                    // when the dial-pad page is heavier than history / speed dial.
+                    verticalAlignment = Alignment.Top,
                 ) { page ->
                     when (page) {
                         0 -> HistoryScreen(
@@ -128,9 +128,12 @@ fun DialerShell(
                             canPinToStart = state::canPinToStart,
                         )
                         1 -> DialPadPane(
+                            dialString = state.dialString,
                             suggestions = state.t9Suggestions,
                             onAppend = state::appendDialChar,
-                            onLongPressZero = { state.appendDialChar('+') },
+                            onDelete = state::deleteDialChar,
+                            onClear = state::clearDialString,
+                            onReplace = state::replaceDialString,
                             onSuggestionClick = state::selectSuggestion,
                             onCall = {
                                 state.placeCall(state.dialString)

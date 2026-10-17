@@ -1,6 +1,8 @@
 package com.metro.files.ui
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,16 +10,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -27,12 +37,16 @@ import com.metro.files.data.FileEntry
 import com.metro.files.data.FileIconKind
 import com.metro.files.data.FilesLogic
 import com.metro.ui.MetroColors
-import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.max
 
 private val FileIconSize = 48.dp
 private val FileTileGrayDark = Color(0xFF3A3A3A)
 private val FileTileGrayLight = Color(0xFFC8C8C8)
+/** Decode edge for the 48dp tile at ~3x density. */
+private const val ImagePreviewMaxEdgePx = 144
 
 /**
  * WP8.1 Files-style leading tile:
@@ -60,6 +74,12 @@ fun FileEntryIcon(
                 modifier = modifier.size(size),
             )
         }
+        FileIconKind.PICTURE -> {
+            ImagePreviewTile(
+                path = entry.absolutePath,
+                modifier = modifier.size(size),
+            )
+        }
         else -> {
             FileTypeTile(
                 kind = kind,
@@ -67,6 +87,53 @@ fun FileEntryIcon(
             )
         }
     }
+}
+
+@Composable
+private fun ImagePreviewTile(
+    path: String,
+    modifier: Modifier = Modifier,
+) {
+    val dark = MetroTheme.colors.background == MetroColors.DarkBackground
+    val tileFill = if (dark) FileTileGrayDark else FileTileGrayLight
+    val glyphColor = if (dark) Color.White else Color(0xFF1A1A1A)
+    val lineColor = if (dark) FileTileGrayDark else FileTileGrayLight
+    var preview by remember(path) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(path) {
+        preview = withContext(Dispatchers.IO) {
+            decodeImagePreview(path, ImagePreviewMaxEdgePx)?.asImageBitmap()
+        }
+    }
+
+    Box(modifier = modifier.background(tileFill)) {
+        val bitmap = preview
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawPictureGlyph(glyphColor, lineColor)
+            }
+        }
+    }
+}
+
+/** Sampled decode for list tiles — fails soft to null so the glyph fallback shows. */
+internal fun decodeImagePreview(path: String, maxEdgePx: Int): android.graphics.Bitmap? {
+    if (maxEdgePx <= 0) return null
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    val width = bounds.outWidth
+    val height = bounds.outHeight
+    if (width <= 0 || height <= 0) return null
+    val sample = max(1, max(width, height) / maxEdgePx)
+    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+    return BitmapFactory.decodeFile(path, opts)
 }
 
 @Composable

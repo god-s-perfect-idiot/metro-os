@@ -123,7 +123,7 @@ fun StartScreen(
             withFrameNanos { }
             val row = tile.entry.gridRow ?: 0
             val unitPx = startGridUnitPx(viewportWidthPx, columns, density)
-            val tileTopPx = startTileTopPx(row, unitPx, density)
+            val tileTopPx = startTileTopPx(row, unitPx, density, columns = columns)
             val target = startPinRevealScrollPx(tileTopPx, viewportHeightPx)
             val max = scrollState.maxValue
             if (max > 0) {
@@ -175,7 +175,7 @@ fun StartScreen(
                         .fillMaxWidth()
                         .padding(
                             start = TileChrome.forColumns(columns).horizontalPadding,
-                            end = TileChrome.forColumns(columns).horizontalPadding,
+                            end = TileChrome.forColumns(columns).endPadding,
                         ),
                     horizontalAlignment = Alignment.End,
                 ) {
