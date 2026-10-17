@@ -1893,11 +1893,11 @@ private fun SmallTileIconBadgeContent(
         }
         val minGlyph = if (dense) 16f else 14f
         val maxFont = if (dense) {
-            min(availableH * 0.58f, 32f)
+            min(availableH * 0.62f, 34f)
         } else {
             min(availableH * 0.48f, 28f)
         }
-        val minFont = if (dense) 11f else 9f
+        val minFont = if (dense) 12f else 9f
         val preferredGlyph = min(maxGlyph, (availableW - gapV) * (1f - countShare))
             .coerceAtLeast(minGlyph)
         val countBudgetPx = with(density) {
@@ -2010,7 +2010,7 @@ private fun BoxScope.TileNotificationBadge(
     val digits = display.length
     // Multi-digit counts shrink so "12" / "99" stay on one line beside the icon.
     val dense = chrome == TileChrome.Dense
-    val baseRatio = if (dense) 0.28f else 0.22f
+    val baseRatio = if (dense) 0.30f else 0.22f
     val digitScale = when {
         digits <= 1 -> 1f
         else -> 0.78f
@@ -2018,10 +2018,10 @@ private fun BoxScope.TileNotificationBadge(
     // Floor scales with digits — keep two-digit counts from wrapping on small overlays.
     // Dense bumps floors/ceilings so 3-col badges stay readable on smaller tiles.
     val minSp = when {
-        digits <= 1 -> if (dense) 14f else 16f
-        else -> if (dense) 12f else 13f
+        digits <= 1 -> if (dense) 15f else 16f
+        else -> 13f
     }
-    val maxSp = if (dense) 34f else 40f
+    val maxSp = if (dense) 36f else 40f
     val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
     val alignment = when {
         alignBottom || tileSize == PinnedTileSize.FourByTwo -> Alignment.BottomEnd
@@ -2078,12 +2078,12 @@ private fun peekBadgeEndReserve(
     val digits = display.length
     val digitScale = if (digits <= 1) 1f else 0.78f
     val dense = chrome == TileChrome.Dense
-    val baseRatio = if (dense) 0.28f else 0.22f
+    val baseRatio = if (dense) 0.30f else 0.22f
     val minSp = when {
-        digits <= 1 -> if (dense) 14f else 16f
-        else -> if (dense) 12f else 13f
+        digits <= 1 -> if (dense) 15f else 16f
+        else -> 13f
     }
-    val maxSp = if (dense) 34f else 40f
+    val maxSp = if (dense) 36f else 40f
     val fontSp = (tileMinEdge.value * baseRatio * digitScale).coerceIn(minSp, maxSp)
     // Approximate glyph advance (~0.62em) × digits, plus a small gap before the count.
     var reserve = fontSp * digits * 0.62f + 4f

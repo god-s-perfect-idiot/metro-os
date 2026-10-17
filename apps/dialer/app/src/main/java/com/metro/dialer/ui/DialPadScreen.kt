@@ -287,7 +287,7 @@ fun DialPadPane(
         ) {
             items(
                 items = suggestions,
-                key = { "${it.normalizedNumber}|${it.displayName}" },
+                key = { it.identityKey },
             ) { suggestion ->
                 Column(
                     modifier = Modifier

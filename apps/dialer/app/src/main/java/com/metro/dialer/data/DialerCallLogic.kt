@@ -1,5 +1,6 @@
 package com.metro.dialer.data
 
+import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -98,14 +99,19 @@ object DialerCallLogic {
     fun matchesT9(name: String, digits: String): Boolean {
         val t9Digits = digits.filter { it in '2'..'9' }
         if (t9Digits.isEmpty()) return false
-        val words = name.lowercase(Locale.US)
-            .split(Regex("[^a-z]+"))
-            .filter { it.isNotEmpty() }
+        val words = t9Words(name)
         if (words.isEmpty()) return false
         if (words.any { wordMatchesT9Prefix(it, t9Digits) }) return true
         if (matchesT9Initials(words, t9Digits)) return true
         val compacted = words.joinToString("")
         return wordMatchesT9Prefix(compacted, t9Digits)
+    }
+
+    /** Lowercase ASCII letters only, diacritics stripped — "Zakku" / "Zákkú" → zakku. */
+    internal fun t9Words(name: String): List<String> {
+        val folded = Normalizer.normalize(name.lowercase(Locale.US), Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+        return folded.split(Regex("[^a-z]+")).filter { it.isNotEmpty() }
     }
 
     private fun wordMatchesT9Prefix(letters: String, digits: String): Boolean {
@@ -160,7 +166,9 @@ object DialerCallLogic {
             .sortedWith(
                 compareBy<Pair<ContactSuggestion, SuggestionRank>> { it.second.tier }
                     .thenBy { it.second.specificity }
-                    .thenBy { it.first.displayName.lowercase(Locale.US) },
+                    .thenBy { it.first.displayName.lowercase(Locale.US) }
+                    .thenBy { it.first.normalizedNumber }
+                    .thenBy { it.first.contactId },
             )
             .map { it.first }
             .take(limit)
@@ -170,9 +178,7 @@ object DialerCallLogic {
 
     /** Lower is better — first-word / initials matches outrank later-word-only hits. */
     private fun t9NameSpecificity(name: String, t9Digits: String): Int {
-        val words = name.lowercase(Locale.US)
-            .split(Regex("[^a-z]+"))
-            .filter { it.isNotEmpty() }
+        val words = t9Words(name)
         if (words.isEmpty()) return 100
         if (wordMatchesT9Prefix(words.first(), t9Digits)) return 0
         if (matchesT9Initials(words, t9Digits)) return 1
@@ -189,8 +195,8 @@ object DialerCallLogic {
         val seen = linkedSetOf<String>()
         val merged = mutableListOf<ContactSuggestion>()
         for (contact in primary + secondary) {
-            val key = "${digitsOnly(contact.normalizedNumber)}|${contact.displayName.lowercase(Locale.US)}"
-            if (seen.add(key)) {
+            // Keep distinct contacts even when display names match.
+            if (seen.add(contact.identityKey)) {
                 merged.add(contact)
             }
             if (merged.size >= limit) break

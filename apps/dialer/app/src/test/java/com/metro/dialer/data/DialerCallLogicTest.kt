@@ -126,6 +126,37 @@ class DialerCallLogicTest {
     }
 
     @Test
+    fun contactSuggestions_keepsMultipleContactsWithSameDisplayName() {
+        val contacts = listOf(
+            ContactSuggestion("John Smith", "5551111", "5551111", contactId = 10L),
+            ContactSuggestion("John Smith", "5552222", "5552222", contactId = 11L),
+            ContactSuggestion("John Smith", "5553333", "5553333", contactId = 12L),
+            ContactSuggestion("Bob", "4449999", "4449999", contactId = 20L),
+        )
+        // 56467 ≈ "johns…" T9 prefix
+        val matches = DialerCallLogic.contactSuggestions("56467", contacts)
+        assertEquals(3, matches.size)
+        assertTrue(matches.all { it.displayName == "John Smith" })
+        assertEquals(
+            setOf("5551111", "5552222", "5553333"),
+            matches.map { it.normalizedNumber }.toSet(),
+        )
+    }
+
+    @Test
+    fun mergeContactSuggestions_keepsSameNameDifferentContacts() {
+        val primary = listOf(
+            ContactSuggestion("John Smith", "5551111", "5551111", contactId = 10L),
+        )
+        val secondary = listOf(
+            ContactSuggestion("John Smith", "5552222", "5552222", contactId = 11L),
+            ContactSuggestion("John Smith", "5551111", "5551111", contactId = 10L),
+        )
+        val merged = DialerCallLogic.mergeContactSuggestions(primary, secondary)
+        assertEquals(2, merged.size)
+    }
+
+    @Test
     fun contactSuggestions_matchesT9LastNameWord() {
         val contacts = listOf(
             ContactSuggestion("John Smith", "5551111", "5551111"),
@@ -205,6 +236,24 @@ class DialerCallLogicTest {
         assertTrue(DialerCallLogic.matchesT9("Alice", "25423"))
         assertTrue(DialerCallLogic.matchesT9("Alice", "25"))
         assertTrue(!DialerCallLogic.matchesT9("Alice", "23"))
+    }
+
+    @Test
+    fun matchesT9_zakkuIs92558() {
+        // Z=9 A=2 K=5 K=5 U=8
+        assertTrue(DialerCallLogic.matchesT9("zakku", "92558"))
+        assertTrue(DialerCallLogic.matchesT9("Zakku", "92558"))
+        assertTrue(DialerCallLogic.matchesT9("Zakku Kumar", "92558"))
+        assertEquals(
+            listOf("Zakku"),
+            DialerCallLogic.contactSuggestions(
+                "92558",
+                listOf(
+                    ContactSuggestion("Zakku", "5550001", "5550001", contactId = 1L),
+                    ContactSuggestion("Bob", "4449999", "4449999", contactId = 2L),
+                ),
+            ).map { it.displayName },
+        )
     }
 
     @Test

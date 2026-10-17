@@ -9,9 +9,16 @@ import android.provider.ContactsContract
 class ContactsLookup(
     private val context: Context,
 ) {
-    fun loadPhoneContacts(limit: Int = 2000): List<ContactSuggestion> {
+    /**
+     * Loads phone-backed contacts for dial-pad T9 / prefix matching.
+     *
+     * Important: do not use a low alphabetical cap — Phone.CONTENT_URI is sorted by
+     * display name, so a 2000-row limit drops later letters (e.g. "Zakku") on large books.
+     */
+    fun loadPhoneContacts(limit: Int = NO_ROW_LIMIT): List<ContactSuggestion> {
         val resolver = context.contentResolver
         val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER,
         )
@@ -26,24 +33,34 @@ class ContactsLookup(
         cursor.use {
             val results = linkedSetOf<String>()
             val contacts = mutableListOf<ContactSuggestion>()
-            while (cursor.moveToNext() && contacts.size < limit) {
-                val name = cursor.getString(0)?.trim().orEmpty()
-                val number = cursor.getString(1)?.trim().orEmpty()
+            val idCol = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+            val nameCol = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numberCol = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            while (cursor.moveToNext()) {
+                if (limit != NO_ROW_LIMIT && contacts.size >= limit) break
+                val contactId = cursor.getLong(idCol)
+                val name = cursor.getString(nameCol)?.trim().orEmpty()
+                val number = cursor.getString(numberCol)?.trim().orEmpty()
                 if (number.isEmpty()) continue
                 val normalized = DialerCallLogic.normalizeNumber(number)
                 val displayName = name.ifEmpty { DialerCallLogic.formatDisplayNumber(number) }
-                val key = "$normalized|$displayName"
-                if (!results.add(key)) continue
-                contacts.add(
-                    ContactSuggestion(
-                        displayName = displayName,
-                        phoneNumber = number,
-                        normalizedNumber = normalized,
-                    ),
+                val suggestion = ContactSuggestion(
+                    displayName = displayName,
+                    phoneNumber = number,
+                    normalizedNumber = normalized,
+                    contactId = contactId,
                 )
+                // Dedupe identical contact+number rows only — never collapse distinct
+                // contacts that share a display name.
+                if (!results.add(suggestion.identityKey)) continue
+                contacts.add(suggestion)
             }
             return contacts
         }
+    }
+
+    companion object {
+        const val NO_ROW_LIMIT = -1
     }
 
     /** Live lookup via Android PhoneLookup — matches partial dialed numbers reliably. */
@@ -56,6 +73,7 @@ class ContactsLookup(
             Uri.encode(normalized),
         )
         val projection = arrayOf(
+            ContactsContract.PhoneLookup._ID,
             ContactsContract.PhoneLookup.DISPLAY_NAME,
             ContactsContract.PhoneLookup.NUMBER,
         )
@@ -70,21 +88,24 @@ class ContactsLookup(
         cursor.use {
             val seen = linkedSetOf<String>()
             val contacts = mutableListOf<ContactSuggestion>()
+            val idCol = cursor.getColumnIndexOrThrow(ContactsContract.PhoneLookup._ID)
+            val nameCol = cursor.getColumnIndexOrThrow(ContactsContract.PhoneLookup.DISPLAY_NAME)
+            val numberCol = cursor.getColumnIndexOrThrow(ContactsContract.PhoneLookup.NUMBER)
             while (cursor.moveToNext() && contacts.size < limit) {
-                val name = cursor.getString(0)?.trim().orEmpty()
-                val number = cursor.getString(1)?.trim().orEmpty()
+                val contactId = cursor.getLong(idCol)
+                val name = cursor.getString(nameCol)?.trim().orEmpty()
+                val number = cursor.getString(numberCol)?.trim().orEmpty()
                 if (number.isEmpty()) continue
                 val normalizedNumber = DialerCallLogic.normalizeNumber(number)
                 val displayName = name.ifEmpty { DialerCallLogic.formatDisplayNumber(number) }
-                val key = "$normalizedNumber|$displayName"
-                if (!seen.add(key)) continue
-                contacts.add(
-                    ContactSuggestion(
-                        displayName = displayName,
-                        phoneNumber = number,
-                        normalizedNumber = normalizedNumber,
-                    ),
+                val suggestion = ContactSuggestion(
+                    displayName = displayName,
+                    phoneNumber = number,
+                    normalizedNumber = normalizedNumber,
+                    contactId = contactId,
                 )
+                if (!seen.add(suggestion.identityKey)) continue
+                contacts.add(suggestion)
             }
             return contacts
         }

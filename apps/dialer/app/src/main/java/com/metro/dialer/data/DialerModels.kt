@@ -30,7 +30,17 @@ data class ContactSuggestion(
     val displayName: String,
     val phoneNumber: String,
     val normalizedNumber: String,
-)
+    /** Aggregated ContactsContract id; 0 when unknown (e.g. synthetic test rows). */
+    val contactId: Long = 0L,
+) {
+    /** Stable identity for lists / dedupe — must stay unique across same-named contacts. */
+    val identityKey: String
+        get() = if (contactId > 0L) {
+            "$contactId|$normalizedNumber"
+        } else {
+            "$normalizedNumber|${displayName.lowercase()}|${phoneNumber.trim()}"
+        }
+}
 
 data class SpeedDialEntry(
     val id: String,
