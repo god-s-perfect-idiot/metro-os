@@ -232,4 +232,17 @@ class StatusTrayPreferencesTest {
         assertEquals(TrayLayout.serialize(slots), TrayLayout.serialize(again))
     }
 
+    @Test
+    fun hideSystemStatusBar_defaultsToFalse() {
+        assertFalse(prefs.hideSystemStatusBar)
+    }
+
+    @Test
+    fun hideSystemStatusBar_persistsAcrossInstances() {
+        prefs.hideSystemStatusBar = true
+        assertTrue(StatusTrayPreferences(RuntimeEnvironment.getApplication()).hideSystemStatusBar)
+        prefs.hideSystemStatusBar = false
+        assertFalse(StatusTrayPreferences(RuntimeEnvironment.getApplication()).hideSystemStatusBar)
+    }
+
 }

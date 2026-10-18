@@ -7,7 +7,6 @@ import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.util.TypedValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 
 /**
  * Reads the color an installed app publishes for top chrome / page fill.
@@ -32,7 +31,7 @@ object AppThemeBackgroundResolver {
                 ?: opaqueColorAttribute(theme, resources, android.R.attr.colorPrimaryDark)
                 ?: opaqueColorAttribute(theme, resources, android.R.attr.colorPrimary)
                 ?: opaqueColorAttribute(theme, resources, android.R.attr.colorBackground)
-                ?: resolveWindowBackgroundColor(theme, resources)
+                ?: resolveWindowBackground(theme, resources)
         }.getOrNull()
     }
 
@@ -64,20 +63,21 @@ object AppThemeBackgroundResolver {
 
     fun fromArgb(argb: Int): Color = Color(argb)
 
-    fun isLight(color: Color): Boolean = color.luminance() > TrayThemeResolver.LIGHT_BACKGROUND_LUMINANCE
+    fun isLight(color: Color): Boolean = TrayThemeResolver.isLightBackground(color)
 
     private fun opaqueColorAttribute(
         theme: Resources.Theme,
         resources: Resources,
         attr: Int,
     ): Color? {
-        val color = resolveColorAttribute(theme, resources, attr) ?: return null
+        val color = resolveColorAttr(theme, resources, attr) ?: return null
         // Fully / nearly transparent statusBarColor means "draw content behind" — not a fill.
         if (color.alpha < 0.15f) return null
         return color.copy(alpha = 1f)
     }
 
-    private fun resolveColorAttribute(
+    /** Resolves a theme color attribute (may be translucent). Shared with transparent-tray contrast. */
+    fun resolveColorAttr(
         theme: Resources.Theme,
         resources: Resources,
         attr: Int,
@@ -87,7 +87,7 @@ object AppThemeBackgroundResolver {
         return colorFromTypedValue(resources, value)
     }
 
-    private fun resolveWindowBackgroundColor(
+    fun resolveWindowBackground(
         theme: Resources.Theme,
         resources: Resources,
     ): Color? {

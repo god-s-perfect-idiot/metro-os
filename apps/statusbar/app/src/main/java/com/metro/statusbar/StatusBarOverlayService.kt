@@ -37,6 +37,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.metro.statusbar.shizuku.SystemStatusBarHider
 import com.metro.statusbar.ui.StatusTray
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStatusBar
@@ -115,6 +116,8 @@ class StatusBarOverlayService :
         handler.post(autoCollapseRunnable)
         handler.post(notificationCycleRunnable)
         trayState.ensureExpandedIfNeverHides()
+        // Re-apply SystemUI icon hide after process death / boot when the user opted in.
+        SystemStatusBarHider.applyDesiredAsync(this)
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
     }
 
@@ -464,7 +467,7 @@ class StatusBarOverlayService :
             }
         }
 
-        /** Updates tray chrome when the foreground app changes (match-app-background mode). */
+        /** Updates tray chrome when the foreground app changes (match-app / transparent modes). */
         fun onForegroundPackageChanged(packageName: String?) {
             instance?.let { svc ->
                 svc.handler.post {
@@ -543,6 +546,8 @@ class StatusBarOverlayService :
             val prefs = StatusTrayPreferences(context)
             prefs.enabled = enabled
             if (!enabled) {
+                // Restore SystemUI icons so the user is not left without top chrome.
+                SystemStatusBarHider.restoreIfHiddenAsync(context)
                 stop(context)
                 return
             }

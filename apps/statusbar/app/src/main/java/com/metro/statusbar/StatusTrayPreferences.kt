@@ -100,6 +100,15 @@ class StatusTrayPreferences(context: Context) {
         get() = TrayLayout.parse(prefs.getString(KEY_LAYOUT, null))
         set(value) = prefs.edit().putString(KEY_LAYOUT, TrayLayout.serialize(value)).apply()
 
+    /**
+     * When true, SystemUI status-bar icons are cleared via Shizuku (`cmd statusbar
+     * send-disable-flag`) so only the Metro tray shows. Requires Shizuku running + permission.
+     * Turning this off (or stopping the Metro tray) must restore SystemUI icons.
+     */
+    var hideSystemStatusBar: Boolean
+        get() = prefs.getBoolean(KEY_HIDE_SYSTEM_STATUS_BAR, false)
+        set(value) = prefs.edit().putBoolean(KEY_HIDE_SYSTEM_STATUS_BAR, value).apply()
+
     companion object {
         private const val PREFS_NAME = "metro_statusbar"
         private const val KEY_ENABLED = "status_tray_enabled"
@@ -116,6 +125,7 @@ class StatusTrayPreferences(context: Context) {
         private const val KEY_ICON_BLUETOOTH_AUDIO = "icon_bluetooth_audio"
         private const val KEY_ICON_BATTERY = "icon_battery"
         private const val KEY_LAYOUT = "tray_layout"
+        private const val KEY_HIDE_SYSTEM_STATUS_BAR = "hide_system_status_bar"
 
         const val TIMEOUT_3S_MS = 3_000L
         const val TIMEOUT_5S_MS = MetroStatusBar.AUTO_COLLAPSE_MS

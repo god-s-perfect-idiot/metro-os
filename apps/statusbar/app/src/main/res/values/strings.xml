@@ -46,4 +46,21 @@
     <string name="grant_notification_access">Allow notification access</string>
     <string name="grant_bluetooth_connect">Allow Bluetooth</string>
     <string name="icons_preview_section">preview</string>
+
+    <string name="system_statusbar_section">system status bar</string>
+    <string name="system_statusbar_body">Android still draws its own status icons under the Metro tray. With Shizuku, Metro can clear those icons so only the WP tray shows. Turn this off anytime to bring the system icons back.</string>
+    <string name="hide_system_statusbar">Hide system status bar</string>
+    <string name="hide_system_statusbar_hint_tray_off">Turn on Show status bar first.</string>
+    <string name="shizuku_nudge_not_installed">Install Shizuku, start it with wireless debugging, then return here.</string>
+    <string name="shizuku_nudge_not_running">Shizuku is installed but not running. Open Shizuku and start it, then return here.</string>
+    <string name="shizuku_nudge_need_permission">Allow Status Bar to use Shizuku, then you can hide the system status bar.</string>
+    <string name="shizuku_get">Get Shizuku</string>
+    <string name="shizuku_open">Open Shizuku</string>
+    <string name="shizuku_allow">Allow Shizuku</string>
+    <string name="shizuku_ready_hint">Shizuku is ready. Toggle below to hide or restore Android\'s status icons.</string>
+    <string name="hide_system_statusbar_busy">Updating system status bar…</string>
+    <string name="hide_system_statusbar_failed_title">Couldn\'t update system status bar</string>
+    <string name="hide_system_statusbar_failed_hide">Shizuku couldn\'t hide Android\'s status icons. Some devices block this command. The Metro tray still covers them.</string>
+    <string name="hide_system_statusbar_failed_restore">Shizuku couldn\'t restore Android\'s status icons. Keep Shizuku running and try turning Hide system status bar off again.</string>
+    <string name="hide_system_statusbar_dialog_ok">ok</string>
 </resources>

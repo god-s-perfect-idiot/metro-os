@@ -50,6 +50,13 @@ class TrayState(context: Context) {
         private set
 
     /**
+     * Content behind a **transparent** tray (window sample or app theme). Logical contrast only —
+     * not used for Match-app icon brand fills.
+     */
+    var contentBackdropColor by mutableStateOf<Color?>(null)
+        private set
+
+    /**
      * Temporary toast accent fill while a Metro toast banner is visible.
      */
     var notificationsShellFill by mutableStateOf<Color?>(null)
@@ -233,46 +240,89 @@ class TrayState(context: Context) {
         preferences.pullThemeFromProvider()
         when (trayPrefs.backgroundMode) {
             StatusBarBackgroundMode.MatchAppBackground -> Unit
+            StatusBarBackgroundMode.Transparent -> {
+                appBackgroundColor = null
+                refreshContentBackdropFromTheme()
+            }
             StatusBarBackgroundMode.DefaultBlackBackground,
             StatusBarBackgroundMode.ShowAccentColor,
-            StatusBarBackgroundMode.Transparent,
-            -> appBackgroundColor = null
+            -> {
+                appBackgroundColor = null
+                contentBackdropColor = null
+            }
         }
         theme = resolveTheme()
     }
 
     /**
      * Tracks the foreground package. In match-app mode Metro suite apps stay black; other apps
-     * use their launcher-icon tile brand color (adaptive background). Accent / default-black
-     * modes ignore the package for fill.
+     * use their launcher-icon tile brand color (adaptive background). In transparent mode the
+     * package drives content-backdrop contrast from theme attrs / night mode (no screenshots).
+     * Accent / default-black modes ignore the package for fill.
      */
     fun applyForegroundPackage(packageName: String?) {
         val normalized = packageName?.takeUnless { ForegroundAppDetector.isIgnored(it) }
         if (foregroundPackage == normalized) {
-            if (trayPrefs.backgroundMode == StatusBarBackgroundMode.MatchAppBackground &&
-                appBackgroundColor == null
-            ) {
-                resolveIconBackgroundForForeground()
+            when (trayPrefs.backgroundMode) {
+                StatusBarBackgroundMode.MatchAppBackground -> {
+                    if (appBackgroundColor == null) resolveIconBackgroundForForeground()
+                }
+                StatusBarBackgroundMode.Transparent -> {
+                    if (contentBackdropColor == null) refreshContentBackdropFromTheme()
+                }
+                else -> Unit
             }
             return
         }
         foregroundPackage = normalized
-        if (trayPrefs.backgroundMode != StatusBarBackgroundMode.MatchAppBackground) {
-            appBackgroundColor = null
-            theme = resolveTheme()
-            return
+        when (trayPrefs.backgroundMode) {
+            StatusBarBackgroundMode.MatchAppBackground -> {
+                contentBackdropColor = null
+                resolveIconBackgroundForForeground()
+            }
+            StatusBarBackgroundMode.Transparent -> {
+                appBackgroundColor = null
+                refreshContentBackdropFromTheme()
+            }
+            else -> {
+                appBackgroundColor = null
+                contentBackdropColor = null
+                theme = resolveTheme()
+            }
         }
-        resolveIconBackgroundForForeground()
     }
 
     /** Re-reads the status-bar background ListPicker and resolves fill for the current app. */
     fun applyBackgroundModePreference() {
-        if (trayPrefs.backgroundMode != StatusBarBackgroundMode.MatchAppBackground) {
-            appBackgroundColor = null
+        when (trayPrefs.backgroundMode) {
+            StatusBarBackgroundMode.MatchAppBackground -> {
+                contentBackdropColor = null
+                resolveIconBackgroundForForeground()
+            }
+            StatusBarBackgroundMode.Transparent -> {
+                appBackgroundColor = null
+                refreshContentBackdropFromTheme()
+            }
+            else -> {
+                appBackgroundColor = null
+                contentBackdropColor = null
+                theme = resolveTheme()
+            }
+        }
+    }
+
+    private fun refreshContentBackdropFromTheme() {
+        val next = TransparentBackdropResolver.fromAppTheme(
+            context = appContext,
+            packageName = foregroundPackage,
+            systemDarkTheme = preferences.isDark,
+        )
+        if (!AppThemeBackgroundResolver.isMateriallyDifferent(contentBackdropColor, next)) {
             theme = resolveTheme()
             return
         }
-        resolveIconBackgroundForForeground()
+        contentBackdropColor = next
+        theme = resolveTheme()
     }
 
     private fun resolveIconBackgroundForForeground() {
@@ -464,6 +514,7 @@ class TrayState(context: Context) {
             visibilityMode = visibilityMode,
             backgroundMode = trayPrefs.backgroundMode,
             appBackgroundColor = appBackgroundColor,
+            contentBackdropColor = contentBackdropColor,
             shellFillColor = effectiveShellFill(),
             shellFillUnderlay = shellFillUnderlay(),
         )

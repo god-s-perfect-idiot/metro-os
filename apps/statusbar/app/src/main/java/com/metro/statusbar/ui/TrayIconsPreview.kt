@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter
 import com.metro.statusbar.TrayIconFlags
 import com.metro.statusbar.TrayLayout
 import com.metro.statusbar.TrayLayoutSlot
+import com.metro.statusbar.TrayThemeSnapshot
 
 /**
  * Icons-tab preview — same [TrayPreview] / [StatusTray] renderer as customise and configure.
@@ -20,11 +21,13 @@ fun TrayIconsPreview(
         LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm"))
     },
     layout: List<TrayLayoutSlot> = TrayLayout.DEFAULT,
+    theme: TrayThemeSnapshot? = null,
 ) {
     TrayPreview(
         flags = flags,
         clockText = clockText,
         layout = layout,
+        theme = theme,
         modifier = modifier,
     )
 }

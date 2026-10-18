@@ -31,11 +31,12 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
 - Tap tray / go home → indicators drop in L→R from above; hold **3s / 5s / 10s** or **Never** (setup ListPicker, default **5000ms**); exit upward L→R until only the rightmost icon remains
 - Per-app: apps request opaque / translucent (0.5) / hidden via `metro-system-sdk` API; fullscreen surfaces use `MetroStatusBarFullscreenEffect`
 - Immersive: when Android status bars are hidden, the Metro tray creeps away (same motion as `MODE_HIDDEN`)
+- Transparent tray: glyph contrast from foreground app theme (`windowLightStatusBar`, opaque status/page colors, `isLightTheme`, package night mode) — not screenshots, not Metro dark/light alone, not icon brand color
 - Icons-tab toggles gate which glyphs may appear; the rightmost layout icon is always shown when collapsed
 
 ## Primary flows
 
-1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **Statusbar background** ListPicker chooses **Default black background** (solid black; default), **Match app background** (Metro suite → black; other apps → icon tile brand / adaptive background), **Show accent color** (always system accent), or **Transparent** (no tray fill; glyphs float over content). **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds) or **Never** (indicators stay expanded). **configure statusbar** drills into **configure**: centered tray preview with accent thumbs under each icon/spacer to drag-reorder; **add spacer** / **add tiny spacer** at the bottom (hint: cover notch and active mic areas; trailing spacers stay after auto-hide). On device rotate the tray slides out and back in from the new top.
+1. Master **Show status bar** toggle starts/stops the overlay (setup UI); boot respects the same flag. **system status bar** section nudges Shizuku setup; when Shizuku is ready, **Hide system status bar** clears SystemUI icons via privileged shell (`cmd statusbar send-disable-flag`) — toggling off (or stopping the Metro tray) must restore them. **Statusbar background** ListPicker chooses **Default black background** (solid black; default), **Match app background** (Metro suite → black; other apps → icon tile brand / adaptive background), **Show accent color** (always system accent), or **Transparent** (no tray fill; glyphs float over content). **Hide icons after** ListPicker sets the auto-collapse hold (3 / 5 / 10 seconds) or **Never** (indicators stay expanded). **configure statusbar** drills into **configure**: centered tray preview with accent thumbs under each icon/spacer to drag-reorder; **add spacer** / **add tiny spacer** at the bottom (hint: cover notch and active mic areas; trailing spacers stay after auto-hide). On device rotate the tray slides out and back in from the new top.
 2. Overlay draws **above the system status bar** via `TYPE_ACCESSIBILITY_OVERLAY`
    (`StatusBarAccessibilityService`); falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the
    system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —
@@ -58,6 +59,7 @@ screenshots/golden/expanded_dark_blue.png
 - `SYSTEM_ALERT_WINDOW` (overlay)
 - Accessibility service (`BIND_ACCESSIBILITY_SERVICE`) — required to draw over the system status bar
 - Foreground service type: `specialUse`
+- Optional Shizuku (external app) — clears SystemUI status icons under the Metro tray; restore on toggle off
 
 ## Verify
 
@@ -71,3 +73,4 @@ screenshots/golden/expanded_dark_blue.png
 |----------------|-------------------|------------|
 | True signal strength | Privileged OEM internals | App-level `SignalStrength` + `WifiManager` RSSI mapped to WP bar/arc counts |
 | Action Center chrome while shade open | Metro Action Center out of scope; a11y overlay paints above SystemUI | Hide Metro tray while Android notification shade is open; swipe-down opens shade via `GLOBAL_ACTION_NOTIFICATIONS` |
+| System status bar fully gone | Normal apps cannot disable SystemUI; immersive.status would also hide Metro tray via WindowInsets | Optional Shizuku path: `cmd statusbar send-disable-flag system-icons clock notification-icons`; restore with `none`. Never use `policy_control immersive.status`. OEM may ignore flags. |

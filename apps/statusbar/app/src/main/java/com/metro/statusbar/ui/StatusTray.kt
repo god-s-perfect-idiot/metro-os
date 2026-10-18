@@ -75,6 +75,7 @@ import com.metro.statusbar.TrayLayoutIcon
 import com.metro.statusbar.TrayLayoutSlot
 import com.metro.statusbar.TraySnapshot
 import com.metro.statusbar.TraySpec
+import com.metro.statusbar.TrayThemeResolver
 import com.metro.statusbar.TrayVisibilityMode
 import com.metro.system.MetroAppBranding
 import com.metro.ui.MetroAppGlyphs
@@ -388,10 +389,14 @@ fun StatusTray(
                             kind = slot.kind,
                             foreground = foreground,
                             backdrop = backdrop,
-                            inactiveColor = if (paintTheme.darkTheme) {
-                                SignalInactiveDark
-                            } else {
+                            // Inactive bars follow tray fill luminance, not system dark/light —
+                            // white glyphs on a light accent need light-gray empty bars, etc.
+                            inactiveColor = if (
+                                TrayThemeResolver.isLightBackground(paintTheme.backdropColor)
+                            ) {
                                 SignalInactiveLight
+                            } else {
+                                SignalInactiveDark
                             },
                             accentColor = paintTheme.accentColor,
                             clockText = snapshot.clockText,

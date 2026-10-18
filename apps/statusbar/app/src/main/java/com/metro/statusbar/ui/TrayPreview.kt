@@ -81,9 +81,14 @@ fun TrayPreview(
     modifier: Modifier = Modifier,
     leftPaddingDp: Int = TraySpec.START_PADDING_DP,
     rightPaddingDp: Int = TraySpec.END_PADDING_DP,
+    /**
+     * Live tray theme from [com.metro.statusbar.TrayState] so setup previews match fill /
+     * glyph contrast (black on light accent / match-app fills). Falls back to dark chrome.
+     */
+    theme: TrayThemeSnapshot? = null,
     onSlotCentersChanged: ((List<Float>) -> Unit)? = null,
 ) {
-    val theme = TrayThemeSnapshot(
+    val resolvedTheme = theme ?: TrayThemeSnapshot(
         backgroundColor = MetroColors.DarkBackground,
         foregroundColor = MetroTheme.colors.primaryText,
         accentColor = MetroTheme.colors.accent,
@@ -91,12 +96,12 @@ fun TrayPreview(
         visibilityMode = TrayVisibilityMode.Opaque,
         backdropColor = MetroColors.DarkBackground,
     )
-    val snapshot = remember(flags, layout, clockText, theme) {
+    val snapshot = remember(flags, layout, clockText, resolvedTheme) {
         trayPreviewSnapshot(
             clockText = clockText,
             flags = flags,
             layout = layout,
-            theme = theme,
+            theme = resolvedTheme,
             notificationPackage = TrayPreviewSamples.NOTIFICATION_PACKAGE,
         )
     }

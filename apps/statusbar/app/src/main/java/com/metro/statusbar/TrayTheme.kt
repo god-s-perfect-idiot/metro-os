@@ -12,14 +12,23 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 object TrayThemeResolver {
-    /** Luminance above this → dark (black) tray glyphs for contrast on light fills. */
-    const val LIGHT_BACKGROUND_LUMINANCE = 0.5f
+    /**
+     * Relative luminance above this → black tray glyphs (clock + indicators) for contrast on
+     * light fills. Below 0.5 so WP accents like lime (#A4C400) and amber (#F0A30A) read as light
+     * and flip to black; cyan / cobalt stay white.
+     */
+    const val LIGHT_BACKGROUND_LUMINANCE = 0.4f
 
     fun resolve(
         preferences: MetroPreferences,
         visibilityMode: TrayVisibilityMode = TrayVisibilityMode.Opaque,
         backgroundMode: StatusBarBackgroundMode = StatusBarBackgroundMode.DefaultBlackBackground,
         appBackgroundColor: Color? = null,
+        /**
+         * Content behind a transparent tray (sampled window top strip or app theme attrs).
+         * Drives glyph contrast only — the painted band stays [Color.Transparent].
+         */
+        contentBackdropColor: Color? = null,
         /**
          * Temporary fill from a top shell overlay (toast accent / volume charcoal). Wins over
          * theme and status-bar background mode so the tray and overlay read as one band.
@@ -34,9 +43,9 @@ object TrayThemeResolver {
     ): TrayThemeSnapshot {
         val darkTheme = preferences.isDark
         val accentBackground = preferences.accentColor
-        // Transparent mode keeps a theme-matched logical fill for glyph contrast / carving
-        // while the painted tray band stays clear.
-        val logicalTransparentFill = if (darkTheme) Color.Black else Color.White
+        // Transparent mode: prefer live/theme content backdrop; fall back to system theme.
+        val logicalTransparentFill = contentBackdropColor
+            ?: if (darkTheme) Color.Black else Color.White
         val matchedBackground = when (backgroundMode) {
             StatusBarBackgroundMode.DefaultBlackBackground -> Color.Black
             StatusBarBackgroundMode.ShowAccentColor -> accentBackground
@@ -79,13 +88,12 @@ object TrayThemeResolver {
         )
     }
 
-    /** Black glyphs on light fills, white on dark — same threshold as nav-bar / tile content. */
+    /** Black glyphs on light fills, white on dark. */
     fun foregroundForBackground(background: Color): Color =
-        if (background.luminance() > LIGHT_BACKGROUND_LUMINANCE) {
-            Color.Black
-        } else {
-            Color.White
-        }
+        if (isLightBackground(background)) Color.Black else Color.White
+
+    fun isLightBackground(background: Color): Boolean =
+        background.copy(alpha = 1f).luminance() > LIGHT_BACKGROUND_LUMINANCE
 }
 
 object TrayClockFormatter {

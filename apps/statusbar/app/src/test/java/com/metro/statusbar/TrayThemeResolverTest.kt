@@ -65,6 +65,27 @@ class TrayThemeResolverTest {
     }
 
     @Test
+    fun resolve_showAccent_lightAccent_usesBlackGlyphs() {
+        preferences.accentColorHex = "#A4C400" // lime — light fill
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            backgroundMode = StatusBarBackgroundMode.ShowAccentColor,
+        )
+        assertEquals(preferences.accentColor, snapshot.backgroundColor)
+        assertEquals(Color.Black, snapshot.foregroundColor)
+    }
+
+    @Test
+    fun resolve_showAccent_amber_usesBlackGlyphs() {
+        preferences.accentColorHex = "#F0A30A"
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            backgroundMode = StatusBarBackgroundMode.ShowAccentColor,
+        )
+        assertEquals(Color.Black, snapshot.foregroundColor)
+    }
+
+    @Test
     fun resolve_defaultBlack_ignoresAppBackground() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,
@@ -97,6 +118,30 @@ class TrayThemeResolverTest {
         assertEquals(Color.Transparent, snapshot.backgroundColor)
         assertEquals(Color.White, snapshot.backdropColor)
         assertEquals(Color.Black, snapshot.foregroundColor)
+    }
+
+    @Test
+    fun resolve_transparent_contentBackdrop_overridesSystemTheme() {
+        // Dark Metro theme, but light content under the tray (e.g. Chrome).
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            backgroundMode = StatusBarBackgroundMode.Transparent,
+            contentBackdropColor = Color(0xFFF5F5F5),
+        )
+        assertEquals(Color.Transparent, snapshot.backgroundColor)
+        assertEquals(Color(0xFFF5F5F5), snapshot.backdropColor)
+        assertEquals(Color.Black, snapshot.foregroundColor)
+    }
+
+    @Test
+    fun resolve_transparent_darkContentBackdrop_keepsWhiteGlyphs() {
+        preferences.themeMode = com.metro.system.MetroThemeMode.Light
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            backgroundMode = StatusBarBackgroundMode.Transparent,
+            contentBackdropColor = Color(0xFF121212),
+        )
+        assertEquals(Color.White, snapshot.foregroundColor)
     }
 
     @Test
@@ -158,6 +203,10 @@ class TrayThemeResolverTest {
     fun foregroundForBackground_threshold() {
         assertEquals(Color.Black, TrayThemeResolver.foregroundForBackground(Color.White))
         assertEquals(Color.White, TrayThemeResolver.foregroundForBackground(Color.Black))
+        assertEquals(Color.Black, TrayThemeResolver.foregroundForBackground(Color(0xFFA4C400)))
+        assertEquals(Color.White, TrayThemeResolver.foregroundForBackground(Color(0xFF1BA1E2)))
+        assertTrue(TrayThemeResolver.isLightBackground(Color(0xFFF0A30A)))
+        assertFalse(TrayThemeResolver.isLightBackground(Color(0xFF0050EF)))
     }
 }
 

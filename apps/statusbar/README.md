@@ -18,17 +18,24 @@ ringer volume (`STREAM_RING`) is 0, a mute glyph (speaker + X) appears after Wi-
 expand/collapse stagger.
 
 The setup screen is a two-tab pivot (**customise** | **icons**). **customise** holds the
-master toggle and ListPickers, then a live **preview**, then an accent **permissions** section;
-**icons** holds per-glyph toggles (Network, Wi-Fi, Silent, Notification icons, Wi-Fi hotspot,
-Bluetooth audio, Battery) and a static **preview** strip in tray order. **Show status bar**
-starts and stops the overlay. **Statusbar background** (`MetroListPicker`) chooses **Default black
-background** (solid black tray; default), **Match app background** (Metro suite apps stay black;
-other apps use the launcher icon’s tile brand color — adaptive background — with glyphs flipped for
-contrast), **Show accent color** (always the system accent), or **Transparent** (no tray fill;
-glyphs float over the content behind the status bar, with light/dark glyph contrast from the system
-theme). **Hide icons after**
-(`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never** (stay
-expanded; WP default 5s). **configure statusbar** opens **configure**: a centered live-looking
+master toggle, a **system status bar** Shizuku section, ListPickers, then a live **preview**, then
+an accent **permissions** section; **icons** holds per-glyph toggles (Network, Wi-Fi, Silent,
+Notification icons, Wi-Fi hotspot, Bluetooth audio, Battery) and a static **preview** strip in tray
+order. **Show status bar** starts and stops the overlay. **system status bar** nudges the user to
+install / start / authorize [Shizuku](https://shizuku.rikka.app/download/); when Shizuku is ready,
+**Hide system status bar** clears Android SystemUI icons under the Metro tray via a privileged
+UserService (`cmd statusbar send-disable-flag system-icons clock notification-icons`). Turning that
+toggle off (or turning **Show status bar** off) restores SystemUI with `send-disable-flag none` —
+the preference is not cleared until restore succeeds so a failed restore can be retried. Boot and
+overlay start re-apply hide when the preference is on and Shizuku is already running. Do **not** use
+`policy_control immersive.status=*` (that would report status bars hidden and creep the Metro tray
+away). **Statusbar background** (`MetroListPicker`) chooses **Default black background** (solid
+black tray; default), **Match app background** (Metro suite apps stay black; other apps use the
+launcher icon’s tile brand color — adaptive background — with glyphs flipped for contrast), **Show
+accent color** (always the system accent), or **Transparent** (no tray fill; glyphs float over the
+content behind the status bar, with light/dark glyph contrast from the system theme). **Hide icons
+after** (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never**
+(stay expanded; WP default 5s). **configure statusbar** opens **configure**: a centered live-looking
 tray preview with accent drag thumbs sticking out under each enabled icon (and any spacers).
 Drag thumbs to rearrange; **add spacer** / **add tiny spacer** at the bottom insert blank slots
 (40dp / 16dp; multiple allowed; tap a spacer thumb to remove). Spacers after the last icon stay
@@ -49,7 +56,11 @@ Granted from the setup **permissions** section:
 4. **Notification access** — optional; cycles active notification app icons in the tray.
 5. **Bluetooth** (`BLUETOOTH_CONNECT`, API 31+) — optional; headset vs speaker glyph.
 6. **Show status bar** master toggle — On/Off via `MetroToggleSwitch` once overlay + accessibility
-   are granted; Off stops the overlay and blocks boot / contract revive.
+   are granted; Off stops the overlay, restores SystemUI icons if they were hidden via Shizuku, and
+   blocks boot / contract revive.
+7. **Shizuku** (optional) — install / start / allow from the **system status bar** section, then
+   **Hide system status bar** to clear SystemUI icons. Toggle Off restores them (requires Shizuku
+   still running). Re-enable SystemUI before uninstalling Status Bar if icons were hidden.
 
 The accessibility service is **mandatory for visibility**: a plain `TYPE_APPLICATION_OVERLAY` window
 is always layered *below* the system status bar (window layer ~111000 vs the system bar's ~151000),
@@ -214,8 +225,10 @@ cd apps/statusbar
 |----------------|-------------------|------------|
 | Real carrier/radio signal behavior mirrors system internals | Android app-level access to all shell telemetry can be restricted or OEM-specific | Cellular bars (`SignalStrength` level), data label (telephony display info), Wi-Fi arcs (`WifiManager` RSSI), mute (`STREAM_RING` volume 0), hotspot (soft-AP reflection / tether), Bluetooth audio (`AudioManager` + optional `BLUETOOTH_CONNECT` class), notification apps (notification listener cycle), and battery (`ACTION_BATTERY_CHANGED`) use real telemetry when icons-tab toggles allow them. Unused stub glyphs (call forwarding, roaming, quiet hours, driving, location) remain out of the expanded row. Tray layout and timing are exact. |
 | Status bar is a true system-reserved region | An installed app can only overlay via `SYSTEM_ALERT_WINDOW`, which is layered below the system status bar | The tray is hosted as a `TYPE_ACCESSIBILITY_OVERLAY` (via `StatusBarAccessibilityService`) so it draws above the system status bar; requires enabling the accessibility service. Falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the system bar) when not enabled. |
+| System status bar icons fully removed | Normal apps cannot disable SystemUI; `policy_control immersive.status=*` would hide WindowInsets status bars and creep the Metro tray | Optional Shizuku UserService runs `cmd statusbar send-disable-flag system-icons clock notification-icons`; restore with `none`. Setup UI nudges install / start / allow. OEM may ignore flags; privacy dots can still paint on top. |
 | Action Center owns the top chrome while open | Metro Action Center is out of scope; Android's notification shade still expands under the a11y overlay | Swipe-down opens the system shade via `GLOBAL_ACTION_NOTIFICATIONS`; the tray hides for the shade lifetime (detected via interactive windows / shade class names). |
 | Fullscreen apps hide SystemTray | Accessibility overlay would stay above immersive content | Apps call `MetroStatusBarFullscreenEffect` / `requestFullscreen`; shell also creeps away when `WindowInsets` reports status bars hidden (API 30+). |
+| Transparent tray glyphs match content under the bar | Metro theme dark/light is unrelated to third-party page fill; cannot read live pixels without screenshots | Transparent mode resolves contrast from the foreground app’s theme: `windowLightStatusBar`, opaque `statusBarColor` / page background, `isLightTheme`, then package night-mode config; falls back to Metro theme. No screenshots. Edge-to-edge apps that lie in theme attrs may still mismatch. |
 
 ## Agent postmortem
 

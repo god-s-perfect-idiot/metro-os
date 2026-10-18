@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.metro.statusbar.shizuku.ShizukuAvailability
+import com.metro.statusbar.shizuku.ShizukuReadyState
+import com.metro.statusbar.shizuku.SystemStatusBarHider
 import com.metro.statusbar.ui.TrayIconsPreview
 import com.metro.statusbar.ui.TrayLayoutEditor
 import com.metro.statusbar.ui.TrayPreview
@@ -52,6 +55,7 @@ import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroListPicker
 import com.metro.ui.MetroListPickerOption
+import com.metro.ui.MetroMessageDialog
 import com.metro.ui.MetroPivot
 import com.metro.ui.MetroSettingsHeader
 import com.metro.ui.MetroSubpageHost
@@ -62,6 +66,7 @@ import com.metro.ui.MetroToggleSwitch
 import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
 import kotlinx.coroutines.launch
+import rikka.shizuku.Shizuku
 
 private sealed interface SetupRoute {
     data object Main : SetupRoute
@@ -85,6 +90,10 @@ class MainActivity : ComponentActivity() {
             var backgroundMode by remember { mutableStateOf(trayPrefs.backgroundMode) }
             var iconFlags by remember { mutableStateOf(trayPrefs.iconFlags) }
             var trayLayout by remember { mutableStateOf(trayPrefs.layout) }
+            var hideSystemStatusBar by remember { mutableStateOf(trayPrefs.hideSystemStatusBar) }
+            var shizukuTick by remember { mutableIntStateOf(0) }
+            var hideSystemBusy by remember { mutableStateOf(false) }
+            var hideSystemError by remember { mutableStateOf<String?>(null) }
             var route by remember { mutableStateOf<SetupRoute>(SetupRoute.Main) }
             val pagerState = rememberPagerState(pageCount = { 2 })
             val scope = rememberCoroutineScope()
@@ -98,12 +107,14 @@ class MainActivity : ComponentActivity() {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
                         permissionTick++
+                        shizukuTick++
                         trayEnabled = trayPrefs.enabled
                         iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
                         notchPosition = trayPrefs.notchPosition
                         backgroundMode = trayPrefs.backgroundMode
                         iconFlags = trayPrefs.iconFlags
                         trayLayout = trayPrefs.layout
+                        hideSystemStatusBar = trayPrefs.hideSystemStatusBar
                         // Keep overlay aligned with the master toggle after returning from Settings.
                         if (trayPrefs.enabled &&
                             Settings.canDrawOverlays(context) &&
@@ -116,6 +127,30 @@ class MainActivity : ComponentActivity() {
                 }
                 lifecycle.addObserver(observer)
                 onDispose { lifecycle.removeObserver(observer) }
+            }
+
+            DisposableEffect(Unit) {
+                val binderReceived = Shizuku.OnBinderReceivedListener { shizukuTick++ }
+                val binderDead = Shizuku.OnBinderDeadListener { shizukuTick++ }
+                val permissionListener =
+                    Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
+                        if (requestCode == ShizukuAvailability.PERMISSION_REQUEST_CODE) {
+                            shizukuTick++
+                            if (grantResult == PackageManager.PERMISSION_GRANTED &&
+                                trayPrefs.hideSystemStatusBar
+                            ) {
+                                SystemStatusBarHider.applyDesiredAsync(context)
+                            }
+                        }
+                    }
+                Shizuku.addBinderReceivedListenerSticky(binderReceived)
+                Shizuku.addBinderDeadListener(binderDead)
+                Shizuku.addRequestPermissionResultListener(permissionListener)
+                onDispose {
+                    Shizuku.removeBinderReceivedListener(binderReceived)
+                    Shizuku.removeBinderDeadListener(binderDead)
+                    Shizuku.removeRequestPermissionResultListener(permissionListener)
+                }
             }
 
             DisposableEffect(state) {
@@ -154,11 +189,25 @@ class MainActivity : ComponentActivity() {
                 BluetoothAudioSource.hasConnectPermission(context)
             }
             val canToggleTray = overlayGranted && accessibilityEnabled
+            val shizukuState = remember(permissionTick, shizukuTick) {
+                ShizukuAvailability.state(context)
+            }
+            val hideFailedHideBody = stringResource(R.string.hide_system_statusbar_failed_hide)
+            val hideFailedRestoreBody = stringResource(R.string.hide_system_statusbar_failed_restore)
 
             MetroTheme(
                 darkTheme = state.theme.darkTheme,
                 accent = state.theme.accentColor,
             ) {
+                hideSystemError?.let { body ->
+                    MetroMessageDialog(
+                        title = stringResource(R.string.hide_system_statusbar_failed_title),
+                        body = body,
+                        onDismissRequest = { hideSystemError = null },
+                        confirmLabel = stringResource(R.string.hide_system_statusbar_dialog_ok),
+                        onConfirm = { hideSystemError = null },
+                    )
+                }
                 MetroAppPivotShell(
                     modifier = Modifier.fillMaxSize(),
                     onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
@@ -209,6 +258,9 @@ class MainActivity : ComponentActivity() {
                                         phoneStateGranted = phoneStateGranted,
                                         notificationAccessEnabled = notificationAccessEnabled,
                                         bluetoothConnectGranted = bluetoothConnectGranted,
+                                        shizukuState = shizukuState,
+                                        hideSystemStatusBar = hideSystemStatusBar,
+                                        hideSystemBusy = hideSystemBusy,
                                         onTrayEnabledChange = { enabled ->
                                             StatusBarOverlayService.applyMasterToggle(context, enabled)
                                             trayEnabled = trayPrefs.enabled
@@ -224,6 +276,45 @@ class MainActivity : ComponentActivity() {
                                             iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
                                             StatusBarOverlayService.requestIconHideTimeoutRefresh()
                                         },
+                                        onHideSystemStatusBarChange = { wantHide ->
+                                            if (hideSystemBusy) return@EditTab
+                                            if (wantHide) {
+                                                if (shizukuState != ShizukuReadyState.Ready ||
+                                                    !trayEnabled
+                                                ) {
+                                                    return@EditTab
+                                                }
+                                                hideSystemBusy = true
+                                                trayPrefs.hideSystemStatusBar = true
+                                                hideSystemStatusBar = true
+                                                SystemStatusBarHider.hideAsync(context) { result ->
+                                                    hideSystemBusy = false
+                                                    if (!result.ok) {
+                                                        trayPrefs.hideSystemStatusBar = false
+                                                        hideSystemStatusBar = false
+                                                        hideSystemError = hideFailedHideBody
+                                                    }
+                                                }
+                                            } else {
+                                                // Restore SystemUI first; only clear the pref on success
+                                                // so a failed restore can be retried.
+                                                hideSystemBusy = true
+                                                SystemStatusBarHider.restoreAsync(context) { result ->
+                                                    hideSystemBusy = false
+                                                    if (result.ok) {
+                                                        trayPrefs.hideSystemStatusBar = false
+                                                        hideSystemStatusBar = false
+                                                    } else {
+                                                        hideSystemStatusBar =
+                                                            trayPrefs.hideSystemStatusBar
+                                                        hideSystemError = hideFailedRestoreBody
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        onGetShizuku = { ShizukuAvailability.openDownload(context) },
+                                        onOpenShizuku = { ShizukuAvailability.openShizuku(context) },
+                                        onAllowShizuku = { ShizukuAvailability.requestPermission() },
                                         onConfigureClick = { route = SetupRoute.Configure },
                                         onGrantOverlay = {
                                             startActivity(
@@ -262,6 +353,7 @@ class MainActivity : ComponentActivity() {
                                         flags = iconFlags,
                                         layout = trayLayout,
                                         clockText = state.clockText,
+                                        theme = state.theme,
                                         onFlagsChange = { next ->
                                             trayPrefs.iconFlags = next
                                             iconFlags = trayPrefs.iconFlags
@@ -440,9 +532,16 @@ private fun EditTab(
     phoneStateGranted: Boolean,
     notificationAccessEnabled: Boolean,
     bluetoothConnectGranted: Boolean,
+    shizukuState: ShizukuReadyState,
+    hideSystemStatusBar: Boolean,
+    hideSystemBusy: Boolean,
     onTrayEnabledChange: (Boolean) -> Unit,
     onBackgroundModeChange: (StatusBarBackgroundMode) -> Unit,
     onIconHideTimeoutChange: (Long) -> Unit,
+    onHideSystemStatusBarChange: (Boolean) -> Unit,
+    onGetShizuku: () -> Unit,
+    onOpenShizuku: () -> Unit,
+    onAllowShizuku: () -> Unit,
     onConfigureClick: () -> Unit,
     onGrantOverlay: () -> Unit,
     onGrantAccessibility: () -> Unit,
@@ -477,6 +576,18 @@ private fun EditTab(
                     .padding(top = 8.dp),
             )
         }
+
+        Spacer(modifier = Modifier.height(28.dp))
+        SystemStatusBarSection(
+            trayEnabled = trayEnabled,
+            shizukuState = shizukuState,
+            hideSystemStatusBar = hideSystemStatusBar,
+            busy = hideSystemBusy,
+            onHideChange = onHideSystemStatusBarChange,
+            onGetShizuku = onGetShizuku,
+            onOpenShizuku = onOpenShizuku,
+            onAllowShizuku = onAllowShizuku,
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
         MetroListPicker(
@@ -568,6 +679,7 @@ private fun EditTab(
             flags = state.iconFlags,
             clockText = state.clockText,
             layout = state.layout,
+            theme = state.theme,
             leftPaddingDp = previewPadding.left,
             rightPaddingDp = previewPadding.right,
             modifier = Modifier
@@ -637,10 +749,132 @@ private fun EditTab(
 }
 
 @Composable
+private fun SystemStatusBarSection(
+    trayEnabled: Boolean,
+    shizukuState: ShizukuReadyState,
+    hideSystemStatusBar: Boolean,
+    busy: Boolean,
+    onHideChange: (Boolean) -> Unit,
+    onGetShizuku: () -> Unit,
+    onOpenShizuku: () -> Unit,
+    onAllowShizuku: () -> Unit,
+) {
+    MetroText(
+        text = stringResource(R.string.system_statusbar_section),
+        style = MetroTextStyle.SectionHeader,
+        color = MetroTheme.colors.accent,
+        modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 8.dp),
+    )
+    MetroText(
+        text = stringResource(R.string.system_statusbar_body),
+        style = MetroTextStyle.DialogBody,
+        modifier = Modifier
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 16.dp),
+    )
+
+    when (shizukuState) {
+        ShizukuReadyState.NotInstalled -> {
+            MetroText(
+                text = stringResource(R.string.shizuku_nudge_not_installed),
+                style = MetroTextStyle.DialogBody,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp),
+            )
+            MetroBorderButton(
+                text = stringResource(R.string.shizuku_get),
+                onClick = onGetShizuku,
+                modifier = Modifier.padding(horizontal = 12.dp),
+                fontSize = 15.sp,
+            )
+        }
+        ShizukuReadyState.NotRunning -> {
+            MetroText(
+                text = stringResource(R.string.shizuku_nudge_not_running),
+                style = MetroTextStyle.DialogBody,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp),
+            )
+            MetroBorderButton(
+                text = stringResource(R.string.shizuku_open),
+                onClick = onOpenShizuku,
+                modifier = Modifier.padding(horizontal = 12.dp),
+                fontSize = 15.sp,
+            )
+        }
+        ShizukuReadyState.NeedPermission -> {
+            MetroText(
+                text = stringResource(R.string.shizuku_nudge_need_permission),
+                style = MetroTextStyle.DialogBody,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp),
+            )
+            MetroBorderButton(
+                text = stringResource(R.string.shizuku_allow),
+                onClick = onAllowShizuku,
+                modifier = Modifier.padding(horizontal = 12.dp),
+                fontSize = 15.sp,
+            )
+        }
+        ShizukuReadyState.Ready -> {
+            MetroText(
+                text = stringResource(R.string.shizuku_ready_hint),
+                style = MetroTextStyle.DialogBody,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp),
+            )
+            // Can turn hide on only while Metro tray is shown; can always turn off to restore.
+            val canToggleHide = !busy && (trayEnabled || hideSystemStatusBar)
+            MetroToggleSwitch(
+                checked = hideSystemStatusBar,
+                onCheckedChange = onHideChange,
+                enabled = canToggleHide,
+                label = stringResource(R.string.hide_system_statusbar),
+                labelStyle = MetroTextStyle.DialogBody,
+                statusStyle = MetroTextStyle.Body,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+            )
+            if (!trayEnabled && !hideSystemStatusBar) {
+                MetroText(
+                    text = stringResource(R.string.hide_system_statusbar_hint_tray_off),
+                    style = MetroTextStyle.DialogBody,
+                    color = MetroTheme.colors.secondaryText,
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 8.dp),
+                )
+            } else if (busy) {
+                MetroText(
+                    text = stringResource(R.string.hide_system_statusbar_busy),
+                    style = MetroTextStyle.DialogBody,
+                    color = MetroTheme.colors.secondaryText,
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun IconsTab(
     flags: TrayIconFlags,
     layout: List<TrayLayoutSlot>,
     clockText: String,
+    theme: TrayThemeSnapshot,
     onFlagsChange: (TrayIconFlags) -> Unit,
 ) {
     Column(
@@ -698,6 +932,7 @@ private fun IconsTab(
             flags = flags,
             layout = layout,
             clockText = clockText,
+            theme = theme,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
