@@ -35,11 +35,20 @@ class NotificationsPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_TWO_ROW_VIEW, false)
         set(value) = prefs.edit().putBoolean(KEY_TWO_ROW_VIEW, value).apply()
 
+    /**
+     * When true, the toast band uses the notifying app's Start tile / icon background
+     * color instead of the system accent.
+     */
+    var dynamicToastBackground: Boolean
+        get() = prefs.getBoolean(KEY_DYNAMIC_TOAST_BACKGROUND, false)
+        set(value) = prefs.edit().putBoolean(KEY_DYNAMIC_TOAST_BACKGROUND, value).apply()
+
     companion object {
         private const val PREFS_NAME = "metro_notifications"
         private const val KEY_ENABLED = "notifications_enabled"
         private const val KEY_PREV_HEADS_UP = "previous_heads_up_enabled"
         private const val KEY_TOAST_DURATION_MS = "toast_duration_ms"
         private const val KEY_TWO_ROW_VIEW = "two_row_view"
+        private const val KEY_DYNAMIC_TOAST_BACKGROUND = "dynamic_toast_background"
     }
 }

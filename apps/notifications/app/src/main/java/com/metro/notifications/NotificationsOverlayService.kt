@@ -40,9 +40,11 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.metro.notifications.ui.ToastBanner
+import com.metro.system.MetroAppBranding
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroFontScale
 import com.metro.system.MetroPreferences
+import com.metro.system.MetroPreferences.Companion.toHexString
 import com.metro.system.MetroStatusBar
 import com.metro.system.MetroThemeMode
 import com.metro.ui.MetroTheme
@@ -96,6 +98,9 @@ class NotificationsOverlayService :
     var darkTheme by mutableStateOf(true)
         private set
     var accent by mutableStateOf(Color(0xFF1BA1E2))
+        private set
+    /** Toast band + matching tray shell fill (system accent, or app tile bg when dynamic). */
+    var toastFill by mutableStateOf(Color(0xFF1BA1E2))
         private set
     private val toastTimeout = Runnable {
         dismissToast()
@@ -210,7 +215,8 @@ class NotificationsOverlayService :
             if (modeExtra == null) darkTheme = prefs.isDark
             if (accentExtra == null) accent = prefs.accentColor
         }
-        if (toast != null) {
+        toast?.let { current ->
+            toastFill = resolveToastFill(current.packageName, NotificationsPreferences(this))
             requestTrayShellFill()
         }
     }
@@ -225,15 +231,26 @@ class NotificationsOverlayService :
     private fun showToast(snapshot: ToastSnapshot) {
         // Pick up any accent missed while the toast window was torn down.
         refreshTheme()
-        twoRowView = NotificationsPreferences(this).twoRowView
+        val prefs = NotificationsPreferences(this)
+        twoRowView = prefs.twoRowView
+        toastFill = resolveToastFill(snapshot.packageName, prefs)
         toastExiting = false
         toast = snapshot
         handler.removeCallbacks(toastTimeout)
-        handler.postDelayed(toastTimeout, NotificationsPreferences(this).toastDurationMs)
+        handler.postDelayed(toastTimeout, prefs.toastDurationMs)
         // Attach first, then tint + raise the Metro tray above this band so glyphs stay on top.
         // Raising before attach leaves the toast on top and hides tray glyphs.
         ensureOverlayShowing()
         requestTrayShellFill()
+    }
+
+    /**
+     * System accent by default; optional setup toggle uses the notifying app's Start tile /
+     * icon background (same brand fill as launcher tiles).
+     */
+    private fun resolveToastFill(packageName: String, prefs: NotificationsPreferences): Color {
+        if (!prefs.dynamicToastBackground) return accent
+        return MetroAppBranding.loadAppIconAsset(this, packageName).backgroundColor
     }
 
     private fun showTestToast() {
@@ -280,7 +297,7 @@ class NotificationsOverlayService :
         MetroStatusBar.requestShellFill(
             this,
             MetroStatusBar.OWNER_NOTIFICATIONS,
-            MetroPreferences(this).accentColorHex,
+            toastFill.toHexString(),
             durationMs = MetroTransitions.JumpListFlipMs,
             underlay = false,
         )
@@ -341,7 +358,7 @@ class NotificationsOverlayService :
                     if (current != null) {
                         ToastBanner(
                             toast = current,
-                            accent = accent,
+                            accent = toastFill,
                             exiting = toastExiting,
                             onTap = { acknowledgeToast() },
                             onSwipeDismiss = { dismissToast() },

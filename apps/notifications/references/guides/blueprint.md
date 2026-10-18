@@ -8,9 +8,9 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ### Page 1 — Toast banner
 
-- Layout: full-width **accent** band from the top of the screen (tray inset + banner). The whole band flips as one tile behind an opaque accent Metro tray so the pivot is not offset to the safe inset; icon/text sit only in the banner below the tray. Reference: `images/toast.png`.
+- Layout: full-width fill band from the top of the screen (tray inset + banner) — **system accent** by default, or the notifying app’s Start tile / icon background when setup **Dynamic toast background color** is on. The whole band flips as one tile behind an opaque matching Metro tray so the pivot is not offset to the safe inset; icon/text sit only in the banner below the tray. Reference: `images/toast.png`.
   - **Square app logo** on the left (manifest / package icon, never a payload image)
-  - **Message copy** white text next to the icon:
+  - **Message copy** contrast text next to the icon (`MetroColors.tileContentColor` on the fill):
     - Group chats: **conversation / group name on the top row always** (from MessagingStyle `EXTRA_CONVERSATION_TITLE` when distinct from the sender). Below that:
       - Default: single-line `sender: message`
       - Optional **Two-row view**: `title` then `description`
@@ -27,8 +27,10 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Opened from Settings → `notifications` (`com.metro.settings` launches this MainActivity). Does not live inside Settings.
 - Overlay grant, accessibility enable, notification access, master **Show notifications** toggle
 - Overlay FGS runs when the toggle is on; the WindowManager view is attached only while a toast is visible
+- Metro status tray stays visible over this setup activity (normal app window; not ignored as foreground)
 - **toast timeout** ListPicker — 3 seconds / 5 seconds / 10 seconds (default 5). Uses `MetroListPicker`, not a Material menu
 - **Two-row view** toggle — off by default (`title: description` on one line); when on, distinct title/body stack on two rows
+- **Dynamic toast background color** toggle — off by default (system accent); when on, toast + tray shell fill use the notifying app’s tile / icon background
 - **show test toast** (enabled when the toggle is on and grants are in place) raises a sample banner so the overlay can be checked without a real notification
 
 ## System behavior
@@ -39,7 +41,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 | Window lifetime | Attach only while a toast is visible; never an always-on hit target |
 | Heads-up | While FGS is running, set `heads_up_notifications_enabled=0` (restore on stop) |
 | Theme | Observe `THEME_CHANGED` |
-| Tray | Toast attaches at y=0 first; then Metro tray tints opaque accent + rehosts above so the full band flips behind the glyphs. Tray accent morphs away with the exit flip. |
+| Tray | Setup keeps the Metro tray visible. Toast attaches at y=0 first; then Metro tray tints opaque fill (accent or dynamic tile bg) + rehosts above so the full band flips behind the glyphs. Tray fill morphs away with the exit flip. |
 
 ## Images
 
@@ -50,6 +52,6 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 ## Out of scope (v1)
 
 - Action Center / notification shade / quick actions
-- Driving or hiding the status tray
+- Driving or hiding the status tray (beyond toast shell-fill)
 - Lock-screen toast
 - OEM skins that ignore `heads_up_notifications_enabled`

@@ -10,7 +10,9 @@ object ForegroundAppDetector {
     private val IgnoredPackages = setOf(
         "com.android.systemui",
         "com.metro.navbar",
-        "com.metro.notifications",
+        // Toast/volume/lock overlays are TYPE_ACCESSIBILITY_OVERLAY and already skipped as
+        // application windows. Keep their setup activities detectable so the Metro tray stays
+        // visible and themed over those config screens.
         "com.metro.volume",
         "com.metro.lockscreen",
     )

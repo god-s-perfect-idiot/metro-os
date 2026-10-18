@@ -243,8 +243,40 @@ class ForegroundAppDetectorTest {
     fun isIgnored_shellPackages() {
         assertTrue(ForegroundAppDetector.isIgnored("com.android.systemui"))
         assertTrue(ForegroundAppDetector.isIgnored("com.metro.navbar"))
+        assertTrue(ForegroundAppDetector.isIgnored("com.metro.volume"))
+        assertTrue(ForegroundAppDetector.isIgnored("com.metro.lockscreen"))
+        // Notifications setup is a normal activity — tray must stay visible over it.
+        assertFalse(ForegroundAppDetector.isIgnored("com.metro.notifications"))
         assertFalse(ForegroundAppDetector.isIgnored("com.metro.statusbar"))
         assertFalse(ForegroundAppDetector.isIgnored("com.metro.settings"))
         assertFalse(ForegroundAppDetector.isIgnored("com.android.chrome"))
+    }
+
+    @Test
+    fun foregroundPackage_detectsNotificationsSetup() {
+        val pkg = ForegroundAppDetector.foregroundPackageFromProbes(
+            listOf(
+                ForegroundAppDetector.PackageProbe(
+                    type = AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY,
+                    layer = 100,
+                    packageName = "com.metro.statusbar",
+                    isActive = true,
+                ),
+                ForegroundAppDetector.PackageProbe(
+                    type = AccessibilityWindowInfo.TYPE_APPLICATION,
+                    layer = 50,
+                    packageName = "com.metro.notifications",
+                    isActive = true,
+                    isFocused = true,
+                ),
+                ForegroundAppDetector.PackageProbe(
+                    type = AccessibilityWindowInfo.TYPE_APPLICATION,
+                    layer = 30,
+                    packageName = "com.metro.settings",
+                    isActive = false,
+                ),
+            ),
+        )
+        assertEquals("com.metro.notifications", pkg)
     }
 }

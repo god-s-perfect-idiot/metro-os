@@ -29,10 +29,13 @@ Owns WP8.1 **toast banners** (replacing Android heads-up). Light shell overlay, 
 The setup screen’s **Show notifications** master toggle starts and stops the overlay FGS and
 immediately disables stock heads-up (`heads_up_notifications_enabled=0` + listener hints).
 Boot auto-starts only when the toggle is on. Settings → **notifications** launches this
-activity (`com.metro.settings` does not host toast setup itself). **toast timeout** is a
+activity (`com.metro.settings` does not host toast setup itself). The Metro status tray stays
+visible over setup (it is a normal activity, not a toast overlay). **toast timeout** is a
 ListPicker (3 / 5 / 10 seconds, default 5). **show test toast** raises a sample banner when
 the toggle is on and overlay + accessibility are granted. **Two-row view** stacks title over
-description instead of joining as `title: description`.
+description instead of joining as `title: description`. **Dynamic toast background color**
+(off by default) paints the toast band with the notifying app’s Start tile / icon background
+instead of the system accent.
 
 ```bash
 adb shell appops set com.metro.notifications SYSTEM_ALERT_WINDOW allow
@@ -43,7 +46,7 @@ adb shell pm grant com.metro.notifications android.permission.WRITE_SECURE_SETTI
 
 ### 1. Toast
 
-- Continuous accent band: full tray-inset + banner flips behind an opaque matching Metro tray
+- Continuous fill band (system accent, or app tile bg when **Dynamic toast background color** is on): full tray-inset + banner flips behind an opaque matching Metro tray
 - Square app logo + message copy with ellipsis; no clock (the tray already shows time)
   - Group chats: conversation name on top, then title/body
   - Default: single-line `sender: message`

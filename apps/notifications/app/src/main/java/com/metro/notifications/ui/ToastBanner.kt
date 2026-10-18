@@ -95,6 +95,7 @@ fun ToastBanner(
     val lineCount = (if (groupRow != null) 1 else 0) + contentLines
     val bannerHeightDp = ToastSpec.heightForLines(lineCount)
     val stackCopy = groupRow != null || showTwoRows
+    val contentColor = remember(accent) { MetroColors.tileContentColor(accent) }
     val onTapState = rememberUpdatedState(onTap)
     val onSwipeDismissState = rememberUpdatedState(onSwipeDismiss)
 
@@ -180,7 +181,7 @@ fun ToastBanner(
                                     MetroText(
                                         text = groupRow,
                                         style = MetroTextStyle.DialogBody,
-                                        color = MetroColors.TileContentOnAccent,
+                                        color = contentColor,
                                         maxLines = 1,
                                         softWrap = false,
                                         overflow = TextOverflow.Ellipsis,
@@ -190,7 +191,7 @@ fun ToastBanner(
                                     MetroText(
                                         text = titleRow,
                                         style = MetroTextStyle.DialogBody,
-                                        color = MetroColors.TileContentOnAccent,
+                                        color = contentColor,
                                         maxLines = 1,
                                         softWrap = false,
                                         overflow = TextOverflow.Ellipsis,
@@ -198,7 +199,7 @@ fun ToastBanner(
                                     MetroText(
                                         text = bodyRow.orEmpty(),
                                         style = MetroTextStyle.DialogBody,
-                                        color = MetroColors.TileContentOnAccent,
+                                        color = contentColor,
                                         maxLines = 1,
                                         softWrap = false,
                                         overflow = TextOverflow.Ellipsis,
@@ -207,7 +208,7 @@ fun ToastBanner(
                                     MetroText(
                                         text = line,
                                         style = MetroTextStyle.DialogBody,
-                                        color = MetroColors.TileContentOnAccent,
+                                        color = contentColor,
                                         maxLines = 1,
                                         softWrap = false,
                                         overflow = TextOverflow.Ellipsis,
@@ -218,7 +219,7 @@ fun ToastBanner(
                             MetroText(
                                 text = line,
                                 style = MetroTextStyle.DialogBody,
-                                color = MetroColors.TileContentOnAccent,
+                                color = contentColor,
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis,

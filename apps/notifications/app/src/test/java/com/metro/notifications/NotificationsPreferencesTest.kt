@@ -72,4 +72,19 @@ class NotificationsPreferencesTest {
         prefs.twoRowView = false
         assertFalse(NotificationsPreferences(RuntimeEnvironment.getApplication()).twoRowView)
     }
+
+    @Test
+    fun dynamicToastBackground_defaultsToFalse() {
+        assertFalse(prefs.dynamicToastBackground)
+    }
+
+    @Test
+    fun dynamicToastBackground_persistsAcrossInstances() {
+        prefs.dynamicToastBackground = true
+        assertTrue(NotificationsPreferences(RuntimeEnvironment.getApplication()).dynamicToastBackground)
+        prefs.dynamicToastBackground = false
+        assertFalse(
+            NotificationsPreferences(RuntimeEnvironment.getApplication()).dynamicToastBackground,
+        )
+    }
 }

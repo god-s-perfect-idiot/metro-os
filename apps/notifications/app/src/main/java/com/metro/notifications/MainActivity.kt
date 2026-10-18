@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroActivities
 import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
@@ -58,13 +59,20 @@ class MainActivity : ComponentActivity() {
             var enabled by remember { mutableStateOf(notifPrefs.enabled) }
             var toastDurationMs by remember { mutableLongStateOf(notifPrefs.toastDurationMs) }
             var twoRowView by remember { mutableStateOf(notifPrefs.twoRowView) }
+            var dynamicToastBackground by remember {
+                mutableStateOf(notifPrefs.dynamicToastBackground)
+            }
 
             DisposableEffect(this@MainActivity) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
+                        // Ensure the Metro tray is visible over this setup activity (it is a
+                        // normal app window, not a toast overlay).
+                        MetroStatusBar.requestVisibility(context, MetroStatusBar.MODE_OPAQUE)
                         permissionTick++
                         enabled = notifPrefs.enabled
                         twoRowView = notifPrefs.twoRowView
+                        dynamicToastBackground = notifPrefs.dynamicToastBackground
                         if (notifPrefs.enabled) {
                             HeadsUpController.disableStockHeadsUp(context)
                             ActionNotificationListenerService.requestHeadsUpSuppression()
@@ -212,6 +220,20 @@ class MainActivity : ComponentActivity() {
                             twoRowView = notifPrefs.twoRowView
                         },
                         label = stringResource(R.string.two_row_view),
+                        labelStyle = MetroTextStyle.Body,
+                        statusStyle = MetroTextStyle.Body,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    MetroToggleSwitch(
+                        checked = dynamicToastBackground,
+                        onCheckedChange = { value ->
+                            notifPrefs.dynamicToastBackground = value
+                            dynamicToastBackground = notifPrefs.dynamicToastBackground
+                        },
+                        label = stringResource(R.string.dynamic_toast_background),
                         labelStyle = MetroTextStyle.Body,
                         statusStyle = MetroTextStyle.Body,
                         modifier = Modifier
