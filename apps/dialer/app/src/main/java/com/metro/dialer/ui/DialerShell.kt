@@ -124,6 +124,7 @@ fun DialerShell(
                                 state.placeCall(group.phoneNumber, group.displayName)
                             },
                             onAddSpeedDial = state::addToSpeedDial,
+                            onShowInDialPad = state::showInDialPad,
                             onPinToStart = state::pinToStart,
                             canPinToStart = state::canPinToStart,
                         )
@@ -165,6 +166,10 @@ fun DialerShell(
                         },
                         onMessage = {
                             state.sendMessage(group.phoneNumber)
+                        },
+                        showSave = state.isUnsavedNumber(group),
+                        onSave = {
+                            state.saveNumberInPeople(group.phoneNumber)
                         },
                     )
                 }

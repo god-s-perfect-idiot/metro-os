@@ -227,6 +227,52 @@ class DialerCallLogicTest {
     }
 
     @Test
+    fun matchesNumberPrefix_matchesTrunkZeroAgainstPlusCountryCode() {
+        // Contact stored as +91…; user dials local trunk form 0…
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+919876543210", "098765"))
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+919876543210", "09876543210"))
+    }
+
+    @Test
+    fun matchesNumberPrefix_matchesCountryCodeWithoutPlus() {
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+919876543210", "91"))
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+919876543210", "9198765"))
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+919876543210", "919876543210"))
+    }
+
+    @Test
+    fun matchesNumberPrefix_matchesIddDoubleZeroPrefix() {
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+919876543210", "009198765"))
+    }
+
+    @Test
+    fun matchesNumberPrefix_matchesNationalDigitsAgainstPlusNumber() {
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+919876543210", "98765"))
+        assertTrue(DialerCallLogic.matchesNumberPrefix("+15551234567", "555123"))
+    }
+
+    @Test
+    fun numbersEquivalent_treatsPlusTrunkAndCountryVariantsAsSame() {
+        assertTrue(DialerCallLogic.numbersEquivalent("+919876543210", "919876543210"))
+        assertTrue(DialerCallLogic.numbersEquivalent("+919876543210", "09876543210"))
+        assertTrue(DialerCallLogic.numbersEquivalent("919876543210", "09876543210"))
+        assertTrue(DialerCallLogic.numbersEquivalent("+15551234567", "5551234567"))
+        assertTrue(!DialerCallLogic.numbersEquivalent("+919876543210", "91"))
+        assertTrue(!DialerCallLogic.numbersEquivalent("+919876543210", "+919876543211"))
+    }
+
+    @Test
+    fun contactSuggestions_matchesTrunkZeroDialing() {
+        val contacts = listOf(
+            ContactSuggestion("Alice", "+91 98765 43210", "+919876543210"),
+            ContactSuggestion("Bob", "444-9999", "4449999"),
+        )
+        val matches = DialerCallLogic.contactSuggestions("098765", contacts)
+        assertEquals(1, matches.size)
+        assertEquals("Alice", matches.first().displayName)
+    }
+
+    @Test
     fun formatDuration_formatsMinutesAndSeconds() {
         assertEquals("1:05", DialerCallLogic.formatDuration(65))
     }

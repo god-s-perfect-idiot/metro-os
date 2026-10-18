@@ -34,7 +34,7 @@ Render a Metro lock **surface above the Android system keyguard** without replac
 
 ### Page 1b — Glance surface (optional)
 
-- **Layout:** Same chrome as Page 1 (time, weekday, date, optional next calendar event) on a **pure black** (`#000000`) fill — no wallpaper, no status tray. Quick-status notification icons remain along the bottom edge.
+- **Layout:** Same chrome as Page 1 (time, weekday, date, optional next calendar event) on a **pure black** (`#000000`) fill — no wallpaper, no full status tray. Top-trailing battery glyph sits in the **same position** as Page 1’s lock-tray battery; the whole-number percentage (e.g. `72%`) occupies the tray clock-reserve slot immediately after it. Quick-status notification icons remain along the bottom edge.
 - **Presentation:** When **Glance lockscreen** is enabled in setup, draws over the system Always-On Display while the keyguard is locked and the display is not fully awake (`!STATE_ON` + interactive). Also covers the brief screen-off transition before doze engages. Non-touchable; tap-to-wake passes through to the system. Never presents while battery saver is on or the display is fully off (`STATE_OFF`).
 - **Interactions:** Passive only — no swipe-up. Lifts when the display becomes fully awake (regular lock surface takes over) or the keyguard unlocks. When a new notification arrives for an app configured in the quick-status slots, that slot **flips** (live-tile `rotationX`) from the previous icon + count to the updated icon + count.
 

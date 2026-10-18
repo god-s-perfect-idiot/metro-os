@@ -70,8 +70,7 @@ class MetroInCallService : InCallService() {
         val repository = CallLogRepository(applicationContext)
         val recent = repository.loadRecentCalls()
         val fromLog = recent.firstOrNull {
-            DialerCallLogic.normalizeNumber(it.phoneNumber) ==
-                DialerCallLogic.normalizeNumber(number)
+            DialerCallLogic.numbersEquivalent(it.phoneNumber, number)
         }?.contactName
         return fromLog?.takeIf { it.isNotBlank() }
             ?: DialerCallLogic.formatDisplayNumber(number)

@@ -60,6 +60,7 @@ fun HistoryScreen(
     onOpenDetail: (CallGroup) -> Unit,
     onCallBack: (CallGroup) -> Unit,
     onAddSpeedDial: (CallGroup) -> Unit,
+    onShowInDialPad: (CallGroup) -> Unit,
     onPinToStart: (CallGroup) -> Unit,
     canPinToStart: (CallGroup) -> Boolean,
     modifier: Modifier = Modifier,
@@ -131,6 +132,7 @@ fun HistoryScreen(
 
         contextMenuGroup?.let { group ->
             val speedDialLabel = stringResource(R.string.add_to_speed_dial)
+            val showInDialPadLabel = stringResource(R.string.show_in_dialpad)
             val pinLabel = stringResource(R.string.pin_to_start)
             MetroContextMenuPopup(
                 visibleState = contextMenuVisible,
@@ -141,6 +143,13 @@ fun HistoryScreen(
                         label = speedDialLabel,
                         onClick = {
                             onAddSpeedDial(group)
+                            dismissContextMenu()
+                        },
+                    ),
+                    MetroContextMenuItem(
+                        label = showInDialPadLabel,
+                        onClick = {
+                            onShowInDialPad(group)
                             dismissContextMenu()
                         },
                     ),

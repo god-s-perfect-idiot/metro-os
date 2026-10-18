@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.net.wifi.WifiManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,10 +46,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroColors
+import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroWifiBandCount
 import com.metro.ui.drawMetroWifiGlyph
 import kotlinx.coroutines.delay
@@ -66,8 +74,112 @@ private val WifiLeadingPadding = 8.dp
 /**
  * Invisible slot matching the Metro tray clock (`h:mm` at 14sp) so battery stays left of
  * where the clock would sit — lock chrome owns the large time; tray has no clock digits.
+ * Glance reuses this same slot for the percentage so the battery glyph stays aligned.
  */
 private val ClockReserveWidth = 40.dp
+
+/** Matches Metro tray clock sizing so glance % sits level with the battery glyph. */
+private val GlanceBatteryPercentStyle = TextStyle(
+    fontFamily = MetroFontFamily,
+    fontWeight = FontWeight.Normal,
+    fontSize = 14.sp,
+    lineHeight = 16.sp,
+    platformStyle = PlatformTextStyle(includeFontPadding = false),
+)
+
+/**
+ * Live battery for lock / glance chrome. Shared so the glance indicator and status tray
+ * stay on the same sticky `ACTION_BATTERY_CHANGED` source.
+ */
+@Composable
+private fun rememberLockscreenBattery(): LockscreenBatteryStatus {
+    val context = LocalContext.current
+    var battery by remember {
+        mutableStateOf(LockscreenBatterySource.current(context))
+    }
+    DisposableEffect(context) {
+        val appContext = context.applicationContext
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                    battery = LockscreenBatterySource.parse(intent)
+                }
+            }
+        }
+        ContextCompat.registerReceiver(
+            appContext,
+            receiver,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        battery = LockscreenBatterySource.current(appContext)
+        onDispose {
+            runCatching { appContext.unregisterReceiver(receiver) }
+        }
+    }
+    return battery
+}
+
+/**
+ * Glance / AOD battery: same trailing cluster geometry as [LockscreenStatusBar] so the
+ * battery glyph lands on the identical X/Y. Percentage fills the lock tray's clock-reserve
+ * slot immediately after the glyph (9dp gap + 40dp width).
+ */
+@Composable
+fun LockscreenGlanceBattery(
+    color: Color,
+    topInsetPx: Int,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val battery = rememberLockscreenBattery()
+    if (!battery.present) return
+
+    val statusBarsPx = WindowInsets.statusBars.getTop(density)
+    val cutoutPx = WindowInsets.displayCutout.getTop(density)
+    val safeTopPx = maxOf(statusBarsPx, cutoutPx, topInsetPx)
+    val bandHeightDp = with(density) {
+        maxOf(safeTopPx.toDp(), MetroStatusBar.HEIGHT_DP.dp)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(bandHeightDp)
+            .absolutePadding(left = StartPadding, right = EndPadding)
+            .testTag("metro_lockscreen_glance_battery"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+    ) {
+        // Mirror LockscreenStatusBar's right cluster exactly (battery + clock reserve).
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .size(BatteryWidth, BatteryHeight)
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+            ) {
+                drawLockBattery(
+                    battery = battery,
+                    color = color,
+                )
+            }
+            Box(
+                modifier = Modifier.width(ClockReserveWidth),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                BasicText(
+                    text = "${battery.percent}%",
+                    style = GlanceBatteryPercentStyle.copy(color = color),
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                )
+            }
+        }
+    }
+}
 
 /**
  * WP8.1 lock-screen status tray: always-visible indicators with **no background**, so they

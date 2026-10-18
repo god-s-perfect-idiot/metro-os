@@ -162,6 +162,16 @@ class DialerState(context: Context) {
         reloadContacts()
     }
 
+    /** Copy a history number into the dial pad and switch to that pivot. */
+    fun showInDialPad(group: CallGroup) {
+        val number = group.phoneNumber.trim()
+        if (number.isEmpty()) return
+        dialString = number
+        refreshT9Suggestions()
+        pivot = PhonePivot.DialPad
+        route = DialerRoute.Main
+    }
+
     fun closeOverlay() {
         route = DialerRoute.Main
         selectedGroup = null
@@ -191,8 +201,7 @@ class DialerState(context: Context) {
 
     /** First tap fills the dial field; second tap on the same suggestion places the call. */
     fun selectSuggestion(suggestion: ContactSuggestion) {
-        val alreadySelected = DialerCallLogic.normalizeNumber(dialString) ==
-            DialerCallLogic.normalizeNumber(suggestion.phoneNumber)
+        val alreadySelected = DialerCallLogic.numbersEquivalent(dialString, suggestion.phoneNumber)
         if (alreadySelected) {
             placeCall(suggestion.phoneNumber, suggestion.displayName)
         } else {
@@ -301,8 +310,16 @@ class DialerState(context: Context) {
         appContext.startActivity(intent)
     }
 
+    /** True when this history number is not linked to a saved People contact. */
+    fun isUnsavedNumber(group: CallGroup): Boolean =
+        contactsLookup.resolveContactId(group.phoneNumber) == null
+
     fun saveContactInPeople() {
-        val trimmed = dialString.trim()
+        saveNumberInPeople(dialString)
+    }
+
+    fun saveNumberInPeople(number: String) {
+        val trimmed = number.trim()
         if (trimmed.isEmpty()) {
             Toast.makeText(appContext, R.string.save_contact_empty, Toast.LENGTH_SHORT).show()
             return

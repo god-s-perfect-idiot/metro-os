@@ -59,7 +59,7 @@ enum class LockscreenPresentationMode {
     /** Accent / photo / Bing fill with swipe-up unlock and quick-status row. */
     Lock,
 
-    /** Pure black fill over system AOD — chrome + quick-status icons, no wallpaper or status tray. */
+    /** Pure black fill over system AOD — chrome + battery % + quick-status icons, no wallpaper. */
     Glance,
 }
 
@@ -397,8 +397,15 @@ fun LockscreenSurface(
                     )
                 }
             }
-            // Transparent Metro tray icons over the fill (no bar chrome) — lock only, not glance.
-            if (!isGlance) {
+            // Transparent Metro tray icons over the fill (no bar chrome) — lock only.
+            // Glance shows battery glyph + percentage only (no cellular / Wi-Fi tray).
+            if (isGlance) {
+                LockscreenGlanceBattery(
+                    color = contentColor,
+                    topInsetPx = topInsetPx,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            } else {
                 LockscreenStatusBar(
                     color = contentColor,
                     topInsetPx = topInsetPx,

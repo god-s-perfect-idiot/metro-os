@@ -109,6 +109,8 @@ fun CallDetailScreen(
     onBack: () -> Unit,
     onCall: () -> Unit,
     onMessage: () -> Unit,
+    showSave: Boolean = false,
+    onSave: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     BackHandler(onBack = onBack)
@@ -196,18 +198,31 @@ fun CallDetailScreen(
         }
 
         MetroAppBar(
-            icons = listOf(
-                MetroAppBarIcon(
-                    type = MetroSystemIconType.Phone,
-                    label = stringResource(R.string.call),
-                    onClick = onCall,
-                ),
-                MetroAppBarIcon(
-                    type = MetroSystemIconType.Message,
-                    label = stringResource(R.string.message),
-                    onClick = onMessage,
-                ),
-            ),
+            icons = buildList {
+                add(
+                    MetroAppBarIcon(
+                        type = MetroSystemIconType.Phone,
+                        label = stringResource(R.string.call),
+                        onClick = onCall,
+                    ),
+                )
+                add(
+                    MetroAppBarIcon(
+                        type = MetroSystemIconType.Message,
+                        label = stringResource(R.string.message),
+                        onClick = onMessage,
+                    ),
+                )
+                if (showSave) {
+                    add(
+                        MetroAppBarIcon(
+                            type = MetroSystemIconType.Save,
+                            label = stringResource(R.string.save),
+                            onClick = onSave,
+                        ),
+                    )
+                }
+            },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
