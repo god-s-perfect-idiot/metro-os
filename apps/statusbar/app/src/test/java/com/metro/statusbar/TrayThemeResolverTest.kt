@@ -76,6 +76,30 @@ class TrayThemeResolverTest {
     }
 
     @Test
+    fun resolve_transparent_keepsClearTrayWithThemeContrastGlyphs() {
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            backgroundMode = StatusBarBackgroundMode.Transparent,
+            appBackgroundColor = Color(0xFFF0A30A),
+        )
+        assertEquals(Color.Transparent, snapshot.backgroundColor)
+        assertEquals(Color.Black, snapshot.backdropColor)
+        assertEquals(Color.White, snapshot.foregroundColor)
+    }
+
+    @Test
+    fun resolve_transparent_lightTheme_usesDarkGlyphs() {
+        preferences.themeMode = com.metro.system.MetroThemeMode.Light
+        val snapshot = TrayThemeResolver.resolve(
+            preferences = preferences,
+            backgroundMode = StatusBarBackgroundMode.Transparent,
+        )
+        assertEquals(Color.Transparent, snapshot.backgroundColor)
+        assertEquals(Color.White, snapshot.backdropColor)
+        assertEquals(Color.Black, snapshot.foregroundColor)
+    }
+
+    @Test
     fun resolve_matchAppBackground_fallsBackToBlackWhenAppColorMissing() {
         val snapshot = TrayThemeResolver.resolve(
             preferences = preferences,

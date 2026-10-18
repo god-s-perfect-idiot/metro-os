@@ -34,16 +34,21 @@ object TrayThemeResolver {
     ): TrayThemeSnapshot {
         val darkTheme = preferences.isDark
         val accentBackground = preferences.accentColor
+        // Transparent mode keeps a theme-matched logical fill for glyph contrast / carving
+        // while the painted tray band stays clear.
+        val logicalTransparentFill = if (darkTheme) Color.Black else Color.White
         val matchedBackground = when (backgroundMode) {
             StatusBarBackgroundMode.DefaultBlackBackground -> Color.Black
             StatusBarBackgroundMode.ShowAccentColor -> accentBackground
             StatusBarBackgroundMode.MatchAppBackground ->
                 appBackgroundColor ?: Color.Black
+            StatusBarBackgroundMode.Transparent -> logicalTransparentFill
         }
         val logicalShell = shellFillColor
         val baseBackground = when {
             logicalShell != null && shellFillUnderlay -> Color.Transparent
             logicalShell != null -> logicalShell
+            backgroundMode == StatusBarBackgroundMode.Transparent -> Color.Transparent
             else -> matchedBackground
         }
         val backgroundColor = when (visibilityMode) {

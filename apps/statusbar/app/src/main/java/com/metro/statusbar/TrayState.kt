@@ -235,6 +235,7 @@ class TrayState(context: Context) {
             StatusBarBackgroundMode.MatchAppBackground -> Unit
             StatusBarBackgroundMode.DefaultBlackBackground,
             StatusBarBackgroundMode.ShowAccentColor,
+            StatusBarBackgroundMode.Transparent,
             -> appBackgroundColor = null
         }
         theme = resolveTheme()

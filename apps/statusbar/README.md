@@ -24,7 +24,9 @@ Bluetooth audio, Battery) and a static **preview** strip in tray order. **Show s
 starts and stops the overlay. **Statusbar background** (`MetroListPicker`) chooses **Default black
 background** (solid black tray; default), **Match app background** (Metro suite apps stay black;
 other apps use the launcher icon’s tile brand color — adaptive background — with glyphs flipped for
-contrast), or **Show accent color** (always the system accent). **Hide icons after**
+contrast), **Show accent color** (always the system accent), or **Transparent** (no tray fill;
+glyphs float over the content behind the status bar, with light/dark glyph contrast from the system
+theme). **Hide icons after**
 (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never** (stay
 expanded; WP default 5s). **configure statusbar** opens **configure**: a centered live-looking
 tray preview with accent drag thumbs sticking out under each enabled icon (and any spacers).

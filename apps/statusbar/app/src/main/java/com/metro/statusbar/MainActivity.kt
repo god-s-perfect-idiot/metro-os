@@ -494,6 +494,10 @@ private fun EditTab(
                     StatusBarBackgroundMode.ShowAccentColor,
                     stringResource(R.string.statusbar_background_show_accent),
                 ),
+                MetroListPickerOption(
+                    StatusBarBackgroundMode.Transparent,
+                    stringResource(R.string.statusbar_background_transparent),
+                ),
             ),
             onSelectedChange = onBackgroundModeChange,
             label = stringResource(R.string.statusbar_background_label),

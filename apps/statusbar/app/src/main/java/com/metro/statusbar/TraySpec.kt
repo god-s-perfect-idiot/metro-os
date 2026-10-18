@@ -104,22 +104,27 @@ enum class StatusBarBackgroundMode {
     MatchAppBackground,
     /** Always use the system accent color. */
     ShowAccentColor,
+    /** No tray fill — glyphs float over the content behind the status bar. */
+    Transparent,
     ;
 
     fun toStorage(): String = when (this) {
         DefaultBlackBackground -> STORAGE_DEFAULT_BLACK
         MatchAppBackground -> STORAGE_MATCH_APP
         ShowAccentColor -> STORAGE_SHOW_ACCENT
+        Transparent -> STORAGE_TRANSPARENT
     }
 
     companion object {
         const val STORAGE_DEFAULT_BLACK = "default_black"
         const val STORAGE_MATCH_APP = "match_app"
         const val STORAGE_SHOW_ACCENT = "show_accent"
+        const val STORAGE_TRANSPARENT = "transparent"
 
         fun fromStorage(value: String?): StatusBarBackgroundMode = when (value) {
             STORAGE_MATCH_APP -> MatchAppBackground
             STORAGE_SHOW_ACCENT -> ShowAccentColor
+            STORAGE_TRANSPARENT -> Transparent
             STORAGE_DEFAULT_BLACK -> DefaultBlackBackground
             else -> DefaultBlackBackground
         }

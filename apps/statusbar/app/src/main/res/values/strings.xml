@@ -29,6 +29,7 @@
     <string name="statusbar_background_default_black">Default black background</string>
     <string name="statusbar_background_match_app">Match app background</string>
     <string name="statusbar_background_show_accent">Show accent color</string>
+    <string name="statusbar_background_transparent">Transparent</string>
     <string name="permissions_section">permissions</string>
     <string name="grant_overlay">Grant overlay permission</string>
     <string name="grant_phone_state">Allow mobile network label</string>

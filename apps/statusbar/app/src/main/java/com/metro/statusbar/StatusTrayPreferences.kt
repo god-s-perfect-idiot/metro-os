@@ -45,7 +45,8 @@ class StatusTrayPreferences(context: Context) {
     /**
      * Tray fill mode. [StatusBarBackgroundMode.DefaultBlackBackground] is a solid black band
      * (default); [StatusBarBackgroundMode.MatchAppBackground] uses the foreground app’s icon /
-     * tile brand color; [StatusBarBackgroundMode.ShowAccentColor] always uses the system accent.
+     * tile brand color; [StatusBarBackgroundMode.ShowAccentColor] always uses the system accent;
+     * [StatusBarBackgroundMode.Transparent] paints no tray fill (glyphs float over content).
      * Migrates the legacy boolean match toggle when present.
      */
     var backgroundMode: StatusBarBackgroundMode
@@ -138,6 +139,7 @@ class StatusTrayPreferences(context: Context) {
             StatusBarBackgroundMode.DefaultBlackBackground,
             StatusBarBackgroundMode.MatchAppBackground,
             StatusBarBackgroundMode.ShowAccentColor,
+            StatusBarBackgroundMode.Transparent,
         )
 
         fun coerceIconHideTimeoutMs(ms: Long): Long =

@@ -120,6 +120,11 @@ class StatusTrayPreferencesTest {
             StatusBarBackgroundMode.ShowAccentColor,
             StatusTrayPreferences(RuntimeEnvironment.getApplication()).backgroundMode,
         )
+        prefs.backgroundMode = StatusBarBackgroundMode.Transparent
+        assertEquals(
+            StatusBarBackgroundMode.Transparent,
+            StatusTrayPreferences(RuntimeEnvironment.getApplication()).backgroundMode,
+        )
         prefs.backgroundMode = StatusBarBackgroundMode.DefaultBlackBackground
         assertEquals(
             StatusBarBackgroundMode.DefaultBlackBackground,
@@ -144,6 +149,10 @@ class StatusTrayPreferencesTest {
         assertEquals(
             StatusBarBackgroundMode.ShowAccentColor,
             StatusBarBackgroundMode.fromStorage(StatusBarBackgroundMode.STORAGE_SHOW_ACCENT),
+        )
+        assertEquals(
+            StatusBarBackgroundMode.Transparent,
+            StatusBarBackgroundMode.fromStorage(StatusBarBackgroundMode.STORAGE_TRANSPARENT),
         )
         assertEquals(
             StatusBarBackgroundMode.DefaultBlackBackground,
