@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.pager
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.LayoutInflater
+import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
@@ -79,7 +80,15 @@ class PagerPageHolder(
     private fun initProgressIndicator() {
         if (progressIndicator == null) {
             progressIndicator = ReaderProgressIndicator(context)
-            addView(progressIndicator)
+            // Pager page == one viewport; center is correct (unlike webtoon's tall placeholder).
+            addView(
+                progressIndicator,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.CENTER,
+                ),
+            )
         }
     }
 
@@ -146,6 +155,7 @@ class PagerPageHolder(
      */
     private suspend fun setImage() {
         progressIndicator?.setProgress(0)
+        progressIndicator?.show()
 
         val streamFn = page.stream ?: return
 
@@ -172,6 +182,8 @@ class PagerPageHolder(
                         landscapeZoom = viewer.config.landscapeZoom,
                     ),
                 )
+                // setImage adds a MATCH_PARENT page view above the indicator.
+                progressIndicator?.show()
                 if (!isAnimated) {
                     pageBackground = background
                 }

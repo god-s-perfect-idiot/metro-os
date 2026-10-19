@@ -96,11 +96,38 @@ class MetroLoadingDotsView @JvmOverloads constructor(
         super.onDetachedFromWindow()
     }
 
-    /** Idempotent entry for [AndroidView] update — restarts if a prior attach was torn down. */
+    /**
+     * Idempotent entry for [AndroidView] update / host [show].
+     *
+     * Reader holders toggle GONE/VISIBLE around each page. That pauses hardware property
+     * animators without ending them — [Animator.isStarted] stays true while every square
+     * sits off the clipped track. Resume paused animators; only cold-start when none exist.
+     *
+     * Do not key off [Animator.isRunning]: dots use [Animator.setStartDelay], and during
+     * the delay `isRunning` is false even though the cycle is live.
+     */
     fun ensureStarted() {
         if (!isAttachedToWindow) return
-        if (running.any { it.isStarted }) return
+        var resumed = false
+        running.forEach { anim ->
+            if (anim.isPaused) {
+                anim.resume()
+                resumed = true
+            }
+        }
+        if (resumed || running.any { it.isStarted }) return
         scheduleStartAfterLayout()
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (isVisible) {
+            ensureStarted()
+        } else {
+            running.forEach { anim ->
+                if (anim.isStarted && !anim.isPaused) anim.pause()
+            }
+        }
     }
 
     private fun scheduleStartAfterLayout() {
@@ -114,14 +141,20 @@ class MetroLoadingDotsView @JvmOverloads constructor(
             override fun onGlobalLayout() {
                 if (width <= 0 || height <= 0) return
                 viewTreeObserver.removeOnGlobalLayoutListener(this)
-                if (!isAttachedToWindow) return
+                if (!isAttachedToWindow || visibility != VISIBLE) return
                 start()
             }
         })
+        // GONE→VISIBLE often skips a global-layout pass the listener already consumed.
+        post {
+            if (isAttachedToWindow && visibility == VISIBLE && width > 0 && height > 0) {
+                start()
+            }
+        }
     }
 
     fun start() {
-        if (running.any { it.isStarted }) return
+        if (running.any { it.isStarted && !it.isPaused }) return
         stop()
         applyRestingPositions()
 
@@ -206,8 +239,11 @@ class MetroLoadingDotsView @JvmOverloads constructor(
     }
 
     private fun applyRestingPositions() {
+        // Keep the lead square inside the track so a paused / pre-start frame is never blank
+        // (reader buffering used to look empty while every square sat at negative X).
         dots.forEachIndexed { index, dot ->
-            dot.translationX = startOffsetsPx[index]
+            val staged = startOffsetsPx[index]
+            dot.translationX = if (index == 0) 0f else staged
         }
     }
 

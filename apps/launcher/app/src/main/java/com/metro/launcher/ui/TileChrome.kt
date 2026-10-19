@@ -95,7 +95,7 @@ data class TileChrome(
         /**
          * 6-column Start — same gap as Standard, slightly tighter side gutters so
          * three mediums breathe without looking edge-clamped. Icons fill more of each
-         * smaller cell; titles stay a step smaller for readability.
+         * smaller cell; titles drop ~2–3sp vs Standard so labels fit the denser cells.
          */
         val Dense = TileChrome(
             horizontalPadding = 8.dp,
@@ -105,16 +105,16 @@ data class TileChrome(
             smallIconInset = 2.dp,
             mediumIconFraction = 0.70f,
             wideIconFraction = 0.58f,
-            titleSp = 15f,
-            titleLineHeightSp = 18f,
+            titleSp = 13f,
+            titleLineHeightSp = 16f,
             titlePaddingH = 4.dp,
             titlePaddingV = 3.dp,
-            liveTitleSp = 18f,
-            liveTitleLineHeightSp = 21f,
-            liveBodySp = 14f,
-            liveBodyLineHeightSp = 17f,
-            agendaDateMediumSp = 26f,
-            agendaDateWideSp = 33f,
+            liveTitleSp = 15f,
+            liveTitleLineHeightSp = 18f,
+            liveBodySp = 12f,
+            liveBodyLineHeightSp = 15f,
+            agendaDateMediumSp = 22f,
+            agendaDateWideSp = 28f,
         )
 
         fun forColumns(columns: Int): TileChrome =

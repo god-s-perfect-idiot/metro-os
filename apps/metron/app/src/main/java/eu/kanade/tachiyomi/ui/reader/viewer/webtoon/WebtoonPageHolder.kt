@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 
 import android.content.res.Resources
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -8,7 +9,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
-import androidx.core.view.updateMargins
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
@@ -86,6 +86,10 @@ class WebtoonPageHolder(
         frame.onImageLoaded = { onImageDecoded() }
         frame.onImageLoadError = { error -> setError(error) }
         frame.onScaleChanged = { viewer.activity.hideMenu() }
+        // Recycler height is often 0 at construction; refresh once it has a real size.
+        frame.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            if (parentHeight > 1) refreshProgressContainer()
+        }
     }
 
     /**
@@ -96,6 +100,7 @@ class WebtoonPageHolder(
         loadJob?.cancel()
         loadJob = scope.launch { loadPageAndProcessStatus() }
         refreshLayoutParams()
+        refreshProgressContainer()
     }
 
     private fun refreshLayoutParams() {
@@ -158,7 +163,9 @@ class WebtoonPageHolder(
      * Called when the page is queued.
      */
     private fun setQueued() {
+        refreshProgressContainer()
         progressContainer.isVisible = true
+        progressContainer.bringToFront()
         progressIndicator.show()
         removeErrorLayout()
     }
@@ -167,7 +174,9 @@ class WebtoonPageHolder(
      * Called when the page is loading.
      */
     private fun setLoading() {
+        refreshProgressContainer()
         progressContainer.isVisible = true
+        progressContainer.bringToFront()
         progressIndicator.show()
         removeErrorLayout()
     }
@@ -176,7 +185,9 @@ class WebtoonPageHolder(
      * Called when the page is downloading
      */
     private fun setDownloading() {
+        refreshProgressContainer()
         progressContainer.isVisible = true
+        progressContainer.bringToFront()
         progressIndicator.show()
         removeErrorLayout()
     }
@@ -186,6 +197,8 @@ class WebtoonPageHolder(
      */
     private suspend fun setImage() {
         progressIndicator.setProgress(0)
+        progressContainer.isVisible = true
+        progressIndicator.show()
 
         val streamFn = page?.stream ?: return
 
@@ -205,6 +218,8 @@ class WebtoonPageHolder(
                         cropBorders = viewer.config.imageCropBorders,
                     ),
                 )
+                progressContainer.bringToFront()
+                progressIndicator.show()
                 removeErrorLayout()
             }
         } catch (e: Throwable) {
@@ -259,18 +274,43 @@ class WebtoonPageHolder(
 
     /**
      * Creates a new progress bar.
+     *
+     * The placeholder is [parentHeight] tall so the adapter does not spawn extra holders.
+     * The dots must sit near the **top** of that placeholder (Mihon's parentHeight/4) —
+     * Gravity.CENTER places them halfway down a ~full-screen cell, below the viewport.
      */
     private fun createProgressIndicator(): ReaderProgressIndicator {
         progressContainer = FrameLayout(context)
-        frame.addView(progressContainer, MATCH_PARENT, parentHeight)
+        frame.addView(
+            progressContainer,
+            FrameLayout.LayoutParams(MATCH_PARENT, parentHeight.coerceAtLeast(1)),
+        )
 
-        val progress = ReaderProgressIndicator(context).apply {
-            updateLayoutParams<FrameLayout.LayoutParams> {
-                updateMargins(top = parentHeight / 4)
-            }
-        }
-        progressContainer.addView(progress)
+        val progress = ReaderProgressIndicator(context)
+        progressContainer.addView(progress, progressLayoutParams())
         return progress
+    }
+
+    private fun progressLayoutParams(): FrameLayout.LayoutParams {
+        // Sit in the first band of the tall placeholder so the dots are on-screen while the
+        // user stares at the empty gap under the last decoded page (center is off-viewport).
+        val top = ((parentHeight.coerceAtLeast(1)) / 8)
+            .coerceAtLeast((48 * context.resources.displayMetrics.density).toInt())
+        return FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+        ).apply {
+            topMargin = top
+        }
+    }
+
+    private fun refreshProgressContainer() {
+        val height = parentHeight.coerceAtLeast(1)
+        progressContainer.updateLayoutParams {
+            this.height = height
+        }
+        progressIndicator.layoutParams = progressLayoutParams()
     }
 
     /**

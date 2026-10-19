@@ -72,8 +72,10 @@ class TileGridTest {
         assertTrue(chrome.smallIconInset < TileChrome.Standard.smallIconInset)
         assertTrue(chrome.mediumIconFraction > TileChrome.Standard.mediumIconFraction)
         assertTrue(chrome.wideIconFraction > TileChrome.Standard.wideIconFraction)
+        assertEquals(13f, chrome.titleSp)
+        assertEquals(15f, chrome.liveTitleSp)
+        assertEquals(12f, chrome.liveBodySp)
         assertTrue(chrome.titleSp < TileChrome.Standard.titleSp)
-        assertTrue(chrome.titleSp >= 13f)
         assertEquals(TileChrome.Dense, TileChrome.forColumns(6))
     }
 
@@ -913,6 +915,11 @@ class TileGridTest {
         )
         assertEquals(1, merged.size)
         assertEquals("b", merged[0].entry.packageName)
+    }
+
+    @Test
+    fun tileGridEditTopHang_isHalfCornerDisc() {
+        assertEquals(TileCornerButtonSize / 2, tileGridEditTopHang())
     }
 
     @Test

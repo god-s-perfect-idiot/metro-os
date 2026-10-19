@@ -37,7 +37,7 @@ import ca.mpreg.webgpuviewer.viewer.AnimationFrame
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuousState
 import com.google.android.material.color.MaterialColors
-import com.metro.ui.MetroColors
+import com.metro.system.MetroPreferences
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.loader.HttpPageLoader
@@ -566,7 +566,7 @@ open class WebGpuViewer(
     }
 
     inner class ProgressPage(
-        foregroundColor: Int = MetroColors.AccentBlue.toArgb(),
+        foregroundColor: Int = MetroPreferences(activity).accentColor.toArgb(),
     ) : ImagePage.Render(0, 0) {
         override val width: Int
             get() = viewportPageWidth(isDualPageMode())
@@ -607,8 +607,11 @@ open class WebGpuViewer(
             fillPage(dst, x, y, scale, backgroundColor)
             ensureProgressDotsAnimating()
 
+            if (dst.width <= 0 || dst.height <= 0) return
+
             val density = pager.state.density
             // Match MetroLoadingDots track: 140×3dp, animated squares sweeping across.
+            // [rect] takes normalized 0–1 coords (see webgpuviewer RECT_SHADER).
             val trackW = with(density) { 140.dp.toPx() } * scale / dst.width
             val dotH = (with(density) { 3.dp.toPx() } * scale / dst.height).coerceAtLeast(2f / dst.height)
             val dotW = (with(density) { 3.dp.toPx() } * scale / dst.width).coerceAtLeast(2f / dst.width)
@@ -617,6 +620,11 @@ open class WebGpuViewer(
             val trackLeft = cx - trackW / 2f
             val trackTop = cy - dotH / 2f
             val trackRight = trackLeft + trackW
+
+            // Clip to the Metro track (not the whole page): pilgrims outside the 140dp window
+            // stay hidden, matching View/Compose clipToBounds — and we always keep a center cue.
+            val clipLeft = trackLeft
+            val clipRight = trackRight
 
             val cycleMs = 1800L
             val t = (SystemClock.uptimeMillis() % cycleMs).toFloat() / cycleMs
@@ -627,6 +635,7 @@ open class WebGpuViewer(
                     with(density) { 20.dp.toPx() } * scale / dst.width
             }
 
+            // Compose MetroLoadingDots: translationX = startOffset + travel, travel 0→mid→end.
             val startOffsetsDp = floatArrayOf(-13f, -26f, -39f, -52f)
             val delaysMs = intArrayOf(150, 300, 450, 600)
             val midTravel = with(density) { 98.dp.toPx() } * scale / dst.width
@@ -642,14 +651,14 @@ open class WebGpuViewer(
                     localT < 0.55f -> {
                         val u = localT / 0.55f
                         val e = 1f - (1f - u) * (1f - u)
-                        start + midTravel * e
+                        midTravel * e
                     }
                     localT < 0.75f -> {
                         val u = (localT - 0.55f) / 0.20f
                         val e = u * u * (3f - 2f * u)
-                        start + midTravel + (endTravel - midTravel) * e
+                        midTravel + (endTravel - midTravel) * e
                     }
-                    else -> start + endTravel
+                    else -> endTravel
                 }
                 val alpha = when {
                     localT < 0.55f -> 1f
@@ -657,23 +666,19 @@ open class WebGpuViewer(
                     else -> 0.2f + 0.8f * ((localT - 0.90f) / 0.10f)
                 }.fastCoerceIn(0.25f, 1f)
 
-                val left = trackLeft + containerShift + travel
+                val left = trackLeft + containerShift + start + travel
                 val right = left + dotW
-                // Clip to the page (not only the 140dp track) so dots stay visible while entering/exiting.
-                val pageLeft = cx - (width * scale / (2f * dst.width))
-                val pageRight = cx + (width * scale / (2f * dst.width))
-                if (right < pageLeft || left > pageRight) continue
-                val clippedLeft = left.coerceIn(pageLeft, pageRight)
-                val clippedRight = right.coerceIn(pageLeft, pageRight)
+                if (right < clipLeft || left > clipRight) continue
+                val clippedLeft = left.coerceIn(clipLeft, clipRight)
+                val clippedRight = right.coerceIn(clipLeft, clipRight)
                 if (clippedRight - clippedLeft < 1f / dst.width) continue
-                // Prefer dots that intersect the Metro track, but still draw off-track pilgrims.
                 val a = (alpha * 255f).toInt().coerceIn(64, 255)
                 val color = (a shl 24) or (accent and 0x00FFFFFF)
                 rect(clippedLeft, trackTop, clippedRight, trackTop + dotH, color)
                 drewAny = true
             }
 
-            // Guarantee a visible cue if the cycle momentarily parks every square off-screen.
+            // Always-on center square so a blank frame never reads as “no loader”.
             if (!drewAny) {
                 val mid = (trackLeft + trackRight) / 2f
                 rect(mid - dotW / 2f, trackTop, mid + dotW / 2f, trackTop + dotH, accent)

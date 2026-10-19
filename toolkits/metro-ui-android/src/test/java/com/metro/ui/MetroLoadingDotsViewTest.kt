@@ -50,6 +50,34 @@ class MetroLoadingDotsViewTest {
         assertTrue(started)
     }
 
+    @Test
+    fun ensureStarted_resumesAfterGonePausesAnimators() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val host = FrameLayout(context)
+        val dots = MetroLoadingDotsView(context)
+        host.addView(dots)
+        attach(host)
+        layout(host, dots)
+        dots.start()
+        ShadowLooper.idleMainLooper(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+        val movedBeforeHide = dots.getChildAt(0).translationX
+
+        // Simulate reader hide(): GONE aggregates visibility and pauses animators.
+        dots.visibility = View.GONE
+        ShadowLooper.idleMainLooper()
+        dots.visibility = View.VISIBLE
+        layout(host, dots)
+        dots.ensureStarted()
+        ShadowLooper.idleMainLooper(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+
+        val firstDot = dots.getChildAt(0)
+        assertTrue(
+            "Dots must resume after GONE→VISIBLE (reader buffering show()); " +
+                "beforeHide=$movedBeforeHide afterShow=${firstDot.translationX}",
+            firstDot.translationX > -10f,
+        )
+    }
+
     private fun attach(host: FrameLayout) {
         val activity = org.robolectric.Robolectric.buildActivity(
             android.app.Activity::class.java,

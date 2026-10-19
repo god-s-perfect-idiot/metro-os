@@ -352,8 +352,11 @@ fun tilePixelSize(unit: Dp, colSpan: Int, rowSpan: Int, gap: Dp = TILE_GRID_GAP)
     return width to height
 }
 
-/** Half the edit-corner disc — Start keeps this as top inset so unpin is not clipped. */
-internal fun tileGridTopPadding(): Dp = maxOf(8.dp, TileCornerButtonSize / 2)
+/**
+ * Half the edit-corner disc. Applied as top inset only while edit progress is active so
+ * resting Start has no dead scroll before the first tile row leaves the viewport.
+ */
+internal fun tileGridEditTopHang(): Dp = TileCornerButtonSize / 2
 
 /**
  * Vertical scroll offset that parks a newly pinned tile in the upper portion of Start
@@ -387,8 +390,8 @@ internal fun startTileTopPx(
     columns: Int = TILE_GRID_COLUMNS,
 ): Float {
     val gapPx = with(density) { TileChrome.forColumns(columns).gap.toPx() }
-    val topPadPx = with(density) { tileGridTopPadding().toPx() }
-    return topPadPx + row * (unitPx + gapPx)
+    // Resting Start has no top inset — pin reveal aligns to tile rows.
+    return row * (unitPx + gapPx)
 }
 
 fun gridContentHeight(unit: Dp, placed: List<PlacedTile>, gap: Dp = TILE_GRID_GAP): Dp {
@@ -594,13 +597,13 @@ fun TileGrid(
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         // Side gutters from [TileChrome] start/end padding. Corner discs hang into that
         // gutter so edit mode never widens the grid or reflows `unit` — recess is graphics-only.
-        // Top keeps half-button room so the unpin disc above row 0 is not clipped by scroll.
+        // Top hang is edit-only (× editProgress) so resting Start scrolls with tiles flush.
         val cornerOverhang = TileCornerButtonSize / 2
         val startPad = chrome.horizontalPadding
         val endPad = chrome.endPadding
         val gap = chrome.gap
         val cornerSideHang = tileCornerSideHang(minOf(startPad, endPad))
-        val topPad = tileGridTopPadding()
+        val topPad = tileGridEditTopHang() * editProgress
         val unit = (maxWidth - startPad - endPad - gap * (columns - 1)) /
             columns
         val cellStridePx = with(density) { (unit + gap).toPx() }
@@ -1452,12 +1455,20 @@ private fun LauncherTileCell(
                             } else {
                                 Modifier.background(tile.backgroundColor)
                             }
+                            // Badged 1×1 faces size glyph+count themselves — skip chrome
+                            // inset so the icon can fill more of the tile.
                             useWindowFill -> Modifier
                                 .drawStartBackgroundWindow(startBackground)
-                                .padding(chrome.contentInset)
+                                .then(
+                                    if (showSmallIconBadge) Modifier
+                                    else Modifier.padding(chrome.contentInset),
+                                )
                             else -> Modifier
                                 .background(tile.backgroundColor)
-                                .padding(chrome.contentInset)
+                                .then(
+                                    if (showSmallIconBadge) Modifier
+                                    else Modifier.padding(chrome.contentInset),
+                                )
                         },
                     ),
             ) {
@@ -1856,9 +1867,9 @@ private fun LauncherTileCell(
 }
 
 /**
- * 1×1 notification face: glyph + naked count as one centered row. Sizes both from the
- * available content box (already inset by the tile) so nothing clips, with a fixed gap
- * between icon and numeral. Multi-digit counts shrink to stay on a single line.
+ * 1×1 notification face: glyph + naked count as one centered row. One- and two-digit
+ * counts share the same font size (single-digit scale); the icon then fills whatever
+ * width remains beside the measured numeral.
  */
 @Composable
 private fun SmallTileIconBadgeContent(
@@ -1868,88 +1879,62 @@ private fun SmallTileIconBadgeContent(
     icon: @Composable (iconSize: Dp) -> Unit,
 ) {
     val display = tileNotificationDisplayCount(count)
-    val digits = display.length
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val dense = LocalTileChrome.current == TileChrome.Dense
+    // Keep a small side inset so the count never kisses the tile edge (badged 1×1
+    // faces skip chrome contentInset to grow the icon).
+    val edgePad = if (dense) 3.dp else 4.dp
     BoxWithConstraints(
-        modifier = modifier,
+        modifier = modifier.padding(horizontal = edgePad),
         contentAlignment = Alignment.Center,
     ) {
-        val gap = if (dense) 3.dp else 4.dp
+        val gap = 1.dp
         val availableW = maxWidth.value
         val availableH = maxHeight.value
         val gapV = gap.value
-        // Multi-digit counts need a larger share; glyph takes the rest.
-        // Dense (3-col) cells are smaller — give glyph/count a fuller share so they read.
-        val countShare = when {
-            digits <= 1 -> if (dense) 0.28f else 0.30f
-            else -> if (dense) 0.36f else 0.40f
-        }
+        // Prefer a fuller glyph; width leftover after the fixed numeral is the hard cap.
         val maxGlyph = if (dense) {
-            min(availableH * 0.82f, 42f)
+            min(availableH * 0.98f, 68f)
         } else {
-            min(availableH * 0.68f, 36f)
+            min(availableH * 0.96f, 66f)
         }
-        val minGlyph = if (dense) 16f else 14f
-        val maxFont = if (dense) {
-            min(availableH * 0.62f, 34f)
+        // Same height-based size for "9" and "99" — never shrink two-digit counts.
+        val fontSp = if (dense) {
+            min(availableH * 0.40f, 21.5f)
         } else {
-            min(availableH * 0.48f, 28f)
-        }
-        val minFont = if (dense) 12f else 9f
-        val preferredGlyph = min(maxGlyph, (availableW - gapV) * (1f - countShare))
-            .coerceAtLeast(minGlyph)
-        val countBudgetPx = with(density) {
-            (availableW - gapV - preferredGlyph).coerceAtLeast(1f).dp.toPx()
-        }
+            min(availableH * 0.33f, 19.5f)
+        }.coerceAtLeast(if (dense) 11f else 10f)
         val fontFamily = MetroTheme.fontFamily
+        val countWeight = FontWeight.SemiBold
 
-        val (fontSp, glyphDp) = remember(
+        val glyphDp = remember(
             display,
-            countBudgetPx,
-            preferredGlyph,
+            fontSp,
             availableW,
             gapV,
-            maxFont,
-            minFont,
-            minGlyph,
+            maxGlyph,
             density,
             fontFamily,
+            countWeight,
         ) {
             val measureStyle = TextStyle(
                 fontFamily = fontFamily,
-                fontWeight = FontWeight.Bold,
+                fontWeight = countWeight,
                 platformStyle = PlatformTextStyle(includeFontPadding = false),
+                fontSize = fontSp.sp,
+                lineHeight = fontSp.sp,
             )
-            fun widthOf(sp: Float): Int = textMeasurer.measure(
-                text = display,
-                style = measureStyle.copy(fontSize = sp.sp, lineHeight = sp.sp),
-                maxLines = 1,
-                softWrap = false,
-            ).size.width
-
-            val fittedFont = if (countBudgetPx <= 0f) {
-                minFont
-            } else {
-                var low = minFont
-                var high = maxFont
-                var best = minFont
-                while (low <= high) {
-                    val mid = (low + high) / 2f
-                    if (widthOf(mid) <= countBudgetPx) {
-                        best = mid
-                        low = mid + 0.25f
-                    } else {
-                        high = mid - 0.25f
-                    }
-                }
-                best
+            val textWidthDp = with(density) {
+                textMeasurer.measure(
+                    text = display,
+                    style = measureStyle,
+                    maxLines = 1,
+                    softWrap = false,
+                ).size.width.toDp().value
             }
-            val textWidthDp = with(density) { widthOf(fittedFont).toDp().value }
-            val glyph = min(preferredGlyph, availableW - gapV - textWidthDp)
-                .coerceAtLeast(minGlyph)
-            fittedFont to glyph.dp
+            // Font is fixed; icon takes the leftover width (capped by height).
+            min(maxGlyph, (availableW - gapV - textWidthDp).coerceAtLeast(0f)).dp
         }
 
         Row(
@@ -1970,7 +1955,7 @@ private fun SmallTileIconBadgeContent(
                 overflow = TextOverflow.Clip,
                 style = TextStyle(
                     fontFamily = MetroTheme.fontFamily,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = countWeight,
                     fontSize = fontSp.sp,
                     lineHeight = fontSp.sp,
                     color = contentColor,

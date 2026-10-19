@@ -10,7 +10,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.compose.ui.graphics.toArgb
-import com.metro.ui.MetroColors
+import com.metro.system.MetroPreferences
 import com.metro.ui.MetroLoadingDotsView
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
@@ -108,7 +108,7 @@ class PagerTransitionHolder(
      */
     private fun setLoading() {
         val dots = MetroLoadingDotsView(context).apply {
-            dotColor = MetroColors.AccentBlue.toArgb()
+            dotColor = MetroPreferences(context).accentColor.toArgb()
         }
         pagesContainer.addView(dots)
     }
