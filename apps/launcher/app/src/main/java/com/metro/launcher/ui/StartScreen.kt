@@ -168,6 +168,7 @@ fun StartScreen(
                     consumedEnterWaveKey = consumedEnterWaveKey,
                     restPoseRequestId = restPoseRequestId,
                     suspendEditMotion = suspendEditMotion,
+                    scrollState = scrollState,
                 )
 
                 Column(

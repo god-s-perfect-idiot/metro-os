@@ -9,6 +9,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -35,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -254,6 +256,35 @@ private fun rememberAnimatedTileBounds(
         label = "${labelPrefix}Y",
     )
     return AnimatedTileBounds(animatedWidth, animatedHeight, animatedX, animatedY)
+}
+
+/**
+ * Resting Start skips [animateDpAsState] entirely — dense (3-across) grids otherwise keep
+ * four idle Dp animations per tile subscribed during fling. Edit/drag keeps the animated path
+ * for magnet reflow.
+ */
+@Composable
+private fun rememberTileBounds(
+    width: Dp,
+    height: Dp,
+    x: Dp,
+    y: Dp,
+    animate: Boolean,
+    labelPrefix: String,
+    animationSpec: AnimationSpec<Dp>,
+): AnimatedTileBounds {
+    return if (animate) {
+        rememberAnimatedTileBounds(
+            width = width,
+            height = height,
+            x = x,
+            y = y,
+            labelPrefix = labelPrefix,
+            animationSpec = animationSpec,
+        )
+    } else {
+        AnimatedTileBounds(width = width, height = height, x = x, y = y)
+    }
 }
 
 data class PlacedTile(
@@ -538,6 +569,11 @@ fun TileGrid(
      * (clock reads this [State] inside its frame loop). Snap-clears edit exit while covered.
      */
     suspendEditMotion: State<Boolean> = NeverSuspendEditMotion,
+    /**
+     * Start [verticalScroll] state — while flinging/dragging, live-tile flips/pans pause so
+     * dense (3-across) Start stays responsive. Null skips the pause.
+     */
+    scrollState: ScrollState? = null,
 ) {
     val density = LocalDensity.current
     val viewConfiguration = LocalViewConfiguration.current
@@ -651,15 +687,31 @@ fun TileGrid(
         val editBottomReserveDp =
             START_ARROW_ROW_HEIGHT + START_BOTTOM_SCROLL_PADDING + START_EDIT_EXTRA_BOTTOM_PADDING
         val editOverhang = (16.dp + cornerOverhang + editBottomReserveDp) * editProgress
-        val animatedContentHeight by animateDpAsState(
-            targetValue = contentHeight,
-            animationSpec = reflowSpec,
-            label = "tileGridContentHeight",
-        )
-        val totalHeight = animatedContentHeight + editOverhang
+        // Resting Start: fixed height (no grid-level Dp animation). Edit/drag keeps reflow.
+        val animateGridHeight = editMode || isDragging
+        val measuredContentHeight: Dp = if (animateGridHeight) {
+            val animated by animateDpAsState(
+                targetValue = contentHeight,
+                animationSpec = reflowSpec,
+                label = "tileGridContentHeight",
+            )
+            animated
+        } else {
+            contentHeight
+        }
+        val totalHeight = measuredContentHeight + editOverhang
 
         val pageScale = tileEditPageScale(editProgress)
         val editPerspectivePx = with(density) { TILE_EDIT_PERSPECTIVE_DP.dp.toPx() }
+
+        // Pause live faces while the user is scrolling — flips/pans fight the fling on
+        // dense 3-across Start where more tiles stay on screen.
+        val scrollInProgress by remember(scrollState) {
+            derivedStateOf { scrollState?.isScrollInProgress == true }
+        }
+        val liveMotionActive = liveMotionEnabled && !scrollInProgress
+        // Magnet / resize only — resting tiles use static bounds (no per-tile Dp animations).
+        val animateTileBounds = editMode || isDragging
 
         fun beginDragAtVisual(
             tile: DisplayTile,
@@ -784,11 +836,12 @@ fun TileGrid(
                         tile.entry.size.rowSpan,
                         gap = gap,
                     )
-                    val bounds = rememberAnimatedTileBounds(
+                    val bounds = rememberTileBounds(
                         width = tileWidth,
                         height = tileHeight,
                         x = layoutX,
                         y = layoutY,
+                        animate = animateTileBounds,
                         labelPrefix = "tile",
                         animationSpec = if (tileIsDragging) snap() else reflowSpec,
                     )
@@ -959,7 +1012,7 @@ fun TileGrid(
                                 isDragging = tileIsDragging,
                                 editProgress = editProgress,
                                 floatTimeSec = floatTimeSec,
-                                liveMotionEnabled = liveMotionEnabled,
+                                liveMotionEnabled = liveMotionActive,
                                 onClick = { peekPackageName ->
                                     when {
                                         editMode && isActive -> Unit
