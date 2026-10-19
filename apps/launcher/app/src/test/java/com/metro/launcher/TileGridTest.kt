@@ -56,7 +56,7 @@ class TileGridTest {
         assertEquals(6f, chrome.smallIconInset.value)
         assertEquals(0.55f, chrome.mediumIconFraction)
         assertEquals(0.42f, chrome.wideIconFraction)
-        assertEquals(16f, chrome.titleSp)
+        assertEquals(18f, chrome.titleSp)
         assertEquals(TileChrome.Standard, TileChrome.forColumns(4))
         assertEquals(TILE_GRID_GAP, chrome.gap)
     }
@@ -72,7 +72,7 @@ class TileGridTest {
         assertTrue(chrome.smallIconInset < TileChrome.Standard.smallIconInset)
         assertTrue(chrome.mediumIconFraction > TileChrome.Standard.mediumIconFraction)
         assertTrue(chrome.wideIconFraction > TileChrome.Standard.wideIconFraction)
-        assertEquals(13f, chrome.titleSp)
+        assertEquals(15f, chrome.titleSp)
         assertEquals(15f, chrome.liveTitleSp)
         assertEquals(12f, chrome.liveBodySp)
         assertTrue(chrome.titleSp < TileChrome.Standard.titleSp)

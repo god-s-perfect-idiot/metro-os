@@ -2,6 +2,7 @@ package com.metro.launcher.ui
 
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +46,7 @@ data class TileChrome(
         get() = TileTextStyles.Body.copy(
             fontSize = titleSp.sp,
             lineHeight = titleLineHeightSp.sp,
+            fontWeight = FontWeight.Medium,
         )
 
     val liveTitleStyle: TextStyle
@@ -80,8 +82,8 @@ data class TileChrome(
             smallIconInset = 6.dp,
             mediumIconFraction = 0.55f,
             wideIconFraction = 0.42f,
-            titleSp = 16f,
-            titleLineHeightSp = 20f,
+            titleSp = 18f,
+            titleLineHeightSp = 22f,
             titlePaddingH = 6.dp,
             titlePaddingV = 4.dp,
             liveTitleSp = 20f,
@@ -105,8 +107,8 @@ data class TileChrome(
             smallIconInset = 2.dp,
             mediumIconFraction = 0.70f,
             wideIconFraction = 0.58f,
-            titleSp = 13f,
-            titleLineHeightSp = 16f,
+            titleSp = 15f,
+            titleLineHeightSp = 18f,
             titlePaddingH = 4.dp,
             titlePaddingV = 3.dp,
             liveTitleSp = 15f,

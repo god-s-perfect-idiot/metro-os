@@ -34,7 +34,7 @@ internal object TileTextStyles {
         ),
     )
 
-    /** Secondary peek lines, agenda detail lines, music metadata, bottom-left app title. */
+    /** Secondary peek lines, agenda detail lines, music metadata. */
     val Body = TextStyle(
         fontFamily = MetroFontFamily,
         fontWeight = FontWeight.Normal,
