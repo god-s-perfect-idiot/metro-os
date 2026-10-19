@@ -109,17 +109,35 @@ list_complete_apps() {
 
 apk_build_path() {
   local app_dir="$1"
+  local dir candidate
   if [[ "$BUILD_VARIANT" == "debug" ]]; then
-    echo "$app_dir/app/build/outputs/apk/debug/app-debug.apk"
+    dir="$app_dir/app/build/outputs/apk/debug"
+    for candidate in \
+      "$dir/app-debug.apk" \
+      "$dir/app-universal-debug.apk" \
+      "$dir/app-arm64-v8a-debug.apk"; do
+      if [[ -f "$candidate" ]]; then
+        echo "$candidate"
+        return 0
+      fi
+    done
+    echo "$dir/app-debug.apk"
   else
-    # Prefer unsigned release naming from AGP; fall back to signed if present
-    local unsigned="$app_dir/app/build/outputs/apk/release/app-release-unsigned.apk"
-    local signed="$app_dir/app/build/outputs/apk/release/app-release.apk"
-    if [[ -f "$unsigned" ]]; then
-      echo "$unsigned"
-    else
-      echo "$signed"
-    fi
+    dir="$app_dir/app/build/outputs/apk/release"
+    # Prefer unsigned release naming from AGP; fall back to signed / universal splits
+    for candidate in \
+      "$dir/app-release-unsigned.apk" \
+      "$dir/app-release.apk" \
+      "$dir/app-universal-release-unsigned.apk" \
+      "$dir/app-universal-release.apk" \
+      "$dir/app-arm64-v8a-release-unsigned.apk" \
+      "$dir/app-arm64-v8a-release.apk"; do
+      if [[ -f "$candidate" ]]; then
+        echo "$candidate"
+        return 0
+      fi
+    done
+    echo "$dir/app-release-unsigned.apk"
   fi
 }
 
