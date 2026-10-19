@@ -168,13 +168,13 @@ class MainActivity : BaseActivity() {
             val downloadOnly by preferences.downloadedOnly.collectAsState()
             val indexing by downloadCache.isInitializing.collectAsState()
 
-            // Metro status tray sits on black; keep the Android status-bar region black so Mihon
-            // Material surface/background (#1B1B1F etc.) never shows through the inset strip.
+            // Transparent status-bar scrim so hub/library cover art can paint edge-to-edge
+            // under the icons (Music hub language). Scaffold containerColor stays black as the
+            // fallback when a screen does not draw its own full-bleed background.
             LaunchedEffect(Unit) {
-                val darkStyle = SystemBarStyle.dark(Color.BLACK)
                 enableEdgeToEdge(
-                    statusBarStyle = darkStyle,
-                    navigationBarStyle = darkStyle,
+                    statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                    navigationBarStyle = SystemBarStyle.dark(Color.BLACK),
                 )
             }
 

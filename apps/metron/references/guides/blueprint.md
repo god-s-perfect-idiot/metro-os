@@ -15,10 +15,19 @@ All library / source / reader data is real Mihon (SQLDelight, extensions, downlo
 - **Brand:** Giant panoramic title `metron` (Music ExtraLight treatment)
 - **Pane bodies:** Explore (recent reads) + real Mihon `LibraryTab` / `UpdatesTab` /
   `HistoryTab` / `BrowseTab` content (upstream presentation until those screens are Metroized)
-- **Explore:** Up to **4 unique** recently read books (history `readAt` descending), as
-  **full-width square cover tiles** (larger than normal library/browse 2-up squares). Tap opens
-  manga detail. If nothing read yet → one random library book. If library empty → placeholder
-  “maybe you should read something :)”.
+- **Explore:** MixRadio-style mosaic (not a 4-up stack). Up to **4 unique** recently read books
+  (history `readAt` descending):
+  - **Hero (top-left large cover):** last read — title + chapter overlay; tap → manga detail
+  - **3 satellite covers:** other recent reads — cover front; live-tile flip reveals title +
+    chapter on accent back (Start flip cadence); tap → detail
+  - **Accent “continue”:** eye glyph + label; opens reader at next chapter
+    (`HistoryViewModel.getNextChapter`)
+  - **Accent “read a random manga”:** opens a random library favorite’s detail
+  - **Accent “explore a random category”:** opens `MetronLibraryCategoryScreen` for a random
+    non-default category, or the default/uncategorized if none exist
+  - If nothing read yet → one random library book as the hero. If library empty → placeholder
+    “maybe you should read something :)”.
+  - Visual ref: MixRadio WP8.1 landing collage (`explore_mixradio_dark_magenta.png`)
 - **Library motion:** Drill-ins (category, search, manga) use whole-page pivot enter/exit via
   `DefaultNavigatorScreenTransition` — tiles themselves do not stagger-animate.
 - **App bar search (per pane):**
@@ -34,7 +43,9 @@ All library / source / reader data is real Mihon (SQLDelight, extensions, downlo
     **downloads**. Display is badge toggles only (no compact grid modes — fixed cover tiles).
   - **updates** — filter icon; `…` → **categories** / **upcoming** / **more** / **downloads**.
   - **history / browse** — unchanged icons + overflow
-- **App bar:** `…` → pane-specific text options (above) plus **more** / **downloads**
+- **App bar:** `MetroAppBar(fullyCollapsed = true)` — ellipsis-only at rest (no round icon
+  buttons until `…` expands). Expanded: pane icons + overflow text (**more** / **downloads**,
+  plus pane-specific options above). May also house Store-style text buttons with icons.
 - **Background:** Theme background. No Material bottom navigation bar.
 
 ### Page 2 — More (full page)
@@ -72,6 +83,7 @@ All library / source / reader data is real Mihon (SQLDelight, extensions, downlo
 | `panorama_music_dark_green.jpg` | 1 | Music panorama brand + panes language |
 | `panorama_people_dark_blue.jpg` | 1 | People hub panorama peeks / titles |
 | `hub_photos_dark_blue.jpg` | 1 library | Cover / media grid density reference |
+| `explore_mixradio_dark_magenta.png` | 1 explore | MixRadio landing mosaic (hero + accent tiles) |
 
 Manga-specific captures: see [`known-gaps.md`](../known-gaps.md).
 

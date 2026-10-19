@@ -15,7 +15,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | Composable | Description |
 |------------|-------------|
 | `MetroTheme` | Root theme wrapper |
-| `MetroAppBar` | Bottom application bar (icon row **or** Store-style `MetroAppBarTextButton` row) |
+| `MetroAppBar` | Bottom application bar (icon row **or** Store-style `MetroAppBarTextButton` row; `fullyCollapsed` = ellipsis-only until expand, may house icons + text buttons) |
 | `MetroBorderButton` | Outlined square text button |
 | `MetroPivot` | Tabbed pivot navigation |
 | `MetroPanorama` | Horizontal hub panorama |
@@ -61,6 +61,8 @@ MetroTheme {
         }
         // Bottom application bar. Collapsed: icon row + `…`. Expanded: labels + text menu.
         // Store-style: pass textButtons = listOf(MetroAppBarTextButton("download") { }) instead of icons.
+        // Fully collapsed (panorama): fullyCollapsed = true — ellipsis only until expand; may pass
+        // icons and textButtons together for the expanded chrome.
         MetroAppBar(
             icons = listOf(
                 MetroAppBarIcon(MetroSystemIconType.Add, label = "new", onClick = {}),

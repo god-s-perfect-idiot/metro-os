@@ -14,12 +14,14 @@
 | `panorama_music_dark_green.jpg` | dark / green | Panorama brand + horizontal panes |
 | `panorama_people_dark_blue.jpg` | dark / blue | People hub panorama peeks |
 | `hub_photos_dark_blue.jpg` | dark / blue | Media / cover grid density |
+| `explore_mixradio_dark_magenta.png` | dark / magenta | MixRadio explore mosaic layout |
 
 ## Screens
 
 | Screen | Blueprint | Image |
 |--------|-----------|-------|
 | Panorama home | Page 1 | `panorama_music_dark_green.jpg` |
+| Explore mosaic | Page 1 explore | `explore_mixradio_dark_magenta.png` |
 | Series detail | Page 2 | known-gaps → Music album detail |
 | Reader | Page 3 | known-gaps |
 | Settings | Page 4 | Music settings language |

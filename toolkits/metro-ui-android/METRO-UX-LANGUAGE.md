@@ -210,32 +210,33 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 
 ### 6.2 App bar (`MetroAppBar`)
 
-**Purpose:** Up to four primary actions as **icon buttons**; overflow in **text menu**. Optional Store-style **text-button** primary row for verb actions (`update`, `share`, `download`).
+**Purpose:** Up to four primary actions as **icon buttons**; overflow in **text menu**. Optional Store-style **text-button** primary row for verb actions (`update`, `share`, `download`). Optional **fully collapsed** variant for immersive panorama hubs.
 
 | Property | Spec |
 |----------|------|
 | Position | **Bottom** of screen, full width — never top |
-| Height | 72dp portrait (icon row + padding) |
+| Height | 72dp portrait (icon row + padding); fully-collapsed rest = **ellipsis + 8dp padding** top/bottom (`FullyCollapsedBarHeight`, 26dp) |
 | Background | `#1F1F1F` (`MetroAppBarDefaults.ChromeBackground`) |
 | Standard mode | Up to **4** icon buttons visible **or** up to **3** outlined text buttons |
 | Minimized mode | **Ellipsis only** (`…`) — **mandatory on panorama** |
+| Fully collapsed mode | **Ellipsis only** at rest (no round icons / text buttons). Expanded may house **icons and text buttons together** (text-button row above icon row) plus overflow menu. Prefer on immersive panorama hubs (e.g. Metron home). |
 | Icon buttons | **Icon only** in the bar — circular outline + circular press |
-| Text buttons (optional mode) | Equal-width rectangular outlined verbs that fill the bar row (one button still spans full width aside from the `…` slot); same enter creep + overshoot as icon buttons; mutually exclusive with icon row |
+| Text buttons (optional mode) | Equal-width rectangular outlined verbs that fill the bar row (one button still spans full width aside from the `…` slot); same enter creep + overshoot as icon buttons; mutually exclusive with icon row **unless** fully collapsed |
 | Icon asset | 48×48dp canvas; **26×26dp** white glyph centered; transparent PNG |
 | Icon color | White on dark theme, black on light — monochrome only |
 | Press state | `MetroAppBar` fills a **white/black circle** behind the icon and inverts the glyph — **do not bake the press circle into the asset**. Text buttons use border-button press fill (§6.3). |
 | Disabled icon | 40% opacity |
-| Collapsed reveal | Icon row only (no labels) **or** text-button row; `…` ellipsis pinned **top-right**, near the bar’s top edge |
-| Expanded reveal | Tapping `…` fades in a **text label beneath every icon** (icon mode only) and slides a **text-only menu list in below the primary row** — the bar grows upward from the bottom edge |
+| Collapsed reveal | Icon row only (no labels) **or** text-button row; `…` ellipsis pinned **top-right**, near the bar’s top edge. Fully collapsed / minimized: ellipsis only. |
+| Expanded reveal | Tapping `…` fades in a **text label beneath every icon** (icon mode only) and slides a **text-only menu list in below the primary row** — the bar grows upward from the bottom edge. Fully collapsed may also reveal a text-button row above icons. |
 | Menu | Up to **5** text-only items, listed beneath the primary row when expanded |
 | Menu item text | lowercase, 14–20 char recommended |
 | Menu item height | 48dp minimum touch row |
 | Expand gesture | Tap `…` (or any icon's dots) to toggle |
 | Dismiss | Tap outside (scrim), system Back, or select a menu item |
 
-**Don't:** FAB, top toolbar, mixing icons and text buttons in the same bar, colored multi-hue icons, more than 4 icons "because slots exist".
+**Don't:** FAB, top toolbar, mixing icons and text buttons in standard/minimized modes, colored multi-hue icons, more than 4 icons "because slots exist". Fully collapsed may mix icons + text buttons **only when expanded**.
 
-**Toolkit:** `MetroAppBar` (uncontrolled or `expanded`/`onExpandedChange` controlled), `MetroAppBarIcon` (icon-type or custom-glyph), `MetroAppBarTextButton` (Store-style outlined verbs), `MetroAppBarMenuItem`, `MetroAppBarDefaults`. Place it last in a bottom-aligned `Box` so the expanded panel overlays page content. Apps that need filter/sort sheets should slide a separate chrome card over the bar (see Metron `MetronOptionsCard`), not replace app-bar content.
+**Toolkit:** `MetroAppBar` (uncontrolled or `expanded`/`onExpandedChange` controlled; `minimized` / `fullyCollapsed`), `MetroAppBarIcon` (icon-type or custom-glyph), `MetroAppBarTextButton` (Store-style outlined verbs), `MetroAppBarMenuItem`, `MetroAppBarDefaults`. Place it last in a bottom-aligned `Box` so the expanded panel overlays page content. Apps that need filter/sort sheets should slide a separate chrome card over the bar (see Metron `MetronOptionsCard`), not replace app-bar content.
 
 ---
 

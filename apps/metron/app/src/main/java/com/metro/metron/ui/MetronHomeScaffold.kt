@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -155,23 +154,29 @@ fun MetronHomeScaffold(
     val homeSurface =
         if (showingMore) MetronHomeSurface.More else MetronHomeSurface.Panorama
 
+    val backdropCover = rememberRandomLibraryCover(libraryState.libraryData.favorites)
+
     MetroSystemTheme {
-        MetroSubpageHost(
-            route = homeSurface,
-            isRoot = { it == MetronHomeSurface.Panorama },
-            parentOf = { MetronHomeSurface.Panorama },
-            onGoBack = {
-                tabNavigator.current = ExploreTab
-            },
+        // Full-bleed random comic art under chrome (Music hub language); content is inset.
+        Box(
             modifier = modifier
                 .fillMaxSize()
-                // Black under the status-bar inset (Material scaffold would otherwise show through).
-                .background(Color.Black)
-                .statusBarsPadding()
-                .metroNavBarPadding()
                 .background(MetroTheme.colors.background),
-            rootContent = {
-                Box(modifier = Modifier.fillMaxSize()) {
+        ) {
+            MetronArtworkBackdrop(cover = backdropCover)
+            MetroSubpageHost(
+                route = homeSurface,
+                isRoot = { it == MetronHomeSurface.Panorama },
+                parentOf = { MetronHomeSurface.Panorama },
+                onGoBack = {
+                    tabNavigator.current = ExploreTab
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .metroNavBarPadding(),
+                rootContent = {
+                    Box(modifier = Modifier.fillMaxSize()) {
                     val initialPage = HubTabs.indexOfFirst { it::class == tabNavigator.current::class }
                         .coerceAtLeast(0)
                     val pagerState = rememberPagerState(
@@ -216,7 +221,7 @@ fun MetronHomeScaffold(
                                 titleStyle = MetroTextStyle.SectionHeader,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(bottom = MetroAppBarDefaults.BarHeight),
+                                    .padding(bottom = MetroAppBarDefaults.FullyCollapsedBarHeight),
                                 pageContent = { page ->
                                     when (page) {
                                         0 -> MetronExplorePane(
@@ -390,12 +395,13 @@ fun MetronHomeScaffold(
                         }
                     }
 
+                    // Stay put across panorama pages — only icons/menu swap; no creep out/in.
                     MetroAppBar(
                         icons = icons,
                         expanded = appBarExpanded,
                         onExpandedChange = { appBarExpanded = it },
                         menuItems = menuItems,
-                        enterKey = page,
+                        fullyCollapsed = true,
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
 
@@ -421,24 +427,25 @@ fun MetronHomeScaffold(
                     }
                 }
             },
-            subpageContent = {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = MetroAppBarDefaults.BarHeight),
-                    ) {
-                        MoreTab.Content()
+                subpageContent = {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = MetroAppBarDefaults.BarHeight),
+                        ) {
+                            MoreTab.Content()
+                        }
+                        MetroAppBar(
+                            menuItems = listOf(
+                                MetroAppBarMenuItem("downloads", onClick = onOpenDownloads),
+                            ),
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
                     }
-                    MetroAppBar(
-                        menuItems = listOf(
-                            MetroAppBarMenuItem("downloads", onClick = onOpenDownloads),
-                        ),
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
-                }
-            },
-        )
+                },
+            )
+        }
     }
 
     DisposableEffect(Unit) {

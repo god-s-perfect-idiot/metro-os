@@ -70,6 +70,11 @@ import kotlinx.coroutines.launch
  * rectangular outlined verb buttons (`update`, `share`, `download`, …). Same chrome, ellipsis,
  * overflow menu, and enter/creep/overshoot motion — only the primary row chrome differs.
  *
+ * **Fully collapsed** ([fullyCollapsed]): collapsed chrome is ellipsis-only — no round icon
+ * buttons and no text-button row until expanded. Expanded may house **icons and text buttons
+ * together** (text-button row above the icon row) plus overflow [menuItems]. Prefer this on
+ * immersive panorama hubs where primary actions should not compete with page content at rest.
+ *
  * Place it last inside a bottom-aligned [Box] so the expanded panel can overlay page content:
  *
  * ```
@@ -135,8 +140,11 @@ fun MetroAppBarIcon(
 
 /**
  * A primary rectangular outlined text button for Store-style app bars (WP Store `update` /
- * `share`). Prefer lowercase verb labels. Mutually exclusive with [MetroAppBarIcon] — pass
- * [MetroAppBar] `textButtons`, not `icons`.
+ * `share`). Prefer lowercase verb labels.
+ *
+ * In standard / minimized modes, mutually exclusive with [MetroAppBarIcon] — pass
+ * [MetroAppBar] `textButtons`, not `icons`. With [MetroAppBar] `fullyCollapsed = true`, icons
+ * and text buttons may appear together when the bar is expanded.
  */
 class MetroAppBarTextButton(
     val text: String,
@@ -177,6 +185,13 @@ object MetroAppBarDefaults {
     val TextButtonVerticalInset: Dp = 6.dp
     /** End inset so width-filling text buttons clear the ellipsis touch target. */
     val TextButtonRowEndInset: Dp = 48.dp
+    /** Top/bottom padding around the `…` glyph in fully-collapsed resting chrome. */
+    val FullyCollapsedVerticalPadding: Dp = 8.dp
+    /**
+     * Resting chrome height when [MetroAppBar] `fullyCollapsed` is true — just the ellipsis
+     * glyph plus [FullyCollapsedVerticalPadding] above and below (no empty icon row).
+     */
+    val FullyCollapsedBarHeight: Dp = FullyCollapsedVerticalPadding * 2 + EllipsisHeight
     const val MaxIcons = 4
     const val MaxTextButtons = 3
     const val MaxMenuItems = 5
@@ -190,6 +205,11 @@ fun MetroAppBar(
     textButtons: List<MetroAppBarTextButton> = emptyList(),
     menuItems: List<MetroAppBarMenuItem> = emptyList(),
     minimized: Boolean = false,
+    /**
+     * When true, collapsed chrome is ellipsis-only (no round icons / text buttons). Expanded
+     * may house icons and text buttons together. Implies minimized collapse; prefer on panorama.
+     */
+    fullyCollapsed: Boolean = false,
     /** When false, plays a creep-out animation before removing the bar from composition. */
     visible: Boolean = true,
     /** When non-null, replays the enter animation whenever this value changes while [visible]. */
@@ -215,6 +235,7 @@ fun MetroAppBar(
         textButtons = textButtons,
         menuItems = menuItems,
         minimized = minimized,
+        fullyCollapsed = fullyCollapsed,
         visible = visible,
         enterKey = enterKey,
         textButtonSlots = textButtonSlots,
@@ -226,10 +247,14 @@ fun MetroAppBar(
  * [expanded] / [onExpandedChange] and wire their own `BackHandler(expanded) { … false }`.
  *
  * @param minimized when true the collapsed bar shows only the `…` ellipsis (mandatory on
- *   panorama pages); the primary row appears once expanded.
+ *   panorama pages); the primary row appears once expanded. Icons and text buttons remain
+ *   mutually exclusive unless [fullyCollapsed] is also true.
+ * @param fullyCollapsed when true, collapsed chrome is ellipsis-only at
+ *   [MetroAppBarDefaults.FullyCollapsedBarHeight] — no round icon buttons until expanded.
+ *   Expanded may show [icons] and [textButtons] together (text-button row above icon row).
  * @param textButtons when non-empty, renders Store-style outlined text buttons that share the
  *   bar width equally (a single button still fills the row unless [textButtonSlots] is larger).
- *   Do not pass both [icons] and [textButtons].
+ *   Do not pass both [icons] and [textButtons] unless [fullyCollapsed] is true.
  * @param textButtonSlots equal-width slots for the text-button row; null = button count.
  */
 @Composable
@@ -241,16 +266,17 @@ fun MetroAppBar(
     textButtons: List<MetroAppBarTextButton> = emptyList(),
     menuItems: List<MetroAppBarMenuItem> = emptyList(),
     minimized: Boolean = false,
+    fullyCollapsed: Boolean = false,
     /** When false, plays a creep-out animation before removing the bar from composition. */
     visible: Boolean = true,
     /** When non-null, replays the enter animation whenever this value changes while [visible]. */
     enterKey: Any? = null,
     textButtonSlots: Int? = null,
 ) {
-    require(icons.isEmpty() || textButtons.isEmpty()) {
-        "MetroAppBar: pass icons or textButtons, not both"
+    require(fullyCollapsed || icons.isEmpty() || textButtons.isEmpty()) {
+        "MetroAppBar: pass icons or textButtons, not both (unless fullyCollapsed)"
     }
-    val useTextButtons = textButtons.isNotEmpty()
+    val hidePrimaryUntilExpanded = fullyCollapsed || minimized
     val visibleIcons = icons.take(MetroAppBarDefaults.MaxIcons)
     val visibleTextButtons = textButtons.take(MetroAppBarDefaults.MaxTextButtons)
     val visibleMenu = menuItems.take(MetroAppBarDefaults.MaxMenuItems)
@@ -261,11 +287,19 @@ fun MetroAppBar(
     val barOffset = remember { Animatable(1f) }
     val density = LocalDensity.current
     val navBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val defaultSlidePx = with(density) { (MetroAppBarDefaults.BarHeight + navBottomInset).toPx() }
+    val restingBarHeight = if (fullyCollapsed) {
+        MetroAppBarDefaults.FullyCollapsedBarHeight
+    } else {
+        MetroAppBarDefaults.BarHeight
+    }
+    val defaultSlidePx = with(density) { (restingBarHeight + navBottomInset).toPx() }
     var collapsedSlidePx by remember { mutableFloatStateOf(defaultSlidePx) }
 
     LaunchedEffect(visible, enterKey) {
         if (visible) {
+            // Page jumps use the thin resting strip distance so the creep reads as a crisp
+            // hop, not a leftover expanded-height slide.
+            collapsedSlidePx = with(density) { (restingBarHeight + navBottomInset).toPx() }
             barOffset.snapTo(1f)
             onScreen = true
             enterEpoch++
@@ -321,66 +355,47 @@ fun MetroAppBar(
                 .background(chrome)
                 .navigationBarsPadding(),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = MetroAppBarDefaults.BarHeight)
-                    .padding(start = 8.dp, end = 8.dp, bottom = 2.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                val showPrimaryRow = expanded || !minimized
-                if (showPrimaryRow) {
-                    if (useTextButtons) {
-                        val slotCount = (textButtonSlots ?: visibleTextButtons.size)
-                            .coerceAtLeast(visibleTextButtons.size)
-                            .coerceAtMost(MetroAppBarDefaults.MaxTextButtons)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(MetroAppBarDefaults.BarHeight)
-                                .padding(end = MetroAppBarDefaults.TextButtonRowEndInset),
-                            horizontalArrangement = Arrangement.spacedBy(
-                                MetroAppBarDefaults.TextButtonSpacing,
-                            ),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            visibleTextButtons.forEach { item ->
-                                AppBarTextButton(
-                                    item = item,
-                                    enterEpoch = enterEpoch,
-                                    animateKeys = animateKeys,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .padding(vertical = MetroAppBarDefaults.TextButtonVerticalInset),
-                                )
-                            }
-                            repeat(slotCount - visibleTextButtons.size) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            visibleIcons.forEach { item ->
-                                AppBarIconButton(
-                                    item = item,
-                                    showLabel = expanded,
-                                    enterEpoch = enterEpoch,
-                                    animateKeys = animateKeys,
-                                )
-                            }
-                        }
-                    }
+            val showPrimaryRow = expanded || !hidePrimaryUntilExpanded
+            if (showPrimaryRow) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = MetroAppBarDefaults.BarHeight)
+                        .padding(start = 8.dp, end = 8.dp, bottom = 2.dp),
+                ) {
+                    AppBarPrimaryActions(
+                        icons = visibleIcons,
+                        textButtons = visibleTextButtons,
+                        expanded = expanded,
+                        enterEpoch = enterEpoch,
+                        // Fully-collapsed: no icon/text-button overshoot bounce on expand.
+                        animateKeys = animateKeys && !fullyCollapsed,
+                        textButtonSlots = textButtonSlots,
+                        // Fully-collapsed icons only exist while expanded — always label them.
+                        forceIconLabels = fullyCollapsed,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                    EllipsisButton(
+                        expanded = expanded,
+                        onClick = { onExpandedChange(!expanded) },
+                        compact = fullyCollapsed,
+                        modifier = Modifier.align(Alignment.TopEnd),
+                    )
                 }
-                EllipsisButton(
-                    expanded = expanded,
-                    onClick = { onExpandedChange(!expanded) },
-                    modifier = Modifier.align(Alignment.TopEnd),
-                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(restingBarHeight)
+                        .padding(start = 8.dp, end = 8.dp),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    EllipsisButton(
+                        expanded = expanded,
+                        onClick = { onExpandedChange(!expanded) },
+                        compact = fullyCollapsed,
+                    )
+                }
             }
 
             AnimatedVisibility(
@@ -395,6 +410,73 @@ fun MetroAppBar(
                             onSelected = { onExpandedChange(false) },
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Primary action chrome for the app bar: optional Store-style text-button row and/or icon row.
+ * When both lists are non-empty (fully-collapsed mode), text buttons sit above icons.
+ */
+@Composable
+private fun AppBarPrimaryActions(
+    icons: List<MetroAppBarIcon>,
+    textButtons: List<MetroAppBarTextButton>,
+    expanded: Boolean,
+    enterEpoch: Int,
+    animateKeys: Boolean,
+    textButtonSlots: Int?,
+    forceIconLabels: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val hasTextButtons = textButtons.isNotEmpty()
+    val hasIcons = icons.isNotEmpty()
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (hasTextButtons) {
+            val slotCount = (textButtonSlots ?: textButtons.size)
+                .coerceAtLeast(textButtons.size)
+                .coerceAtMost(MetroAppBarDefaults.MaxTextButtons)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(MetroAppBarDefaults.BarHeight)
+                    .padding(end = MetroAppBarDefaults.TextButtonRowEndInset),
+                horizontalArrangement = Arrangement.spacedBy(
+                    MetroAppBarDefaults.TextButtonSpacing,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                textButtons.forEach { item ->
+                    AppBarTextButton(
+                        item = item,
+                        enterEpoch = enterEpoch,
+                        animateKeys = animateKeys,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(vertical = MetroAppBarDefaults.TextButtonVerticalInset),
+                    )
+                }
+                repeat(slotCount - textButtons.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+        if (hasIcons) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                icons.forEach { item ->
+                    AppBarIconButton(
+                        item = item,
+                        showLabel = expanded || forceIconLabels,
+                        enterEpoch = enterEpoch,
+                        animateKeys = animateKeys,
+                    )
                 }
             }
         }
@@ -566,18 +648,26 @@ private fun EllipsisButton(
     expanded: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** When true, match fully-collapsed chrome height and center the dots (no top bias). */
+    compact: Boolean = false,
 ) {
     val color = MetroTheme.colors.primaryText
-    Box(
-        modifier = modifier
+    val buttonModifier = if (compact) {
+        modifier
+            .width(MetroAppBarDefaults.TouchTarget)
+            .height(MetroAppBarDefaults.FullyCollapsedBarHeight)
+    } else {
+        modifier
             .size(MetroAppBarDefaults.TouchTarget)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(top = MetroAppBarDefaults.EllipsisTopPadding),
-        contentAlignment = Alignment.TopCenter,
+            .padding(top = MetroAppBarDefaults.EllipsisTopPadding)
+    }
+    Box(
+        modifier = buttonModifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+        ),
+        contentAlignment = if (compact) Alignment.Center else Alignment.TopCenter,
     ) {
         Canvas(
             modifier = Modifier.size(

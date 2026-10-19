@@ -332,15 +332,21 @@ data class MetronLibraryCategoryScreen(
             }
         }
         val context = LocalContext.current
+        val backdropCover = rememberRandomLibraryCover(state.libraryData.favorites)
 
         MetroSystemTheme {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .metroNavBarPadding()
                     .background(MetroTheme.colors.background),
             ) {
+                MetronArtworkBackdrop(cover = backdropCover)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .metroNavBarPadding(),
+                ) {
                 when {
                     state.isLoading -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -463,6 +469,7 @@ data class MetronLibraryCategoryScreen(
                             category = state.activeCategory,
                         )
                     }
+                }
                 }
             }
         }
