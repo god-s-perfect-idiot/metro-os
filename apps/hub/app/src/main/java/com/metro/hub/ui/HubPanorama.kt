@@ -13,10 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
@@ -27,9 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -37,9 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.metro.hub.R
@@ -52,25 +46,17 @@ import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
+import com.metro.ui.MetroPanoramaBrandGradients
+import com.metro.ui.MetroPanoramaBrandTitle
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroClickable
-import kotlin.math.roundToInt
 
 private const val HubBrandText = "hub"
-private val HubBrandInset = 12.dp
+private val HubBrandBrush = MetroPanoramaBrandGradients.Hub
 private val QuickLinkTileInset = 8.dp
 private const val QuickLinkTileWidthScale = 0.88f
-
-private val HubBrandStyle = TextStyle(
-    fontFamily = MetroFontFamily,
-    fontWeight = FontWeight.ExtraLight,
-    fontSize = 96.sp,
-    lineHeight = 96.sp,
-    letterSpacing = (-1).sp,
-    platformStyle = PlatformTextStyle(includeFontPadding = false),
-)
 
 /** Slightly under toolkit HubLink (38sp) for the about-app menu density. */
 private val HubMenuLinkStyle = TextStyle(
@@ -89,8 +75,6 @@ fun HubPanorama(
     skipIntro: Boolean = false,
     onIntroPlayed: () -> Unit = {},
 ) {
-    val density = LocalDensity.current
-
     // Remember after this hub visit so in-app return skips the intro (not mid-animation).
     DisposableEffect(Unit) {
         onDispose { onIntroPlayed() }
@@ -98,43 +82,12 @@ fun HubPanorama(
 
     Column(modifier = modifier.fillMaxSize()) {
         MetroPanoramaBrandEnter(skipEnter = skipIntro) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clipToBounds()
-                    .padding(bottom = 4.dp),
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                val measurer = rememberTextMeasurer()
-                val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
-                val fontFamily = MetroTheme.fontFamily
-                val brandWidthPx = remember(measurer, density, fontFamily) {
-                    measurer.measure(
-                        text = HubBrandText,
-                        style = HubBrandStyle.copy(fontFamily = fontFamily),
-                        softWrap = false,
-                        maxLines = 1,
-                        density = density,
-                    ).size.width.toFloat()
-                }
-                val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
-                val lastPage = (pagerState.pageCount - 1).coerceAtLeast(1)
-                val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                    .coerceIn(0f, lastPage.toFloat()) / lastPage
-                val brandOffsetPx = (progress * hiddenPx).roundToInt()
-
-                BasicText(
-                    text = HubBrandText,
-                    style = HubBrandStyle.copy(fontFamily = MetroTheme.fontFamily, color = MetroTheme.colors.primaryText),
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip,
-                    modifier = Modifier
-                        .offset { IntOffset(-brandOffsetPx, 0) }
-                        .padding(start = HubBrandInset)
-                        .wrapContentWidth(align = Alignment.Start, unbounded = true),
-                )
-            }
+            MetroPanoramaBrandTitle(
+                text = HubBrandText,
+                pageProgress = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+                pageCount = pagerState.pageCount,
+                brush = HubBrandBrush,
+            )
         }
 
         MetroPanoramaBodyEnter(

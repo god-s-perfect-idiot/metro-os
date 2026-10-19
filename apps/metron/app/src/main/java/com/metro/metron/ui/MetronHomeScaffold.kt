@@ -4,16 +4,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -23,17 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -43,10 +31,11 @@ import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppBarMenuItem
-import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
+import com.metro.ui.MetroPanoramaBrandGradients
+import com.metro.ui.MetroPanoramaBrandTitle
 import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroSystemTheme
@@ -68,22 +57,12 @@ import eu.kanade.tachiyomi.ui.updates.UpdatesSettingsViewModel
 import eu.kanade.tachiyomi.ui.updates.UpdatesTab
 import eu.kanade.tachiyomi.ui.updates.UpdatesViewModel
 import eu.kanade.tachiyomi.util.system.workManager
-import kotlin.math.roundToInt
 import mihon.feature.upcoming.UpcomingScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 private const val BrandText = "metron"
-private val BrandInset = 12.dp
-
-private val BrandStyle = TextStyle(
-    fontFamily = MetroFontFamily,
-    fontWeight = FontWeight.ExtraLight,
-    fontSize = 96.sp,
-    lineHeight = 100.sp,
-    letterSpacing = (-1).sp,
-    platformStyle = PlatformTextStyle(includeFontPadding = false),
-)
+private val MetronBrandBrush = MetroPanoramaBrandGradients.Metron
 
 private val HubTabs: List<Tab> = listOf(
     ExploreTab,
@@ -186,6 +165,8 @@ fun MetronHomeScaffold(
             },
             modifier = modifier
                 .fillMaxSize()
+                // Black under the status-bar inset (Material scaffold would otherwise show through).
+                .background(Color.Black)
                 .statusBarsPadding()
                 .metroNavBarPadding()
                 .background(MetroTheme.colors.background),
@@ -215,9 +196,12 @@ fun MetronHomeScaffold(
 
                     Column(modifier = Modifier.fillMaxSize()) {
                         MetroPanoramaBrandEnter(skipEnter = introPlayed) {
-                            BrandTitle(
+                            MetroPanoramaBrandTitle(
+                                text = BrandText,
                                 pageProgress = pagerState.currentPage +
                                     pagerState.currentPageOffsetFraction,
+                                pageCount = HubTabs.size,
+                                brush = MetronBrandBrush,
                             )
                         }
                         MetroPanoramaBodyEnter(
@@ -462,46 +446,3 @@ fun MetronHomeScaffold(
     }
 }
 
-@Composable
-private fun BrandTitle(pageProgress: Float) {
-    val density = LocalDensity.current
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clipToBounds()
-            .padding(bottom = 4.dp),
-        contentAlignment = Alignment.BottomStart,
-    ) {
-        val measurer = rememberTextMeasurer()
-        val availableWidthPx = with(density) { (maxWidth - BrandInset).toPx() }
-        val fontFamily = MetroTheme.fontFamily
-        val brandWidthPx = remember(measurer, density, fontFamily) {
-            measurer.measure(
-                text = BrandText,
-                style = BrandStyle.copy(fontFamily = fontFamily),
-                softWrap = false,
-                maxLines = 1,
-                density = density,
-            ).size.width.toFloat()
-        }
-        val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
-        val lastPage = (HubTabs.size - 1).coerceAtLeast(1)
-        val progress = pageProgress.coerceIn(0f, lastPage.toFloat()) / lastPage
-        val brandOffsetPx = (progress * hiddenPx).roundToInt()
-
-        BasicText(
-            text = BrandText,
-            style = BrandStyle.copy(
-                fontFamily = MetroTheme.fontFamily,
-                color = MetroTheme.colors.primaryText,
-            ),
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip,
-            modifier = Modifier
-                .offset { IntOffset(-brandOffsetPx, 0) }
-                .padding(start = BrandInset)
-                .wrapContentWidth(align = Alignment.Start, unbounded = true),
-        )
-    }
-}

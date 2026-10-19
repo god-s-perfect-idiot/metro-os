@@ -2,65 +2,42 @@ package com.metro.news.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.metro.news.data.NewsCategory
 import com.metro.news.data.NewsStory
 import com.metro.ui.MetroAppBarDefaults
-import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
+import com.metro.ui.MetroPanoramaBrandGradients
+import com.metro.ui.MetroPanoramaBrandTitle
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.metroClickable
-import kotlin.math.roundToInt
 
 private const val NewsBrandText = "news"
-private val NewsBrandInset = 12.dp
-
-private val NewsBrandStyle = TextStyle(
-    fontFamily = MetroFontFamily,
-    fontWeight = FontWeight.ExtraLight,
-    fontSize = 96.sp,
-    lineHeight = 96.sp,
-    letterSpacing = (-1).sp,
-    platformStyle = PlatformTextStyle(includeFontPadding = false),
-)
+private val NewsBrandBrush = MetroPanoramaBrandGradients.News
 
 @Composable
 fun NewsPanorama(
@@ -70,54 +47,18 @@ fun NewsPanorama(
     skipIntro: Boolean = false,
     onIntroPlayed: () -> Unit = {},
 ) {
-    val density = LocalDensity.current
-
     DisposableEffect(Unit) {
         onDispose { onIntroPlayed() }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
         MetroPanoramaBrandEnter(skipEnter = skipIntro) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clipToBounds()
-                    .padding(bottom = 4.dp),
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                val measurer = rememberTextMeasurer()
-                val availableWidthPx = with(density) { (maxWidth - NewsBrandInset).toPx() }
-                val fontFamily = MetroTheme.fontFamily
-                val brandWidthPx = remember(measurer, density, fontFamily) {
-                    measurer.measure(
-                        text = NewsBrandText,
-                        style = NewsBrandStyle.copy(fontFamily = fontFamily),
-                        softWrap = false,
-                        maxLines = 1,
-                        density = density,
-                    ).size.width.toFloat()
-                }
-                val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
-                val lastPage = (pagerState.pageCount - 1).coerceAtLeast(1)
-                val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                    .coerceIn(0f, lastPage.toFloat()) / lastPage
-                val brandOffsetPx = (progress * hiddenPx).roundToInt()
-
-                BasicText(
-                    text = NewsBrandText,
-                    style = NewsBrandStyle.copy(
-                        fontFamily = MetroTheme.fontFamily,
-                        color = MetroTheme.colors.primaryText,
-                    ),
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip,
-                    modifier = Modifier
-                        .offset { IntOffset(-brandOffsetPx, 0) }
-                        .padding(start = NewsBrandInset)
-                        .wrapContentWidth(align = Alignment.Start, unbounded = true),
-                )
-            }
+            MetroPanoramaBrandTitle(
+                text = NewsBrandText,
+                pageProgress = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+                pageCount = pagerState.pageCount,
+                brush = NewsBrandBrush,
+            )
         }
 
         MetroPanoramaBodyEnter(

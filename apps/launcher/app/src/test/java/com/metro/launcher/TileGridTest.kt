@@ -415,6 +415,20 @@ class TileGridTest {
     }
 
     @Test
+    fun tileWaveStagger_keepsFullWidthSweepSameAsFourCol() {
+        // (columns − 1) × step is identical for 4-col and 6-col.
+        assertEquals(TileEnterStaggerMs, tileWaveStaggerMs(TILE_GRID_COLUMNS))
+        assertEquals(
+            (TILE_GRID_COLUMNS - 1) * TileEnterStaggerMs,
+            (TILE_GRID_COLUMNS_EXPANDED - 1) * tileWaveStaggerMs(TILE_GRID_COLUMNS_EXPANDED),
+        )
+        assertEquals(
+            2L * tileWaveStaggerMs(TILE_GRID_COLUMNS_EXPANDED),
+            tileEnterStaggerDelayMs(2, TILE_GRID_COLUMNS_EXPANDED),
+        )
+    }
+
+    @Test
     fun tileExitDiagonal_matchesEnterWaveOrder() {
         assertEquals(
             0,
@@ -441,12 +455,21 @@ class TileGridTest {
         // maxDiag 2 → tapped step 3 → 3×40 + selected duration
         assertEquals(3L * 40L + TileExitSelectedMs, tileExitWaveDurationMs(placed))
         assertEquals(TileExitSelectedMs.toLong(), tileExitWaveDurationMs(emptyList()))
+        // Dense Start uses a shorter per-diagonal step so wall time matches 4-col.
+        assertEquals(
+            3L * tileWaveStaggerMs(TILE_GRID_COLUMNS_EXPANDED) + TileExitSelectedMs,
+            tileExitWaveDurationMs(placed, TILE_GRID_COLUMNS_EXPANDED),
+        )
     }
 
     @Test
     fun tileExitStaggerDelay_scalesWithStepIndex() {
         assertEquals(0L, tileExitStaggerDelayMs(0))
         assertEquals(21L * 40L, tileExitStaggerDelayMs(21))
+        assertEquals(
+            21L * tileWaveStaggerMs(TILE_GRID_COLUMNS_EXPANDED),
+            tileExitStaggerDelayMs(21, TILE_GRID_COLUMNS_EXPANDED),
+        )
     }
 
     @Test

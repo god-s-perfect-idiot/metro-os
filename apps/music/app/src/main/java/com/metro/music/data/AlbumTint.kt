@@ -11,8 +11,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Derives the now-playing backdrop from album art: take the art's dominant hue, then crush its
- * value so white Metro type keeps full contrast over it (WP8.1 faded the artist image the same way).
+ * Derives hub colours from album art:
+ * - [tintArgb] — darkened single wash for backdrops (WP8.1 faded artist image).
+ * - [brandGradientArgb] — bright left→right stops for the panoramic brand title gradient.
  */
 object AlbumTintLogic {
     /** 30° buckets — wide enough that dithered gradients land together, narrow enough to keep hue. */
@@ -23,6 +24,12 @@ object AlbumTintLogic {
     private const val MaxSaturation = 0.85f
     private const val TintValue = 0.20f
     private const val NeutralValue = 0.12f
+    /** Brand-title ink — vivid enough to read as a gradient over a dark hub. */
+    private const val BrandMinSaturation = 0.45f
+    private const val BrandMaxSaturation = 0.95f
+    private const val BrandValue = 0.92f
+    private const val BrandStops = 5
+    private const val BrandMinDistinctStops = 2
 
     /** Returns the packed ARGB backdrop for [pixels] (any sample grid), or null when unusable. */
     fun tintArgb(pixels: IntArray): Int? {
@@ -63,6 +70,69 @@ object AlbumTintLogic {
         return hsvToArgb(hue, saturation, TintValue)
     }
 
+    /**
+     * Left→right brand-title colours from a [width]×[height] pixel grid (row-major).
+     * Returns null when the art is greyscale / too dull for a readable gradient (caller paints white).
+     */
+    fun brandGradientArgb(pixels: IntArray, width: Int, height: Int): IntArray? {
+        if (width <= 0 || height <= 0 || pixels.size < width * height) return null
+        val stops = IntArray(BrandStops)
+        var colourful = 0
+        for (stop in 0 until BrandStops) {
+            val x0 = stop * width / BrandStops
+            val x1 = ((stop + 1) * width / BrandStops).coerceAtLeast(x0 + 1)
+            val color = columnBrandArgb(pixels, width, height, x0, x1)
+            if (color == null) return null
+            stops[stop] = color
+            colourful++
+        }
+        if (colourful < BrandMinDistinctStops) return null
+        // Collapse near-identical columns (solid-colour art) — not a gradient.
+        val distinct = stops.toSet().size
+        if (distinct < BrandMinDistinctStops) return null
+        return stops
+    }
+
+    private fun columnBrandArgb(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        x0: Int,
+        x1: Int,
+    ): Int? {
+        val weights = FloatArray(HueBuckets)
+        val hueSin = FloatArray(HueBuckets)
+        val hueCos = FloatArray(HueBuckets)
+        val saturations = FloatArray(HueBuckets)
+        for (y in 0 until height) {
+            val row = y * width
+            for (x in x0 until x1) {
+                val pixel = pixels[row + x]
+                if ((pixel ushr 24 and 0xFF) < MinAlpha) continue
+                val red = (pixel ushr 16 and 0xFF) / 255f
+                val green = (pixel ushr 8 and 0xFF) / 255f
+                val blue = (pixel and 0xFF) / 255f
+                val (hue, saturation, value) = rgbToHsv(red, green, blue)
+                val weight = saturation * value
+                if (weight <= MinPixelWeight) continue
+                val bucket = (hue / 360f * HueBuckets).toInt().coerceIn(0, HueBuckets - 1)
+                val radians = Math.toRadians(hue.toDouble())
+                weights[bucket] += weight
+                hueSin[bucket] += weight * sin(radians).toFloat()
+                hueCos[bucket] += weight * cos(radians).toFloat()
+                saturations[bucket] += weight * saturation
+            }
+        }
+        val bucket = weights.indices.maxByOrNull { weights[it] } ?: return null
+        if (weights[bucket] <= 0f) return null
+        val hue = (Math.toDegrees(
+            atan2(hueSin[bucket].toDouble(), hueCos[bucket].toDouble()),
+        ).toFloat() + 360f) % 360f
+        val saturation = (saturations[bucket] / weights[bucket])
+            .coerceIn(BrandMinSaturation, BrandMaxSaturation)
+        return hsvToArgb(hue, saturation, BrandValue)
+    }
+
     private fun rgbToHsv(red: Float, green: Float, blue: Float): Triple<Float, Float, Float> {
         val max = maxOf(red, green, blue)
         val min = minOf(red, green, blue)
@@ -101,11 +171,10 @@ object AlbumTintLogic {
 /** Sample grid the art is downscaled to before hue counting. */
 private const val TintSampleSize = 48
 
-/**
- * Loads [artworkModel] (any Coil model, including [LocalArtwork]) at thumbnail size and reduces it
- * to a single backdrop colour.
- */
-suspend fun loadAlbumTintArgb(context: Context, artworkModel: Any): Int? {
+private suspend fun loadAlbumSamplePixels(
+    context: Context,
+    artworkModel: Any,
+): Triple<IntArray, Int, Int>? {
     val request = ImageRequest.Builder(context)
         .data(artworkModel)
         .size(TintSampleSize)
@@ -126,5 +195,23 @@ suspend fun loadAlbumTintArgb(context: Context, artworkModel: Any): Int? {
     }
     val pixels = IntArray(sample.width * sample.height)
     sample.getPixels(pixels, 0, sample.width, 0, 0, sample.width, sample.height)
+    return Triple(pixels, sample.width, sample.height)
+}
+
+/**
+ * Loads [artworkModel] (any Coil model, including [LocalArtwork]) at thumbnail size and reduces it
+ * to a single backdrop colour.
+ */
+suspend fun loadAlbumTintArgb(context: Context, artworkModel: Any): Int? {
+    val (pixels, _, _) = loadAlbumSamplePixels(context, artworkModel) ?: return null
     return AlbumTintLogic.tintArgb(pixels)
+}
+
+/**
+ * Loads left→right brand-title gradient stops from [artworkModel], or null when the art is too
+ * dull / monochrome (caller should keep the default white brand).
+ */
+suspend fun loadAlbumBrandGradientArgb(context: Context, artworkModel: Any): IntArray? {
+    val (pixels, width, height) = loadAlbumSamplePixels(context, artworkModel) ?: return null
+    return AlbumTintLogic.brandGradientArgb(pixels, width, height)
 }

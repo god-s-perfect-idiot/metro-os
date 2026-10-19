@@ -51,7 +51,7 @@ Authoritative spec: [`references/guides/blueprint.md`](references/guides/bluepri
 
 ## UI and interaction guardrails
 
-- `MetroPanorama`, `MetroPivot`, `MetroListItem`, `MetroShowingLabel`, `MetroAppBar`, `MetroToggleSwitch`, `MetroTextBox` (explore search), `MetroLoadingScreen` / `MetroLoadingDots` for page waits (not grey "Loading…" copy)
+- `MetroPanorama` + `MetroPanoramaBrandTitle` (white default; album-art horizontal gradient when colourful cover is loaded), `MetroPivot`, `MetroListItem`, `MetroShowingLabel`, `MetroAppBar`, `MetroToggleSwitch`, `MetroTextBox` (explore search), `MetroLoadingScreen` / `MetroLoadingDots` for page waits (not grey "Loading…" copy)
 - Content text rows use `metroClickable` press-nudge — never Material ripple. **Tiles do not nudge** (`indication = null` only).
 - Collection pivots group under `MetroLetterTile` markers and open `MetroJumpList`; rows use the dense metrics in `MusicListRow`
 - Large art + circular transport on now playing; no Material mini-player
@@ -60,10 +60,11 @@ Authoritative spec: [`references/guides/blueprint.md`](references/guides/bluepri
   `MetroSlider` thumb is wrong on this surface — keep it for settings and volume, and promote the
   circle seek into `metro-ui-android` only once a second app needs a media scrubber.
 - Swipe up/down on art for next/prev track
-- Hub backdrop follows the loaded track's **album** cover (not the per-track thumbnail): `AlbumTintLogic`
-  takes the art's dominant hue and crushes its value to a near-black wash, crossfaded in over
-  `MetroTransitions.PageTransitionMs`. Black background returns when nothing is loaded, and the wash
-  is skipped in light theme where white type would invert. Drill-in pages stay flat black.
+- Hub backdrop follows the loaded track's **album** cover (not the per-track thumbnail): blurred
+  full-bleed art with a dark scrim, crossfaded in over `MetroTransitions.PageTransitionMs`. Black
+  background returns when nothing is loaded, and the wash is skipped in light theme. The panoramic
+  brand samples the same cover for an optional left→right gradient (`AlbumTintLogic.brandGradientArgb`);
+  dull / greyscale art keeps the white default. Drill-in pages stay flat black.
 
 ## Data and state model
 

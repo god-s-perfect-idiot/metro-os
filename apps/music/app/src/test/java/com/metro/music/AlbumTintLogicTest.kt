@@ -49,4 +49,31 @@ class AlbumTintLogicTest {
         assertNull(AlbumTintLogic.tintArgb(IntArray(0)))
         assertNull(AlbumTintLogic.tintArgb(IntArray(16) { 0x00FFFFFF }))
     }
+
+    @Test
+    fun brandGradientArgb_samplesLeftToRightHues() {
+        // 5×1 grid: orange → red → magenta → purple → blue
+        val width = 5
+        val height = 1
+        val pixels = intArrayOf(
+            0xFFFF8800.toInt(),
+            0xFFFF2244.toInt(),
+            0xFFFF2D95.toInt(),
+            0xFFAF52DE.toInt(),
+            0xFF2244EE.toInt(),
+        )
+        val stops = AlbumTintLogic.brandGradientArgb(pixels, width, height)
+
+        requireNotNull(stops)
+        assertEquals(5, stops.size)
+        assertTrue("left stop should be warm", red(stops[0]) > blue(stops[0]))
+        assertTrue("right stop should be cool", blue(stops[4]) > red(stops[4]))
+        assertTrue("brand ink stays bright", brightest(stops[0]) >= 200)
+    }
+
+    @Test
+    fun brandGradientArgb_greyscaleReturnsNull() {
+        val pixels = IntArray(25) { 0xFF808080.toInt() }
+        assertNull(AlbumTintLogic.brandGradientArgb(pixels, 5, 5))
+    }
 }

@@ -171,8 +171,10 @@ internal const val TileEnterOuterMs = MetroTransitions.TilePivotEnterOuterMs
  */
 internal const val TileEnterInnerMs = MetroTransitions.TilePivotEnterInnerMs
 /**
- * Delay between successive BR→TL diagonals on Start enter. Slightly under the
- * prior 55ms step so the wave stays readable without feeling gated.
+ * Delay between successive BR→TL diagonals on the default 4-column Start.
+ * Slightly under the prior 55ms step so the wave stays readable without feeling gated.
+ * Dense (6-col) Start compresses this via [tileWaveStaggerMs] so a full-width sweep
+ * finishes in the same wall time.
  */
 internal const val TileEnterStaggerMs = 40L
 /** Disco compound enter angle: `rotateY(60deg)` + nested `rotateY(10deg)`. */
@@ -184,9 +186,15 @@ private val TileEnterOuterEasing = MetroTransitions.TilePivotEnterOuterEasing
 /** Disco inner easing: `cubic-bezier(.2, .25, 0.25, 1)`. */
 private val TileEnterInnerEasing = MetroTransitions.TilePivotEnterInnerEasing
 /**
- * Delay between successive diagonals on Start exit (BR→TL), same step as enter.
+ * Per-diagonal stagger for Start enter/exit at [columns] density.
+ * Calibrated so `(columns − 1) × step` matches the 4-column Start
+ * (`3 × [TileEnterStaggerMs]`), keeping 4-col and 6-col wave speed aligned.
  */
-private const val TileExitStaggerMs = 40L
+fun tileWaveStaggerMs(columns: Int = TILE_GRID_COLUMNS): Long {
+    val refGaps = TILE_GRID_COLUMNS - 1
+    val gaps = (columns - 1).coerceAtLeast(1)
+    return TileEnterStaggerMs * refGaps / gaps
+}
 /**
  * Disco pause / launch-from-home (`tileListAppTransitionAnim0`) motion, with
  * durations eased up from Disco's `.175s` / `.3s` so the weave reads on device
@@ -495,34 +503,45 @@ fun tileEnterMaxDiagonal(placed: List<PlacedTile>): Int {
 /**
  * Total time for the Start enter wave: last diagonal stagger + Disco outer shell.
  * Live-tile motion should wait this long before starting.
+ * [columns] scales the per-diagonal step so 6-col matches 4-col wall time.
  */
-fun tileEnterWaveDurationMs(placed: List<PlacedTile>): Long {
+fun tileEnterWaveDurationMs(
+    placed: List<PlacedTile>,
+    columns: Int = TILE_GRID_COLUMNS,
+): Long {
     if (placed.isEmpty()) return TileEnterOuterMs.toLong()
-    return tileEnterMaxDiagonal(placed) * TileEnterStaggerMs + TileEnterOuterMs
+    return tileEnterMaxDiagonal(placed) * tileWaveStaggerMs(columns) + TileEnterOuterMs
 }
 
 /**
- * Stagger delay for an enter-wave diagonal — fixed step so BR→TL diagonals
- * start as separate beats.
+ * Stagger delay for an enter-wave diagonal — density-scaled step so BR→TL
+ * diagonals start as separate beats at the same wall-clock speed as 4-col.
  */
-fun tileEnterStaggerDelayMs(diagonalIndex: Int): Long =
-    diagonalIndex.toLong() * TileEnterStaggerMs
+fun tileEnterStaggerDelayMs(
+    diagonalIndex: Int,
+    columns: Int = TILE_GRID_COLUMNS,
+): Long = diagonalIndex.toLong() * tileWaveStaggerMs(columns)
 
 /**
  * Stagger delay for an exit-wave step. [stepIndex] is the BR→TL diagonal, or
  * `maxEnterDiagonal + 1` for the tapped tile (last beat, no extra hold).
  */
-fun tileExitStaggerDelayMs(stepIndex: Int): Long =
-    stepIndex.toLong() * TileExitStaggerMs
+fun tileExitStaggerDelayMs(
+    stepIndex: Int,
+    columns: Int = TILE_GRID_COLUMNS,
+): Long = stepIndex.toLong() * tileWaveStaggerMs(columns)
 
 /**
  * Total time for the Start exit wave including the tapped tile as the final
  * stagger step after the last BR→TL diagonal.
  */
-fun tileExitWaveDurationMs(placed: List<PlacedTile>): Long {
+fun tileExitWaveDurationMs(
+    placed: List<PlacedTile>,
+    columns: Int = TILE_GRID_COLUMNS,
+): Long {
     if (placed.isEmpty()) return TileExitSelectedMs.toLong()
     val maxDiag = tileEnterMaxDiagonal(placed)
-    return tileExitStaggerDelayMs(maxDiag + 1) + TileExitSelectedMs
+    return tileExitStaggerDelayMs(maxDiag + 1, columns) + TileExitSelectedMs
 }
 
 /** 1×1 music now-playing / Start widget faces — no app launch / exit wave. */
@@ -661,7 +680,7 @@ fun TileGrid(
         // Key on duration, not [placed] identity — a live-tile payload refresh must not
         // restart this and flash People/Photos bitmaps.
         var liveMotionEnabled by remember { mutableStateOf(false) }
-        val enterWaveDurationMs = tileEnterWaveDurationMs(placed)
+        val enterWaveDurationMs = tileEnterWaveDurationMs(placed, columns)
         val isExiting = exitingTileKey != null
         LaunchedEffect(enterWaveKey, consumedEnterWaveKey, editMode, enterWaveDurationMs) {
             if (editMode || enterWaveKey <= consumedEnterWaveKey) {
@@ -963,14 +982,15 @@ fun TileGrid(
                             maxRight = enterMaxRight,
                             maxBottom = enterMaxBottom,
                         ),
+                        columns = columns,
                     )
                     val isExitSelected = exitingTileKey == tileKey
                     val exitDelayMs = if (isExitSelected) {
                         // Last beat after every BR→TL diagonal — no extra hold.
-                        tileExitStaggerDelayMs(enterMaxDiagonal + 1)
+                        tileExitStaggerDelayMs(enterMaxDiagonal + 1, columns)
                     } else {
                         tileExitStaggerDelayMs(
-                            tileExitDiagonalIndex(
+                            stepIndex = tileExitDiagonalIndex(
                                 col = placement.col,
                                 row = placement.row,
                                 colSpan = tile.entry.size.colSpan,
@@ -978,6 +998,7 @@ fun TileGrid(
                                 maxRight = enterMaxRight,
                                 maxBottom = enterMaxBottom,
                             ),
+                            columns = columns,
                         )
                     }
                     // Disco `--app-animation-distance: -offsetLeft` is relative to the

@@ -19,6 +19,8 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroBorderButton` | Outlined square text button |
 | `MetroPivot` | Tabbed pivot navigation |
 | `MetroPanorama` | Horizontal hub panorama |
+| `MetroPanoramaBrandTitle` | Giant panoramic brand with pager parallax (white default; optional gradient `brush`) |
+| `MetroPanoramaBrandGradients` | Named hub brand brushes (`Music`, `Hub`, `Metron`, `News`) |
 | `MetroListItem` | List row with tilt-on-press |
 | `MetroCheckBox` | WP8.1 square checkbox (accent fill + check when on) |
 | `MetroMultiSelectList` | Multi-select page — checkbox rows + check/cancel app bar |
@@ -192,7 +194,13 @@ MetroPagePivotSwing(
 ```kotlin
 Column(Modifier.fillMaxSize()) {
     MetroPanoramaBrandEnter {
-        // Giant panoramic brand title
+        MetroPanoramaBrandTitle(
+            text = "metro music",
+            pageProgress = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+            pageCount = pagerState.pageCount,
+            // Optional album / accent gradient; omit for solid white
+            brush = albumBrandBrush,
+        )
     }
     MetroPanoramaBodyEnter(Modifier.weight(1f).fillMaxWidth()) {
         MetroPanorama(/* … */)
@@ -200,7 +208,7 @@ Column(Modifier.fillMaxSize()) {
 }
 ```
 
-Brand slides from +100% width (600ms, 200ms delay). Body left-hinge `rotateY` 30° → 0° with +80% slide (800ms, 50ms delay). Soft ease-out matching Metro Spotify’s carousel enter. Pass `skipEnter = true` when returning to an in-memory hub so the intro only plays on cold open.
+Brand slides from +100% width (600ms, 200ms delay). Body left-hinge `rotateY` 30° → 0° with +80% slide (800ms, 50ms delay). Soft ease-out matching Metro Spotify’s carousel enter. Pass `skipEnter = true` when returning to an in-memory hub so the intro only plays on cold open. Brand ink defaults to **white**; pass `brush` for a horizontal gradient (e.g. Music album palette).
 
 ### App pivot shell
 

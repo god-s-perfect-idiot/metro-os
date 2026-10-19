@@ -116,7 +116,9 @@ Rounded geometry is **reserved** for these controls — nowhere else.
 **Rules:**
 
 - Max **2 font weights** on one screen.
-- No text shadows, outlines, or gradients.
+- No text shadows, outlines, or gradients — **exception:** panoramic hub brand titles
+  (`MetroPanoramaBrandTitle`) may use an optional horizontal [brush] gradient; solid ink
+  defaults to **white**.
 - Push button label: max **2 words**, usually a verb.
 - Application titles and pivot headers: **lowercase** in WP8.1 system apps (match in metro-os).
 - Title caps for hub/panorama hero titles; sentence caps for settings descriptions.
@@ -355,6 +357,7 @@ Shown when a list or page has no content yet (e.g. "No recent calls.", "No conve
 | Peek | **~40dp** of next panel visible on right (`MetroPanoramaContentPeek`; override via `contentPeek`) |
 | Last pane | **Full viewport width** when settled — no previous pane visible on the left |
 | Pane width | `viewport width − contentPeek` for non-final panes; final pane fills the viewport |
+| Brand title | `MetroPanoramaBrandTitle` — ExtraLight 96sp, flush left, parallax with pager (scales with title width via `MetroPanoramaBrandParallaxWidthFraction`, ≥ overflow so long brands fully reveal; Music uses `trailingSlack` / `MetroPanoramaBrandTrailingSlack`); solid **white** by default, optional horizontal gradient `brush` |
 | Section titles | `HubTitle` (56sp Light), one per pane, **pane-aligned** — only a sliver of the next title peeks in; scroll continuously with pager offset |
 | Parallax | Background scrolls at **0.5×** content speed |
 | App bar | **Minimized only** |

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,14 +22,17 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
@@ -42,27 +44,23 @@ import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.sp
 import com.metro.music.data.artworkModel
+import com.metro.music.data.loadAlbumBrandGradientArgb
 import com.metro.ui.MetroColors
-import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroListItem
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
+import com.metro.ui.MetroPanoramaBrandGradients
+import com.metro.ui.MetroPanoramaBrandTitle
+import com.metro.ui.MetroPanoramaBrandTrailingSlack
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -70,23 +68,14 @@ import com.metro.ui.MetroSystemIconType
 import com.metro.ui.drawMetroSystemIconGlyph
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.roundToInt
 import kotlin.math.sin
 
 private const val HubBrandText = "metro music"
-private val HubBrandInset = 12.dp
 private val HubAccentTileInset = 8.dp
 /** Slightly under half-width so the pair reads lighter than full-bleed Start squares. */
 private const val HubAccentTileWidthScale = 0.88f
-
-private val MetroMusicBrandStyle = TextStyle(
-    fontFamily = MetroFontFamily,
-    fontWeight = FontWeight.ExtraLight,
-    fontSize = 96.sp,
-    lineHeight = 96.sp,
-    letterSpacing = (-1).sp,
-    platformStyle = PlatformTextStyle(includeFontPadding = false),
-)
+/** Fallback when no colourful album art — warm sunset brand. */
+private val MusicBrandBrush = MetroPanoramaBrandGradients.Music
 
 /**
  * Music hub: panoramic brand title (no MetroAppTitle), then
@@ -107,7 +96,20 @@ fun MusicHub(
     skipIntro: Boolean = false,
     onIntroPlayed: () -> Unit = {},
 ) {
-    val density = LocalDensity.current
+    val context = LocalContext.current
+    // Album-derived brand when colourful art is loaded; otherwise Music sunset preset.
+    var brandBrush by remember { mutableStateOf(MusicBrandBrush) }
+    LaunchedEffect(state.nowPlayingBackdropArt) {
+        val art = state.nowPlayingBackdropArt
+        if (art == null) {
+            brandBrush = MusicBrandBrush
+            return@LaunchedEffect
+        }
+        val stops = loadAlbumBrandGradientArgb(context, art)
+        brandBrush = stops?.let { argbs ->
+            Brush.horizontalGradient(argbs.map { Color(it) })
+        } ?: MusicBrandBrush
+    }
 
     // Remember after this hub visit so in-app return skips the intro (not mid-animation).
     DisposableEffect(Unit) {
@@ -117,47 +119,14 @@ fun MusicHub(
     Column(modifier = Modifier.fillMaxSize()) {
         // Giant panoramic brand — not the small MUSIC app overline
         MetroPanoramaBrandEnter(skipEnter = skipIntro) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clipToBounds()
-                    .padding(bottom = 4.dp),
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                val measurer = rememberTextMeasurer()
-                val availableWidthPx = with(density) { (maxWidth - HubBrandInset).toPx() }
-                val fontFamily = MetroTheme.fontFamily
-                val brandWidthPx = remember(measurer, density, fontFamily) {
-                    measurer.measure(
-                        text = HubBrandText,
-                        style = MetroMusicBrandStyle.copy(fontFamily = fontFamily),
-                        softWrap = false,
-                        maxLines = 1,
-                        density = density,
-                    ).size.width.toFloat()
-                }
-                // Spread the off-screen remainder across the panorama so the last pane
-                // ends with the tail of the brand flush at the right edge.
-                val hiddenPx = (brandWidthPx - availableWidthPx).coerceAtLeast(0f)
-                val lastPage = (pagerState.pageCount - 1).coerceAtLeast(1)
-                val progress = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                    .coerceIn(0f, lastPage.toFloat()) / lastPage
-                val brandOffsetPx = (progress * hiddenPx).roundToInt()
-
-                BasicText(
-                    text = HubBrandText,
-                    style = MetroMusicBrandStyle.copy(fontFamily = MetroTheme.fontFamily, color = MetroTheme.colors.primaryText),
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip,
-                    modifier = Modifier
-                        .offset { IntOffset(-brandOffsetPx, 0) }
-                        .padding(start = HubBrandInset)
-                        // Measure at full text width; the parent Box does the clipping, so the
-                        // part that starts off-screen still exists and slides into view.
-                        .wrapContentWidth(align = Alignment.Start, unbounded = true),
-                )
-            }
+            MetroPanoramaBrandTitle(
+                text = HubBrandText,
+                pageProgress = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+                pageCount = pagerState.pageCount,
+                brush = brandBrush,
+                // Extra bleed past the last glyph so the brand overflows and scrolls more.
+                trailingSlack = MetroPanoramaBrandTrailingSlack,
+            )
         }
 
         MetroPanoramaBodyEnter(

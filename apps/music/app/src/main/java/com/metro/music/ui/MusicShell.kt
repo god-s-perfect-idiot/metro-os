@@ -86,6 +86,7 @@ fun MusicShell(
 
     // While a track is loaded the hub paints the album cover full-bleed (dimmed), as WP8.1
     // faded the artist image behind the panorama. Reference: user capture + hub_nowplaying_compare.
+    // Draw the wash edge-to-edge (under the status bar); only chrome/content is inset.
     val pageBackground = MetroTheme.colors.background
     val showArtBackdrop = !coldSplashActive &&
         state.route == MusicRoute.Hub &&
@@ -96,8 +97,6 @@ fun MusicShell(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .metroNavBarPadding()
             .background(pageBackground),
     ) {
         Crossfade(
@@ -131,188 +130,196 @@ fun MusicShell(
             }
         }
 
-        if (!coldSplashActive) {
-            MetroSubpageHost(
-                route = state.route,
-                isRoot = { it == MusicRoute.Hub },
-                parentOf = { it.parentRoute() },
-                loadKeyOf = { subpageLoadKey(it, state) },
-                onGoBack = { state.route = state.route.parentRoute() },
-                modifier = Modifier.fillMaxSize(),
-                rootContent = {
-                    val pagerState = rememberPagerState(
-                        initialPage = state.hubPage,
-                        pageCount = { MusicState.HUB_PAGE_COUNT },
-                    )
-                    LaunchedEffect(pagerState.currentPage) {
-                        state.hubPage = pagerState.currentPage
-                    }
-                    LaunchedEffect(state.hubPage) {
-                        if (pagerState.currentPage != state.hubPage) {
-                            pagerState.scrollToPage(state.hubPage)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .metroNavBarPadding(),
+        ) {
+            if (!coldSplashActive) {
+                MetroSubpageHost(
+                    route = state.route,
+                    isRoot = { it == MusicRoute.Hub },
+                    parentOf = { it.parentRoute() },
+                    loadKeyOf = { subpageLoadKey(it, state) },
+                    onGoBack = { state.route = state.route.parentRoute() },
+                    modifier = Modifier.fillMaxSize(),
+                    rootContent = {
+                        val pagerState = rememberPagerState(
+                            initialPage = state.hubPage,
+                            pageCount = { MusicState.HUB_PAGE_COUNT },
+                        )
+                        LaunchedEffect(pagerState.currentPage) {
+                            state.hubPage = pagerState.currentPage
                         }
-                    }
-                    MusicHub(
-                        state = state,
-                        pagerState = pagerState,
-                        onOpenCollection = { pivot ->
-                            state.openCollectionPivot(pivot)
+                        LaunchedEffect(state.hubPage) {
+                            if (pagerState.currentPage != state.hubPage) {
+                                pagerState.scrollToPage(state.hubPage)
+                            }
+                        }
+                        MusicHub(
+                            state = state,
+                            pagerState = pagerState,
+                            onOpenCollection = { pivot ->
+                                state.openCollectionPivot(pivot)
+                            },
+                            onOpenExplore = {
+                                state.route = MusicRoute.Explore
+                            },
+                            onOpenSettings = {
+                                state.route = MusicRoute.Settings
+                            },
+                            onOpenRecent = {
+                                state.route = MusicRoute.Recent
+                            },
+                            onSyncNow = {
+                                state.reloadLibrary()
+                            },
+                            onOpenMusicDirectories = {
+                                state.route = MusicRoute.MusicDirectories
+                            },
+                            skipIntro = panoramaIntroPlayed,
+                            onIntroPlayed = { panoramaIntroPlayed = true },
+                        )
+                    },
+                    subpageContent = { route ->
+                        val requestExit = LocalMetroSubpageExit.current
+                        val onBack = { requestExit?.invoke() }
+                        when (route) {
+                            MusicRoute.Collection -> CollectionScreen(
+                                state = state,
+                                onBack = { onBack() },
+                            )
+                            MusicRoute.AlbumDetail -> {
+                                val album = state.selectedAlbum
+                                if (album == null) {
+                                    state.route = MusicRoute.Collection
+                                } else {
+                                    AlbumDetailScreen(
+                                        state = state,
+                                        album = album,
+                                        onBack = { onBack() },
+                                    )
+                                }
+                            }
+                            MusicRoute.ArtistDetail -> {
+                                val artist = state.selectedArtist
+                                if (artist == null) {
+                                    state.route = MusicRoute.Collection
+                                } else {
+                                    ArtistDetailScreen(
+                                        state = state,
+                                        artist = artist,
+                                        onBack = { onBack() },
+                                    )
+                                }
+                            }
+                            MusicRoute.GenreDetail -> {
+                                val genre = state.selectedGenre
+                                if (genre == null) {
+                                    state.route = MusicRoute.Collection
+                                } else {
+                                    GenreDetailScreen(
+                                        state = state,
+                                        genre = genre,
+                                        onBack = { onBack() },
+                                    )
+                                }
+                            }
+                            MusicRoute.PlaylistDetail -> {
+                                val playlist = state.selectedPlaylist
+                                if (playlist == null) {
+                                    state.route = MusicRoute.Collection
+                                } else {
+                                    PlaylistDetailScreen(
+                                        state = state,
+                                        playlist = playlist,
+                                        onBack = { onBack() },
+                                    )
+                                }
+                            }
+                            MusicRoute.Settings -> SettingsScreen(
+                                state = state,
+                                onBack = { onBack() },
+                                onConnect = {
+                                    connectLauncher.launch(
+                                        Intent(context, YtMusicConnectActivity::class.java),
+                                    )
+                                },
+                            )
+                            MusicRoute.MusicDirectories -> MusicDirectoriesScreen(
+                                state = state,
+                                onBack = { onBack() },
+                            )
+                            MusicRoute.Explore -> ExploreScreen(
+                                state = state,
+                                onBack = { onBack() },
+                            )
+                            MusicRoute.Recent -> RecentScreen(
+                                state = state,
+                                onBack = { onBack() },
+                            )
+                            MusicRoute.Queue -> QueueScreen(
+                                songs = state.playbackQueue,
+                                currentSongId = state.currentSong?.id,
+                                onSongSelected = { index ->
+                                    state.playQueueIndex(index)
+                                },
+                                onBack = { onBack() },
+                            )
+                            MusicRoute.Hub -> Unit
+                        }
+                    },
+                )
+
+                val jumpListOpen = state.route == MusicRoute.Collection && state.jumpListVisible
+                // Hub (homescreen) has no ApplicationBar — collection keeps the search/… chrome.
+                val appBarVisible = state.route == MusicRoute.Collection && !jumpListOpen
+                MetroAppBar(
+                    visible = appBarVisible,
+                    icons = listOf(
+                        MetroAppBarIcon(
+                            type = MetroSystemIconType.Search,
+                            label = "search",
+                            onClick = { state.route = MusicRoute.Explore },
+                        ),
+                    ),
+                    menuItems = listOf(
+                        MetroAppBarMenuItem("collection") {
+                            state.route = MusicRoute.Collection
                         },
-                        onOpenExplore = {
-                            state.route = MusicRoute.Explore
-                        },
-                        onOpenSettings = {
+                        MetroAppBarMenuItem("settings") {
                             state.route = MusicRoute.Settings
                         },
-                        onOpenRecent = {
-                            state.route = MusicRoute.Recent
-                        },
-                        onSyncNow = {
+                        MetroAppBarMenuItem("sync now") {
                             state.reloadLibrary()
                         },
-                        onOpenMusicDirectories = {
-                            state.route = MusicRoute.MusicDirectories
+                        MetroAppBarMenuItem("get music") {
+                            state.hubPage = MusicState.HUB_GET_MUSIC
+                            state.route = MusicRoute.Hub
                         },
-                        skipIntro = panoramaIntroPlayed,
-                        onIntroPlayed = { panoramaIntroPlayed = true },
-                    )
-                },
-                subpageContent = { route ->
-                    val requestExit = LocalMetroSubpageExit.current
-                    val onBack = { requestExit?.invoke() }
-                    when (route) {
-                        MusicRoute.Collection -> CollectionScreen(
-                            state = state,
-                            onBack = { onBack() },
-                        )
-                        MusicRoute.AlbumDetail -> {
-                            val album = state.selectedAlbum
-                            if (album == null) {
-                                state.route = MusicRoute.Collection
-                            } else {
-                                AlbumDetailScreen(
-                                    state = state,
-                                    album = album,
-                                    onBack = { onBack() },
-                                )
-                            }
-                        }
-                        MusicRoute.ArtistDetail -> {
-                            val artist = state.selectedArtist
-                            if (artist == null) {
-                                state.route = MusicRoute.Collection
-                            } else {
-                                ArtistDetailScreen(
-                                    state = state,
-                                    artist = artist,
-                                    onBack = { onBack() },
-                                )
-                            }
-                        }
-                        MusicRoute.GenreDetail -> {
-                            val genre = state.selectedGenre
-                            if (genre == null) {
-                                state.route = MusicRoute.Collection
-                            } else {
-                                GenreDetailScreen(
-                                    state = state,
-                                    genre = genre,
-                                    onBack = { onBack() },
-                                )
-                            }
-                        }
-                        MusicRoute.PlaylistDetail -> {
-                            val playlist = state.selectedPlaylist
-                            if (playlist == null) {
-                                state.route = MusicRoute.Collection
-                            } else {
-                                PlaylistDetailScreen(
-                                    state = state,
-                                    playlist = playlist,
-                                    onBack = { onBack() },
-                                )
-                            }
-                        }
-                        MusicRoute.Settings -> SettingsScreen(
-                            state = state,
-                            onBack = { onBack() },
-                            onConnect = {
-                                connectLauncher.launch(
-                                    Intent(context, YtMusicConnectActivity::class.java),
-                                )
-                            },
-                        )
-                        MusicRoute.MusicDirectories -> MusicDirectoriesScreen(
-                            state = state,
-                            onBack = { onBack() },
-                        )
-                        MusicRoute.Explore -> ExploreScreen(
-                            state = state,
-                            onBack = { onBack() },
-                        )
-                        MusicRoute.Recent -> RecentScreen(
-                            state = state,
-                            onBack = { onBack() },
-                        )
-                        MusicRoute.Queue -> QueueScreen(
-                            songs = state.playbackQueue,
-                            currentSongId = state.currentSong?.id,
-                            onSongSelected = { index ->
-                                state.playQueueIndex(index)
-                            },
-                            onBack = { onBack() },
-                        )
-                        MusicRoute.Hub -> Unit
-                    }
-                },
-            )
-
-            val jumpListOpen = state.route == MusicRoute.Collection && state.jumpListVisible
-            // Hub (homescreen) has no ApplicationBar — collection keeps the search/… chrome.
-            val appBarVisible = state.route == MusicRoute.Collection && !jumpListOpen
-            MetroAppBar(
-                visible = appBarVisible,
-                icons = listOf(
-                    MetroAppBarIcon(
-                        type = MetroSystemIconType.Search,
-                        label = "search",
-                        onClick = { state.route = MusicRoute.Explore },
+                        MetroAppBarMenuItem("local") {
+                            state.hubPage = MusicState.HUB_LOCAL
+                            state.route = MusicRoute.Hub
+                        },
                     ),
-                ),
-                menuItems = listOf(
-                    MetroAppBarMenuItem("collection") {
-                        state.route = MusicRoute.Collection
-                    },
-                    MetroAppBarMenuItem("settings") {
-                        state.route = MusicRoute.Settings
-                    },
-                    MetroAppBarMenuItem("sync now") {
-                        state.reloadLibrary()
-                    },
-                    MetroAppBarMenuItem("get music") {
-                        state.hubPage = MusicState.HUB_GET_MUSIC
-                        state.route = MusicRoute.Hub
-                    },
-                    MetroAppBarMenuItem("local") {
-                        state.hubPage = MusicState.HUB_LOCAL
-                        state.route = MusicRoute.Hub
-                    },
-                ),
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-
-            // Hosted here so the grid covers the app bar, as in WP8.1.
-            if (jumpListOpen) {
-                MetroJumpList(
-                    activeLetters = state.collectionJumpLetters,
-                    onLetterSelected = { state.jumpToLetter = it },
-                    onDismiss = { state.jumpListVisible = false },
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
+
+                // Hosted here so the grid covers the app bar, as in WP8.1.
+                if (jumpListOpen) {
+                    MetroJumpList(
+                        activeLetters = state.collectionJumpLetters,
+                        onLetterSelected = { state.jumpToLetter = it },
+                        onDismiss = { state.jumpListVisible = false },
+                    )
+                }
             }
         }
 
         if (coldSplashActive) {
             // Suite vector — not ic_launcher_foreground (layer-list; Compose cannot load it).
+            // Full-bleed like the album wash — under the status bar, not inset with chrome.
             MetroSplashLoadingScreen(
                 icon = painterResource(id = MetroAppGlyphs.Music),
                 modifier = Modifier.fillMaxSize(),
