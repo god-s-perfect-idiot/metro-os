@@ -74,9 +74,33 @@ class TileGridTest {
         assertTrue(chrome.wideIconFraction > TileChrome.Standard.wideIconFraction)
         assertEquals(15f, chrome.titleSp)
         assertEquals(16f, chrome.liveTitleSp)
-        assertEquals(15f, chrome.liveBodySp)
+        assertEquals(13f, chrome.liveBodySp)
         assertTrue(chrome.titleSp < TileChrome.Standard.titleSp)
         assertEquals(TileChrome.Dense, TileChrome.forColumns(6))
+    }
+
+    @Test
+    fun batteryWidgetLayout_threeDigitsFitDenseOneByOne() {
+        // ~51dp 6-col 1×1 minus 3dp face inset ≈ 45dp usable square.
+        val side = 45f
+        val layout = batteryWidgetLayout(
+            sideDp = side,
+            widthDp = side,
+            digitCount = 3,
+            dense = true,
+        )
+        assertTrue(layout.fontSp < 20f)
+        assertTrue(
+            "glyph+gap+100 must fit width ($layout)",
+            layout.estimatedRowWidthDp(3) <= side,
+        )
+        val standardThree = batteryWidgetLayout(
+            sideDp = 80f,
+            widthDp = 80f,
+            digitCount = 3,
+            dense = false,
+        )
+        assertTrue(standardThree.estimatedRowWidthDp(3) <= 80f)
     }
 
     @Test

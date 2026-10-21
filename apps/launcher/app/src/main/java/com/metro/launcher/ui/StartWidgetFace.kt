@@ -94,10 +94,12 @@ fun StartWidgetFace(
             AnalogClockWidgetFace(parts = parts, contentColor = contentColor, modifier = modifier)
         }
         MetroTileWidgetFaceKind.BATTERY -> {
+            val dense = LocalTileChrome.current == TileChrome.Dense
             BatteryWidgetFace(
                 percent = face.batteryPercent ?: 0,
                 contentColor = contentColor,
-                modifier = modifier.padding(6.dp),
+                // Dense 1×1 cells are tight; keep inset light so glyph + "100" fit.
+                modifier = modifier.padding(if (dense) 3.dp else 6.dp),
             )
         }
         MetroTileWidgetFaceKind.GLYPH,
@@ -285,30 +287,88 @@ private fun AnalogClockWidgetFace(
     }
 }
 
+/**
+ * Battery 1×1 face metrics: glyph + gap + digit type sized to [widthDp] so three-digit
+ * "100" does not clip on dense (6-col) Start cells.
+ */
+internal data class BatteryWidgetLayout(
+    val glyphWidthDp: Float,
+    val glyphHeightDp: Float,
+    val gapDp: Float,
+    val fontSp: Float,
+) {
+    /** Approximate rendered width of glyph + gap + digits (Noto ~0.55em per digit). */
+    fun estimatedRowWidthDp(digitCount: Int): Float =
+        glyphWidthDp + gapDp + fontSp * 0.55f * digitCount.coerceAtLeast(1)
+}
+
+internal fun batteryWidgetLayout(
+    sideDp: Float,
+    widthDp: Float,
+    digitCount: Int,
+    dense: Boolean,
+): BatteryWidgetLayout {
+    val digits = digitCount.coerceIn(1, 3)
+    // Three digits need a narrower battery so the row stays inside the cell.
+    val glyphFrac = when {
+        digits >= 3 && dense -> 0.20f
+        digits >= 3 -> 0.22f
+        dense -> 0.24f
+        else -> 0.26f
+    }
+    val gapFrac = when {
+        digits >= 3 && dense -> 0.06f
+        digits >= 3 -> 0.08f
+        dense -> 0.10f
+        else -> 0.12f
+    }
+    val glyphWidth = sideDp * glyphFrac
+    val glyphHeight = sideDp * 0.52f
+    val gap = sideDp * gapFrac
+    val textBudget = (widthDp - glyphWidth - gap).coerceAtLeast(8f)
+    val perDigit = textBudget / digits
+    // Fit under budget — a fixed 20sp floor used to clip "100" on dense 1×1.
+    val fontSp = (perDigit * 0.92f)
+        .coerceAtMost(sideDp * 0.56f)
+        .coerceAtLeast(8f)
+        .coerceAtMost(perDigit)
+    return BatteryWidgetLayout(
+        glyphWidthDp = glyphWidth,
+        glyphHeightDp = glyphHeight,
+        gapDp = gap,
+        fontSp = fontSp,
+    )
+}
+
 @Composable
 private fun BatteryWidgetFace(
     percent: Int,
     contentColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    val dense = LocalTileChrome.current == TileChrome.Dense
     BoxWithConstraints(modifier = modifier) {
         val side = minOf(maxWidth, maxHeight)
         val digits = percent.coerceIn(0, 100).toString()
-        val glyphWidth = side * 0.26f
-        val glyphHeight = side * 0.52f
-        val gap = side * 0.12f
-        val textBudget = (maxWidth - glyphWidth - gap).coerceAtLeast(12.dp)
-        val perDigit = textBudget / digits.length.coerceAtLeast(1)
-        val fontSize = (perDigit.value * 1.08f)
-            .coerceIn(20f, (side.value * 0.56f))
-            .sp
+        val layout = batteryWidgetLayout(
+            sideDp = side.value,
+            widthDp = maxWidth.value,
+            digitCount = digits.length,
+            dense = dense,
+        )
         val fraction = percent.coerceIn(0, 100) / 100f
+        val fontSize = layout.fontSp.sp
         Row(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
-            Canvas(modifier = Modifier.size(width = glyphWidth, height = glyphHeight)) {
+            Canvas(
+                modifier = Modifier.size(
+                    width = layout.glyphWidthDp.dp,
+                    height = layout.glyphHeightDp.dp,
+                ),
+            ) {
                 val stroke = size.width * 0.12f
                 val capHeight = size.height * 0.08f
                 val capWidth = size.width * 0.42f
@@ -336,7 +396,7 @@ private fun BatteryWidgetFace(
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(gap))
+            Spacer(modifier = Modifier.width(layout.gapDp.dp))
             BasicText(
                 text = digits,
                 style = TextStyle(

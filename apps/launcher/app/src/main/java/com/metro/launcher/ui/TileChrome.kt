@@ -113,8 +113,8 @@ data class TileChrome(
             titlePaddingV = 3.dp,
             liveTitleSp = 16f,
             liveTitleLineHeightSp = 20f,
-            liveBodySp = 15f,
-            liveBodyLineHeightSp = 18f,
+            liveBodySp = 13f,
+            liveBodyLineHeightSp = 16f,
             agendaDateMediumSp = 22f,
             agendaDateWideSp = 28f,
         )
