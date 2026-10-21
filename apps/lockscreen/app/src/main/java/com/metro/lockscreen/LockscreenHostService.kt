@@ -459,7 +459,9 @@ class LockscreenHostService :
             setViewTreeLifecycleOwner(this@LockscreenHostService)
             setViewTreeSavedStateRegistryOwner(this@LockscreenHostService)
             setViewTreeViewModelStoreOwner(this@LockscreenHostService)
-            translationY = 0f
+            // Glance starts off-screen above so the first paint never flashes at rest —
+            // Metro always lands after system AOD; slide down embraces that lag.
+            translationY = if (isGlance) -glanceEnterDistancePx() else 0f
             addView(
                 blackCover,
                 FrameLayout.LayoutParams(
@@ -492,6 +494,9 @@ class LockscreenHostService :
             MetroNavBar.requestFullscreen(this, fullscreen = true)
             Log.i(TAG, "Lock overlay attached ($mode)")
             startUnlockWatcher()
+            if (isGlance) {
+                playGlanceEnterAnimation(root)
+            }
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to attach lock overlay", t)
             runCatching { manager.removeView(root) }
@@ -504,14 +509,52 @@ class LockscreenHostService :
     }
 
     private fun updateOverlayMode(view: ComposeView, mode: LockscreenPresentationMode) {
+        val isGlance = mode == LockscreenPresentationMode.Glance
         overlayBlackCover?.visibility =
-            if (mode == LockscreenPresentationMode.Glance) View.VISIBLE else View.GONE
+            if (isGlance) View.VISIBLE else View.GONE
         applyOverlayTouchPolicy(mode)
         view.bindOverlayContent(mode, statusBarInsetPx())
         overlayMode = mode
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         Log.i(TAG, "Lock overlay morphed ($mode)")
         startUnlockWatcher()
+        // Lock → Glance (screen-off while already locked): stay put — no enter slide.
+        // Slide-down is only for a fresh Glance attach after an actual lock / sleep.
+        overlayRoot?.animate()?.cancel()
+        overlayRoot?.translationY = 0f
+    }
+
+    /**
+     * Slide the entire Glance overlay down from above into rest.
+     * View animation (not Compose) so frames still run under AOD / doze; [glanceFlipPulse]
+     * keeps the surface invalidated for the enter duration.
+     */
+    private fun playGlanceEnterAnimation(root: View) {
+        val distance = glanceEnterDistancePx(root)
+        root.animate().cancel()
+        // Re-assert start in case layout changed after the pre-attach offset.
+        if (root.translationY > -distance + 1f) {
+            root.translationY = -distance
+        }
+        // ~GLANCE_ENTER_MS / 16ms — keep drawing while doze would otherwise stall frames.
+        glanceFlipPulse.arm(frames = ((GLANCE_ENTER_MS / 16L) + 8).toInt())
+        root.animate()
+            .translationY(0f)
+            .setDuration(GLANCE_ENTER_MS)
+            .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
+            .withEndAction {
+                handler.post {
+                    if (overlayRoot === root) {
+                        root.translationY = 0f
+                    }
+                }
+            }
+            .start()
+    }
+
+    private fun glanceEnterDistancePx(root: View? = overlayRoot): Float {
+        val measured = root?.height?.takeIf { it > 0 }?.toFloat()
+        return (measured ?: resources.displayMetrics.heightPixels.toFloat()).coerceAtLeast(1f)
     }
 
     private fun ComposeView.bindOverlayContent(
@@ -1029,6 +1072,11 @@ class LockscreenHostService :
         private const val GLANCE_SLEEP_WATCH_IDLE_MS = 500L
         /** Poll while Metro fill is up so biometric unlock does not wait on USER_PRESENT. */
         private const val UNLOCK_WATCH_MS = 16L
+        /**
+         * Glance entry: slide the full AOD surface down from above. We always paint after
+         * system AOD — this ease makes that lag feel intentional instead of an abrupt cover.
+         */
+        private const val GLANCE_ENTER_MS = 480L
         /** View / Compose slide-off duration when unlocking (swipe commit or biometric). */
         private const val BIOMETRIC_EXIT_MS = 420L
         /** Force-remove if the biometric exit animator never ends. */
