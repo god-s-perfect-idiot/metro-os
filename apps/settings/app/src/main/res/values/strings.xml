@@ -87,7 +87,13 @@
     <string name="settings_gallery_apps">Gallery apps</string>
     <string name="settings_gallery_apps_subtitle">photos live tiles</string>
     <string name="settings_gallery_apps_title">gallery apps</string>
-    <string name="settings_gallery_apps_intro">Apps on this list use the Photos-style live tile on Start when they publish photo content.</string>
+    <string name="settings_gallery_apps_intro">Apps on this list use the Photos-style live tile on Start. Only photos from the albums you select below appear on that tile.</string>
+    <string name="settings_gallery_albums_section">Albums</string>
+    <string name="settings_gallery_albums_tap_select">tap to select albums</string>
+    <string name="settings_gallery_albums_empty">No albums selected.</string>
+    <string name="settings_gallery_albums_need_permission">Allow photos access to choose albums for the live tile.</string>
+    <string name="settings_gallery_albums_allow">allow</string>
+    <string name="settings_gallery_albums_select_title">Albums</string>
     <string name="settings_music_apps">Music apps</string>
     <string name="settings_music_apps_subtitle">now playing live tiles</string>
     <string name="settings_music_apps_title">music apps</string>

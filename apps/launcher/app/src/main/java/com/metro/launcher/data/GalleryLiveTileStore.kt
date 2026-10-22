@@ -13,7 +13,8 @@ import com.metro.system.MetroTilePhotoGrid
 
 /**
  * Builds Photos-style (cycle) live-tile payloads from device MediaStore for apps on the
- * Settings → connected apps → Gallery apps list.
+ * Settings → connected apps → Gallery apps list. Photos are limited to albums selected
+ * under Gallery apps → Albums (`connected_gallery_albums`).
  */
 object GalleryLiveTileStore {
     private const val CACHE_TTL_MS = 30_000L
@@ -24,6 +25,7 @@ object GalleryLiveTileStore {
 
     private data class CachedGrid(
         val grid: MetroTilePhotoGrid,
+        val albumKey: String,
         val builtAtMs: Long,
     )
 
@@ -36,22 +38,26 @@ object GalleryLiveTileStore {
 
     /**
      * Cycle photo grid for a connected gallery app, or null when media permission is missing
-     * and no usable cells can be built.
+     * and no usable cells can be built. Empty album selection yields accent-only cells.
      */
     fun photoGrid(context: Context): MetroTilePhotoGrid? {
         val now = System.currentTimeMillis()
+        val albumIds = MetroPreferences(context).galleryAlbumBucketIds
+        val albumKey = albumIds.sorted().joinToString(",")
         cached?.let { hit ->
-            if (now - hit.builtAtMs < CACHE_TTL_MS) return hit.grid
+            if (hit.albumKey == albumKey && now - hit.builtAtMs < CACHE_TTL_MS) return hit.grid
         }
         val accentHex = MetroPreferences(context).accentColorHex
-        val grid = if (hasMediaPermission(context)) {
-            val uris = queryRecentImageUris(context, MAX_CELLS)
-            GalleryLiveTileLogic.gridFromUris(uris, accentHex)
-        } else {
+        val grid = if (!hasMediaPermission(context)) {
             null
+        } else if (albumIds.isEmpty()) {
+            GalleryLiveTileLogic.gridFromUris(emptyList(), accentHex)
+        } else {
+            val uris = queryRecentImageUris(context, MAX_CELLS, albumIds)
+            GalleryLiveTileLogic.gridFromUris(uris, accentHex)
         }
         if (grid != null) {
-            cached = CachedGrid(grid, now)
+            cached = CachedGrid(grid, albumKey, now)
         }
         return grid
     }
@@ -73,18 +79,32 @@ object GalleryLiveTileStore {
             android.Manifest.permission.READ_EXTERNAL_STORAGE
         }
 
-    private fun queryRecentImageUris(context: Context, limit: Int): List<String> {
+    private fun queryRecentImageUris(
+        context: Context,
+        limit: Int,
+        albumBucketIds: Set<String>,
+    ): List<String> {
+        if (albumBucketIds.isEmpty()) return emptyList()
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
         } else {
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         }
         val projection = arrayOf(MediaStore.Images.Media._ID)
+        val placeholders = albumBucketIds.joinToString(",") { "?" }
+        val selection = "${MediaStore.Images.Media.BUCKET_ID} IN ($placeholders)"
+        val selectionArgs = albumBucketIds.toTypedArray()
         val sortOrder =
             "${MediaStore.Images.Media.DATE_TAKEN} DESC, ${MediaStore.Images.Media.DATE_ADDED} DESC"
         val results = mutableListOf<String>()
         runCatching {
-            context.contentResolver.query(collection, projection, null, null, sortOrder)?.use { cursor ->
+            context.contentResolver.query(
+                collection,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder,
+            )?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                 while (cursor.moveToNext() && results.size < limit) {
                     val id = cursor.getLong(idCol)

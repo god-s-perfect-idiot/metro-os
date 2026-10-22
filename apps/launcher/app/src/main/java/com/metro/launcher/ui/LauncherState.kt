@@ -245,6 +245,7 @@ class LauncherState(context: Context) {
                 refreshTilesLiveAsync(pinnedEntries)
             }
             MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
+            MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS,
             MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
             -> {
                 GalleryLiveTileStore.clearCache()
@@ -306,6 +307,9 @@ class LauncherState(context: Context) {
             applyShowMoreColumns(metroPrefs.showMoreColumns)
             applyIconPackPackage(metroPrefs.iconPackPackage)
             clearAppListIconCache()
+            // Album / connected-app edits from Settings arrive via the provider, not the
+            // local SharedPreferences listener — drop the MediaStore cycle cache here.
+            GalleryLiveTileStore.clearCache()
             schedulePrefsDrivenRefresh()
         }
     }

@@ -37,6 +37,7 @@ enum class SettingsRoute {
     MusicApps,
     ConversationApps,
     GalleryAppPicker,
+    GalleryAlbumPicker,
     MusicAppPicker,
     ConversationAppPicker,
 }
@@ -134,6 +135,9 @@ class SettingsState(
     var galleryAppPackages by mutableStateOf(prefs.galleryAppPackages)
         private set
 
+    var galleryAlbumBucketIds by mutableStateOf(prefs.galleryAlbumBucketIds)
+        private set
+
     var musicAppPackages by mutableStateOf(prefs.musicAppPackages)
         private set
 
@@ -180,7 +184,9 @@ class SettingsState(
             SettingsRoute.MusicApps,
             SettingsRoute.ConversationApps,
             -> route = SettingsRoute.ConnectedApps
-            SettingsRoute.GalleryAppPicker -> route = SettingsRoute.GalleryApps
+            SettingsRoute.GalleryAppPicker,
+            SettingsRoute.GalleryAlbumPicker,
+            -> route = SettingsRoute.GalleryApps
             SettingsRoute.MusicAppPicker -> route = SettingsRoute.MusicApps
             SettingsRoute.ConversationAppPicker -> route = SettingsRoute.ConversationApps
             SettingsRoute.EaseOfAccess,
@@ -350,6 +356,11 @@ class SettingsState(
         prefs.galleryAppPackages = packages
     }
 
+    fun applyGalleryAlbumBucketIds(bucketIds: Set<String>) {
+        galleryAlbumBucketIds = bucketIds
+        prefs.galleryAlbumBucketIds = bucketIds
+    }
+
     fun applyMusicAppPackages(packages: Set<String>) {
         musicAppPackages = packages
         prefs.musicAppPackages = packages
@@ -369,6 +380,7 @@ class SettingsState(
         startBackgroundEnabled = prefs.startBackgroundEnabled
         iconPackPackage = prefs.iconPackPackage
         galleryAppPackages = prefs.galleryAppPackages
+        galleryAlbumBucketIds = prefs.galleryAlbumBucketIds
         musicAppPackages = prefs.musicAppPackages
         conversationAppPackages = prefs.conversationAppPackages
         applicationEntries = applications.listInstalledApps()

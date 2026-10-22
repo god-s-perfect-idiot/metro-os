@@ -152,6 +152,20 @@ class MetroPreferences(context: Context) {
         )
 
     /**
+     * MediaStore bucket IDs whose photos may appear on gallery live tiles.
+     * Empty when unset or cleared — only albums chosen in Settings → connected apps →
+     * Gallery apps → Albums are shown on the tile.
+     */
+    var galleryAlbumBucketIds: Set<String>
+        get() = MetroConnectedApps.decode(
+            readStringNullable(MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS),
+        )
+        set(value) = writeString(
+            MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS,
+            MetroConnectedApps.encode(value),
+        )
+
+    /**
      * Packages using Xbox Music–style now-playing live tiles. Null preference → suite defaults;
      * empty set when the user cleared the list in Settings → connected apps.
      */
@@ -388,6 +402,7 @@ class MetroPreferences(context: Context) {
 
     private fun isConnectedAppsKey(key: String): Boolean =
         key == MetroPreferenceKeys.CONNECTED_GALLERY_APPS ||
+            key == MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS ||
             key == MetroPreferenceKeys.CONNECTED_MUSIC_APPS ||
             key == MetroPreferenceKeys.CONNECTED_CONVERSATION_APPS
 

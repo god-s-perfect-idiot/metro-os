@@ -90,6 +90,10 @@ private fun SettingsSubpageContent(
             kind = ConnectedAppKind.Gallery,
             modifier = modifier,
         )
+        SettingsRoute.GalleryAlbumPicker -> GalleryAlbumPickerScreen(
+            state = state,
+            modifier = modifier,
+        )
         SettingsRoute.MusicAppPicker -> ConnectedAppPickerScreen(
             state = state,
             kind = ConnectedAppKind.Music,
@@ -113,7 +117,9 @@ private fun SettingsRoute.parentRoute(): SettingsRoute = when (this) {
     SettingsRoute.MusicApps,
     SettingsRoute.ConversationApps,
     -> SettingsRoute.ConnectedApps
-    SettingsRoute.GalleryAppPicker -> SettingsRoute.GalleryApps
+    SettingsRoute.GalleryAppPicker,
+    SettingsRoute.GalleryAlbumPicker,
+    -> SettingsRoute.GalleryApps
     SettingsRoute.MusicAppPicker -> SettingsRoute.MusicApps
     SettingsRoute.ConversationAppPicker -> SettingsRoute.ConversationApps
     else -> SettingsRoute.Root
@@ -125,6 +131,7 @@ private fun subpageLoadKey(route: SettingsRoute, state: SettingsState): Any = wh
     SettingsRoute.MusicApps -> "MusicApps"
     SettingsRoute.ConversationApps -> "ConversationApps"
     SettingsRoute.GalleryAppPicker -> "GalleryAppPicker"
+    SettingsRoute.GalleryAlbumPicker -> "GalleryAlbumPicker"
     SettingsRoute.MusicAppPicker -> "MusicAppPicker"
     SettingsRoute.ConversationAppPicker -> "ConversationAppPicker"
     else -> route

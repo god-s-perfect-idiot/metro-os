@@ -25,6 +25,7 @@ Cross-app system contracts: shared preferences, intents, broadcasts, content pro
 | `start_background_enabled` | `Boolean` | `false` | Start background photo active; image at `/start_background` |
 | `icon_pack_package` | `String?` | null | Active Android icon-pack package for Start / app-list glyphs; null = system icons ([MetroIconPacks]) |
 | `connected_gallery_apps` | `String` (CSV packages) | suite defaults when unset | Photos-style live-tile packages |
+| `connected_gallery_albums` | `String` (CSV MediaStore bucket IDs) | empty (none) | Albums whose photos appear on gallery live tiles |
 | `connected_music_apps` | `String` (CSV packages) | suite defaults when unset | Xbox Music now-playing live-tile packages |
 | `connected_conversation_apps` | `String` (CSV packages) | suite defaults when unset | Packages Conversations may show from the shade |
 

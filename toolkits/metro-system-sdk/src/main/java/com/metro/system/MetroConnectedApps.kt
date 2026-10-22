@@ -92,4 +92,5 @@ object MetroConnectedApps {
     /** Null [raw] → defaults; blank → empty (user cleared). */
     fun conversationPackagesOrDefault(raw: String?): Set<String> =
         if (raw == null) DEFAULT_CONVERSATION_PACKAGES else decode(raw)
+
 }

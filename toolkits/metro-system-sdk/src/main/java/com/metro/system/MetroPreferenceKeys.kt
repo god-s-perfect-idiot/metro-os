@@ -25,6 +25,14 @@ object MetroPreferenceKeys {
     const val CONNECTED_GALLERY_APPS = "connected_gallery_apps"
 
     /**
+     * Comma-separated MediaStore [android.provider.MediaStore.Images.ImageColumns.BUCKET_ID]
+     * values whose photos may appear on gallery live tiles.
+     * Null or blank → none; otherwise only the listed buckets
+     * (Settings → connected apps → Gallery apps → Albums).
+     */
+    const val CONNECTED_GALLERY_ALBUMS = "connected_gallery_albums"
+
+    /**
      * Comma-separated packages whose pinned Start tiles use Xbox Music–style now-playing faces.
      * Null (never written) → [MetroConnectedApps.DEFAULT_MUSIC_PACKAGES]; blank → none.
      */

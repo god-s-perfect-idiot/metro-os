@@ -124,20 +124,25 @@ class MetroPreferencesTest {
         assertEquals(MetroConnectedApps.DEFAULT_GALLERY_PACKAGES, prefs.galleryAppPackages)
         assertEquals(MetroConnectedApps.DEFAULT_MUSIC_PACKAGES, prefs.musicAppPackages)
         assertEquals(MetroConnectedApps.DEFAULT_CONVERSATION_PACKAGES, prefs.conversationAppPackages)
+        assertTrue(prefs.galleryAlbumBucketIds.isEmpty())
 
         prefs.galleryAppPackages = setOf("com.metro.photos")
         prefs.musicAppPackages = setOf("com.metro.music", "com.spotify.music")
         prefs.conversationAppPackages = setOf("com.whatsapp", "com.google.android.gm")
+        prefs.galleryAlbumBucketIds = setOf("1001", "1002")
         assertEquals(setOf("com.metro.photos"), prefs.galleryAppPackages)
         assertEquals(setOf("com.metro.music", "com.spotify.music"), prefs.musicAppPackages)
         assertEquals(setOf("com.whatsapp", "com.google.android.gm"), prefs.conversationAppPackages)
+        assertEquals(setOf("1001", "1002"), prefs.galleryAlbumBucketIds)
 
         prefs.galleryAppPackages = emptySet()
         prefs.musicAppPackages = emptySet()
         prefs.conversationAppPackages = emptySet()
+        prefs.galleryAlbumBucketIds = emptySet()
         assertTrue(prefs.galleryAppPackages.isEmpty())
         assertTrue(prefs.musicAppPackages.isEmpty())
         assertTrue(prefs.conversationAppPackages.isEmpty())
+        assertTrue(prefs.galleryAlbumBucketIds.isEmpty())
     }
 
     @Test
