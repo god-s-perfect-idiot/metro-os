@@ -25,9 +25,9 @@ class MusicPlaybackService : MediaSessionService() {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        // Default matches IOS player mints; per-URL UA from [YtStreamPlayback] overrides via
+        // Default is WEB_REMIX; per-URL headers from [YtStreamPlayback] override via
         // [RequestHeaderDataSource] so googlevideo Ranges past ~1 MiB are not 403'd.
-        val defaultUa = YtMusicClient.IOS_UA
+        val defaultUa = YtMusicClient.WEB_REMIX_UA
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(defaultUa)
             .setAllowCrossProtocolRedirects(true)

@@ -9,26 +9,108 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * Wikipedia + Wikidata lookup for the artist **about** pivot.
- * Wikipedia/Wikimedia require a descriptive User-Agent.
+ * Artist **about** pivot lookup.
+ *
+ * Order: YouTube Music artist page → Wikidata music entity (+ enwiki when present) →
+ * filtered Wikipedia search. Exact Wikipedia title matches that are not musicians/bands
+ * (e.g. "Aklo" the fictional language) are rejected.
  */
 class ArtistAboutClient(
     private val http: OkHttpClient = OkHttpClient(),
+    private val ytClient: YtMusicClient? = null,
 ) {
+    /**
+     * Lightweight hero image for the hub artist backdrop.
+     * Prefer YouTube Music channel art, then a music-filtered Wikipedia / Commons image.
+     */
+    fun fetchHeroImageUrl(artistName: String): String? {
+        val name = artistName.trim()
+        if (name.isEmpty()) return null
+        ytClient?.artistAbout(name)?.imageUrl?.let { return it }
+        val wiki = fetchWikipediaMusic(name) ?: return null
+        return ArtistAboutLogic.heroImageUrl(wiki)
+    }
+
     fun fetch(artistName: String): ArtistAbout {
         val name = artistName.trim()
         if (name.isEmpty()) {
             return ArtistAbout(name = artistName, error = "Missing artist name")
         }
 
-        val resolvedTitle = resolveWikiTitle(name) ?: name
-        val summaryJson = getJson(summaryUrl(resolvedTitle))
-        val summary = summaryJson?.let { ArtistAboutParsers.parseWikipediaSummary(it, name) }
+        val yt = runCatching { ytClient?.artistAbout(name) }.getOrNull()
+        val wiki = fetchWikipediaMusic(name)
 
-        val extractJson = getJson(extractUrl(resolvedTitle))
-        val full = extractJson?.let { ArtistAboutParsers.parseMediaWikiExtract(it, name) }
+        val merged = ArtistAboutLogic.mergeSources(
+            artistName = name,
+            youtube = yt?.let {
+                ArtistAbout(
+                    name = it.name.ifBlank { name },
+                    description = null,
+                    summary = it.description,
+                    paragraphs = it.description?.let { text -> listOf(text) }.orEmpty(),
+                    imageUrl = it.imageUrl,
+                    imageUrls = listOfNotNull(it.imageUrl),
+                    sourceUrl = null,
+                )
+            },
+            wikipedia = wiki,
+        )
+        if (merged != null) return merged
 
-        var about = when {
+        return ArtistAbout(
+            name = name,
+            error = "No artist information found",
+            imageUrl = yt?.imageUrl,
+            imageUrls = listOfNotNull(yt?.imageUrl),
+        )
+    }
+
+    /**
+     * Resolve a music-related Wikipedia / Wikidata page for [name].
+     * Never returns a non-music same-name article.
+     */
+    private fun fetchWikipediaMusic(name: String): ArtistAbout? {
+        val entity = resolveMusicEntity(name)
+        if (entity != null) {
+            val fromWiki = entity.enwikiTitle?.let { loadWikipediaPage(it, name) }
+            if (fromWiki != null && fromWiki.error == null) {
+                return enrichWithWikidata(fromWiki, entity.id)
+            }
+            // Music entity without an English Wikipedia article — use Wikidata description.
+            if (!entity.description.isNullOrBlank() || entity.hasMusicFacts) {
+                val stub = ArtistAbout(
+                    name = entity.label ?: name,
+                    description = entity.description,
+                    // Keep short Wikidata copy in description only (UI shows it once).
+                    summary = null,
+                    paragraphs = emptyList(),
+                    sourceUrl = "https://www.wikidata.org/wiki/${entity.id}",
+                )
+                return enrichWithWikidata(stub, entity.id)
+            }
+        }
+
+        // Last resort: Wikipedia search biased toward musicians, then validate.
+        for (title in musicBiasedSearchTitles(name)) {
+            val page = loadWikipediaPage(title, name) ?: continue
+            if (page.error != null) continue
+            val wikiItem = pageWikiItemId(title)
+            if (wikiItem != null && !isMusicEntityId(wikiItem)) continue
+            if (wikiItem == null && !ArtistAboutMusicFilter.looksLikeMusicDescription(page.description)) {
+                continue
+            }
+            return if (wikiItem != null) enrichWithWikidata(page, wikiItem) else page
+        }
+        return null
+    }
+
+    private fun loadWikipediaPage(title: String, fallbackName: String): ArtistAbout? {
+        val summaryJson = getJson(summaryUrl(title))
+        val summary = summaryJson?.let { ArtistAboutParsers.parseWikipediaSummary(it, fallbackName) }
+        val extractJson = getJson(extractUrl(title))
+        val full = extractJson?.let { ArtistAboutParsers.parseMediaWikiExtract(it, fallbackName) }
+
+        return when {
             full != null && full.error == null -> full.copy(
                 description = full.description ?: summary?.description,
                 imageUrl = full.imageUrl ?: summary?.imageUrl,
@@ -37,48 +119,106 @@ class ArtistAboutClient(
                 summary = summary?.summary ?: full.summary,
             )
             summary != null && summary.error == null -> summary
-            full != null -> full
-            summary != null -> summary
-            else -> ArtistAbout(name = name, error = "Couldn't reach Wikipedia")
+            else -> null
         }
-        if (about.error != null && about.summary == null && about.paragraphs.isEmpty()) {
-            return about
-        }
+    }
 
-        val wikiTitle = summaryJson?.optString("title")?.ifBlank { null }
-            ?: resolvedTitle
-        val entitiesJson = getJson(wikidataEntitiesUrl(wikiTitle))
-        if (entitiesJson != null) {
-            val claimIds = ArtistAboutParsers.claimEntityIds(entitiesJson)
-            val labels = if (claimIds.isEmpty()) {
-                emptyMap()
-            } else {
-                ArtistAboutParsers.parseLabels(getJson(wikidataLabelsUrl(claimIds)))
-            }
-            about = ArtistAboutParsers.mergeWikidata(about, entitiesJson, labels)
-            val imageFromClaims = ArtistAboutParsers.commonsImageUrls(entitiesJson, labels)
-            if (imageFromClaims.isNotEmpty()) {
-                about = about.copy(
-                    imageUrl = about.imageUrl ?: imageFromClaims.first(),
-                    imageUrls = (about.imageUrls + imageFromClaims).distinct(),
-                )
-            }
+    private fun enrichWithWikidata(base: ArtistAbout, entityId: String): ArtistAbout {
+        val entitiesJson = getJson(wikidataEntitiesByIdUrl(listOf(entityId))) ?: return base
+        val claimIds = ArtistAboutParsers.claimEntityIds(entitiesJson)
+        val labels = if (claimIds.isEmpty()) {
+            emptyMap()
+        } else {
+            ArtistAboutParsers.parseLabels(getJson(wikidataLabelsUrl(claimIds)))
+        }
+        var about = ArtistAboutParsers.mergeWikidata(base, entitiesJson, labels)
+        val imageFromClaims = ArtistAboutParsers.commonsImageUrls(entitiesJson, labels)
+        if (imageFromClaims.isNotEmpty()) {
+            about = about.copy(
+                imageUrl = about.imageUrl ?: imageFromClaims.first(),
+                imageUrls = (about.imageUrls + imageFromClaims).distinct(),
+            )
         }
         return about
     }
 
-    /** Prefer an exact page; fall back to Wikipedia search. */
-    private fun resolveWikiTitle(name: String): String? {
-        val encoded = encodeTitle(name)
-        val summary = getJson(summaryUrl(encoded))
-        if (summary != null && !summary.optString("type").contains("not_found", ignoreCase = true)) {
-            val type = summary.optString("type")
-            if (type != "disambiguation") {
-                return summary.optString("title").ifBlank { name }
+    private fun resolveMusicEntity(name: String): MusicEntityHit? {
+        val search = getJson(wikidataSearchUrl(name)) ?: return null
+        val candidates = ArtistAboutParsers.parseWikidataSearch(search)
+            .take(8)
+        if (candidates.isEmpty()) return null
+
+        val ids = candidates.map { it.id }
+        val entitiesJson = getJson(wikidataEntitiesByIdUrl(ids)) ?: return null
+        val entities = entitiesJson.optJSONObject("entities") ?: return null
+
+        var best: MusicEntityHit? = null
+        var bestScore = 0
+        for (candidate in candidates) {
+            val entity = entities.optJSONObject(candidate.id) ?: continue
+            val score = ArtistAboutMusicFilter.scoreEntity(name, candidate, entity)
+            if (score > bestScore) {
+                bestScore = score
+                best = MusicEntityHit(
+                    id = candidate.id,
+                    label = candidate.label,
+                    description = candidate.description
+                        ?: entity.optJSONObject("descriptions")
+                            ?.optJSONObject("en")
+                            ?.optString("value")
+                            ?.ifBlank { null },
+                    enwikiTitle = entity.optJSONObject("sitelinks")
+                        ?.optJSONObject("enwiki")
+                        ?.optString("title")
+                        ?.ifBlank { null },
+                    hasMusicFacts = ArtistAboutMusicFilter.hasMusicClaims(entity),
+                )
             }
         }
-        val search = getJson(searchUrl(name)) ?: return null
-        return ArtistAboutParsers.firstSearchTitle(search)
+        return best.takeIf { bestScore >= ArtistAboutMusicFilter.MIN_ACCEPT_SCORE }
+    }
+
+    private fun musicBiasedSearchTitles(name: String): List<String> {
+        val queries = listOf(
+            "\"$name\" (musician OR singer OR rapper OR band OR \"musical artist\" OR DJ)",
+            "$name musician",
+            "$name (singer)",
+            "$name (rapper)",
+            "$name (band)",
+        )
+        val titles = linkedSetOf<String>()
+        for (query in queries) {
+            val search = getJson(searchUrl(query)) ?: continue
+            ArtistAboutParsers.searchTitles(search).forEach { titles += it }
+            if (titles.size >= 8) break
+        }
+        return titles.toList()
+    }
+
+    private fun pageWikiItemId(title: String): String? {
+        val summary = getJson(summaryUrl(title)) ?: return null
+        return summary.optString("wikibase_item").ifBlank { null }
+    }
+
+    private fun isMusicEntityId(entityId: String): Boolean {
+        val entitiesJson = getJson(wikidataEntitiesByIdUrl(listOf(entityId))) ?: return false
+        val entity = entitiesJson.optJSONObject("entities")?.optJSONObject(entityId) ?: return false
+        return ArtistAboutMusicFilter.scoreEntity(
+            name = entity.optJSONObject("labels")
+                ?.optJSONObject("en")
+                ?.optString("value")
+                .orEmpty(),
+            candidate = WikidataSearchHit(
+                id = entityId,
+                label = entity.optJSONObject("labels")
+                    ?.optJSONObject("en")
+                    ?.optString("value"),
+                description = entity.optJSONObject("descriptions")
+                    ?.optJSONObject("en")
+                    ?.optString("value"),
+            ),
+            entity = entity,
+        ) >= ArtistAboutMusicFilter.MIN_ACCEPT_SCORE
     }
 
     private fun getJson(url: String): JSONObject? {
@@ -107,15 +247,22 @@ class ArtistAboutClient(
             "&exsectionformat=wiki&piprop=original|thumbnail&pithumbsize=1200"
     }
 
-    private fun searchUrl(name: String): String {
-        val encoded = URLEncoder.encode(name, StandardCharsets.UTF_8.name())
-        return "$WIKI_API?action=query&format=json&list=search&srlimit=5&srsearch=$encoded"
+    private fun searchUrl(query: String): String {
+        val encoded = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
+        return "$WIKI_API?action=query&format=json&list=search&srlimit=8&srsearch=$encoded"
     }
 
-    private fun wikidataEntitiesUrl(wikiTitle: String): String {
-        val encoded = URLEncoder.encode(wikiTitle, StandardCharsets.UTF_8.name())
-        return "$WIKIDATA_API?action=wbgetentities&sites=enwiki&titles=$encoded" +
-            "&props=claims&languages=en&format=json"
+    private fun wikidataSearchUrl(name: String): String {
+        val encoded = URLEncoder.encode(name, StandardCharsets.UTF_8.name())
+        return "$WIKIDATA_API?action=wbsearchentities&search=$encoded&language=en&uselang=en" +
+            "&type=item&limit=8&format=json"
+    }
+
+    private fun wikidataEntitiesByIdUrl(ids: List<String>): String {
+        val joined = ids.distinct().take(12).joinToString("|")
+        val encoded = URLEncoder.encode(joined, StandardCharsets.UTF_8.name())
+        return "$WIKIDATA_API?action=wbgetentities&ids=$encoded" +
+            "&props=claims|descriptions|labels|sitelinks&languages=en&format=json"
     }
 
     private fun wikidataLabelsUrl(ids: List<String>): String {
@@ -133,6 +280,160 @@ class ArtistAboutClient(
         private const val WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/"
         private const val WIKI_API = "https://en.wikipedia.org/w/api.php"
         private const val WIKIDATA_API = "https://www.wikidata.org/w/api.php"
+    }
+}
+
+data class WikidataSearchHit(
+    val id: String,
+    val label: String?,
+    val description: String?,
+)
+
+private data class MusicEntityHit(
+    val id: String,
+    val label: String?,
+    val description: String?,
+    val enwikiTitle: String?,
+    val hasMusicFacts: Boolean,
+)
+
+/**
+ * Scores Wikidata entities so "Aklo" the fictional language loses to "AKLO" the MC/singer.
+ */
+object ArtistAboutMusicFilter {
+    const val MIN_ACCEPT_SCORE = 40
+
+    /** Musical group / ensemble instance-of values. */
+    private val MUSIC_GROUP_TYPES = setOf(
+        "Q215380", // musical group / band
+        "Q2088357", // musical ensemble
+        "Q5741069", // rock band
+        "Q105756581", // musical duo
+        "Q9212979", // musical trio
+        "Q4063284", // boy band
+        "Q253137", // girl group
+        "Q1135557", // jazz band
+        "Q207338", // orchestra
+    )
+
+    /** Musician occupations (P106). */
+    private val PERFORMER_OCCUPATIONS = setOf(
+        "Q177220", // singer
+        "Q36834", // composer
+        "Q639669", // musician
+        "Q183945", // record producer
+        "Q488205", // rapper
+        "Q753110", // songwriter
+        "Q855091", // conductor
+        "Q130857", // disc jockey
+        "Q497240", // master of ceremonies / MC
+        "Q2252262", // rapper (alt)
+        "Q2643890", // music arranger
+        "Q2865819", // musical artist
+        "Q15981151", // jazz musician
+        "Q18629921", // multi-instrumentalist
+        "Q13424387", // beatmaker
+        "Q16145150", // singer-guitarist
+        "Q55960555", // hip hop musician
+        "Q10833314", // trumpeter / instrumentalist roles
+    )
+
+    private val MUSIC_DESC_HINTS = listOf(
+        "singer", "songwriter", "rapper", "musician", "band", "dj", "vocalist",
+        "composer", "mc", "hip hop", "hip-hop", "musical artist", "record producer",
+        "guitarist", "pianist", "drummer", "bassist", "orchestra", "ensemble",
+        "master of ceremonies", "music producer", "recording artist",
+    )
+
+    private val NON_MUSIC_DESC_HINTS = listOf(
+        "language", "village", "mountain", "chemical", "fictional", "disambiguation",
+        "township", "settlement", "asteroid", "genus", "species", "river", "album series",
+    )
+
+    fun looksLikeMusicDescription(description: String?): Boolean {
+        val d = description?.lowercase().orEmpty()
+        if (d.isEmpty()) return false
+        if (NON_MUSIC_DESC_HINTS.any { it in d } && MUSIC_DESC_HINTS.none { it in d }) {
+            return false
+        }
+        return MUSIC_DESC_HINTS.any { it in d }
+    }
+
+    fun hasMusicClaims(entity: JSONObject): Boolean {
+        val claims = entity.optJSONObject("claims") ?: return false
+        val instanceOf = entityIds(claims, "P31")
+        if (instanceOf.any { it in MUSIC_GROUP_TYPES }) return true
+        val occupations = entityIds(claims, "P106")
+        if (occupations.any { it in PERFORMER_OCCUPATIONS }) return true
+        // Genre claim is a weak music signal for humans/groups.
+        if (claims.has("P136") && (instanceOf.contains("Q5") || instanceOf.any { it in MUSIC_GROUP_TYPES })) {
+            return true
+        }
+        return false
+    }
+
+    fun scoreEntity(
+        name: String,
+        candidate: WikidataSearchHit,
+        entity: JSONObject,
+    ): Int {
+        val claims = entity.optJSONObject("claims")
+        val instanceOf = claims?.let { entityIds(it, "P31") }.orEmpty()
+        val occupations = claims?.let { entityIds(it, "P106") }.orEmpty()
+        val description = candidate.description
+            ?: entity.optJSONObject("descriptions")
+                ?.optJSONObject("en")
+                ?.optString("value")
+                ?.ifBlank { null }
+        val label = candidate.label
+            ?: entity.optJSONObject("labels")
+                ?.optJSONObject("en")
+                ?.optString("value")
+
+        var score = 0
+        if (label != null && label.equals(name, ignoreCase = true)) score += 25
+        else if (label != null &&
+            (label.contains(name, ignoreCase = true) || name.contains(label, ignoreCase = true))
+        ) {
+            score += 10
+        }
+
+        if (instanceOf.any { it in MUSIC_GROUP_TYPES }) score += 50
+        if (occupations.any { it in PERFORMER_OCCUPATIONS }) score += 50
+        if (instanceOf.contains("Q5") && occupations.any { it in PERFORMER_OCCUPATIONS }) score += 10
+        if (claims?.has("P136") == true) score += 15
+        if (looksLikeMusicDescription(description)) score += 30
+
+        // Hard penalties for clear non-music pages that share a short name.
+        if (description != null && NON_MUSIC_DESC_HINTS.any { it in description.lowercase() } &&
+            !looksLikeMusicDescription(description)
+        ) {
+            score -= 60
+        }
+        // Fictional language / non-human without music occupation.
+        if (instanceOf.isNotEmpty() &&
+            !instanceOf.contains("Q5") &&
+            instanceOf.none { it in MUSIC_GROUP_TYPES } &&
+            occupations.none { it in PERFORMER_OCCUPATIONS }
+        ) {
+            score -= 40
+        }
+        return score
+    }
+
+    private fun entityIds(claims: JSONObject, property: String): List<String> {
+        val arr = claims.optJSONArray(property) ?: return emptyList()
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val id = arr.optJSONObject(i)
+                    ?.optJSONObject("mainsnak")
+                    ?.optJSONObject("datavalue")
+                    ?.optJSONObject("value")
+                    ?.optString("id")
+                    ?.ifBlank { null }
+                if (id != null) add(id)
+            }
+        }
     }
 }
 
@@ -214,21 +515,42 @@ object ArtistAboutParsers {
         )
     }
 
-    fun firstSearchTitle(root: JSONObject): String? {
-        val results = root.optJSONObject("query")?.optJSONArray("search") ?: return null
-        for (i in 0 until results.length()) {
-            val title = results.optJSONObject(i)?.optString("title")?.ifBlank { null } ?: continue
-            return title
+    fun firstSearchTitle(root: JSONObject): String? = searchTitles(root).firstOrNull()
+
+    fun searchTitles(root: JSONObject): List<String> {
+        val results = root.optJSONObject("query")?.optJSONArray("search") ?: return emptyList()
+        return buildList {
+            for (i in 0 until results.length()) {
+                val title = results.optJSONObject(i)?.optString("title")?.ifBlank { null } ?: continue
+                add(title)
+            }
         }
-        return null
+    }
+
+    fun parseWikidataSearch(root: JSONObject): List<WikidataSearchHit> {
+        val arr = root.optJSONArray("search") ?: return emptyList()
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val item = arr.optJSONObject(i) ?: continue
+                val id = item.optString("id").ifBlank { null } ?: continue
+                add(
+                    WikidataSearchHit(
+                        id = id,
+                        label = item.optString("label").ifBlank { null },
+                        description = item.optString("description").ifBlank { null },
+                    ),
+                )
+            }
+        }
     }
 
     fun claimEntityIds(root: JSONObject): List<String> {
         val claims = firstEntityClaims(root) ?: return emptyList()
         return buildList {
-            addAll(entityIds(claims, "P495"))
-            addAll(entityIds(claims, "P136"))
-            addAll(entityIds(claims, "P527"))
+            addAll(entityIds(claims, "P495")) // country of origin
+            addAll(entityIds(claims, "P27")) // country of citizenship
+            addAll(entityIds(claims, "P136")) // genre
+            addAll(entityIds(claims, "P527")) // has part / members
             // P18 is commons file name (string), not an entity id
         }
     }
@@ -260,6 +582,9 @@ object ArtistAboutParsers {
         val origin = entityIds(claims, "P495")
             .mapNotNull { labels[it] }
             .firstOrNull()
+            ?: entityIds(claims, "P27")
+                .mapNotNull { labels[it] }
+                .firstOrNull()
             ?: base.origin
         val genres = entityIds(claims, "P136")
             .mapNotNull { labels[it] }

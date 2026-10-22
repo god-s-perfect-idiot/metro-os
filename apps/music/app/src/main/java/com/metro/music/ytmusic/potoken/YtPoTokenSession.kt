@@ -7,15 +7,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import java.net.URLEncoder
-
 /**
  * Session cache for YouTube PO tokens.
  *
- * Mint order matters (NewPipe): create the WebView once, mint the **streaming** pot bound to
- * [visitorData] first, then mint **player** pots bound to each videoId. GVS URLs need the
- * streaming pot as `pot=`; player requests may include the video-bound pot in
- * `serviceIntegrityDimensions.poToken`.
+ * Mint order (zemer / Metrolist CDN-verified): create the WebView once, mint the **session** pot
+ * bound to [visitorData] first (sent in `/player` `serviceIntegrityDimensions`), then mint
+ * **video-id** pots for googlevideo URL `pot=`. A visitor-bound pot on the URL still 403s past
+ * ~1 MiB — only the video-bound token unlocks mid-file Ranges.
  */
 class YtPoTokenSession(
     private val appContext: Context,
@@ -85,9 +83,4 @@ class YtPoTokenSession(
 }
 
 /** Append `pot=` / `potc=1` to a googlevideo URL if missing. */
-fun appendStreamPoToken(url: String, pot: String): String {
-    if (pot.isBlank()) return url
-    if (url.contains("pot=") || url.contains("potc=")) return url
-    val sep = if (url.contains('?')) '&' else '?'
-    return "$url${sep}pot=${URLEncoder.encode(pot, Charsets.UTF_8.name())}&potc=1"
-}
+// appendStreamPoToken lives in YtZemerPoToken.kt (Metrolist: pot= only, no potc).

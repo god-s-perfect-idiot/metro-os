@@ -1,0 +1,7 @@
+# Composite-build outputs (host music app owns the real build/)
+.gradle/
+build/
+**/build/
+local.properties
+*.iml
+.idea/

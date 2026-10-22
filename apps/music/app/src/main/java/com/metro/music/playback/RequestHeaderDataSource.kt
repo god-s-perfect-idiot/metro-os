@@ -7,7 +7,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
 
 /**
- * Injects the User-Agent that minted a YouTube stream URL before each upstream open.
+ * Injects the User-Agent / Origin / Referer / Cookie that minted a YouTube stream URL.
  */
 @UnstableApi
 class RequestHeaderDataSource(
@@ -20,9 +20,12 @@ class RequestHeaderDataSource(
     }
 
     override fun open(dataSpec: DataSpec): Long {
-        val ua = YtStreamPlayback.userAgentFor(dataSpec.uri) ?: defaultUserAgent
+        val minted = YtStreamPlayback.headersFor(dataSpec.uri)
         val headers = dataSpec.httpRequestHeaders.toMutableMap()
-        headers["User-Agent"] = ua
+        headers["User-Agent"] = minted?.userAgent ?: defaultUserAgent
+        minted?.origin?.takeIf { it.isNotBlank() }?.let { headers["Origin"] = it }
+        minted?.referer?.takeIf { it.isNotBlank() }?.let { headers["Referer"] = it }
+        minted?.cookie?.takeIf { it.isNotBlank() }?.let { headers["Cookie"] = it }
         return upstream.open(dataSpec.withRequestHeaders(headers))
     }
 

@@ -63,6 +63,8 @@ fun MetroPanoramaBrandTitle(
     val density = LocalDensity.current
     val fontFamily = MetroTheme.fontFamily
     val fill = brush ?: SolidColor(color)
+    // Keep brush identity stable when the caller uses a ShaderBrush that reads animated
+    // colours in createShader — remembering by [fill] still refreshes if the instance changes.
     val style = remember(fontFamily, fill) {
         MetroPanoramaBrandStyle.copy(fontFamily = fontFamily, brush = fill)
     }

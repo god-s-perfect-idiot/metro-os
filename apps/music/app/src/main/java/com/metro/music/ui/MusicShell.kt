@@ -1,11 +1,11 @@
 package com.metro.music.ui
 
 import android.content.Intent
-import android.os.Build
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,14 +24,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.metro.music.ytmusic.ArtistAboutClient
 import com.metro.music.ytmusic.YtMusicConnectActivity
 import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroAppBar
@@ -42,7 +44,6 @@ import com.metro.ui.MetroSplashLoadingScreen
 import com.metro.ui.MetroSubpageHost
 import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTheme
-import com.metro.ui.MetroTransitions
 import com.metro.ui.metroNavBarPadding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -50,8 +51,8 @@ import kotlinx.coroutines.flow.first
 /** First dots need a short beat before they read as dancing (matches Start). */
 private const val MIN_SPLASH_DOTS_VISIBLE_MS = 700L
 
-/** Dim the full-bleed album art so white Metro chrome stays readable. */
-private val HubArtScrim = Color.Black.copy(alpha = 0.62f)
+/** Dim the clear artist photo so white Metro chrome stays readable. */
+private val HubArtScrim = Color.Black.copy(alpha = 0.55f)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -84,49 +85,60 @@ fun MusicShell(
         coldSplashActive = false
     }
 
-    // While a track is loaded the hub paints the album cover full-bleed (dimmed), as WP8.1
-    // faded the artist image behind the panorama. Reference: user capture + hub_nowplaying_compare.
+    // While a track is loaded the hub paints a clear artist photo full-bleed (dimmed), as
+    // WP8.1 Xbox Music — not the album cover (that sits in the now-playing square).
     // Draw the wash edge-to-edge (under the status bar); only chrome/content is inset.
     val pageBackground = MetroTheme.colors.background
     val showArtBackdrop = !coldSplashActive &&
         state.route == MusicRoute.Hub &&
         pageBackground.luminance() < 0.5f &&
         state.nowPlayingBackdropArt != null
-    val backdropArt = state.nowPlayingBackdropArt.takeIf { showArtBackdrop }
+    // Keep the last URL so fade-out / Coil crossfade still have a model to paint.
+    var retainedBackdropArt by remember { mutableStateOf<Any?>(null) }
+    val incomingBackdropArt = state.nowPlayingBackdropArt
+    SideEffect {
+        if (incomingBackdropArt != null) {
+            retainedBackdropArt = incomingBackdropArt
+        }
+    }
+    val backdropAlpha by animateFloatAsState(
+        targetValue = if (showArtBackdrop) 1f else 0f,
+        animationSpec = tween(durationMillis = HubArtMorphMs, easing = EaseOutCubic),
+        label = "hubBackdropAlpha",
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(pageBackground),
     ) {
-        Crossfade(
-            targetState = backdropArt,
-            animationSpec = tween(durationMillis = MetroTransitions.PageTransitionMs),
-            label = "hubBackdropArt",
-            modifier = Modifier.fillMaxSize(),
-        ) { art ->
-            if (art != null) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    AsyncImage(
-                        model = art,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    Modifier.blur(28.dp)
-                                } else {
-                                    Modifier
-                                },
-                            ),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(HubArtScrim),
-                    )
-                }
+        // Stable AsyncImage slot: Coil crossfades art→art; alpha fades presence in/out.
+        // (Compose Crossfade + a new AsyncImage per key fought Coil and looked like a snap.)
+        if (retainedBackdropArt != null && backdropAlpha > 0.001f) {
+            val backdropRequest = remember(retainedBackdropArt) {
+                ImageRequest.Builder(context)
+                    .data(retainedBackdropArt)
+                    // Wikipedia/Wikimedia require a descriptive User-Agent.
+                    .addHeader("User-Agent", ArtistAboutClient.USER_AGENT)
+                    .crossfade(HubArtMorphMs)
+                    .build()
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = backdropAlpha },
+            ) {
+                AsyncImage(
+                    model = backdropRequest,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(HubArtScrim),
+                )
             }
         }
 
@@ -171,6 +183,9 @@ fun MusicShell(
                             },
                             onOpenRecent = {
                                 state.route = MusicRoute.Recent
+                            },
+                            onOpenTopSongs = {
+                                state.route = MusicRoute.TopSongs
                             },
                             onSyncNow = {
                                 state.reloadLibrary()
@@ -259,6 +274,10 @@ fun MusicShell(
                                 state = state,
                                 onBack = { onBack() },
                             )
+                            MusicRoute.TopSongs -> TopSongsScreen(
+                                state = state,
+                                onBack = { onBack() },
+                            )
                             MusicRoute.Queue -> QueueScreen(
                                 songs = state.playbackQueue,
                                 currentSongId = state.currentSong?.id,
@@ -339,6 +358,7 @@ private fun MusicRoute.parentRoute(): MusicRoute = when (this) {
     MusicRoute.MusicDirectories,
     MusicRoute.Explore,
     MusicRoute.Recent,
+    MusicRoute.TopSongs,
     MusicRoute.Queue,
     MusicRoute.Hub,
     -> MusicRoute.Hub
@@ -354,6 +374,7 @@ private fun subpageLoadKey(route: MusicRoute, state: MusicState): Any = when (ro
     MusicRoute.MusicDirectories -> "MusicDirectories"
     MusicRoute.Explore -> "Explore"
     MusicRoute.Recent -> "Recent"
+    MusicRoute.TopSongs -> "TopSongs"
     MusicRoute.Queue -> "Queue"
     MusicRoute.Hub -> "Hub"
 }

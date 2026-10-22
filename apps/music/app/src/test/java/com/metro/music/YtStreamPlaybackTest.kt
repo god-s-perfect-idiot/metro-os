@@ -34,11 +34,11 @@ class YtStreamPlaybackTest {
     }
 
     @Test
-    fun appendStreamPoToken_addsPotAndPotc() {
+    fun appendStreamPoToken_addsPotOnly() {
         val url = "https://gv/videoplayback?id=1"
         val out = appendStreamPoToken(url, "abc+def")
         assertTrue(out.contains("pot=abc%2Bdef"))
-        assertTrue(out.contains("potc=1"))
+        assertTrue(!out.contains("potc="))
         assertEquals(out, appendStreamPoToken(out, "ignored"))
     }
 }

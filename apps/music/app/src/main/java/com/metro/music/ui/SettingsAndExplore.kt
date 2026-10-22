@@ -3,6 +3,7 @@ package com.metro.music.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,12 +29,14 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.metro.music.data.Song
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
 import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroMultiSelectDefaults
 import com.metro.ui.MetroMultiSelectItem
 import com.metro.ui.MetroMultiSelectList
+import com.metro.ui.MetroPivot
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextBox
 import com.metro.ui.MetroTextStyle
@@ -133,6 +138,85 @@ fun RecentScreen(state: MusicState, onBack: () -> Unit) {
                                 0,
                             )
                         },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TopSongsScreen(state: MusicState, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    LaunchedEffect(Unit) {
+        state.loadTopSongs()
+    }
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage == 1) {
+            state.loadBillboard100()
+        }
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MetroTheme.colors.background)
+            .padding(bottom = 24.dp),
+    ) {
+        MetroAppTitle("MUSIC")
+        MetroPivot(
+            titles = listOf("top songs", "billboard 100"),
+            pagerState = pagerState,
+            modifier = Modifier.weight(1f),
+        ) { page ->
+            when (page) {
+                0 -> ChartSongsPane(
+                    songs = state.topSongs,
+                    loading = state.topSongsLoading,
+                    error = state.topSongsError,
+                    emptyMessage = "No top songs available",
+                    onPlay = { songs, index -> state.playSongs(songs, index) },
+                )
+                else -> ChartSongsPane(
+                    songs = state.billboardSongs,
+                    loading = state.billboardLoading,
+                    error = state.billboardError,
+                    emptyMessage = "No Billboard songs available",
+                    onPlay = { songs, index -> state.playSongs(songs, index) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChartSongsPane(
+    songs: List<Song>,
+    loading: Boolean,
+    error: String?,
+    emptyMessage: String,
+    onPlay: (List<Song>, Int) -> Unit,
+) {
+    when {
+        loading && songs.isEmpty() -> {
+            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
+        }
+        songs.isEmpty() -> {
+            MetroText(
+                text = error ?: emptyMessage,
+                style = MetroTextStyle.Body,
+                color = MetroTheme.colors.secondaryText,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+        else -> {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+                    MusicStreamingSongRow(
+                        title = song.title,
+                        artist = song.artist,
+                        onClick = { onPlay(songs, index) },
                     )
                 }
             }

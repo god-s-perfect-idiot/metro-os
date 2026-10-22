@@ -12,7 +12,7 @@ import kotlin.math.sin
 
 /**
  * Derives hub colours from album art:
- * - [tintArgb] — darkened single wash for backdrops (WP8.1 faded artist image).
+ * - [tintArgb] — darkened single wash (legacy; hub backdrop now uses a clear artist photo).
  * - [brandGradientArgb] — bright left→right stops for the panoramic brand title gradient.
  */
 object AlbumTintLogic {

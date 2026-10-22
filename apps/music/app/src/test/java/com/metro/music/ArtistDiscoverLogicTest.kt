@@ -6,11 +6,14 @@ import com.metro.music.data.ArtistAboutLogic
 import com.metro.music.data.ArtistDiscoverLogic
 import com.metro.music.data.LibrarySource
 import com.metro.music.data.Song
+import com.metro.music.ytmusic.ArtistAboutMusicFilter
 import com.metro.music.ytmusic.ArtistAboutParsers
+import com.metro.music.ytmusic.WikidataSearchHit
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -151,6 +154,83 @@ class ArtistDiscoverLogicTest {
             """.trimIndent(),
         )
         assertEquals("1985", ArtistAboutParsers.timeClaim(claims, "P571"))
+    }
+
+    @Test
+    fun musicFilter_prefersMusicianOverFictionalLanguage() {
+        val language = JSONObject(
+            """
+            {
+              "claims": {
+                "P31": [{ "mainsnak": { "datavalue": { "value": { "id": "Q2623733" } } } }]
+              },
+              "descriptions": { "en": { "value": "fictional Language" } },
+              "labels": { "en": { "value": "Aklo" } }
+            }
+            """.trimIndent(),
+        )
+        val musician = JSONObject(
+            """
+            {
+              "claims": {
+                "P31": [{ "mainsnak": { "datavalue": { "value": { "id": "Q5" } } } }],
+                "P106": [
+                  { "mainsnak": { "datavalue": { "value": { "id": "Q497240" } } } },
+                  { "mainsnak": { "datavalue": { "value": { "id": "Q177220" } } } }
+                ],
+                "P136": [{ "mainsnak": { "datavalue": { "value": { "id": "Q1683348" } } } }]
+              },
+              "descriptions": { "en": { "value": "Japanese master of ceremonies and singer" } },
+              "labels": { "en": { "value": "AKLO" } }
+            }
+            """.trimIndent(),
+        )
+        val languageScore = ArtistAboutMusicFilter.scoreEntity(
+            "Aklo",
+            WikidataSearchHit("Q3607374", "Aklo", "fictional Language"),
+            language,
+        )
+        val musicianScore = ArtistAboutMusicFilter.scoreEntity(
+            "Aklo",
+            WikidataSearchHit("Q11189163", "AKLO", "Japanese master of ceremonies and singer"),
+            musician,
+        )
+        assertTrue(musicianScore >= ArtistAboutMusicFilter.MIN_ACCEPT_SCORE)
+        assertTrue(musicianScore > languageScore)
+        assertFalse(languageScore >= ArtistAboutMusicFilter.MIN_ACCEPT_SCORE)
+    }
+
+    @Test
+    fun mergeSources_prefersWikiProseKeepsYtImage() {
+        val yt = ArtistAbout(
+            name = "AKLO",
+            imageUrl = "https://yt.example/hero.jpg",
+            imageUrls = listOf("https://yt.example/hero.jpg"),
+        )
+        val wiki = ArtistAbout(
+            name = "AKLO",
+            description = "Japanese master of ceremonies and singer",
+            summary = "Japanese master of ceremonies and singer",
+            paragraphs = listOf("Japanese master of ceremonies and singer"),
+            genres = "hip hop",
+        )
+        val merged = ArtistAboutLogic.mergeSources("Aklo", yt, wiki)!!
+        assertEquals("https://yt.example/hero.jpg", merged.imageUrl)
+        assertEquals("hip hop", merged.genres)
+        assertTrue(merged.summary!!.contains("Japanese"))
+    }
+
+    @Test
+    fun mergeSources_usesYtDescriptionWhenNoWiki() {
+        val yt = ArtistAbout(
+            name = "Radiohead",
+            summary = "Radiohead are an English rock band.",
+            paragraphs = listOf("Radiohead are an English rock band."),
+            imageUrl = "https://yt.example/rh.jpg",
+        )
+        val merged = ArtistAboutLogic.mergeSources("Radiohead", yt, wikipedia = null)!!
+        assertTrue(merged.summary!!.contains("English rock band"))
+        assertEquals("https://yt.example/rh.jpg", merged.imageUrl)
     }
 
     private fun song(id: String, title: String, artist: String) = Song(

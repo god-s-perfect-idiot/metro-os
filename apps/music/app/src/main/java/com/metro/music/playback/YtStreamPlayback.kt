@@ -6,33 +6,46 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Per-stream HTTP identity for googlevideo playback.
  *
- * Innertube mints are bound to a client User-Agent. ExoPlayer must reuse that same UA — a Chrome
- * default against an IOS/ANDROID_VR URL is a common cause of mid-file 403s past the ~1 MiB GVS
- * preview window (playback dies near one minute; seeks past it fail / buffer forever).
- *
- * Keys prefer the stable googlevideo `id=` / `mh=` query params so redirects or minor URI
- * normalisation still resolve the minting UA.
+ * Innertube mints are bound to a client User-Agent (and for WEB_REMIX, Origin/Referer/Cookie).
+ * ExoPlayer must replay those headers — a Chrome default against an IOS/ANDROID_VR URL is a
+ * common cause of mid-file 403s past the ~1 MiB GVS preview window.
  */
 object YtStreamPlayback {
-    private val userAgents = ConcurrentHashMap<String, String>()
+    data class Headers(
+        val userAgent: String,
+        val origin: String? = null,
+        val referer: String? = null,
+        val cookie: String? = null,
+    )
 
-    fun register(url: String, userAgent: String) {
+    private val byKey = ConcurrentHashMap<String, Headers>()
+
+    fun register(
+        url: String,
+        userAgent: String,
+        origin: String? = null,
+        referer: String? = null,
+        cookie: String? = null,
+    ) {
         if (url.isBlank() || userAgent.isBlank()) return
+        val headers = Headers(userAgent, origin, referer, cookie)
         for (key in keysFor(Uri.parse(url))) {
-            userAgents[key] = userAgent
+            byKey[key] = headers
         }
     }
 
-    fun userAgentFor(uri: Uri?): String? {
+    fun headersFor(uri: Uri?): Headers? {
         if (uri == null) return null
         for (key in keysFor(uri)) {
-            userAgents[key]?.let { return it }
+            byKey[key]?.let { return it }
         }
         return null
     }
 
+    fun userAgentFor(uri: Uri?): String? = headersFor(uri)?.userAgent
+
     fun clear() {
-        userAgents.clear()
+        byKey.clear()
     }
 
     private fun keysFor(uri: Uri): List<String> {

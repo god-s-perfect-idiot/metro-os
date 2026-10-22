@@ -60,11 +60,15 @@ Authoritative spec: [`references/guides/blueprint.md`](references/guides/bluepri
   `MetroSlider` thumb is wrong on this surface — keep it for settings and volume, and promote the
   circle seek into `metro-ui-android` only once a second app needs a media scrubber.
 - Swipe up/down on art for next/prev track
-- Hub backdrop follows the loaded track's **album** cover (not the per-track thumbnail): blurred
-  full-bleed art with a dark scrim, crossfaded in over `MetroTransitions.PageTransitionMs`. Black
-  background returns when nothing is loaded, and the wash is skipped in light theme. The panoramic
-  brand samples the same cover for an optional left→right gradient (`AlbumTintLogic.brandGradientArgb`);
-  dull / greyscale art keeps the white default. Drill-in pages stay flat black.
+- Hub backdrop follows the loaded track's **artist** photo (YouTube Music channel art, else a
+  music-filtered Wikipedia / Commons hero), not the album/song cover — clear full-bleed art with a
+  dark scrim (no blur), crossfaded over `MetroTransitions.PageTransitionMs`, so the now-playing
+  square does not repeat the wash. Black background returns when nothing is loaded or no artist
+  image resolves; wash is skipped in light theme. The panoramic brand still samples the **album**
+  cover for an optional left→right gradient (`AlbumTintLogic.brandGradientArgb`); dull / greyscale
+  art keeps the white default. Drill-in pages stay flat black.
+- Artist **about** prefers YouTube Music description, then Wikidata music entities (+ English
+  Wikipedia when the entity is a musician/band). Same-name non-music Wikipedia pages are rejected.
 
 ## Data and state model
 
@@ -116,7 +120,7 @@ cd apps/music
 | SD Card as distinct Showing filter | Scoped storage | Fold into “on this device” |
 | System media volume HUD | Owned by `com.metro.volume` | Do not draw a second volume chrome |
 | Perfect Live Tile flips | Launcher owns tiles | Optional now-playing metadata broadcast later |
-| Direct stream URLs for a streamed track | GVS PO token: catalog art-track URLs 403 past ~1 MiB without `pot=` / matching UA | BotGuard pot on URL (video-bound preferred); minting UA replayed via `YtStreamPlayback`; Range probe for session/bare only; URL cache + YT prefetch. See `references/known-gaps.md` |
+| Direct stream URLs for a streamed track | GVS 403 past ~1 MiB without video-bound `pot=` + (for WEB) sig/n | Metrolist path: vendored `zemer-cipher` (sig + n-transform + remote player configs); WEB_REMIX first; video-bound `pot=` on URL, session pot on `/player`; UA replay via `YtStreamPlayback`. See `references/known-gaps.md` |
 
 ## Agent postmortem
 

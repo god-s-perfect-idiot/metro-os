@@ -116,7 +116,8 @@ internal class PoTokenWebView private constructor(
     private fun loadHtml(context: Context) {
         Thread {
             try {
-                val html = context.assets.open("po_token.html").bufferedReader().use { it.readText() }
+                // Named metro_* so we do not shadow zemer-cipher's assets/po_token.html.
+                val html = context.assets.open("metro_po_token.html").bufferedReader().use { it.readText() }
                 val injected = html.replaceFirst(
                     "</script>",
                     "\n$JS_INTERFACE.downloadAndRunBotguard()</script>",

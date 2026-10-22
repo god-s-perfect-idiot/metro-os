@@ -14,6 +14,22 @@ data class YtBrowsePage(
     val continuation: String? = null,
 )
 
+/** Artist row from a YouTube Music artists-filtered search. */
+data class YtArtistSearchHit(
+    val name: String,
+    val browseId: String,
+    val thumbnailUrl: String? = null,
+    val subscribers: String? = null,
+)
+
+/** About shelf + header art from an artist channel browse (`UC…`). */
+data class YtArtistPageAbout(
+    val name: String,
+    val description: String? = null,
+    val imageUrl: String? = null,
+    val views: String? = null,
+)
+
 /**
  * Innertube browse/search JSON → songs + the next continuation token.
  *
@@ -57,6 +73,61 @@ object YtBrowseParser {
         return out
     }
 
+    /**
+     * Explore (`FEmusic_explore`) carousels: the Top Songs chart header links to a `VLPL…`
+     * playlist (full Top 100). Trending uses `VLOLA…` — ignore those.
+     */
+    fun parseTopSongsPlaylistId(root: JSONObject): String? {
+        val sections = sectionListContents(root) ?: return null
+        for (i in 0 until sections.length()) {
+            val carousel = sections.optJSONObject(i)
+                ?.optJSONObject("musicCarouselShelfRenderer")
+                ?: continue
+            val browseId = carouselTitleBrowseId(carousel) ?: continue
+            if (browseId.startsWith("VLPL")) {
+                return browseId.removePrefix("VL")
+            }
+        }
+        return null
+    }
+
+    /** Songs already listed on the Explore Top Songs carousel (preview; usually ≪ 100). */
+    fun parseExploreTopSongs(root: JSONObject): List<Song> {
+        val sections = sectionListContents(root) ?: return emptyList()
+        for (i in 0 until sections.length()) {
+            val carousel = sections.optJSONObject(i)
+                ?.optJSONObject("musicCarouselShelfRenderer")
+                ?: continue
+            val browseId = carouselTitleBrowseId(carousel) ?: continue
+            if (!browseId.startsWith("VLPL")) continue
+            val contents = carousel.optJSONArray("contents") ?: continue
+            val (songs, _) = songsAndToken(contents)
+            if (songs.isNotEmpty()) return songs
+        }
+        return emptyList()
+    }
+
+    private fun sectionListContents(root: JSONObject): JSONArray? =
+        root.optJSONObject("contents")
+            ?.optJSONObject("singleColumnBrowseResultsRenderer")
+            ?.optJSONArray("tabs")
+            ?.optJSONObject(0)
+            ?.optJSONObject("tabRenderer")
+            ?.optJSONObject("content")
+            ?.optJSONObject("sectionListRenderer")
+            ?.optJSONArray("contents")
+
+    private fun carouselTitleBrowseId(carousel: JSONObject): String? =
+        carousel.optJSONObject("header")
+            ?.optJSONObject("musicCarouselShelfBasicHeaderRenderer")
+            ?.optJSONObject("title")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optJSONObject("navigationEndpoint")
+            ?.optJSONObject("browseEndpoint")
+            ?.optString("browseId")
+            ?.ifBlank { null }
+
     fun parseSearchAlbums(root: JSONObject): List<Album> {
         val out = linkedMapOf<String, Album>()
         fun add(album: Album?) {
@@ -78,6 +149,84 @@ object YtBrowseParser {
             }
         }
         return out.values.toList()
+    }
+
+    fun parseSearchArtists(root: JSONObject): List<YtArtistSearchHit> {
+        val out = linkedMapOf<String, YtArtistSearchHit>()
+        fun add(hit: YtArtistSearchHit?) {
+            if (hit == null) return
+            out.putIfAbsent(hit.browseId, hit)
+        }
+        for (shelf in searchShelves(root)) {
+            for (i in 0 until shelf.length()) {
+                val obj = shelf.optJSONObject(i) ?: continue
+                obj.optJSONObject("musicResponsiveListItemRenderer")?.let { add(parseArtistListItem(it)) }
+                obj.optJSONObject("musicTwoRowItemRenderer")?.let { add(parseArtistTwoRow(it)) }
+            }
+        }
+        if (out.isEmpty()) {
+            walk(root) { node ->
+                node.optJSONObject("musicResponsiveListItemRenderer")?.let { add(parseArtistListItem(it)) }
+                node.optJSONObject("musicTwoRowItemRenderer")?.let { add(parseArtistTwoRow(it)) }
+            }
+        }
+        return out.values.toList()
+    }
+
+    /**
+     * Artist channel browse → about text (musicDescriptionShelf / immersive header) + hero art.
+     */
+    fun parseArtistAbout(root: JSONObject): YtArtistPageAbout? {
+        val header = root.optJSONObject("header")
+            ?.optJSONObject("musicImmersiveHeaderRenderer")
+            ?: root.optJSONObject("header")
+                ?.optJSONObject("musicVisualHeaderRenderer")
+        val name = runsText(header?.optJSONObject("title"))
+            ?.ifBlank { null }
+            ?: return null
+        var description = runsText(header?.optJSONObject("description"))?.ifBlank { null }
+        var views: String? = null
+        walk(root) { node ->
+            val shelf = node.optJSONObject("musicDescriptionShelfRenderer") ?: return@walk
+            val shelfDesc = runsText(shelf.optJSONObject("description"))?.ifBlank { null }
+            // Prefer the About shelf when present — header blurbs are often truncated.
+            if (!shelfDesc.isNullOrBlank() &&
+                (description.isNullOrBlank() || shelfDesc.length >= description!!.length)
+            ) {
+                description = shelfDesc
+            }
+            if (views.isNullOrBlank()) {
+                views = runsText(shelf.optJSONObject("subheader"))?.ifBlank { null }
+            }
+        }
+        val imageUrl = bestThumbnailUrl(
+            header?.optJSONObject("thumbnail")
+                ?.optJSONObject("musicThumbnailRenderer")
+                ?.optJSONObject("thumbnail")
+                ?.optJSONArray("thumbnails")
+                ?: header?.optJSONObject("foregroundThumbnail")
+                    ?.optJSONObject("musicThumbnailRenderer")
+                    ?.optJSONObject("thumbnail")
+                    ?.optJSONArray("thumbnails"),
+        )
+        if (description.isNullOrBlank() && imageUrl.isNullOrBlank()) return null
+        return YtArtistPageAbout(
+            name = name,
+            description = description,
+            imageUrl = imageUrl,
+            views = views,
+        )
+    }
+
+    /** Prefer an exact artist-name match, then a contains match. */
+    fun pickArtistHit(hits: List<YtArtistSearchHit>, artistName: String): YtArtistSearchHit? {
+        val name = artistName.trim()
+        if (name.isEmpty() || hits.isEmpty()) return null
+        hits.firstOrNull { it.name.equals(name, ignoreCase = true) }?.let { return it }
+        return hits.firstOrNull { hit ->
+            hit.name.contains(name, ignoreCase = true) ||
+                name.contains(hit.name, ignoreCase = true)
+        }
     }
 
     private fun searchShelves(root: JSONObject): List<JSONArray> {
@@ -186,6 +335,110 @@ object YtBrowseParser {
             id.isNotBlank() && (id.startsWith("MPRE") || id.startsWith("MPRL"))
         }
     }
+
+    private fun parseArtistListItem(item: JSONObject): YtArtistSearchHit? {
+        val browseId = artistBrowseId(item) ?: return null
+        val flex = item.optJSONArray("flexColumns") ?: JSONArray()
+        val name = flex.optJSONObject(0)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optString("text")
+            ?.ifBlank { null }
+            ?: return null
+        val subscribers = flex.optJSONObject(1)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optString("text")
+            ?.ifBlank { null }
+        val thumb = bestThumbnailUrl(
+            item.optJSONObject("thumbnail")
+                ?.optJSONObject("musicThumbnailRenderer")
+                ?.optJSONObject("thumbnail")
+                ?.optJSONArray("thumbnails"),
+        )
+        return YtArtistSearchHit(
+            name = name,
+            browseId = browseId,
+            thumbnailUrl = thumb,
+            subscribers = subscribers,
+        )
+    }
+
+    private fun parseArtistTwoRow(item: JSONObject): YtArtistSearchHit? {
+        val browseId = artistBrowseId(item) ?: return null
+        val name = item.optJSONObject("title")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optString("text")
+            ?.ifBlank { null }
+            ?: return null
+        val subscribers = item.optJSONObject("subtitle")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
+            ?.optString("text")
+            ?.ifBlank { null }
+        val thumb = bestThumbnailUrl(
+            item.optJSONObject("thumbnailRenderer")
+                ?.optJSONObject("musicThumbnailRenderer")
+                ?.optJSONObject("thumbnail")
+                ?.optJSONArray("thumbnails"),
+        )
+        return YtArtistSearchHit(
+            name = name,
+            browseId = browseId,
+            thumbnailUrl = thumb,
+            subscribers = subscribers,
+        )
+    }
+
+    private fun artistBrowseId(item: JSONObject): String? {
+        val endpoints = buildList {
+            item.optJSONObject("navigationEndpoint")
+                ?.optJSONObject("browseEndpoint")
+                ?.let { add(it) }
+            item.optJSONArray("flexColumns")
+                ?.optJSONObject(0)
+                ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                ?.optJSONObject("text")
+                ?.optJSONArray("runs")
+                ?.optJSONObject(0)
+                ?.optJSONObject("navigationEndpoint")
+                ?.optJSONObject("browseEndpoint")
+                ?.let { add(it) }
+            item.optJSONObject("title")
+                ?.optJSONArray("runs")
+                ?.optJSONObject(0)
+                ?.optJSONObject("navigationEndpoint")
+                ?.optJSONObject("browseEndpoint")
+                ?.let { add(it) }
+        }
+        return endpoints.firstOrNull { endpoint ->
+            val id = endpoint.optString("browseId")
+            val pageType = endpoint.optJSONObject("browseEndpointContextSupportedConfigs")
+                ?.optJSONObject("browseEndpointContextMusicConfig")
+                ?.optString("pageType")
+                .orEmpty()
+            id.startsWith("UC") &&
+                (pageType.isEmpty() || pageType == "MUSIC_PAGE_TYPE_ARTIST")
+        }?.optString("browseId")?.ifBlank { null }
+    }
+
+    private fun runsText(node: JSONObject?): String? {
+        val runs = node?.optJSONArray("runs") ?: return null
+        val text = buildString {
+            for (i in 0 until runs.length()) {
+                append(runs.optJSONObject(i)?.optString("text").orEmpty())
+            }
+        }.trim()
+        return text.ifBlank { null }
+    }
+
+    private fun bestThumbnailUrl(thumbnails: JSONArray?): String? =
+        bestThumbnail(thumbnails)?.toString()
 
     private fun albumArtistFromRuns(runs: JSONArray?): String {
         if (runs == null) return "Unknown artist"

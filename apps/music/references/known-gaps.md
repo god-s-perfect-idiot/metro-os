@@ -8,7 +8,7 @@ High-fidelity WP8.1 captures missing or low-fidelity for blueprint pages. Prefer
 | Dense artists A–Z list (many rows) | Long letter list + jump list | `artists_showing_dark_teal.jpg` shows header + `#` jump tile; implement `MetroLetterList` |
 | Playlists pivot | Playlist titles list | Same list chrome as artists; WP text sources in Thurrott Showing article |
 | Genres pivot capture | Genre names list | Implemented from MediaStore tags; use artists list chrome + blueprint § Page 3 |
-| Artist detail discover / about | Accent `in collection` + `discover` sections; `about` wiki bio | No WP8.1 capture for YT discover or Wikipedia about — use album detail chrome + blueprint § Page 4 |
+| Artist detail discover / about | Accent `in collection` + `discover` sections; `about` from YT Music / music-filtered wiki | No WP8.1 capture for YT discover or about — use album detail chrome + blueprint § Page 4 |
 | Radio panorama pane | Station list / create station | Blueprint stub; YT Music search “radio” when connected |
 | `local` panorama pane capture | Settings + sync now + music directories accent tiles | Same tile chrome as get music (`hub_fullpage.png` centre); glyphs from `MetroSystemIconType.Settings` / `Refresh` / `Folder` |
 | Music directories multi-select | Checkbox folder list | Same as Settings connected-apps picker (`MetroMultiSelectList`); MediaStore `RELATIVE_PATH` / `DATA` |
@@ -31,20 +31,15 @@ Measured against Innertube on 2026-08-05. Anonymous player clients, art track
 | `ANDROID_VR` **without** `visitorData` | `LOGIN_REQUIRED` | plays fully |
 | `ANDROID_VR` **with** `visitorData` | `OK`, adaptive GVS **403 past ~1 MiB** without PO token | 403 past ~1 MiB without PO |
 
-Two findings drive the implementation (updated 2026-09-27):
+Findings that drive playback (updated 2026-10-22, Metrolist / zemer-cipher aligned):
 
 1. **`visitorData` unlocks art tracks on mobile player clients.** Send it as `X-Goog-Visitor-Id`
    and in `context.client.visitorData`. `YtMusicAuthStore` caches it for 12 hours.
-2. **Catalog art tracks need a GVS PO token past ~1 MiB on every Innertube client we tried.**
-   Without it, Range requests at byte ≥ ~1.5 MiB return 403 — ExoPlayer stops near **0:48–1:04**
-   depending on bitrate. BotGuard minting (`YtPoTokenSession`) warms with visitorData, prefers a
-   **video-id-bound** `pot=` on googlevideo URLs, and sends the video pot in
-   `serviceIntegrityDimensions.poToken`. Innertube order is IOS → ANDROID_VR → WEB_REMIX.
-   Video-bound pots start play without a mid-file Range probe (session/bare URLs still probe).
-   BotGuard warm is capped at 8s so mint failures cannot block play. Resolved URLs are cached
-   briefly and the next tracks are prefetched into that cache — not into Media3 — so skip stays
-   fast without replaying expired googlevideo items.
-3. **Reads must use the minting User-Agent.** `YtStreamPlayback` + `RequestHeaderDataSource`
-   replay the IOS/ANDROID_VR UA that minted the URL; a Chrome default against those URLs 403s
-   past the preview window. `ChunkedDataSource` reads 512 KiB Ranges. Premature upstream EOS with
-   bytes still remaining soft-EOS (avoids MediaCodec abort).
+2. **`pot=` on the CDN URL must be video-id-bound** (zemer `PoTokenGenerator.streamingDataPoToken`).
+   Session pot goes in `/player` only. Append `pot=` only (no `potc=`). A Range GET past ~1.5 MiB
+   must succeed before we hand the URL to ExoPlayer — never fall back to a preview URL.
+3. **Prefer signed-in WEB_REMIX with cipher + n-transform** (`third_party/zemer-cipher`). Replay
+   UA + Origin/Referer/Cookie on googlevideo. IOS progressive is HLS-only. Order:
+   WEB_REMIX → ANDROID_VR → IOS HLS.
+4. **`ChunkedDataSource`** keeps Ranges ≤ 512 KiB. Soft-EOS on mid-file 403 avoids MediaCodec
+   abort, but the resolve path must not accept a URL that fails the mid-file probe.

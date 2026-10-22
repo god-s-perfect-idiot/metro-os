@@ -1,5 +1,8 @@
 package com.metro.music.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -32,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -40,6 +44,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.input.pointer.pointerInput
@@ -58,7 +64,6 @@ import com.metro.ui.MetroListItem
 import com.metro.ui.MetroPanorama
 import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
-import com.metro.ui.MetroPanoramaBrandGradients
 import com.metro.ui.MetroPanoramaBrandTitle
 import com.metro.ui.MetroPanoramaBrandTrailingSlack
 import com.metro.ui.MetroText
@@ -74,8 +79,23 @@ private const val HubBrandText = "metro music"
 private val HubAccentTileInset = 8.dp
 /** Slightly under half-width so the pair reads lighter than full-bleed Start squares. */
 private const val HubAccentTileWidthScale = 0.88f
-/** Fallback when no colourful album art — warm sunset brand. */
-private val MusicBrandBrush = MetroPanoramaBrandGradients.Music
+/** Match [com.metro.music.data.AlbumTintLogic] brand stop count for stable morphs. */
+private const val BrandGradientStopCount = 5
+/**
+ * Brand + backdrop morph duration — long enough to read as a wash, not a flash.
+ */
+internal const val HubArtMorphMs = 600
+/**
+ * Fallback when no colourful album art — warm sunset brand (5 stops so album↔fallback
+ * morphs stay continuous).
+ */
+private val MusicBrandColors = listOf(
+    MetroColors.AccentOrange,
+    lerp(MetroColors.AccentOrange, MetroColors.AccentMagenta, 0.5f),
+    MetroColors.AccentMagenta,
+    lerp(MetroColors.AccentMagenta, MetroColors.AccentViolet, 0.5f),
+    MetroColors.AccentViolet,
+)
 
 /**
  * Music hub: panoramic brand title (no MetroAppTitle), then
@@ -91,24 +111,24 @@ fun MusicHub(
     onOpenExplore: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRecent: () -> Unit,
+    onOpenTopSongs: () -> Unit,
     onSyncNow: () -> Unit,
     onOpenMusicDirectories: () -> Unit,
     skipIntro: Boolean = false,
     onIntroPlayed: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    // Album-derived brand when colourful art is loaded; otherwise Music sunset preset.
-    var brandBrush by remember { mutableStateOf(MusicBrandBrush) }
-    LaunchedEffect(state.nowPlayingBackdropArt) {
-        val art = state.nowPlayingBackdropArt
+    // Album-derived brand when colourful cover is loaded; otherwise Music sunset preset.
+    // Uses album art (not the artist backdrop) so the title still tints offline / without wiki.
+    var brandColors by remember { mutableStateOf(MusicBrandColors) }
+    LaunchedEffect(state.nowPlayingAlbumArt) {
+        val art = state.nowPlayingAlbumArt
         if (art == null) {
-            brandBrush = MusicBrandBrush
+            brandColors = MusicBrandColors
             return@LaunchedEffect
         }
         val stops = loadAlbumBrandGradientArgb(context, art)
-        brandBrush = stops?.let { argbs ->
-            Brush.horizontalGradient(argbs.map { Color(it) })
-        } ?: MusicBrandBrush
+        brandColors = stops?.map { Color(it) } ?: MusicBrandColors
     }
 
     // Remember after this hub visit so in-app return skips the intro (not mid-animation).
@@ -119,13 +139,10 @@ fun MusicHub(
     Column(modifier = Modifier.fillMaxSize()) {
         // Giant panoramic brand — not the small MUSIC app overline
         MetroPanoramaBrandEnter(skipEnter = skipIntro) {
-            MetroPanoramaBrandTitle(
-                text = HubBrandText,
+            AnimatedMetroMusicBrandTitle(
+                targetColors = brandColors,
                 pageProgress = pagerState.currentPage + pagerState.currentPageOffsetFraction,
                 pageCount = pagerState.pageCount,
-                brush = brandBrush,
-                // Extra bleed past the last glyph so the brand overflows and scrolls more.
-                trailingSlack = MetroPanoramaBrandTrailingSlack,
             )
         }
 
@@ -151,6 +168,7 @@ fun MusicHub(
                             onOpenExplore = onOpenExplore,
                             onOpenSettings = onOpenSettings,
                             onOpenRecent = onOpenRecent,
+                            onOpenTopSongs = onOpenTopSongs,
                         )
                         MusicState.HUB_NOW_PLAYING -> NowPlayingPane(state = state)
                         else -> LocalPane(
@@ -163,6 +181,71 @@ fun MusicHub(
                 },
             )
         }
+    }
+}
+
+/**
+ * Crossfades the panoramic brand between gradient palettes.
+ *
+ * Android TextPaint often skips in-place brush colour updates, so a true stop-lerp on one
+ * [BasicText] is unreliable — two titles with alpha is the dependable morph.
+ */
+@Composable
+private fun AnimatedMetroMusicBrandTitle(
+    targetColors: List<Color>,
+    pageProgress: Float,
+    pageCount: Int,
+) {
+    val targetStops = remember(targetColors) { normalizeBrandStops(targetColors) }
+    var fromStops by remember { mutableStateOf(targetStops) }
+    var toStops by remember { mutableStateOf(targetStops) }
+    val progress = remember { Animatable(1f) }
+
+    LaunchedEffect(targetStops) {
+        if (targetStops == toStops && progress.value >= 1f) return@LaunchedEffect
+        fromStops = List(BrandGradientStopCount) { i ->
+            lerp(fromStops[i], toStops[i], progress.value)
+        }
+        toStops = targetStops
+        progress.snapTo(0f)
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = HubArtMorphMs, easing = EaseOutCubic),
+        )
+    }
+
+    val page = pageProgress
+    val pages = pageCount
+    Box {
+        MetroPanoramaBrandTitle(
+            text = HubBrandText,
+            pageProgress = page,
+            pageCount = pages,
+            brush = Brush.horizontalGradient(fromStops),
+            trailingSlack = MetroPanoramaBrandTrailingSlack,
+            modifier = Modifier.graphicsLayer { alpha = 1f - progress.value },
+        )
+        MetroPanoramaBrandTitle(
+            text = HubBrandText,
+            pageProgress = page,
+            pageCount = pages,
+            brush = Brush.horizontalGradient(toStops),
+            trailingSlack = MetroPanoramaBrandTrailingSlack,
+            modifier = Modifier.graphicsLayer { alpha = progress.value },
+        )
+    }
+}
+
+/** Resamples [colors] to [BrandGradientStopCount] so album (5) and fallback (3→5) morph evenly. */
+private fun normalizeBrandStops(colors: List<Color>): List<Color> {
+    if (colors.size == BrandGradientStopCount) return colors
+    if (colors.isEmpty()) return MusicBrandColors
+    if (colors.size == 1) return List(BrandGradientStopCount) { colors[0] }
+    val last = colors.lastIndex.toFloat()
+    return List(BrandGradientStopCount) { index ->
+        val pos = index / (BrandGradientStopCount - 1f) * last
+        val i0 = pos.toInt().coerceAtMost(colors.lastIndex - 1)
+        lerp(colors[i0], colors[i0 + 1], pos - i0)
     }
 }
 
@@ -200,6 +283,7 @@ fun GetMusicPane(
     onOpenExplore: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenRecent: () -> Unit,
+    onOpenTopSongs: () -> Unit,
 ) {
     // WP8.1 Xbox Music leaves a clear gap under the panorama header before the
     // accent squares (`hub_fullpage.png` centre pane). Tiles are flush blocks, so
@@ -215,24 +299,32 @@ fun GetMusicPane(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MusicHubAccentTile(
+                        title = "top songs",
+                        glyph = HubAccentTileGlyph.TopSongs,
+                        onClick = onOpenTopSongs,
+                        modifier = Modifier.size(tileSize),
+                    )
+                    MusicHubAccentTile(
                         title = "search",
                         glyph = HubAccentTileGlyph.Search,
                         onClick = onOpenExplore,
                         modifier = Modifier.size(tileSize),
                     )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MusicHubAccentTile(
                         title = if (state.ytConnected) "account" else "connect",
                         glyph = HubAccentTileGlyph.Account,
                         onClick = onOpenSettings,
                         modifier = Modifier.size(tileSize),
                     )
+                    MusicHubAccentTile(
+                        title = "recent",
+                        glyph = HubAccentTileGlyph.Recent,
+                        onClick = onOpenRecent,
+                        modifier = Modifier.size(tileSize),
+                    )
                 }
-                MusicHubAccentTile(
-                    title = "recent",
-                    glyph = HubAccentTileGlyph.Recent,
-                    onClick = onOpenRecent,
-                    modifier = Modifier.size(tileSize),
-                )
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -315,6 +407,7 @@ private fun localPaneStatus(state: MusicState): String = when {
 }
 
 private enum class HubAccentTileGlyph {
+    TopSongs,
     Search,
     Account,
     Recent,
@@ -367,6 +460,7 @@ private fun MusicHubAccentTile(
 
 private fun DrawScope.drawHubAccentTileGlyph(glyph: HubAccentTileGlyph, color: Color) {
     when (glyph) {
+        HubAccentTileGlyph.TopSongs -> drawTopSongsTileGlyph(color)
         HubAccentTileGlyph.Search -> drawSearchTileGlyph(color)
         HubAccentTileGlyph.Account -> drawAccountTileGlyph(color)
         HubAccentTileGlyph.Recent -> drawRecentTileGlyph(color)
@@ -403,6 +497,26 @@ private fun DrawScope.drawHubSystemTileGlyph(
         scale(scaleX = boost, scaleY = boost, pivot = center)
     }) {
         drawMetroSystemIconGlyph(type, color)
+    }
+}
+
+/** Rising chart bars — Top Songs discovery tile. */
+private fun DrawScope.drawTopSongsTileGlyph(color: Color) {
+    val s = size.minDimension
+    val ox = (size.width - s) / 2f
+    val oy = (size.height - s) / 2f
+    val barWidth = s * 0.16f
+    val gap = s * 0.08f
+    val baseY = oy + s * 0.82f
+    val heights = floatArrayOf(s * 0.28f, s * 0.48f, s * 0.68f)
+    var x = ox + s * 0.18f
+    for (h in heights) {
+        drawRect(
+            color = color,
+            topLeft = Offset(x, baseY - h),
+            size = Size(barWidth, h),
+        )
+        x += barWidth + gap
     }
 }
 

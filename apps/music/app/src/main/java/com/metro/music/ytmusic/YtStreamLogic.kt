@@ -5,11 +5,11 @@ import android.net.Uri
 /**
  * Picks and sanitises googlevideo audio URLs from an Innertube player response.
  *
- * As of 2026-08, ANDROID_VR adaptive URLs 403 for byte ranges past ~1 MiB unless a GVS PO token
- * is supplied — that truncates playback at ~64 s for a 128 kbps track. Late 2025 YouTube bound
- * that token to the **video id** (visitor-bound pots no longer unlock mid-file Ranges). IOS
- * progressive/HLS ranges still reach the end of the file when pot+UA match. [selectPlayable]
- * also rejects payloads whose advertised length is the classic ~1 MiB preview for a long track.
+ * Adaptive URLs 403 past ~1 MiB without a **video-id-bound** GVS `pot=` — truncates near
+ * ~64 s at 128 kbps. Visitor-bound pots do not unlock mid-file Ranges (zemer CDN probes).
+ * IOS progressive dies at that preview even with a pot; prefer WEB_REMIX (cipher + n-transform)
+ * or ANDROID_VR. [selectPlayable] rejects payloads whose advertised length is the classic
+ * ~1 MiB preview for a long track.
  */
 object YtStreamLogic {
     /** Soft ceiling used by PO-preview / capped responses (~1 MiB). */

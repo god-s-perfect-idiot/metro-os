@@ -6,13 +6,14 @@ import com.metro.music.data.Album
 import com.metro.music.data.Song
 import com.metro.music.playback.YtStreamPlayback
 import com.metro.music.ytmusic.potoken.YtPoTokenSession
+import com.metro.music.ytmusic.potoken.YtZemerPoToken
 import com.metro.music.ytmusic.potoken.appendStreamPoToken
+import com.zemer.cipher.potoken.PoTokenResult
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.net.URLDecoder
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
@@ -36,12 +37,15 @@ data class YtStreamResult(
 
 /**
  * YouTube Music Innertube client.
- * WEB_REMIX for search/browse (with cookies when signed in);
- * IOS first for the player (plain URLs / HLS), then ANDROID_VR and anonymous WEB_REMIX.
- * Adaptive GVS URLs get a BotGuard streaming `pot=` when [poTokenSession] can mint one.
  *
- * Player requests must stay anonymous — attaching web cookies to a mobile-app client makes
- * Innertube answer LOGIN_REQUIRED.
+ * Search/browse use signed-in WEB_REMIX. Playback follows Metrolist / zemer-app:
+ * WEB_REMIX first (cipher + n-transform via [YtStreamUnlock]), then ANDROID_VR, then IOS HLS.
+ *
+ * GVS past ~1 MiB needs a **video-id-bound** `pot=` on the URL. The player request gets the
+ * visitor-bound session pot in `serviceIntegrityDimensions`. IOS progressive alone dies at the
+ * 1 MiB preview even with a pot — do not prefer it for full songs.
+ *
+ * Mobile-app player clients stay anonymous — web cookies on them yield LOGIN_REQUIRED.
  */
 class YtMusicClient(
     private val authStore: YtMusicAuthStore,
@@ -49,7 +53,8 @@ class YtMusicClient(
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build(),
-    private val poTokenSession: YtPoTokenSession? = null,
+    private val zemerPoToken: YtZemerPoToken? = YtZemerPoToken(),
+    private val legacyPoTokenSession: YtPoTokenSession? = null,
 ) {
 
     fun searchSongs(query: String, limit: Int = 25): List<Song> {
@@ -73,6 +78,40 @@ class YtMusicClient(
         }
         val json = post("search", body, WEB_CLIENT) ?: return emptyList()
         return YtBrowseParser.parseSearchAlbums(json).take(limit)
+    }
+
+    fun searchArtists(query: String, limit: Int = 10): List<YtArtistSearchHit> {
+        if (query.isBlank()) return emptyList()
+        val body = webContext().apply {
+            put("query", query)
+            put("params", SEARCH_FILTER_ARTISTS)
+        }
+        val json = post("search", body, WEB_CLIENT) ?: return emptyList()
+        return YtBrowseParser.parseSearchArtists(json).take(limit)
+    }
+
+    /**
+     * YouTube Music artist about: search → channel browse → description shelf / header art.
+     * Returns null when Innertube finds no matching artist page.
+     */
+    fun artistAbout(artistName: String): YtArtistPageAbout? {
+        val name = artistName.trim()
+        if (name.isEmpty()) return null
+        val hit = YtBrowseParser.pickArtistHit(searchArtists(name, limit = 8), name) ?: return null
+        val page = browsePost(hit.browseId) ?: return null
+        val about = YtBrowseParser.parseArtistAbout(page)
+        if (about != null) {
+            return about.copy(
+                imageUrl = about.imageUrl ?: hit.thumbnailUrl,
+            )
+        }
+        // Page may omit the about shelf (common for smaller artists) but still has search art.
+        if (hit.thumbnailUrl.isNullOrBlank()) return null
+        return YtArtistPageAbout(
+            name = hit.name,
+            description = null,
+            imageUrl = hit.thumbnailUrl,
+        )
     }
 
     /** Tracks on a YouTube Music album browse page (`MPREb_…`). */
@@ -132,41 +171,90 @@ class YtMusicClient(
         ).songs
     }
 
+    /**
+     * YouTube Music Top Songs chart (typically 100 tracks).
+     *
+     * Explore (`FEmusic_explore`) exposes a Top Songs carousel whose header links to the
+     * ranked chart playlist; we load that playlist with continuations. Falls back to the
+     * carousel preview, then a known global Top Songs playlist id.
+     */
+    fun topSongs(limit: Int = TOP_SONGS_LIMIT): List<Song> {
+        val explore = browsePost("FEmusic_explore")
+        val playlistId = explore?.let { YtBrowseParser.parseTopSongsPlaylistId(it) }
+            ?: FALLBACK_TOP_SONGS_PLAYLIST
+        val fromPlaylist = playlistSongs(playlistId, limit)
+        if (fromPlaylist.isNotEmpty()) {
+            Log.i(TAG, "topSongs playlist=$playlistId count=${fromPlaylist.size}")
+            return fromPlaylist
+        }
+        val preview = explore?.let { YtBrowseParser.parseExploreTopSongs(it) }.orEmpty()
+        if (preview.isNotEmpty()) {
+            Log.i(TAG, "topSongs explore preview count=${preview.size}")
+            return preview.take(limit)
+        }
+        Log.w(TAG, "topSongs empty (playlist=$playlistId)")
+        return emptyList()
+    }
+
+    /**
+     * Billboard Hot 100 → YouTube Music search resolve (up to [limit] playable tracks).
+     * Rank order follows the published chart; unresolved titles are dropped.
+     */
+    fun billboardHot100(limit: Int = TOP_SONGS_LIMIT): List<Song> {
+        val entries = BillboardHot100.fetchChart(http, limit)
+        if (entries.isEmpty()) {
+            Log.w(TAG, "billboardHot100: empty chart")
+            return emptyList()
+        }
+        val songs = BillboardHot100.resolveSongs(entries) { query, searchLimit ->
+            searchSongs(query, searchLimit)
+        }
+        Log.i(TAG, "billboardHot100 resolved ${songs.size}/${entries.size}")
+        return songs
+    }
+
     suspend fun resolveStreamUrl(videoId: String): String? = resolveStream(videoId).url
 
     /**
-     * Resolve a playable URL. Mints a GVS PO token (BotGuard) when possible and appends `pot=`
-     * so adaptive googlevideo Ranges succeed past ~1 MiB. Prefers a video-id-bound pot on the
-     * URL (trusted — no mid-file probe on the critical path), then the visitor-bound session pot
-     * with a Range probe. HLS returns immediately when present. Registers the minting User-Agent
-     * so ExoPlayer can replay with the same identity.
+     * Resolve a playable URL (Metrolist / zemer path).
+     *
+     * Never returns a URL that fails the mid-file Range probe — that is the classic ~1 min cut.
      */
     suspend fun resolveStream(videoId: String): YtStreamResult {
         if (videoId.isBlank()) return YtStreamResult(error = "Missing video id")
 
         var visitor = visitorData()
-        val streamingPot = mintStreamingPot(visitor)
-        val videoPot = if (streamingPot != null) {
-            runCatching { poTokenSession?.mintPlayerPot(videoId) }.getOrNull()
-        } else {
-            null
-        }
-        // Player integrity pot (video-bound) when available; URL pot tried separately below.
-        val playerPot = videoPot
+        val pots = mintZemerPots(videoId, visitor)
+        val sessionPot = pots?.playerRequestPoToken
+        val videoPot = pots?.streamingDataPoToken
+        val signatureTimestamp = YtStreamUnlock.signatureTimestamp()
 
         var lastError: String? = null
-        var fallbackUrl: String? = null
-        var fallbackUa: String? = null
         for (client in PLAYER_CLIENTS) {
             visitor = visitorData()
-            var json = requestPlayer(videoId, client, visitor, playerPot)
+            var json = requestPlayer(
+                videoId = videoId,
+                client = client,
+                visitor = visitor,
+                playerPot = sessionPot,
+                signatureTimestamp = if (client.needsSignatureTimestamp) signatureTimestamp else null,
+            )
             var state = playabilityStatus(json)
-            // A stale visitor identity reads as a signed-out client; mint a new one and retry.
             if (state == "LOGIN_REQUIRED" && visitor != null) {
                 authStore.clearVisitorData()
                 visitor = visitorData()
                 if (visitor != null) {
-                    json = requestPlayer(videoId, client, visitor, playerPot)
+                    json = requestPlayer(
+                        videoId = videoId,
+                        client = client,
+                        visitor = visitor,
+                        playerPot = sessionPot,
+                        signatureTimestamp = if (client.needsSignatureTimestamp) {
+                            signatureTimestamp
+                        } else {
+                            null
+                        },
+                    )
                     state = playabilityStatus(json)
                 }
             }
@@ -185,79 +273,78 @@ class YtMusicClient(
             val hls = json.optJSONObject("streamingData")
                 ?.optString("hlsManifestUrl")
                 ?.ifBlank { null }
-            if (hls != null) {
+            if (hls != null && (client.acceptsProgressive || client.name == "IOS")) {
                 Log.i(TAG, "${client.name} resolved HLS stream")
-                return acceptedStream(hls, client.userAgent)
+                return acceptedStream(hls, client)
             }
-            val selected = extractStream(json)
+            if (!client.acceptsProgressive) {
+                if (hls == null) {
+                    Log.w(TAG, "${client.name} skipped — progressive not trusted past GVS preview")
+                }
+                continue
+            }
+            val selected = extractStream(json, videoId, decipher = client.needsCipher)
             if (selected == null) {
                 lastError = "No playable audio stream"
                 Log.w(TAG, "${client.name} had OK playability but no usable audio URL")
+                if (client.needsCipher) YtStreamUnlock.onStreamRejected()
                 continue
             }
-            // Video-bound pot unlocks mid-file Ranges — start play without a blocking probe.
-            if (videoPot != null) {
-                val playable = ensureClenOnUrl(appendStreamPoToken(selected.url, videoPot))
-                Log.i(
-                    TAG,
-                    "${client.name} resolved progressive itag-br=${selected.bitrate} (video pot)",
-                )
-                return acceptedStream(playable, client.userAgent)
-            }
-            if (streamingPot != null) {
-                val playable = ensureClenOnUrl(appendStreamPoToken(selected.url, streamingPot))
-                if (fallbackUrl == null) {
-                    fallbackUrl = playable
-                    fallbackUa = client.userAgent
+
+            val candidates = buildList {
+                if (!videoPot.isNullOrBlank()) {
+                    add("video-pot" to appendStreamPoToken(selected.url, videoPot))
                 }
+                add("bare" to selected.url)
+                // Session pot on the URL is usually wrong — only try after video/bare.
+                if (!sessionPot.isNullOrBlank()) {
+                    add("session-pot" to appendStreamPoToken(selected.url, sessionPot))
+                }
+            }
+
+            for ((label, rawUrl) in candidates) {
+                val playable = ensureClenOnUrl(rawUrl)
                 if (rangeReachable(playable, client.userAgent, selected.contentLength)) {
                     Log.i(
                         TAG,
-                        "${client.name} resolved progressive itag-br=${selected.bitrate} (session pot)",
+                        "${client.name} unlocked itag-br=${selected.bitrate} ($label)",
                     )
-                    return acceptedStream(playable, client.userAgent)
+                    return acceptedStream(playable, client)
                 }
-                Log.w(TAG, "${client.name} session pot failed mid-file Range probe")
-                lastError = "Stream blocked past preview window"
-                continue
+                Log.w(TAG, "${client.name} Range probe failed ($label)")
             }
-            val bare = ensureClenOnUrl(selected.url)
-            if (fallbackUrl == null) {
-                fallbackUrl = bare
-                fallbackUa = client.userAgent
-            }
-            if (rangeReachable(bare, client.userAgent, selected.contentLength)) {
-                Log.i(TAG, "${client.name} resolved progressive stream without pot")
-                return acceptedStream(bare, client.userAgent)
-            }
+            if (client.needsCipher) YtStreamUnlock.onStreamRejected()
             lastError = "Stream blocked past preview window"
-        }
-        if (fallbackUrl != null) {
-            Log.w(TAG, "falling back to PO-preview progressive stream")
-            return acceptedStream(fallbackUrl, fallbackUa ?: IOS_UA)
         }
         return YtStreamResult(error = lastError ?: "Unable to play this track")
     }
 
-    private fun acceptedStream(url: String, userAgent: String): YtStreamResult {
-        YtStreamPlayback.register(url, userAgent)
-        return YtStreamResult(url = url, userAgent = userAgent)
+    private fun acceptedStream(url: String, client: InnertubeClient): YtStreamResult {
+        YtStreamPlayback.register(
+            url = url,
+            userAgent = client.userAgent,
+            origin = if (client.usesWebOrigin) MUSIC_ORIGIN else null,
+            referer = if (client.usesWebOrigin) "$MUSIC_ORIGIN/" else null,
+            cookie = if (client.usesWebOrigin) authStore.cookie.takeIf { it.isNotBlank() } else null,
+        )
+        return YtStreamResult(url = url, userAgent = client.userAgent)
     }
 
-    private suspend fun mintStreamingPot(visitor: String?): String? {
-        val session = poTokenSession ?: return null
+    private suspend fun mintZemerPots(videoId: String, visitor: String?): PoTokenResult? {
         if (visitor.isNullOrBlank()) return null
-        return kotlinx.coroutines.withTimeoutOrNull(PO_WARM_TIMEOUT_MS) {
-            runCatching {
-                session.ensureStreamingPot(visitor).also {
-                    Log.i(TAG, "streaming pot ready")
-                }
-            }.getOrElse {
-                Log.w(TAG, "streaming pot mint failed", it)
-                null
-            }
-        }.also {
-            if (it == null) Log.w(TAG, "streaming pot mint timed out or failed")
+        zemerPoToken?.mint(videoId, visitor)?.let { return it }
+        // Fallback: NewPipe-style WebView (metro_po_token.html) if zemer BotGuard fails.
+        val legacy = legacyPoTokenSession ?: return null
+        return runCatching {
+            val sessionPot = legacy.ensureStreamingPot(visitor)
+            val videoPot = legacy.mintPlayerPot(videoId) ?: return null
+            PoTokenResult(
+                playerRequestPoToken = sessionPot,
+                streamingDataPoToken = videoPot,
+            )
+        }.getOrElse {
+            Log.w(TAG, "legacy pot mint failed", it)
+            null
         }
     }
 
@@ -274,6 +361,7 @@ class YtMusicClient(
         client: InnertubeClient,
         visitor: String?,
         playerPot: String? = null,
+        signatureTimestamp: Int? = null,
     ): JSONObject? {
         val body = JSONObject().apply {
             put(
@@ -290,6 +378,15 @@ class YtMusicClient(
             put("videoId", videoId)
             put("contentCheckOk", true)
             put("racyCheckOk", true)
+            if (signatureTimestamp != null && signatureTimestamp > 0) {
+                put(
+                    "playbackContext",
+                    JSONObject().put(
+                        "contentPlaybackContext",
+                        JSONObject().put("signatureTimestamp", signatureTimestamp),
+                    ),
+                )
+            }
             if (!playerPot.isNullOrBlank()) {
                 put(
                     "serviceIntegrityDimensions",
@@ -334,7 +431,11 @@ class YtMusicClient(
         }
     }
 
-    private fun extractStream(json: JSONObject): YtStreamLogic.SelectedStream? {
+    private suspend fun extractStream(
+        json: JSONObject,
+        videoId: String,
+        decipher: Boolean,
+    ): YtStreamLogic.SelectedStream? {
         val streaming = json.optJSONObject("streamingData") ?: return null
         val formats = streaming.optJSONArray("adaptiveFormats")
             ?: streaming.optJSONArray("formats")
@@ -344,9 +445,15 @@ class YtMusicClient(
                 val fmt = formats.optJSONObject(i) ?: continue
                 val mime = fmt.optString("mimeType")
                 if (!mime.contains("audio")) continue
-                val url = fmt.optString("url").ifBlank { null }
-                    ?: cipherUrl(fmt.optString("signatureCipher").ifBlank { null })
-                    ?: continue
+                val clear = fmt.optString("url").ifBlank { null }
+                val cipher = fmt.optString("signatureCipher").ifBlank { null }
+                    ?: fmt.optString("cipher").ifBlank { null }
+                val url = when {
+                    decipher || !cipher.isNullOrBlank() ->
+                        YtStreamUnlock.resolveFormatUrl(clear, cipher, videoId)
+                    clear != null -> YtStreamUnlock.transformN(clear)
+                    else -> null
+                } ?: continue
                 add(
                     YtStreamLogic.AudioFormat(
                         url = url,
@@ -368,14 +475,19 @@ class YtMusicClient(
      */
     private fun rangeReachable(url: String, userAgent: String, contentLength: Long?): Boolean {
         val offset = YtStreamLogic.probeOffset(contentLength) ?: return true
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url(url)
             .header("User-Agent", userAgent)
             .header("Range", "bytes=$offset-${offset + 500}")
             .get()
-            .build()
+        // WEB_REMIX CDN often wants the music origin; cookies help when the account is signed in.
+        if (userAgent.contains("Chrome") || userAgent.contains("Mozilla")) {
+            builder.header("Origin", MUSIC_ORIGIN)
+            builder.header("Referer", "$MUSIC_ORIGIN/")
+            authStore.cookie.takeIf { it.isNotBlank() }?.let { builder.header("Cookie", it) }
+        }
         return try {
-            http.newCall(request).execute().use { response ->
+            http.newCall(builder.build()).execute().use { response ->
                 response.isSuccessful.also { ok ->
                     if (!ok) {
                         Log.w(TAG, "Range probe HTTP ${response.code} at byte $offset")
@@ -386,17 +498,6 @@ class YtMusicClient(
             Log.w(TAG, "Range probe failed at byte $offset", e)
             false
         }
-    }
-
-    private fun cipherUrl(cipher: String?): String? {
-        if (cipher.isNullOrBlank()) return null
-        // Without JS decipher we can only use clear "url=" segments (rare).
-        val parts = cipher.split("&").associate { pair ->
-            val idx = pair.indexOf('=')
-            if (idx < 0) "" to pair
-            else pair.substring(0, idx) to URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
-        }
-        return parts["url"]?.takeIf { !parts.containsKey("s") && !parts.containsKey("sig") }
     }
 
     private fun webContext(): JSONObject = JSONObject().apply {
@@ -502,6 +603,15 @@ class YtMusicClient(
         val userAgent: String,
         val sendsCookies: Boolean,
         val usesWebOrigin: Boolean,
+        /** WEB clients need player.js STS so deciphered sig matches the player generation. */
+        val needsSignatureTimestamp: Boolean = false,
+        /** WEB_REMIX formats are usually signatureCipher — run zemer-cipher. */
+        val needsCipher: Boolean = false,
+        /**
+         * IOS progressive dies at the GVS 1 MiB preview even with pot; keep false for IOS and
+         * accept HLS only from that client.
+         */
+        val acceptsProgressive: Boolean = true,
         val extraContext: Map<String, Any> = emptyMap(),
     ) {
         fun context(): JSONObject = JSONObject().apply {
@@ -521,16 +631,22 @@ class YtMusicClient(
         private val SAPISID_KEYS = listOf("SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID")
         private val JSON = "application/json".toMediaType()
 
+        const val WEB_REMIX_UA =
+            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                "Chrome/130.0.0.0 Mobile Safari/537.36"
+
         private val WEB_CLIENT = InnertubeClient(
             name = "WEB_REMIX",
             base = WEB_BASE,
             apiKey = "AIzaSyC9XL3ZjWddXya6QbzdlsLjKEVUhNnIfjy",
             clientNumber = "67",
             clientVersion = "1.20241028.01.00",
-            userAgent = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Chrome/130.0.0.0 Mobile Safari/537.36",
+            userAgent = WEB_REMIX_UA,
             sendsCookies = true,
             usesWebOrigin = true,
+            needsSignatureTimestamp = true,
+            needsCipher = true,
+            acceptsProgressive = true,
         )
 
         private val IOS_CLIENT = InnertubeClient(
@@ -542,6 +658,8 @@ class YtMusicClient(
             userAgent = IOS_UA,
             sendsCookies = false,
             usesWebOrigin = false,
+            // Progressive 403s past ~1 MiB; HLS (when present) still works end-to-end.
+            acceptsProgressive = false,
             extraContext = mapOf(
                 "deviceMake" to "Apple",
                 "deviceModel" to "iPhone16,2",
@@ -582,23 +700,34 @@ class YtMusicClient(
             ),
         )
 
+        /** Metrolist order: signed-in WEB_REMIX primary, ANDROID_VR fallback, IOS HLS last. */
         private val PLAYER_CLIENTS = listOf(
-            IOS_CLIENT,
+            WEB_CLIENT,
             ANDROID_VR_CLIENT,
-            WEB_CLIENT.copy(sendsCookies = false),
+            IOS_CLIENT,
         )
 
         private val VISITOR_DATA_REGEX = Regex("\"visitorData\":\"(.*?)\"")
         private const val DESKTOP_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/130.0.0.0 Safari/537.36"
-        /** Cap BotGuard warm so a stuck WebView cannot block play forever. */
-        private const val PO_WARM_TIMEOUT_MS = 8_000L
 
         /** ytmusicapi search filter — songs (ignore_spelling=false). */
         private const val SEARCH_FILTER_SONGS = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
 
         /** ytmusicapi search filter — albums. */
         private const val SEARCH_FILTER_ALBUMS = "EgWKAQIYAWoMEA4QChADEAQQCRAF"
+
+        /** ytmusicapi search filter — artists. */
+        private const val SEARCH_FILTER_ARTISTS = "EgWKAQIgAWoMEA4QChADEAQQCRAF"
+
+        /** Cap for the Top Songs chart list (YT Music chart playlist size). */
+        const val TOP_SONGS_LIMIT = 100
+
+        /**
+         * Global Top Songs chart playlist when Explore does not yield a `VLPL…` header
+         * (same id ytmusicapi documents for explore top_songs).
+         */
+        private const val FALLBACK_TOP_SONGS_PLAYLIST = "PL4fGSI1pDJn6O1LS0XSdF3RyO0Rq_LDeI"
     }
 }

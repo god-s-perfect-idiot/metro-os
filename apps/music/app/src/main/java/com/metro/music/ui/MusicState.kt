@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.metro.music.data.Album
 import com.metro.music.data.Artist
 import com.metro.music.data.ArtistAbout
+import com.metro.music.data.ArtistAboutLogic
 import com.metro.music.data.ArtistDiscoverLogic
 import com.metro.music.data.Genre
 import com.metro.music.data.LibraryLogic
@@ -41,7 +42,9 @@ import com.metro.music.ytmusic.ArtistAboutClient
 import com.metro.music.ytmusic.YtMusicAuthStore
 import com.metro.music.ytmusic.YtMusicClient
 import com.metro.music.ytmusic.potoken.YtPoTokenSession
+import com.metro.music.ytmusic.potoken.YtZemerPoToken
 import com.metro.ui.MetroJumpListLogic
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -67,6 +70,7 @@ enum class MusicRoute {
     MusicDirectories,
     Explore,
     Recent,
+    TopSongs,
     Queue,
 }
 
@@ -81,13 +85,13 @@ class MusicState(context: Context) {
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
-    private val poTokenSession = YtPoTokenSession(appContext, ytHttp)
     private val ytClient = YtMusicClient(
         authStore = authStore,
         http = ytHttp,
-        poTokenSession = poTokenSession,
+        zemerPoToken = YtZemerPoToken(),
+        legacyPoTokenSession = YtPoTokenSession(appContext, ytHttp),
     )
-    private val artistAboutClient = ArtistAboutClient(ytHttp)
+    private val artistAboutClient = ArtistAboutClient(http = ytHttp, ytClient = ytClient)
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -105,8 +109,14 @@ class MusicState(context: Context) {
     private var playlistJob: Job? = null
     private var albumJob: Job? = null
     private var artistJob: Job? = null
+    /** Resolves the Wikipedia artist hero used as the hub backdrop. */
+    private var backdropJob: Job? = null
     private var libraryJob: Job? = null
+    /** Artist-name → hero image URL (Wikipedia), so album tracks do not re-hit the network. */
+    private val artistBackdropCache = ConcurrentHashMap<String, String>()
     private var exploreJob: Job? = null
+    private var topSongsJob: Job? = null
+    private var billboardJob: Job? = null
     private var playbackError: String? = null
     private var playHistoryEntries by mutableStateOf<List<PlayHistoryEntry>>(emptyList())
     private var lastRecordedSongId: String? = null
@@ -138,6 +148,18 @@ class MusicState(context: Context) {
         private set
     var exploreQuery by mutableStateOf("")
     var exploreLoading by mutableStateOf(false)
+        private set
+    var topSongs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var topSongsLoading by mutableStateOf(false)
+        private set
+    var topSongsError by mutableStateOf<String?>(null)
+        private set
+    var billboardSongs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    var billboardLoading by mutableStateOf(false)
+        private set
+    var billboardError by mutableStateOf<String?>(null)
         private set
     var showingFilter by mutableStateOf(ShowingFilter.All)
     var ytConnected by mutableStateOf(authStore.connected)
@@ -200,8 +222,14 @@ class MusicState(context: Context) {
      * queue list matches the album/playlist again.
      */
     private var orderedPlaybackQueue: List<Song> = emptyList()
-    /** Album cover Coil model behind the hub while a track is loaded; null = plain background. */
+    /**
+     * Clear artist photo behind the hub while a track is loaded (WP8.1 Xbox Music).
+     * Never the playing song/album cover — that stays in the now-playing square. Null = black.
+     */
     var nowPlayingBackdropArt by mutableStateOf<Any?>(null)
+        private set
+    /** Album cover for brand-title tint; independent of the artist backdrop. */
+    var nowPlayingAlbumArt by mutableStateOf<Any?>(null)
         private set
     var shuffle by mutableStateOf(false)
         private set
@@ -418,6 +446,64 @@ class MusicState(context: Context) {
                 exploreResults = withContext(Dispatchers.IO) { ytClient.searchSongs(query) }
             } finally {
                 if (isActive) exploreLoading = false
+            }
+        }
+    }
+
+    /** Loads the YouTube Music Top Songs chart (up to 100). Safe to call on every open. */
+    fun loadTopSongs(force: Boolean = false) {
+        if (topSongsLoading) return
+        if (!force && topSongs.isNotEmpty()) return
+        topSongsJob?.cancel()
+        topSongsJob = scope.launch {
+            topSongsLoading = true
+            topSongsError = null
+            try {
+                val songs = withContext(Dispatchers.IO) { ytClient.topSongs() }
+                if (!isActive) return@launch
+                topSongs = songs
+                topSongsError = if (songs.isEmpty()) {
+                    "Could not load top songs. Check your connection and try again."
+                } else {
+                    null
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (isActive) {
+                    topSongsError = e.message ?: "Could not load top songs"
+                }
+            } finally {
+                if (isActive) topSongsLoading = false
+            }
+        }
+    }
+
+    /** Loads Billboard Hot 100 resolved against YouTube Music. Lazy — call when the pivot opens. */
+    fun loadBillboard100(force: Boolean = false) {
+        if (billboardLoading) return
+        if (!force && billboardSongs.isNotEmpty()) return
+        billboardJob?.cancel()
+        billboardJob = scope.launch {
+            billboardLoading = true
+            billboardError = null
+            try {
+                val songs = withContext(Dispatchers.IO) { ytClient.billboardHot100() }
+                if (!isActive) return@launch
+                billboardSongs = songs
+                billboardError = if (songs.isEmpty()) {
+                    "Could not load Billboard Hot 100. Check your connection and try again."
+                } else {
+                    null
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (isActive) {
+                    billboardError = e.message ?: "Could not load Billboard Hot 100"
+                }
+            } finally {
+                if (isActive) billboardLoading = false
             }
         }
     }
@@ -787,8 +873,12 @@ class MusicState(context: Context) {
                     )
                 }
                 val aboutDeferred = launch {
-                    artistAbout = withContext(Dispatchers.IO) {
+                    val about = withContext(Dispatchers.IO) {
                         artistAboutClient.fetch(artist.name)
+                    }
+                    artistAbout = about
+                    ArtistAboutLogic.heroImageUrl(about)?.let { url ->
+                        artistBackdropCache[artist.name.trim().lowercase()] = url
                     }
                 }
                 discoverDeferred.join()
@@ -819,7 +909,7 @@ class MusicState(context: Context) {
 
     /**
      * Cover of the song's *album* rather than the playing track's own thumbnail — the first track
-     * carrying art speaks for the whole record, so the backdrop holds still as the album plays.
+     * carrying art speaks for the whole record, so brand tint holds still as the album plays.
      */
     fun albumArtworkModel(song: Song): Any? {
         val cover = allSongs.firstOrNull {
@@ -832,9 +922,43 @@ class MusicState(context: Context) {
 
     private fun updateCurrentSong(song: Song?, recordHistory: Boolean = true) {
         currentSong = song
-        nowPlayingBackdropArt = song?.let { albumArtworkModel(it) }
+        nowPlayingAlbumArt = song?.let { albumArtworkModel(it) }
+        resolveArtistBackdrop(song?.artist)
         if (recordHistory && song != null) {
             recordPlay(song)
+        }
+    }
+
+    /**
+     * Hub wash uses a clear artist portrait (Wikipedia hero), not album art, so the now-playing
+     * square does not repeat the same image. Holds the previous artist wash until a new URL
+     * arrives when the artist changes; clears when playback stops or no hero exists.
+     */
+    private fun resolveArtistBackdrop(artistName: String?) {
+        backdropJob?.cancel()
+        val name = artistName?.trim().orEmpty()
+        if (name.isEmpty() || name.equals("Unknown artist", ignoreCase = true)) {
+            nowPlayingBackdropArt = null
+            return
+        }
+        val key = name.lowercase()
+        artistBackdropCache[key]?.let { cached ->
+            nowPlayingBackdropArt = cached
+            return
+        }
+        // Keep the prior artist wash on screen while Wikipedia resolves the next one.
+        backdropJob = scope.launch {
+            val url = withContext(Dispatchers.IO) {
+                artistAboutClient.fetchHeroImageUrl(name)
+            }
+            if (!isActive) return@launch
+            if (url != null) {
+                artistBackdropCache[key] = url
+            }
+            val stillCurrent = currentSong?.artist?.trim()?.equals(name, ignoreCase = true) == true
+            if (stillCurrent) {
+                nowPlayingBackdropArt = url
+            }
         }
     }
 
@@ -1002,6 +1126,8 @@ class MusicState(context: Context) {
     private fun songById(id: String): Song? {
         return allSongs.firstOrNull { it.id == id }
             ?: exploreResults.firstOrNull { it.id == id }
+            ?: topSongs.firstOrNull { it.id == id }
+            ?: billboardSongs.firstOrNull { it.id == id }
             ?: playlistSongs.firstOrNull { it.id == id }
             ?: playbackQueue.firstOrNull { it.id == id }
             ?: recentSongs.firstOrNull { it.id == id }

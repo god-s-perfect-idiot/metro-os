@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 /**
  * Parses BotGuard challenge / integrity payloads and converts identifiers to the JS shapes
- * expected by `assets/po_token.html` (ported from NewPipe's JavaScriptUtil).
+ * expected by `assets/metro_po_token.html` (ported from NewPipe's JavaScriptUtil).
  */
 internal object PoTokenJsUtil {
     fun parseChallengeData(rawChallengeData: String): String {

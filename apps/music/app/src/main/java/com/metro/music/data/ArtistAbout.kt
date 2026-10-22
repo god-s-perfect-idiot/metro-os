@@ -2,7 +2,7 @@ package com.metro.music.data
 
 /**
  * Structured artist / band bio for the artist **about** pivot.
- * Sourced from Wikipedia (+ optional Wikidata claims).
+ * Sourced from YouTube Music when available, else music-filtered Wikipedia / Wikidata.
  */
 data class ArtistAbout(
     val name: String,
@@ -36,6 +36,60 @@ object ArtistAboutLogic {
         about.genres?.takeIf { it.isNotBlank() }?.let { add("genres" to it) }
         about.members?.takeIf { it.isNotBlank() }?.let { add("members" to it) }
     }
+
+    /**
+     * Prefer richer Wikipedia / Wikidata text when music-validated; keep YouTube Music art
+     * when wiki has none. YouTube description fills in when wiki has no prose.
+     */
+    fun mergeSources(
+        artistName: String,
+        youtube: ArtistAbout?,
+        wikipedia: ArtistAbout?,
+    ): ArtistAbout? {
+        val yt = youtube?.takeUnless { it.error != null && !it.hasContent() }
+        val wiki = wikipedia?.takeUnless { it.error != null && !it.hasContent() }
+        if (yt == null && wiki == null) return null
+
+        if (wiki != null && wiki.hasProse()) {
+            return wiki.copy(
+                imageUrl = wiki.imageUrl ?: yt?.imageUrl,
+                imageUrls = (wiki.imageUrls + (yt?.imageUrls ?: emptyList())).distinct(),
+            )
+        }
+        if (yt != null && yt.hasProse()) {
+            return yt.copy(
+                name = yt.name.ifBlank { artistName },
+                formed = wiki?.formed,
+                origin = wiki?.origin,
+                genres = wiki?.genres,
+                members = wiki?.members,
+                imageUrl = yt.imageUrl ?: wiki?.imageUrl,
+                imageUrls = (yt.imageUrls + (wiki?.imageUrls ?: emptyList())).distinct(),
+                description = yt.description ?: wiki?.description,
+            )
+        }
+        // Image-only YouTube + Wikidata stub (description / facts, no long prose).
+        if (wiki != null && wiki.hasContent()) {
+            return wiki.copy(
+                imageUrl = wiki.imageUrl ?: yt?.imageUrl,
+                imageUrls = (wiki.imageUrls + (yt?.imageUrls ?: emptyList())).distinct(),
+            )
+        }
+        if (yt != null && yt.hasContent()) {
+            return yt.copy(name = yt.name.ifBlank { artistName })
+        }
+        return null
+    }
+
+    private fun ArtistAbout.hasProse(): Boolean =
+        !summary.isNullOrBlank() || paragraphs.isNotEmpty() || sections.isNotEmpty()
+
+    private fun ArtistAbout.hasContent(): Boolean =
+        hasProse() ||
+            !description.isNullOrBlank() ||
+            !imageUrl.isNullOrBlank() ||
+            imageUrls.isNotEmpty() ||
+            factLines(this).isNotEmpty()
 
     /** Single best hero image URL (summary original → page image → extras). */
     fun heroImageUrl(about: ArtistAbout): String? {
