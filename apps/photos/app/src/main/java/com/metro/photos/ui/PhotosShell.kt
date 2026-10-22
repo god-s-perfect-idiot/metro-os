@@ -30,7 +30,14 @@ import kotlinx.coroutines.launch
 fun PhotosShell(
     state: PhotosState,
     modifier: Modifier = Modifier,
+    onExitApp: () -> Unit = {},
 ) {
+    LaunchedEffect(state.exitAppRequested) {
+        if (state.consumeExitAppRequest()) {
+            onExitApp()
+        }
+    }
+
     MetroSubpageHost(
         route = state.route,
         isRoot = { it == PhotosRoute.Collection },

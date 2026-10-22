@@ -1,5 +1,6 @@
 package com.metro.photos.data
 
+import android.content.IntentSender
 import android.net.Uri
 
 data class PhotoItem(
@@ -30,4 +31,13 @@ enum class ViewerCollection {
     All,
     Album,
     Favorites,
+    /** Single photo opened via ACTION_VIEW / Open with (not a library collection). */
+    Single,
+}
+
+/** Result of attempting to delete a MediaStore image. */
+sealed class PhotoDeleteResult {
+    data object Deleted : PhotoDeleteResult()
+    data object Failed : PhotoDeleteResult()
+    data class NeedUserConsent(val intentSender: IntentSender) : PhotoDeleteResult()
 }

@@ -2,7 +2,10 @@ package com.metro.photos.ui
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -13,6 +16,7 @@ import com.metro.photos.data.AlbumGroup
 import com.metro.photos.data.DateGroup
 import com.metro.photos.data.FavoritesStore
 import com.metro.photos.data.MediaStoreRepository
+import com.metro.photos.data.PhotoDeleteResult
 import com.metro.photos.data.PhotoItem
 import com.metro.photos.data.PhotoLogic
 import com.metro.photos.data.ViewerCollection
@@ -30,6 +34,7 @@ class PhotosState(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var loadJob: Job? = null
     private var loadGeneration = 0
+    private var pendingViewUri: Uri? = null
 
     var route by mutableStateOf(PhotosRoute.Collection)
         private set
@@ -78,8 +83,26 @@ class PhotosState(context: Context) {
     var isLoading by mutableStateOf(false)
         private set
 
+    /**
+     * True when the current viewer session was opened from an external ACTION_VIEW intent.
+     * Back from that viewer should exit the activity instead of returning to the hub.
+     */
+    var openedFromViewIntent by mutableStateOf(false)
+        private set
+
+    var pendingDeleteConsent by mutableStateOf<IntentSender?>(null)
+        private set
+
+    /**
+     * Set when Back from an external VIEW session should close the activity.
+     * [PhotosShell] / [MainActivity] observe and finish.
+     */
+    var exitAppRequested by mutableStateOf(false)
+        private set
+
     val needsPermissionGate: Boolean
-        get() = !hasMediaPermission && !skippedPermissions
+        get() = !hasMediaPermission && !skippedPermissions && pendingViewUri == null &&
+            route != PhotosRoute.Viewer
 
     val viewerPhotos: List<PhotoItem>
         get() = PhotoLogic.viewerList(
@@ -87,11 +110,17 @@ class PhotosState(context: Context) {
             favoriteIds = favoriteIds,
             collection = viewerContext.collection,
             bucketId = viewerContext.bucketId,
+            singlePhoto = viewerContext.singlePhoto,
         )
 
     fun refreshPermissions(context: Context) {
         hasMediaPermission = hasMediaReadPermission(context)
         permissionsChecked = true
+        // Without media permission, open the granted URI immediately (skip the gate).
+        // With permission, [reloadPhotos] matches into the library after the query returns.
+        if (pendingViewUri != null && !hasMediaPermission) {
+            openPendingViewIfReady()
+        }
     }
 
     fun onPermissionGranted() {
@@ -106,10 +135,14 @@ class PhotosState(context: Context) {
         isLoading = false
         photos = emptyList()
         refreshDerived()
+        openPendingViewIfReady()
     }
 
     fun reloadPhotos() {
-        if (!hasMediaPermission) return
+        if (!hasMediaPermission) {
+            openPendingViewIfReady()
+            return
+        }
         val generation = ++loadGeneration
         loadJob?.cancel()
         if (photos.isEmpty()) {
@@ -127,8 +160,30 @@ class PhotosState(context: Context) {
             } finally {
                 if (generation == loadGeneration) {
                     isLoading = false
+                    openPendingViewIfReady()
                 }
             }
+        }
+    }
+
+    /**
+     * Handles ACTION_VIEW / Open-with for a single image URI.
+     * Opens the viewer once permissions are known; does not require the permission gate when
+     * the URI was granted by the sender.
+     */
+    fun handleViewIntent(uri: Uri?) {
+        if (uri == null) return
+        pendingViewUri = uri
+        openedFromViewIntent = true
+        if (!permissionsChecked) return
+        if (hasMediaPermission) {
+            if (photos.isNotEmpty()) {
+                openPendingViewIfReady()
+            } else {
+                reloadPhotos()
+            }
+        } else {
+            openPendingViewIfReady()
         }
     }
 
@@ -146,6 +201,7 @@ class PhotosState(context: Context) {
         photoId: Long,
         bucketId: String? = null,
     ) {
+        openedFromViewIntent = false
         val list = PhotoLogic.viewerList(photos, favoriteIds, collection, bucketId)
         val index = list.indexOfFirst { it.id == photoId }.coerceAtLeast(0)
         viewerContext = ViewerContext(collection, bucketId, index)
@@ -155,6 +211,8 @@ class PhotosState(context: Context) {
 
     fun updateViewerIndex(index: Int) {
         viewerIndex = index.coerceIn(0, (viewerPhotos.size - 1).coerceAtLeast(0))
+        if (viewerContext.collection == ViewerCollection.Single) return
+        viewerContext = viewerContext.copy(initialIndex = viewerIndex)
     }
 
     fun toggleFavorite(photoId: Long) {
@@ -172,22 +230,91 @@ class PhotosState(context: Context) {
         refreshDerived()
     }
 
+    fun deleteCurrent() {
+        val photo = viewerPhotos.getOrNull(viewerIndex) ?: return
+        when (val result = repository.deleteImage(photo.uri)) {
+            PhotoDeleteResult.Deleted -> onPhotoDeleted(photo.id)
+            PhotoDeleteResult.Failed -> Unit
+            is PhotoDeleteResult.NeedUserConsent -> pendingDeleteConsent = result.intentSender
+        }
+    }
+
+    fun consumeDeleteConsent(): IntentSender? {
+        val sender = pendingDeleteConsent
+        pendingDeleteConsent = null
+        return sender
+    }
+
+    fun onPhotoDeleted(photoId: Long) {
+        favoritesStore.remove(photoId)
+        favoriteIds = favoritesStore.load()
+        photos = photos.filterNot { it.id == photoId }
+        if (viewerContext.collection == ViewerCollection.Single) {
+            viewerContext = viewerContext.copy(singlePhoto = null)
+        }
+        refreshDerived()
+        val remaining = viewerPhotos
+        when {
+            remaining.isEmpty() -> navigateBack()
+            viewerIndex >= remaining.size -> viewerIndex = remaining.lastIndex
+        }
+    }
+
+    fun shareCurrent(context: Context) {
+        val photo = viewerPhotos.getOrNull(viewerIndex) ?: return
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = photo.mimeType.ifBlank { "image/*" }
+            putExtra(Intent.EXTRA_STREAM, photo.uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = android.content.ClipData.newRawUri("", photo.uri)
+        }
+        val chooser = Intent.createChooser(send, null)
+        if (context !is android.app.Activity) {
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(chooser)
+        } catch (_: Exception) {
+            // No handler — ignore.
+        }
+    }
+
     private fun refreshDerived() {
         dateGroups = PhotoLogic.groupByMonth(photos)
         albums = PhotoLogic.groupByAlbum(photos)
         favoritePhotos = PhotoLogic.filterFavorites(photos, favoriteIds)
+        if (viewerContext.collection == ViewerCollection.Single) {
+            val single = viewerContext.singlePhoto
+            if (single != null) {
+                val refreshed = PhotoLogic.findByUri(photos, single.uri) ?: single
+                viewerContext = viewerContext.copy(singlePhoto = refreshed)
+            }
+        }
     }
 
     fun isFavorite(photoId: Long): Boolean = favoriteIds.contains(photoId)
 
+    fun consumeExitAppRequest(): Boolean {
+        if (!exitAppRequested) return false
+        exitAppRequested = false
+        return true
+    }
+
     fun navigateBack(): Boolean = when (route) {
         PhotosRoute.Viewer -> {
-            route = if (viewerContext.collection == ViewerCollection.Album) {
-                PhotosRoute.AlbumDetail
+            if (openedFromViewIntent) {
+                openedFromViewIntent = false
+                route = PhotosRoute.Collection
+                exitAppRequested = true
+                true
             } else {
-                PhotosRoute.Collection
+                route = if (viewerContext.collection == ViewerCollection.Album) {
+                    PhotosRoute.AlbumDetail
+                } else {
+                    PhotosRoute.Collection
+                }
+                true
             }
-            true
         }
         PhotosRoute.AlbumDetail -> {
             route = PhotosRoute.Collection
@@ -195,6 +322,34 @@ class PhotosState(context: Context) {
             true
         }
         PhotosRoute.Collection -> false
+    }
+
+    private fun openPendingViewIfReady() {
+        val uri = pendingViewUri ?: return
+        if (hasMediaPermission && isLoading) {
+            // Wait for MediaStore load so we can match into the library collection.
+            return
+        }
+        pendingViewUri = null
+        val matched = PhotoLogic.findByUri(photos, uri)
+        if (matched != null) {
+            openViewer(ViewerCollection.All, matched.id)
+            openedFromViewIntent = true
+        } else {
+            openResolvedView(repository.resolveViewUri(uri))
+        }
+    }
+
+    private fun openResolvedView(photo: PhotoItem) {
+        openedFromViewIntent = true
+        viewerContext = ViewerContext(
+            collection = ViewerCollection.Single,
+            singlePhoto = photo,
+            initialIndex = 0,
+        )
+        viewerIndex = 0
+        route = PhotosRoute.Viewer
+        skippedPermissions = true
     }
 
     private fun hasMediaReadPermission(context: Context): Boolean {

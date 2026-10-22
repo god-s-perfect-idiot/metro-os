@@ -79,6 +79,8 @@ enum class MetroSystemIconType {
     DialPad,
     People,
     Delete,
+    /** Three-node share — app bar share / send-to. */
+    Share,
     Check,
     /** Download / save-to tray (filled arrow into bar). */
     Save,
@@ -248,6 +250,7 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.DialPad -> drawDialPadGlyph(color, glyphStroke)
         MetroSystemIconType.People -> drawPeopleGlyph(color, glyphStroke)
         MetroSystemIconType.Delete -> Unit // Drawable-backed; see MetroSystemIcon.
+        MetroSystemIconType.Share -> drawShareGlyph(color, glyphStroke)
         MetroSystemIconType.Check -> drawCheckGlyph(color)
         MetroSystemIconType.Save -> drawSaveGlyph(color)
         MetroSystemIconType.Attach -> drawAttachGlyph(color, glyphStroke)
@@ -1167,6 +1170,20 @@ private fun DrawScope.drawSendGlyph(color: Color) {
         close()
     }
     drawPath(path, color)
+}
+
+/** WP-style three-node share glyph (source left → two targets right). */
+private fun DrawScope.drawShareGlyph(color: Color, stroke: Stroke) {
+    val s = size.minDimension
+    val r = s * 0.09f
+    val left = Offset(size.width * 0.28f, size.height * 0.50f)
+    val topRight = Offset(size.width * 0.70f, size.height * 0.28f)
+    val botRight = Offset(size.width * 0.70f, size.height * 0.72f)
+    drawLine(color, left, topRight, stroke.width, StrokeCap.Butt)
+    drawLine(color, left, botRight, stroke.width, StrokeCap.Butt)
+    drawCircle(color, r, left)
+    drawCircle(color, r, topRight)
+    drawCircle(color, r, botRight)
 }
 
 private fun DrawScope.drawAutocorrectGlyph(color: Color, stroke: Stroke) {

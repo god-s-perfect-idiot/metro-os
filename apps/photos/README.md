@@ -35,6 +35,9 @@ The desired feel is large imagery, strong horizontal organization, and minimal c
 ### 3. Photo viewer
 
 - Focused image viewing surface with minimal Metro chrome
+- Opens with status bar + navbar; tap photo for immersive fullscreen
+- App bar: share, favorite, delete
+- Handles `ACTION_VIEW` / Open with for a single `image/*` URI
 - Expected reference: `references/images/viewer_dark_blue.png`
 
 ## System functions and contracts

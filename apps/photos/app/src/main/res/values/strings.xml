@@ -16,4 +16,6 @@
     <string name="pivot_favorites">favorites</string>
     <string name="add_favorite">favorite</string>
     <string name="remove_favorite">unfavorite</string>
+    <string name="share_photo">share</string>
+    <string name="delete_photo">delete</string>
 </resources>

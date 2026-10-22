@@ -1,5 +1,6 @@
 package com.metro.photos.data
 
+import android.net.Uri
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,10 +54,31 @@ object PhotoLogic {
         favoriteIds: Set<Long>,
         collection: ViewerCollection,
         bucketId: String?,
+        singlePhoto: PhotoItem? = null,
     ): List<PhotoItem> = when (collection) {
         ViewerCollection.All -> sortByDateDesc(allPhotos)
         ViewerCollection.Album -> photosForAlbum(allPhotos, bucketId.orEmpty())
         ViewerCollection.Favorites -> filterFavorites(allPhotos, favoriteIds)
+        ViewerCollection.Single -> listOfNotNull(singlePhoto)
+    }
+
+    /**
+     * Finds [uri] in [photos], matching both exact URI and MediaStore id path suffixes
+     * (`…/images/media/123`).
+     */
+    fun findByUri(photos: List<PhotoItem>, uri: Uri): PhotoItem? {
+        val exact = photos.firstOrNull { it.uri == uri }
+        if (exact != null) return exact
+        val needle = uri.toString()
+        photos.firstOrNull { it.uri.toString() == needle }?.let { return it }
+        val id = mediaStoreId(uri) ?: return null
+        return photos.firstOrNull { it.id == id }
+    }
+
+    fun mediaStoreId(uri: Uri): Long? {
+        if (uri.scheme != "content") return null
+        val last = uri.lastPathSegment ?: return null
+        return last.toLongOrNull()
     }
 
     fun monthLabel(epochMs: Long): String {

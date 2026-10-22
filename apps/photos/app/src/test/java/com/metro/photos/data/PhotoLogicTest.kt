@@ -92,4 +92,30 @@ class PhotoLogicTest {
         val albumOnly = PhotoLogic.viewerList(all, emptySet(), ViewerCollection.Album, "a")
         assertEquals(listOf(1L), albumOnly.map { it.id })
     }
+
+    @Test
+    fun viewerList_singleUsesProvidedPhoto() {
+        val single = photo(9, dateTakenMs = 1L)
+        val list = PhotoLogic.viewerList(
+            allPhotos = emptyList(),
+            favoriteIds = emptySet(),
+            collection = ViewerCollection.Single,
+            bucketId = null,
+            singlePhoto = single,
+        )
+        assertEquals(listOf(9L), list.map { it.id })
+    }
+
+    @Test
+    fun findByUri_matchesMediaStoreIdSuffix() {
+        val all = listOf(
+            photo(42, dateTakenMs = 1L),
+            photo(7, dateTakenMs = 2L),
+        )
+        val found = PhotoLogic.findByUri(
+            all,
+            Uri.parse("content://media/external/images/media/42"),
+        )
+        assertEquals(42L, found?.id)
+    }
 }

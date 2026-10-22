@@ -1,7 +1,6 @@
 package com.metro.photos.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,7 @@ import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
+import com.metro.ui.metroClickable
 import com.metro.ui.metroNavBarPadding
 
 @Composable
@@ -96,7 +96,7 @@ private fun PhotoGridRow(
                 modifier = Modifier
                     .weight(1f)
                     .aspectRatio(1f)
-                    .clickable { onPhotoClick(photo) },
+                    .metroClickable { onPhotoClick(photo) },
             )
         }
         repeat((4 - photos.size).coerceAtLeast(0)) {
@@ -144,7 +144,7 @@ private fun AlbumTile(
             .fillMaxWidth()
             .aspectRatio(1f)
             .background(Color(0xFF333333))
-            .clickable(onClick = onClick),
+            .metroClickable(onClick = onClick),
     ) {
         if (album.coverUri != null) {
             PhotoThumbnail(
@@ -199,7 +199,7 @@ fun FavoritesPane(
                 uri = photo.uri,
                 modifier = Modifier
                     .aspectRatio(1f)
-                    .clickable { onPhotoClick(photo) },
+                    .metroClickable { onPhotoClick(photo) },
             )
         }
     }
@@ -238,7 +238,7 @@ fun AlbumDetailScreen(
                     uri = photo.uri,
                     modifier = Modifier
                         .aspectRatio(1f)
-                        .clickable { onPhotoClick(photo) },
+                        .metroClickable { onPhotoClick(photo) },
                 )
             }
         }

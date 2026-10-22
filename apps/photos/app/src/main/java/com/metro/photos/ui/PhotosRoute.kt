@@ -1,5 +1,6 @@
 package com.metro.photos.ui
 
+import com.metro.photos.data.PhotoItem
 import com.metro.photos.data.ViewerCollection
 
 enum class PhotosRoute {
@@ -24,4 +25,5 @@ data class ViewerContext(
     val collection: ViewerCollection,
     val bucketId: String? = null,
     val initialIndex: Int = 0,
+    val singlePhoto: PhotoItem? = null,
 )

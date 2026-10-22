@@ -37,9 +37,12 @@ Target: **Windows Phone 8.1** Photos app on a portrait phone (768×1280 / xhdpi 
 ### Page 3 — Photo viewer
 
 - **Layout:** Full-bleed image centered on black. No rounded corners. Minimal chrome overlay (optional fade on tap).
-- **Interactions:** Horizontal flick moves to prev/next photo in current collection (only while image is at fit scale). Pinch zooms 1×–5× around the pinch centroid; drag pans when zoomed. Double-tap toggles fit ↔ ~2.5× toward the tap. While zoomed, horizontal flick between photos is disabled (pinch out or double-tap to fit first). Tap toggles chrome. System Back → collection preserving pivot and scroll context.
+- **Chrome / fullscreen:** Opens with Metro status bar + soft-key navbar visible and the bottom app bar shown. Tap the photo to enter immersive fullscreen (hide system tray, soft keys, and app bar). Tap again to restore chrome.
+- **App bar actions:** `share` | `favorite` / `unfavorite` | `delete` (deletes immediately; Android may still show a system consent sheet when required).
+- **Interactions:** Horizontal flick moves to prev/next photo in current collection (only while image is at fit scale). Pinch zooms 1×–5× around the pinch centroid; drag pans when zoomed. Double-tap toggles fit ↔ ~2.5× toward the tap. While zoomed, horizontal flick between photos is disabled (pinch out or double-tap to fit first). Tap toggles chrome. System Back → collection preserving pivot and scroll context (or exits the app when opened via ACTION_VIEW / Open with).
+- **Open with:** `ACTION_VIEW` + `image/*` opens this page on the shared URI (library match when possible so adjacent swipe still works; otherwise a single-photo session).
 - **Background:** Black.
-- **Reference:** No high-fidelity WP8.1 capture yet — see `known-gaps.md`. WP8.1 auto-enters full-screen mode (search key disabled).
+- **Reference:** No high-fidelity WP8.1 capture yet — see `known-gaps.md`.
 
 ### Page 4 — Permission gate
 
@@ -73,7 +76,7 @@ Target: **Windows Phone 8.1** Photos app on a portrait phone (768×1280 / xhdpi 
 ## Out of scope (v1)
 
 - OneDrive / Facebook online albums (WP8.1 links out to apps)
-- Multi-select delete / share
+- Multi-select delete / share (single-photo share/delete is in scope)
 - Video playback
 - Photos+camera settings page
 - Cloud sync
