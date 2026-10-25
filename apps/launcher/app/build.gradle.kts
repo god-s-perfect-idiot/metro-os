@@ -12,8 +12,8 @@ android {
         applicationId = "com.metro.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "2.0.0"
+        versionCode = 8
+        versionName = "2.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "WIDE_TILES", "false")
     }

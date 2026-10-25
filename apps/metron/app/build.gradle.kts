@@ -37,8 +37,8 @@ android {
     defaultConfig {
         applicationId = "com.metro.metron"
 
-        versionCode = 35
-        versionName = "0.21.0"
+        versionCode = 36
+        versionName = "0.22.0"
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
         // Permanently off — Metron must not poll Mihon (or any) release OTA.
