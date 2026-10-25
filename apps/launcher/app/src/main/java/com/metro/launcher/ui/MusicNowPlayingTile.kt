@@ -101,7 +101,6 @@ fun MusicNowPlayingTileContent(
         PinnedTileSize.TwoByTwo, PinnedTileSize.FourByTwo -> when (style) {
             MetroMusicLiveTileStyle.Presentation -> MusicPresentationNowPlayingFace(
                 info = info,
-                size = size,
                 fallbackColor = fallbackColor,
                 modifier = modifier,
             )
@@ -337,24 +336,35 @@ private fun MusicSpaciousNowPlayingFace(
 }
 
 /**
- * Presentation: accent fill with oversized uppercase title (L→R) and artist (R→L) panning.
+ * Presentation: album art (accent fallback) with oversized uppercase title (L→R) and
+ * artist (R→L) panning.
  */
 @Composable
 private fun MusicPresentationNowPlayingFace(
     info: MusicNowPlayingInfo,
-    size: PinnedTileSize,
     fallbackColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val title = info.title?.trim().orEmpty()
     val artist = info.artist?.trim().orEmpty()
-    val textColor = presentationTextColor(fallbackColor)
+    val hasArt = !info.albumArtUri.isNullOrBlank()
+    // Soft accent glyphs on solid fill; white over album art so pans stay readable.
+    val textColor = if (hasArt) {
+        Color.White.copy(alpha = 0.92f)
+    } else {
+        presentationTextColor(fallbackColor)
+    }
     Box(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()
             .background(fallbackColor),
     ) {
+        AlbumArtBackground(albumArtUri = info.albumArtUri, contentDescription = info.title)
+        if (hasArt) {
+            // Darken art so the large uppercase pans stay legible over bright covers.
+            ScrimOverlay(alpha = 0.42f)
+        }
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val lineHeight = maxHeight * 0.46f
             val fontSize = with(LocalDensity.current) {
@@ -389,10 +399,6 @@ private fun MusicPresentationNowPlayingFace(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
-        // Wide presentation still reads as a live tile without transport; keep 2×2 quiet too.
-        if (size == PinnedTileSize.FourByTwo && title.isBlank() && artist.isBlank()) {
-            // Empty now-playing — accent-only face is fine.
         }
     }
 }
