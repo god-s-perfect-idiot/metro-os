@@ -42,7 +42,7 @@
     <string name="settings_start_theme_intro_accent">accent colour</string>
     <string name="settings_start_theme_intro_suffix">\u0020to suit your mood today, this week or all month.</string>
     <string name="settings_show_more_columns">Show more columns</string>
-    <string name="settings_show_more_columns_help">Fits three medium tiles across Start instead of two.</string>
+    <string name="settings_use_compact_layout">Use compact layout</string>
     <string name="settings_start_background_label">Start background</string>
     <string name="settings_start_background_choose">choose photo</string>
     <string name="settings_start_background_remove">remove</string>

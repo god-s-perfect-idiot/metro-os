@@ -41,6 +41,7 @@ import com.metro.launcher.data.normalizeLaunchTargetPackage
 import com.metro.launcher.data.resolvedIconScale
 import com.metro.launcher.data.resolvedLaunchTargetForPicker
 import com.metro.launcher.data.supportsCustomWidget
+import com.metro.launcher.data.TILE_GRID_COLUMN_COUNT
 import com.metro.launcher.data.tileGridColumnCount
 import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroAppBranding
@@ -102,6 +103,14 @@ class LauncherState(context: Context) {
         private set
     /** 4 (default) or 6 when Settings → show more columns is on. */
     var gridColumns by mutableIntStateOf(tileGridColumnCount(metroPrefs.showMoreColumns))
+        private set
+    /**
+     * Compact Start chrome (sticky top-right app-list arrow) when show more columns is off.
+     * Effective only for the 4-column grid.
+     */
+    var useCompactLayout by mutableStateOf(
+        metroPrefs.useCompactLayout && !metroPrefs.showMoreColumns,
+    )
         private set
     /**
      * Active Android icon-pack package from Settings → start+theme (null = system icons).
@@ -238,7 +247,10 @@ class LauncherState(context: Context) {
                 clearAppListIconCache()
                 refreshTilesLiveAsync(pinnedEntries)
             }
-            MetroPreferenceKeys.SHOW_MORE_COLUMNS -> applyShowMoreColumns(metroPrefs.showMoreColumns)
+            MetroPreferenceKeys.SHOW_MORE_COLUMNS ->
+                applyShowMoreColumns(metroPrefs.showMoreColumns)
+            MetroPreferenceKeys.USE_COMPACT_LAYOUT ->
+                applyUseCompactLayout(metroPrefs.useCompactLayout)
             MetroPreferenceKeys.ICON_PACK_PACKAGE -> applyIconPackPackage(metroPrefs.iconPackPackage)
             MetroPreferenceKeys.START_BACKGROUND_ENABLED -> {
                 scheduleStartBackgroundReload()
@@ -305,6 +317,7 @@ class LauncherState(context: Context) {
             darkTheme = metroPrefs.isDark
             accent = metroPrefs.accentColor
             applyShowMoreColumns(metroPrefs.showMoreColumns)
+            applyUseCompactLayout(metroPrefs.useCompactLayout)
             applyIconPackPackage(metroPrefs.iconPackPackage)
             clearAppListIconCache()
             // Album / connected-app edits from Settings arrive via the provider, not the
@@ -342,6 +355,7 @@ class LauncherState(context: Context) {
             persistJob?.join()
             val epochAtStart = layoutEpoch
             applyShowMoreColumns(metroPrefs.showMoreColumns)
+            applyUseCompactLayout(metroPrefs.useCompactLayout)
             val columns = gridColumns
             val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles(columns) }
             if (epochAtStart != layoutEpoch) return
@@ -1396,10 +1410,20 @@ class LauncherState(context: Context) {
     /** Applies Settings → show more columns; reflows when the column count changes. */
     private fun applyShowMoreColumns(enabled: Boolean) {
         val columns = tileGridColumnCount(enabled)
-        if (columns == gridColumns) return
-        gridColumns = columns
-        pinnedEntries = adaptTilesToColumnCount(pinnedEntries, columns)
-        persistLayoutAndPaint()
+        if (columns != gridColumns) {
+            gridColumns = columns
+            pinnedEntries = adaptTilesToColumnCount(pinnedEntries, columns)
+            persistLayoutAndPaint()
+        }
+        // Compact chrome is 4-col only — re-evaluate after density changes.
+        applyUseCompactLayout(metroPrefs.useCompactLayout)
+    }
+
+    /** Applies Settings → use compact layout (sticky arrow column on 4-col Start only). */
+    private fun applyUseCompactLayout(enabled: Boolean) {
+        val effective = enabled && gridColumns == TILE_GRID_COLUMN_COUNT
+        if (effective == useCompactLayout) return
+        useCompactLayout = effective
     }
 
     /** Applies Settings → icon pack; clears glyph caches so Start / app list reload. */

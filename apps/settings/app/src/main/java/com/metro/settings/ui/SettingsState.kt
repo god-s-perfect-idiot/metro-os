@@ -95,6 +95,9 @@ class SettingsState(
     var showMoreColumns by mutableStateOf(prefs.showMoreColumns)
         private set
 
+    var useCompactLayout by mutableStateOf(prefs.useCompactLayout)
+        private set
+
     var startBackgroundEnabled by mutableStateOf(prefs.startBackgroundEnabled)
         private set
 
@@ -215,6 +218,16 @@ class SettingsState(
     fun applyShowMoreColumns(enabled: Boolean) {
         showMoreColumns = enabled
         prefs.showMoreColumns = enabled
+        // Compact layout only applies to the 4-column Start; clear when expanding.
+        if (enabled && useCompactLayout) {
+            useCompactLayout = false
+            prefs.useCompactLayout = false
+        }
+    }
+
+    fun applyUseCompactLayout(enabled: Boolean) {
+        useCompactLayout = enabled
+        prefs.useCompactLayout = enabled
     }
 
     fun applyIconPackPackage(packageName: String?) {
@@ -377,6 +390,7 @@ class SettingsState(
         fontScale = prefs.fontScale
         typeface = prefs.typeface
         showMoreColumns = prefs.showMoreColumns
+        useCompactLayout = prefs.useCompactLayout
         startBackgroundEnabled = prefs.startBackgroundEnabled
         iconPackPackage = prefs.iconPackPackage
         galleryAppPackages = prefs.galleryAppPackages

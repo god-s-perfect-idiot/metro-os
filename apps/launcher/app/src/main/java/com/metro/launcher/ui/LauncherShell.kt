@@ -596,6 +596,7 @@ private fun LauncherPagerHost(
                         onTileLongPress = onTileLongPress,
                         onOpenAppList = openAppList,
                         columns = state.gridColumns,
+                        useCompactLayout = state.useCompactLayout,
                         editMode = editing,
                         editingTile = state.editingTile,
                         onDismissEdit = onDismissEdit,

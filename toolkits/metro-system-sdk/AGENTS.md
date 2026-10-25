@@ -22,6 +22,7 @@ Cross-app system contracts: shared preferences, intents, broadcasts, content pro
 | `font_family` | `String` (`metro_noto` / `source_sans_3` / `alegreya_sans`) | `metro_noto` | Suite chrome typeface |
 | `nav_bar_color` | `String?` | null | Nav bar override |
 | `show_more_columns` | `Boolean` | `false` | Start 6-col grid (3 medium tiles across) when true; 4-col when false |
+| `use_compact_layout` | `Boolean` | `false` | Sticky top-right app-list arrow column on 4-col Start (ignored when show more columns is on) |
 | `start_background_enabled` | `Boolean` | `false` | Start background photo active; image at `/start_background` |
 | `icon_pack_package` | `String?` | null | Active Android icon-pack package for Start / app-list glyphs; null = system icons ([MetroIconPacks]) |
 | `connected_gallery_apps` | `String` (CSV packages) | suite defaults when unset | Photos-style live-tile packages |

@@ -131,6 +131,15 @@ class MetroPreferences(context: Context) {
         set(value) = writeBoolean(MetroPreferenceKeys.SHOW_MORE_COLUMNS, value)
 
     /**
+     * Compact Start chrome when [showMoreColumns] is off: sticky top-right app-list arrow
+     * in a third column instead of a trailing arrow under the grid. Settings owns the write;
+     * launcher observes. Ignored while show more columns is on.
+     */
+    var useCompactLayout: Boolean
+        get() = readBoolean(MetroPreferenceKeys.USE_COMPACT_LAYOUT, false)
+        set(value) = writeBoolean(MetroPreferenceKeys.USE_COMPACT_LAYOUT, value)
+
+    /**
      * Whether a cropped Start background photo is active (WP8.1 Start background).
      * Image bytes: [MetroStartBackground.CONTENT_URI]. Settings owns writes.
      */

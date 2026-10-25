@@ -104,6 +104,47 @@ class TileGridTest {
     }
 
     @Test
+    fun batteryWidgetLayout_twoDigitsLargerThanThree() {
+        val side = 45f
+        val two = batteryWidgetLayout(
+            sideDp = side,
+            widthDp = side,
+            digitCount = 2,
+            dense = true,
+        )
+        val three = batteryWidgetLayout(
+            sideDp = side,
+            widthDp = side,
+            digitCount = 3,
+            dense = true,
+        )
+        assertTrue(
+            "two-digit font (${two.fontSp}) should exceed three-digit (${three.fontSp})",
+            two.fontSp > three.fontSp,
+        )
+        assertTrue(two.fontSp >= 16f)
+        assertTrue(
+            "glyph+gap+99 must fit width ($two)",
+            two.estimatedRowWidthDp(2) <= side,
+        )
+        val standardTwo = batteryWidgetLayout(
+            sideDp = 80f,
+            widthDp = 80f,
+            digitCount = 2,
+            dense = false,
+        )
+        val standardThree = batteryWidgetLayout(
+            sideDp = 80f,
+            widthDp = 80f,
+            digitCount = 3,
+            dense = false,
+        )
+        assertTrue(standardTwo.fontSp > standardThree.fontSp)
+        assertTrue(standardTwo.fontSp >= 20f)
+        assertTrue(standardTwo.estimatedRowWidthDp(2) <= 80f)
+    }
+
+    @Test
     fun tileNotificationDisplayCount_capsAtNinetyNineWithoutPlus() {
         assertEquals("1", tileNotificationDisplayCount(1))
         assertEquals("99", tileNotificationDisplayCount(99))

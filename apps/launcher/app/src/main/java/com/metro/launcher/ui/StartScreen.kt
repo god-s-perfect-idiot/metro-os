@@ -11,11 +11,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -43,6 +46,7 @@ private val NeverSuspendEditMotion: State<Boolean> = mutableStateOf(false)
 
 /**
  * Start menu — tile grid on black (4 columns default; 6 when show more columns is on).
+ * Compact layout (4-col only): sticky top-right app-list arrow as a third column.
  * Reference: references/images/start_dark_blue.png
  */
 @Composable
@@ -53,6 +57,8 @@ fun StartScreen(
     onOpenAppList: () -> Unit,
     modifier: Modifier = Modifier,
     columns: Int = TILE_GRID_COLUMNS,
+    /** Sticky top-right arrow column instead of trailing bottom arrow (4-col only). */
+    useCompactLayout: Boolean = false,
     editMode: Boolean = false,
     editingTile: DisplayTile? = null,
     onDismissEdit: () -> Unit = {},
@@ -84,8 +90,10 @@ fun StartScreen(
             override val longPressTimeoutMillis: Long = TILE_DRAG_HOLD_MS
         }
     }
+    val compact = useCompactLayout
+    val showTrailingArrow = !compact
     val arrowRowHeight by animateDpAsState(
-        targetValue = if (editMode) 0.dp else START_ARROW_ROW_HEIGHT,
+        targetValue = if (editMode || compact) 0.dp else START_ARROW_ROW_HEIGHT,
         animationSpec = if (!editMode && suspendEditMotion.value) {
             snap()
         } else {
@@ -111,10 +119,21 @@ fun StartScreen(
         },
         label = "startArrowAlpha",
     )
+    val chrome = TileChrome.forColumns(columns)
+    // Third visual column for the sticky arrow — matches the circular control + end gutter.
+    val compactArrowColumnWidth = START_ARROW_ROW_HEIGHT + chrome.endPadding
+
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val viewportWidthPx = constraints.maxWidth.toFloat()
         val viewportHeightPx = constraints.maxHeight.toFloat()
-        LaunchedEffect(pendingPinReveal, tiles) {
+        // Pin-reveal scroll math uses the tile-grid width (excludes sticky arrow column).
+        val gridViewportWidthPx = if (compact) {
+            (viewportWidthPx - with(density) { compactArrowColumnWidth.toPx() })
+                .coerceAtLeast(1f)
+        } else {
+            viewportWidthPx
+        }
+        LaunchedEffect(pendingPinReveal, tiles, compact) {
             val key = pendingPinReveal ?: return@LaunchedEffect
             val tile = tiles.firstOrNull {
                 it.entry.packageName == key.packageName && it.entry.tileId == key.tileId
@@ -122,7 +141,7 @@ fun StartScreen(
             // Wait one frame so the new tile is measured and maxValue includes it.
             withFrameNanos { }
             val row = tile.entry.gridRow ?: 0
-            val unitPx = startGridUnitPx(viewportWidthPx, columns, density)
+            val unitPx = startGridUnitPx(gridViewportWidthPx, columns, density)
             val tileTopPx = startTileTopPx(row, unitPx, density, columns = columns)
             val target = startPinRevealScrollPx(tileTopPx, viewportHeightPx)
             val max = scrollState.maxValue
@@ -134,57 +153,87 @@ fun StartScreen(
         CompositionLocalProvider(LocalViewConfiguration provides fastPressConfiguration) {
             // Never toggle verticalScroll.enabled mid-gesture — that cancels the tile's
             // pointerInput and forces a second drag. Tile gestures consume the pointer instead.
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black)
-                    .verticalScroll(scrollState)
-                    .then(
-                        if (editMode) {
-                            Modifier.clickable(
-                                interactionSource = editDismissInteraction,
-                                indication = null,
-                                onClick = onDismissEdit,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    .background(Color.Black),
             ) {
-                TileGrid(
-                    tiles = tiles,
-                    onTileClick = onTileClick,
-                    onTileLongPress = onTileLongPress,
-                    columns = columns,
-                    editMode = editMode,
-                    activeTile = editingTile,
-                    onDismissEdit = onDismissEdit,
-                    onResize = onResize,
-                    onUnpin = onUnpin,
-                    onCustomize = onCustomize,
-                    onDragLayout = onDragLayout,
-                    onReorderCommit = onReorderCommit,
-                    enterWaveKey = enterWaveKey,
-                    consumedEnterWaveKey = consumedEnterWaveKey,
-                    restPoseRequestId = restPoseRequestId,
-                    suspendEditMotion = suspendEditMotion,
-                    scrollState = scrollState,
-                )
-
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = TileChrome.forColumns(columns).horizontalPadding,
-                            end = TileChrome.forColumns(columns).endPadding,
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(scrollState)
+                        .then(
+                            if (editMode) {
+                                Modifier.clickable(
+                                    interactionSource = editDismissInteraction,
+                                    indication = null,
+                                    onClick = onDismissEdit,
+                                )
+                            } else {
+                                Modifier
+                            },
                         ),
-                    horizontalAlignment = Alignment.End,
                 ) {
+                    TileGrid(
+                        tiles = tiles,
+                        onTileClick = onTileClick,
+                        onTileLongPress = onTileLongPress,
+                        columns = columns,
+                        editMode = editMode,
+                        activeTile = editingTile,
+                        onDismissEdit = onDismissEdit,
+                        onResize = onResize,
+                        onUnpin = onUnpin,
+                        onCustomize = onCustomize,
+                        onDragLayout = onDragLayout,
+                        onReorderCommit = onReorderCommit,
+                        enterWaveKey = enterWaveKey,
+                        consumedEnterWaveKey = consumedEnterWaveKey,
+                        restPoseRequestId = restPoseRequestId,
+                        suspendEditMotion = suspendEditMotion,
+                        scrollState = scrollState,
+                    )
+
+                    if (showTrailingArrow) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = chrome.horizontalPadding,
+                                    end = chrome.endPadding,
+                                ),
+                            horizontalAlignment = Alignment.End,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .height(arrowRowHeight)
+                                    .clipToBounds(),
+                                contentAlignment = Alignment.CenterEnd,
+                            ) {
+                                MetroCircleIconButton(
+                                    type = MetroSystemIconType.Forward,
+                                    onClick = onOpenAppList,
+                                    size = START_ARROW_ROW_HEIGHT,
+                                    contentDescription = "app list",
+                                    enabled = !editMode,
+                                    modifier = Modifier.alpha(arrowAlpha),
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(arrowBottomPadding))
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(arrowBottomPadding))
+                    }
+                }
+
+                if (compact) {
                     Box(
                         modifier = Modifier
-                            .height(arrowRowHeight)
-                            .clipToBounds(),
-                        contentAlignment = Alignment.CenterEnd,
+                            .width(compactArrowColumnWidth)
+                            .fillMaxHeight()
+                            .padding(end = chrome.endPadding),
+                        contentAlignment = Alignment.TopEnd,
                     ) {
                         MetroCircleIconButton(
                             type = MetroSystemIconType.Forward,
@@ -195,7 +244,6 @@ fun StartScreen(
                             modifier = Modifier.alpha(arrowAlpha),
                         )
                     }
-                    Spacer(modifier = Modifier.height(arrowBottomPadding))
                 }
             }
         }

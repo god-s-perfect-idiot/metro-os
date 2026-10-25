@@ -13,6 +13,12 @@ object MetroPreferenceKeys {
     const val SHOW_MORE_COLUMNS = "show_more_columns"
 
     /**
+     * When true (and [SHOW_MORE_COLUMNS] is false), Start uses a compact layout: tiles leave a
+     * sticky right column for the app-list arrow (no trailing arrow under the grid).
+     */
+    const val USE_COMPACT_LAYOUT = "use_compact_layout"
+
+    /**
      * When true, Start shows a user photo behind accent/transparent tiles (WP8.1 Start background).
      * Image bytes live at [MetroStartBackground.CONTENT_URI]; this flag is the cross-app signal.
      */

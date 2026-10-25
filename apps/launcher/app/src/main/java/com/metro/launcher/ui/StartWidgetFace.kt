@@ -327,11 +327,19 @@ internal fun batteryWidgetLayout(
     val gap = sideDp * gapFrac
     val textBudget = (widthDp - glyphWidth - gap).coerceAtLeast(8f)
     val perDigit = textBudget / digits
-    // Fit under budget — a fixed 20sp floor used to clip "100" on dense 1×1.
-    val fontSp = (perDigit * 0.92f)
-        .coerceAtMost(sideDp * 0.56f)
-        .coerceAtLeast(8f)
-        .coerceAtMost(perDigit)
+    // Three digits: fit under budget — a fixed 20sp floor clips "100" on dense 1×1.
+    // One/two digits: Noto digits are ~0.55em wide, so type can exceed a 1em-perDigit
+    // budget and still fit; keep the old readable floor so "99" does not stay tiny.
+    val fontSp = if (digits >= 3) {
+        (perDigit * 0.92f)
+            .coerceAtMost(sideDp * 0.56f)
+            .coerceAtLeast(8f)
+            .coerceAtMost(perDigit)
+    } else {
+        (perDigit * 1.35f)
+            .coerceAtMost(sideDp * 0.50f)
+            .coerceAtLeast(if (dense) 16f else 20f)
+    }
     return BatteryWidgetLayout(
         glyphWidthDp = glyphWidth,
         glyphHeightDp = glyphHeight,

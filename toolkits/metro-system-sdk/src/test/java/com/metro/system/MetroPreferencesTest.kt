@@ -111,6 +111,15 @@ class MetroPreferencesTest {
     }
 
     @Test
+    fun useCompactLayout_defaultsOffAndRoundTrips() {
+        assertFalse(prefs.useCompactLayout)
+        prefs.useCompactLayout = true
+        assertTrue(prefs.useCompactLayout)
+        prefs.useCompactLayout = false
+        assertFalse(prefs.useCompactLayout)
+    }
+
+    @Test
     fun startBackgroundEnabled_defaultsOffAndRoundTrips() {
         assertFalse(prefs.startBackgroundEnabled)
         prefs.startBackgroundEnabled = true

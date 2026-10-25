@@ -129,6 +129,7 @@ class MetroSystemPreferencesProvider : ContentProvider() {
                 is Int -> when (key) {
                     MetroPreferenceKeys.NAV_BAR_ENABLED,
                     MetroPreferenceKeys.SHOW_MORE_COLUMNS,
+                    MetroPreferenceKeys.USE_COMPACT_LAYOUT,
                     MetroPreferenceKeys.START_BACKGROUND_ENABLED,
                     -> editor.putBoolean(key, v != 0)
                     MetroPreferenceKeys.FONT_SCALE -> editor.putFloat(key, v.toFloat())
@@ -172,6 +173,8 @@ class MetroSystemPreferencesProvider : ContentProvider() {
             if (prefs.getBoolean(key, false)) 1 else 0
         MetroPreferenceKeys.SHOW_MORE_COLUMNS ->
             if (prefs.getBoolean(key, false)) 1 else 0
+        MetroPreferenceKeys.USE_COMPACT_LAYOUT ->
+            if (prefs.getBoolean(key, false)) 1 else 0
         MetroPreferenceKeys.START_BACKGROUND_ENABLED ->
             if (prefs.getBoolean(key, false)) 1 else 0
         MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
@@ -200,6 +203,7 @@ class MetroSystemPreferencesProvider : ContentProvider() {
             MetroPreferenceKeys.NAV_BAR_COLOR,
             MetroPreferenceKeys.NAV_BAR_ENABLED,
             MetroPreferenceKeys.SHOW_MORE_COLUMNS,
+            MetroPreferenceKeys.USE_COMPACT_LAYOUT,
             MetroPreferenceKeys.START_BACKGROUND_ENABLED,
             MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
             MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS,

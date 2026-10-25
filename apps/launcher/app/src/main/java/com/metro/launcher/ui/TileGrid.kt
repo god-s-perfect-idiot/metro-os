@@ -1963,7 +1963,9 @@ private fun SmallTileIconBadgeContent(
         modifier = modifier.padding(horizontal = edgePad),
         contentAlignment = Alignment.Center,
     ) {
-        val gap = 1.dp
+        // Dense keeps a tight gap so glyph+count fit the smaller cell; 2-col uses the
+        // pre–show-more-columns spacing.
+        val gap = if (dense) 1.dp else 4.dp
         val availableW = maxWidth.value
         val availableH = maxHeight.value
         val gapV = gap.value
@@ -1971,14 +1973,15 @@ private fun SmallTileIconBadgeContent(
         val maxGlyph = if (dense) {
             min(availableH * 0.98f, 68f)
         } else {
-            min(availableH * 0.96f, 66f)
+            min(availableH * 0.68f, 36f)
         }
         // Same height-based size for "9" and "99" — never shrink two-digit counts.
+        // 2-col (Standard) keeps the pre–3-col font scale; dense stays compressed.
         val fontSp = if (dense) {
             min(availableH * 0.40f, 21.5f)
         } else {
-            min(availableH * 0.33f, 19.5f)
-        }.coerceAtLeast(if (dense) 11f else 10f)
+            min(availableH * 0.48f, 28f)
+        }.coerceAtLeast(if (dense) 11f else 9f)
         val fontFamily = MetroTheme.fontFamily
         val countWeight = FontWeight.SemiBold
 

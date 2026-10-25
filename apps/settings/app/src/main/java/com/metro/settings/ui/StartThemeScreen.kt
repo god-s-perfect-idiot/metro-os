@@ -196,7 +196,16 @@ fun StartThemeScreen(
             label = stringResource(R.string.settings_show_more_columns),
             modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
         )
-        SettingsHelpText(text = stringResource(R.string.settings_show_more_columns_help))
+
+        if (!state.showMoreColumns) {
+            SettingsSpacer(height = 28)
+            MetroToggleSwitch(
+                checked = state.useCompactLayout,
+                onCheckedChange = state::applyUseCompactLayout,
+                label = stringResource(R.string.settings_use_compact_layout),
+                modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+            )
+        }
     }
 }
 
