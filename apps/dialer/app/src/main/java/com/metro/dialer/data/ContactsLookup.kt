@@ -111,18 +111,55 @@ class ContactsLookup(
         }
     }
 
+    /**
+     * Resolve a contact display name for [phoneNumber], tolerant of +CC / trunk-0 /
+     * national-only variants that Android PhoneLookup often misses.
+     */
+    fun resolveContactName(phoneNumber: String): String? {
+        val trimmed = phoneNumber.trim()
+        if (trimmed.isEmpty()) return null
+
+        // PhoneLookup with each dialing shape first (cheap indexed queries).
+        for (candidate in DialerCallLogic.dialingCandidates(trimmed)) {
+            lookupDisplayName(candidate)?.let { name ->
+                if (!DialerCallLogic.isPhoneNumberLabel(name, trimmed)) return name
+            }
+        }
+
+        // Exhaustive scan when PhoneLookup is too strict about formatting.
+        return DialerCallLogic.resolveContactDisplayName(trimmed, loadPhoneContacts())
+    }
+
     /** Resolve a contacts provider id for pin-to-Start secondary tiles. */
     fun resolveContactId(phoneNumber: String): Long? {
-        val normalized = DialerCallLogic.normalizeNumber(phoneNumber)
-        if (normalized.isEmpty()) return null
+        val trimmed = phoneNumber.trim()
+        if (trimmed.isEmpty()) return null
+        for (candidate in DialerCallLogic.dialingCandidates(trimmed)) {
+            val uri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(candidate),
+            )
+            val projection = arrayOf(ContactsContract.PhoneLookup._ID)
+            context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    return cursor.getLong(0)
+                }
+            }
+        }
+        return DialerCallLogic.findContactByNumber(trimmed, loadPhoneContacts())?.contactId
+            ?.takeIf { it > 0L }
+    }
+
+    private fun lookupDisplayName(normalizedOrDigits: String): String? {
+        if (normalizedOrDigits.isBlank()) return null
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-            Uri.encode(normalized),
+            Uri.encode(normalizedOrDigits),
         )
-        val projection = arrayOf(ContactsContract.PhoneLookup._ID)
+        val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
         context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
-                return cursor.getLong(0)
+                return cursor.getString(0)?.trim()?.takeIf { it.isNotEmpty() }
             }
         }
         return null

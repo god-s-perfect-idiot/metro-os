@@ -77,14 +77,23 @@ object TileNotificationStore {
             info != null && info.count > 0 -> info.count
             else -> null
         }
+        val shadePeeks = info?.peekQueue.orEmpty()
         val backFaces = when {
             providerPeeks.isNotEmpty() -> providerPeeks
             !providerBackFaceTitle.isNullOrBlank() ->
                 listOf(TilePeekLines(providerBackFaceTitle, null, null))
             hasRichFrontFace -> emptyList()
-            else -> info?.peekQueue.orEmpty()
+            // Latest shade notification only — Start push-flips on arrival (no peek queue cycle).
+            else -> shadePeeks.take(1)
         }
         val lead = backFaces.firstOrNull()
+        val peekRevision = when {
+            providerPeeks.isNotEmpty() -> 0L
+            !providerBackFaceTitle.isNullOrBlank() -> 0L
+            hasRichFrontFace -> 0L
+            shadePeeks.isEmpty() || info == null -> 0L
+            else -> info.peekRevision()
+        }
         return MergedNotificationFace(
             counter = counter,
             backFaceTitle = lead?.title,
@@ -93,6 +102,7 @@ object TileNotificationStore {
             backFaces = backFaces,
             hasFlipFace = backFaces.isNotEmpty(),
             progress = progress,
+            peekRevision = peekRevision,
         )
     }
 
@@ -115,10 +125,10 @@ object TileNotificationStore {
                 .maxByOrNull { it.first }
                 ?.second
             // Progress notifications still peek — charging remaining belongs on the flip face.
-            // Collect every eligible notification so the live tile can cycle peeks 1-by-1.
+            // Newest-first queue; Start shows the lead only and push-flips on arrival.
             val peeks = buildNotificationPeekQueue(
                 annotated.map { (item, custom, _) ->
-                    item.postTime to extractPeek(packageName, item.notification, custom)
+                    item.postTime to extractPeek(item, custom)
                 },
             )
             val lead = peeks.firstOrNull()
@@ -211,10 +221,12 @@ object TileNotificationStore {
     }
 
     private fun extractPeek(
-        packageName: String,
-        notification: Notification,
+        sbn: StatusBarNotification,
         custom: CustomNotificationSnapshot?,
     ): TilePeekLines {
+        val packageName = sbn.packageName
+        val notification = sbn.notification
+        val notificationKey = sbn.key.takeIf { it.isNotBlank() }
         val extras = notification.extras
         val title = extras.charSequence(Notification.EXTRA_TITLE)
         val text = extras.charSequence(Notification.EXTRA_TEXT)
@@ -235,13 +247,24 @@ object TileNotificationStore {
                 title = from,
                 subtitle = null,
                 body = content,
+                packageName = packageName,
+                notificationKey = notificationKey,
             )
         }
         if (!title.isNullOrBlank() || !text.isNullOrBlank() || !bigText.isNullOrBlank()) {
             val body = text ?: bigText ?: extras.charSequence(Notification.EXTRA_SUB_TEXT)
-            return TilePeekLines(title = title, subtitle = null, body = body)
+            return TilePeekLines(
+                title = title,
+                subtitle = null,
+                body = body,
+                packageName = packageName,
+                notificationKey = notificationKey,
+            )
         }
-        return peekFromCustomTexts(custom?.texts.orEmpty())
+        return peekFromCustomTexts(custom?.texts.orEmpty()).copy(
+            packageName = packageName,
+            notificationKey = notificationKey,
+        )
     }
 
     private fun Bundle.lastMessagingMessage(): Pair<String?, String?> {
@@ -267,7 +290,15 @@ data class MergedNotificationFace(
     val backFaceBody: String?,
     val hasFlipFace: Boolean,
     val backFaceSubtitle: String? = null,
-    /** Newest-first queue of flip faces; Start cycles through these one at a time. */
+    /**
+     * Flip faces for the Start tile. Shade notifications contribute at most the latest peek;
+     * provider queues (e.g. Conversations) may still list multiple faces to cycle.
+     */
     val backFaces: List<TilePeekLines> = emptyList(),
     val progress: TileProgressInfo? = null,
+    /**
+     * Shade-notification revision for realtime push-flip. `0` when the face is provider-driven
+     * or there is no peek.
+     */
+    val peekRevision: Long = 0L,
 )

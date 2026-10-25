@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import com.metro.launcher.BuildConfig
 import com.metro.launcher.R
+import com.metro.launcher.TileNotificationListenerService
 import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.CustomTileBranding
 import com.metro.launcher.data.DisplayTile
@@ -31,10 +32,10 @@ import com.metro.launcher.data.TileAppWidgetController
 import com.metro.launcher.data.TileBackgroundMode
 import com.metro.launcher.data.TileCustomIcon
 import com.metro.launcher.data.TileNotificationAccess
+import com.metro.launcher.data.TilePeekLines
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.applyTileResize
-import com.metro.launcher.data.compactEmptyRows
 import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.mergePinnedDisplayTiles
 import com.metro.launcher.data.normalizeLaunchTargetPackage
@@ -438,7 +439,7 @@ class LauncherState(context: Context) {
         refreshTilesLiveAsync(pinnedEntries.filter { it.packageName == packageName })
     }
 
-    fun onTileClick(tile: DisplayTile, peekPackageName: String? = null) {
+    fun onTileClick(tile: DisplayTile, visiblePeek: TilePeekLines? = null) {
         // Customize → Launch target overrides every face-specific tap handler.
         val launchOverride = tile.entry.launchTargetPackage?.takeIf { it.isNotBlank() }
         if (launchOverride != null) {
@@ -455,8 +456,21 @@ class LauncherState(context: Context) {
             MusicNowPlayingStore.togglePlayPause(music.packageName)
             return
         }
+        // Notification peek face: open that shade item's contentIntent (WP8.1 toast-tap).
+        val notificationKey = visiblePeek?.notificationKey?.takeIf { it.isNotBlank() }
+        if (notificationKey != null) {
+            if (TileNotificationListenerService.openNotification(notificationKey)) return
+            val fallbackPkg = visiblePeek.packageName?.takeIf { it.isNotBlank() }
+                ?: tile.entry.packageName
+            beginAppOpen(
+                packageName = fallbackPkg,
+                deepLinkUri = null,
+                backgroundColor = tile.backgroundColor,
+            )
+            return
+        }
         // Notifier peek-cycle: open the app whose notification is currently on the face.
-        val peekPkg = peekPackageName?.takeIf { it.isNotBlank() }
+        val peekPkg = visiblePeek?.packageName?.takeIf { it.isNotBlank() }
         if (
             peekPkg != null &&
             tile.widgetFace?.kind == MetroTileWidgetFaceKind.PEEK_CYCLE
@@ -1101,21 +1115,21 @@ class LauncherState(context: Context) {
 
     fun commitTileOrder() {
         layoutEpoch++
-        pinnedEntries = compactEmptyRows(
-            pinnedEntries.map { entry ->
-                val display = displayTiles.firstOrNull {
-                    it.entry.packageName == entry.packageName && it.entry.tileId == entry.tileId
-                }
-                if (display != null) {
-                    entry.copy(
-                        gridCol = display.entry.gridCol,
-                        gridRow = display.entry.gridRow,
-                    )
-                } else {
-                    entry
-                }
-            },
-        )
+        val committed = pinnedEntries.map { entry ->
+            val display = displayTiles.firstOrNull {
+                it.entry.packageName == entry.packageName && it.entry.tileId == entry.tileId
+            }
+            if (display != null) {
+                entry.copy(
+                    gridCol = display.entry.gridCol,
+                    gridRow = display.entry.gridRow,
+                )
+            } else {
+                entry
+            }
+        }
+        // Sanitize before persist — drag/magnet can leave stacked mediums on 6-col Start.
+        pinnedEntries = adaptTilesToColumnCount(committed, gridColumns)
         displayTiles = applyPinnedLayoutToDisplayTiles()
         editingTile = editingTile?.let { editing ->
             displayTiles.firstOrNull {
@@ -1316,7 +1330,8 @@ class LauncherState(context: Context) {
      */
     private fun persistLayoutAndPaint() {
         layoutEpoch++
-        pinnedEntries = compactEmptyRows(pinnedEntries)
+        // compact + de-overlap (6-col odd mediums can otherwise stay stacked).
+        pinnedEntries = adaptTilesToColumnCount(pinnedEntries, gridColumns)
         val previousKeys = displayTiles.map { it.entry.packageName to it.entry.tileId }.toSet()
         displayTiles = mergePinnedDisplayTiles(
             pinned = pinnedEntries,

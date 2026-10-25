@@ -5,6 +5,7 @@ import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.PinnedTileStore
 import com.metro.launcher.data.TileBackgroundMode
+import com.metro.launcher.data.TilePeekLines
 import com.metro.launcher.data.TileSizeCycle
 import com.metro.launcher.data.adaptTilesToColumnCount
 import com.metro.launcher.data.applyTileResize
@@ -565,6 +566,57 @@ class TileGridTest {
     }
 
     @Test
+    fun ensureGridPositions_resolvesStackedMediumsOnSixCol() {
+        // Odd-column mediums that share a cell used to be preserved and painted stacked.
+        val entries = listOf(
+            PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo, gridCol = 0, gridRow = 0),
+            PinnedTileEntry("b", size = PinnedTileSize.TwoByTwo, gridCol = 1, gridRow = 0),
+            PinnedTileEntry("c", size = PinnedTileSize.TwoByTwo, gridCol = 4, gridRow = 0),
+        )
+        val positioned = ensureGridPositions(entries, columns = 6)
+        assertEquals(3, positioned.size)
+        for (i in positioned.indices) {
+            for (j in i + 1 until positioned.size) {
+                val a = positioned[i]
+                val b = positioned[j]
+                assertFalse(
+                    tileOverlapsRegion(
+                        a.gridCol!!, a.gridRow!!, a.size.colSpan, a.size.rowSpan,
+                        b.gridCol!!, b.gridRow!!, b.size.colSpan, b.size.rowSpan,
+                    ),
+                )
+            }
+            assertTrue(positioned[i].gridCol!! + positioned[i].size.colSpan <= 6)
+        }
+        // First medium keeps its slot; the overlapping neighbor relocates.
+        assertEquals(0, positioned.first { it.packageName == "a" }.gridCol)
+        assertEquals(0, positioned.first { it.packageName == "a" }.gridRow)
+    }
+
+    @Test
+    fun layoutTilesOnGrid_deoverlapsStackedSixColMediums() {
+        val tiles = listOf(
+            displayTile("a", PinnedTileSize.TwoByTwo, col = 0, row = 0),
+            displayTile("b", PinnedTileSize.TwoByTwo, col = 1, row = 0),
+            displayTile("c", PinnedTileSize.TwoByTwo, col = 4, row = 0),
+        )
+        val placed = layoutTilesOnGrid(tiles, columns = 6)
+        assertEquals(3, placed.size)
+        for (i in placed.indices) {
+            for (j in i + 1 until placed.size) {
+                val a = placed[i]
+                val b = placed[j]
+                assertFalse(
+                    tileOverlapsRegion(
+                        a.col, a.row, a.tile.entry.size.colSpan, a.tile.entry.size.rowSpan,
+                        b.col, b.row, b.tile.entry.size.colSpan, b.tile.entry.size.rowSpan,
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
     fun adaptTilesToColumnCount_reflowsOverflowWhenShrinkingToFour() {
         val entries = listOf(
             PinnedTileEntry("a", size = PinnedTileSize.TwoByTwo, gridCol = 0, gridRow = 0),
@@ -1063,8 +1115,36 @@ class TileGridTest {
             tapAction = "com.metro.widgets.action.TILE_TAP",
         )
         assertTrue(tile.handlesStartTap)
-        assertFalse(tileClickUsesExitWave(tile, peekPackageName = null))
-        assertTrue(tileClickUsesExitWave(tile, peekPackageName = "com.example.mail"))
+        assertFalse(tileClickUsesExitWave(tile, visiblePeek = null))
+        assertTrue(
+            tileClickUsesExitWave(
+                tile,
+                visiblePeek = TilePeekLines(
+                    title = "Ada",
+                    subtitle = null,
+                    body = "hi",
+                    packageName = "com.example.mail",
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun tileClickUsesExitWave_notificationKeySkipsExitWave() {
+        val tile = displayTile("com.whatsapp", PinnedTileSize.TwoByTwo).copy(hasFlipFace = true)
+        assertFalse(
+            tileClickUsesExitWave(
+                tile,
+                visiblePeek = TilePeekLines(
+                    title = "Ada",
+                    subtitle = null,
+                    body = "hi",
+                    packageName = "com.whatsapp",
+                    notificationKey = "0|com.whatsapp|1|null|1000",
+                ),
+            ),
+        )
+        assertTrue(tileClickUsesExitWave(tile, visiblePeek = null))
     }
 
     private fun displayTile(

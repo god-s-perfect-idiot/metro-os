@@ -118,10 +118,17 @@ fun HistoryScreen(
                 .background(Color.Black)
                 .padding(horizontal = 12.dp),
         ) {
-            items(groups, key = { it.normalizedNumber }) { group ->
+            items(
+                groups,
+                // Same number can appear in multiple consecutive runs after an interruption.
+                key = { "${it.normalizedNumber}|${it.latestTimestamp}" },
+            ) { group ->
                 HistoryRow(
                     group = group,
-                    contextMenuTarget = contextMenuGroup?.normalizedNumber == group.normalizedNumber,
+                    contextMenuTarget = contextMenuGroup?.let {
+                        it.normalizedNumber == group.normalizedNumber &&
+                            it.latestTimestamp == group.latestTimestamp
+                    } == true,
                     contextMenuFocusFraction = contextMenuFocusFraction,
                     onOpenDetail = { onOpenDetail(group) },
                     onCallBack = { onCallBack(group) },

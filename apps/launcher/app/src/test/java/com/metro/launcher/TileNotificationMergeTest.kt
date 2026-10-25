@@ -74,6 +74,7 @@ class TileNotificationMergeTest {
         assertEquals(providerPeeks, merged.backFaces)
         assertEquals("Alice", merged.backFaceTitle)
         assertEquals("hey", merged.backFaceBody)
+        assertEquals(0L, merged.peekRevision)
     }
 
     @Test
@@ -98,30 +99,32 @@ class TileNotificationMergeTest {
     }
 
     @Test
-    fun merge_cyclesMultipleNotificationPeeks() {
+    fun merge_usesLatestNotificationPeekOnly() {
         val peeks = listOf(
             TilePeekLines("Alice", null, "Hey"),
             TilePeekLines("Bob", null, "Ping"),
             TilePeekLines("Carol", null, "Later"),
+        )
+        val info = TileNotificationInfo(
+            packageName = "com.whatsapp",
+            count = 3,
+            peekTitle = peeks.first().title,
+            peekBody = peeks.first().body,
+            updatedAtMs = 42L,
+            peeks = peeks,
         )
         val merged = TileNotificationStore.mergeIntoDisplay(
             packageName = "com.whatsapp",
             providerCounter = null,
             providerBackFaceTitle = null,
             hasRichFrontFace = false,
-            info = TileNotificationInfo(
-                packageName = "com.whatsapp",
-                count = 3,
-                peekTitle = peeks.first().title,
-                peekBody = peeks.first().body,
-                updatedAtMs = 0L,
-                peeks = peeks,
-            ),
+            info = info,
         )
         assertEquals(3, merged.counter)
-        assertEquals(peeks, merged.backFaces)
+        assertEquals(listOf(peeks.first()), merged.backFaces)
         assertEquals("Alice", merged.backFaceTitle)
         assertEquals("Hey", merged.backFaceBody)
+        assertEquals(info.peekRevision(), merged.peekRevision)
         assertTrue(merged.hasFlipFace)
     }
 
@@ -143,6 +146,28 @@ class TileNotificationMergeTest {
             ),
             queue,
         )
+    }
+
+    @Test
+    fun buildNotificationPeekQueue_keepsNewestNotificationKey() {
+        val queue = buildNotificationPeekQueue(
+            listOf(
+                10L to TilePeekLines(
+                    "Same",
+                    null,
+                    "copy",
+                    notificationKey = "old-key",
+                ),
+                30L to TilePeekLines(
+                    "Same",
+                    null,
+                    "copy",
+                    notificationKey = "new-key",
+                ),
+            ),
+        )
+        assertEquals(1, queue.size)
+        assertEquals("new-key", queue.single().notificationKey)
     }
 
     @Test

@@ -37,10 +37,15 @@ data class DisplayTile(
     val backFaceSubtitle: String? = null,
     val backFaceBody: String? = null,
     /**
-     * Newest-first notification peek queue. When size > 1 the live tile cycles through
-     * each face on successive flips (WP8.1 multi-notification behavior).
+     * Flip faces for the live tile. Shade notifications contribute the latest peek only
+     * (push-flipped via [peekRevision]); provider queues may list multiple faces to cycle.
      */
     val backFaces: List<TilePeekLines> = emptyList(),
+    /**
+     * Shade-notification revision. When this changes, Start interrupt-flips to the back face
+     * showing the latest peek. `0` for provider-driven / icon-only flips.
+     */
+    val peekRevision: Long = 0L,
     val photoGrid: MetroTilePhotoGrid? = null,
     val agenda: MetroTileAgenda? = null,
     /** Full-bleed front-face photo (contact tiles). Distinct from [photoGrid] mosaics/cycles. */
@@ -248,6 +253,11 @@ class LauncherRepository(private val context: Context) {
                 emptyList()
             } else {
                 merged.backFaces
+            },
+            peekRevision = if (musicNowPlaying != null || widgetFace != null || flipToIcon) {
+                0L
+            } else {
+                merged.peekRevision
             },
             photoGrid = photoGrid,
             agenda = agenda,

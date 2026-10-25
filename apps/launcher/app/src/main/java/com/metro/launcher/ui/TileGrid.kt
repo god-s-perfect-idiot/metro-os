@@ -2,6 +2,7 @@ package com.metro.launcher.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -41,10 +42,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +90,7 @@ import com.metro.launcher.data.TilePeekLines
 import com.metro.launcher.data.TilePlacementKey
 import com.metro.launcher.data.compactPlacementRows
 import com.metro.launcher.data.placeTileAt
+import com.metro.launcher.data.resolvePlacementOverlaps
 import com.metro.launcher.data.rowCompactionMap
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.hasActiveCustomWidget
@@ -108,10 +112,12 @@ import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroTransitions
 import com.metro.ui.metroPagePivotCameraDistance
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val MESSAGING_PACKAGE = "com.metro.messaging"
 
@@ -305,10 +311,25 @@ fun layoutTilesOnGrid(
     tiles: List<DisplayTile>,
     columns: Int = TILE_GRID_COLUMNS,
 ): List<PlacedTile> {
-    val placed = tiles.mapNotNull { tile ->
+    val byKey = tiles.associateBy { it.tileKey() }
+    val baseline = tiles.mapNotNull { tile ->
         val col = tile.entry.gridCol ?: return@mapNotNull null
         val row = tile.entry.gridRow ?: return@mapNotNull null
-        PlacedTile(tile, col, row)
+        val key = TilePlacementKey(tile.entry.packageName, tile.entry.tileId)
+        key to GridPlacement(
+            key = key,
+            col = col,
+            row = row,
+            colSpan = tile.entry.size.colSpan,
+            rowSpan = tile.entry.size.rowSpan,
+        )
+    }.toMap()
+    if (baseline.isEmpty()) return emptyList()
+    // Clamp / de-overlap so a stale 6-col pin dump cannot paint stacked tiles.
+    val resolved = resolvePlacementOverlaps(baseline, columns)
+    val placed = resolved.mapNotNull { (key, placement) ->
+        val tile = byKey[TileKey(key.packageName, key.tileId)] ?: return@mapNotNull null
+        PlacedTile(tile, placement.col, placement.row)
     }
     return compactEmptyRowPlacements(placed)
 }
@@ -419,7 +440,8 @@ internal fun startGridUnitPx(
     val startPadPx = with(density) { chrome.horizontalPadding.toPx() }
     val endPadPx = with(density) { chrome.endPadding.toPx() }
     val gapPx = with(density) { chrome.gap.toPx() }
-    return (viewportWidthPx - startPadPx - endPadPx - gapPx * (columns - 1)) / columns
+    val content = (viewportWidthPx - startPadPx - endPadPx).coerceAtLeast(0f)
+    return ((content - gapPx * (columns - 1).coerceAtLeast(0)) / columns).coerceAtLeast(1f)
 }
 
 internal fun startTileTopPx(
@@ -545,11 +567,13 @@ fun tileExitWaveDurationMs(
 }
 
 /** 1×1 music now-playing / Start widget faces — no app launch / exit wave. */
-fun tileClickUsesExitWave(tile: DisplayTile, peekPackageName: String? = null): Boolean {
+fun tileClickUsesExitWave(tile: DisplayTile, visiblePeek: TilePeekLines? = null): Boolean {
+    // Shade peek → contentIntent must stay in the tap callback (BAL); no exit delay.
+    if (!visiblePeek?.notificationKey.isNullOrBlank()) return false
     // Notifier peek-cycle: open the notifying app with the normal Start exit wave.
     if (
         tile.widgetFace?.kind == com.metro.system.MetroTileWidgetFaceKind.PEEK_CYCLE &&
-        !peekPackageName.isNullOrBlank()
+        !visiblePeek?.packageName.isNullOrBlank()
     ) {
         return true
     }
@@ -562,7 +586,7 @@ fun tileClickUsesExitWave(tile: DisplayTile, peekPackageName: String? = null): B
 @Composable
 fun TileGrid(
     tiles: List<DisplayTile>,
-    onTileClick: (DisplayTile, peekPackageName: String?) -> Unit,
+    onTileClick: (DisplayTile, visiblePeek: TilePeekLines?) -> Unit,
     onTileLongPress: (DisplayTile) -> Unit,
     modifier: Modifier = Modifier,
     columns: Int = TILE_GRID_COLUMNS,
@@ -604,7 +628,7 @@ fun TileGrid(
     var dragBaselinePositions by remember { mutableStateOf<Map<TileKey, Pair<Int, Int>>?>(null) }
     // Package launch: exit wave (tapped tile last). Press tilt is finger-down feedback.
     var exitingTileKey by remember { mutableStateOf<TileKey?>(null) }
-    var exitingPeekPackage by remember { mutableStateOf<String?>(null) }
+    var exitingPeek by remember { mutableStateOf<TilePeekLines?>(null) }
     val isDragging = draggingKey != null
     val launchInProgress = exitingTileKey != null
     val tilesState = rememberUpdatedState(tiles)
@@ -629,7 +653,7 @@ fun TileGrid(
     // Home-resume bumps enterWaveKey — clear any leftover exit pose so enter can replay.
     LaunchedEffect(enterWaveKey) {
         exitingTileKey = null
-        exitingPeekPackage = null
+        exitingPeek = null
     }
 
     // Unlock / lock-skip path: drop exit pose and let TilePivotEnter snap to rest
@@ -637,7 +661,7 @@ fun TileGrid(
     LaunchedEffect(restPoseRequestId) {
         if (restPoseRequestId <= 0) return@LaunchedEffect
         exitingTileKey = null
-        exitingPeekPackage = null
+        exitingPeek = null
     }
 
     // One shared clock for Perlin jiggle — avoids per-tile animation loops on enter.
@@ -659,8 +683,12 @@ fun TileGrid(
         val gap = chrome.gap
         val cornerSideHang = tileCornerSideHang(minOf(startPad, endPad))
         val topPad = tileGridEditTopHang() * editProgress
-        val unit = (maxWidth - startPad - endPad - gap * (columns - 1)) /
-            columns
+        // Content width must match the padded inner box — never size the grid to the
+        // full maxWidth after applying side gutters (that overflows and can stack the
+        // trailing 3-across column on top of its neighbor during measure races).
+        val contentWidth = (maxWidth - startPad - endPad).coerceAtLeast(0.dp)
+        val unit = ((contentWidth - gap * (columns - 1).coerceAtLeast(0)) / columns)
+            .coerceAtLeast(1.dp)
         val cellStridePx = with(density) { (unit + gap).toPx() }
         val placed = if (isDragging && draggingKey != null) {
             val dragged = tiles.firstOrNull { it.tileKey() == draggingKey }
@@ -809,7 +837,7 @@ fun TileGrid(
                     end = endPad,
                     top = topPad,
                 )
-                .size(width = maxWidth, height = totalHeight)
+                .size(width = contentWidth, height = totalHeight)
                 .then(
                     if (scrimAlpha > 0.001f) {
                         Modifier.background(Color.Black.copy(alpha = scrimAlpha))
@@ -1018,7 +1046,7 @@ fun TileGrid(
                             tileLeftInGridPx = tileLeftInGridPx,
                             onExitComplete = if (isExitSelected) {
                                 {
-                                    onTileClickState.value(tile, exitingPeekPackage)
+                                    onTileClickState.value(tile, exitingPeek)
                                 }
                             } else {
                                 null
@@ -1034,15 +1062,15 @@ fun TileGrid(
                                 editProgress = editProgress,
                                 floatTimeSec = floatTimeSec,
                                 liveMotionEnabled = liveMotionActive,
-                                onClick = { peekPackageName ->
+                                onClick = { visiblePeek ->
                                     when {
                                         editMode && isActive -> Unit
                                         editMode -> onDismissEdit()
                                         launchInProgress -> Unit
-                                        !tileClickUsesExitWave(tile, peekPackageName) ->
-                                            onTileClick(tile, peekPackageName)
+                                        !tileClickUsesExitWave(tile, visiblePeek) ->
+                                            onTileClick(tile, visiblePeek)
                                         else -> {
-                                            exitingPeekPackage = peekPackageName
+                                            exitingPeek = visiblePeek
                                             exitingTileKey = tileKey
                                         }
                                     }
@@ -1222,7 +1250,7 @@ private fun LauncherTileCell(
     editProgress: Float,
     floatTimeSec: State<Float>,
     liveMotionEnabled: Boolean,
-    onClick: (peekPackageName: String?) -> Unit,
+    onClick: (visiblePeek: TilePeekLines?) -> Unit,
     onLongClick: () -> Unit,
     onResize: () -> Unit,
     onUnpin: () -> Unit,
@@ -1383,8 +1411,8 @@ private fun LauncherTileCell(
     val showWidgetFace = tile.widgetFace?.hasContent == true && !showCustomWidget
     val isPeekCycle =
         tile.widgetFace?.kind == com.metro.system.MetroTileWidgetFaceKind.PEEK_CYCLE
-    var visiblePeekPackage by remember(tile.entry.packageName, tile.entry.tileId) {
-        mutableStateOf<String?>(null)
+    var visiblePeek by remember(tile.entry.packageName, tile.entry.tileId) {
+        mutableStateOf<TilePeekLines?>(null)
     }
     val showPhotoContent = showCyclePhoto || showPhotoGrid
     val progress = tile.progress
@@ -1473,7 +1501,7 @@ private fun LauncherTileCell(
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = { onClick(visiblePeekPackage) },
+                onClick = { onClick(visiblePeek) },
                 onLongClick = {
                     // WP8.1 Start: short buzz when long-press enters tile edit / resize mode.
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1567,7 +1595,7 @@ private fun LauncherTileCell(
                                     flipSeed = floatSeed,
                                     tileMinEdge = tileMinEdge,
                                     chrome = chrome,
-                                    onVisiblePeekPackage = { visiblePeekPackage = it },
+                                    onVisiblePeek = { visiblePeek = it },
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
@@ -1794,9 +1822,16 @@ private fun LauncherTileCell(
                             )
                         }
                     }
-                    // Keep index across peek-queue refreshes (new WhatsApp messages, etc.)
-                    // so a live update does not remount flip state or jump the cycle.
+                    // Keep index across provider peek-queue refreshes so a live update does
+                    // not remount flip state. Shade notifications push via [peekRevision].
                     var peekIndex by remember(floatSeed) { mutableIntStateOf(0) }
+                    var showingNotificationFace by remember(floatSeed) { mutableStateOf(false) }
+                    val currentPeek = peekFaces.getOrNull(
+                        peekIndex.mod(peekFaces.size.coerceAtLeast(1)),
+                    )
+                    LaunchedEffect(showingNotificationFace, currentPeek) {
+                        visiblePeek = if (showingNotificationFace) currentPeek else null
+                    }
                     LiveTileFlipFace(
                         flipSeed = floatSeed,
                         faceColor = tile.backgroundColor,
@@ -1805,10 +1840,14 @@ private fun LauncherTileCell(
                         edgeToEdge = tile.flipToIcon || showCustomIcon,
                         enabled = liveMotionEnabled,
                         backFaceCount = if (tile.flipToIcon) 1 else peekFaces.size.coerceAtLeast(1),
+                        pushToken = if (tile.flipToIcon) 0L else tile.peekRevision,
                         onAdvanceBackFace = { next ->
                             if (!tile.flipToIcon && peekFaces.isNotEmpty()) {
                                 peekIndex = next % peekFaces.size
                             }
+                        },
+                        onShowingBackChange = { showingBack ->
+                            showingNotificationFace = showingBack && !tile.flipToIcon
                         },
                         front = wrappedFront,
                         back = {
@@ -1823,13 +1862,10 @@ private fun LauncherTileCell(
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
-                                val peek = peekFaces.getOrNull(
-                                    peekIndex.mod(peekFaces.size.coerceAtLeast(1)),
-                                )
                                 NotificationPeekTileContent(
-                                    title = peek?.title ?: tile.backFaceTitle,
-                                    subtitle = peek?.subtitle ?: tile.backFaceSubtitle,
-                                    body = peek?.body ?: tile.backFaceBody,
+                                    title = currentPeek?.title ?: tile.backFaceTitle,
+                                    subtitle = currentPeek?.subtitle ?: tile.backFaceSubtitle,
+                                    body = currentPeek?.body ?: tile.backFaceBody,
                                     footer = faceTitle,
                                     wide = isWide,
                                     contentColor = contentColor,
@@ -2453,7 +2489,7 @@ private fun PeekCycleWidgetFace(
     flipSeed: Int,
     tileMinEdge: Dp,
     chrome: TileChrome,
-    onVisiblePeekPackage: (String?) -> Unit = {},
+    onVisiblePeek: (TilePeekLines?) -> Unit = {},
     modifier: Modifier = Modifier,
     startBackground: StartBackgroundViewport? = null,
 ) {
@@ -2464,7 +2500,7 @@ private fun PeekCycleWidgetFace(
     val density = LocalDensity.current.density
     val rotation = remember { Animatable(0f) }
     val peekCountState = rememberUpdatedState(faces.size)
-    val onVisiblePeekPackageState = rememberUpdatedState(onVisiblePeekPackage)
+    val onVisiblePeekState = rememberUpdatedState(onVisiblePeek)
 
     LaunchedEffect(flipSeed, liveMotionEnabled) {
         if (!liveMotionEnabled) {
@@ -2489,8 +2525,14 @@ private fun PeekCycleWidgetFace(
     }
 
     val peek = faces[peekIndex.mod(faces.size.coerceAtLeast(1))]
-    LaunchedEffect(peek.packageName, peek.title, peek.body, peek.footer) {
-        onVisiblePeekPackageState.value(peek.packageName?.takeIf { it.isNotBlank() })
+    LaunchedEffect(
+        peek.packageName,
+        peek.notificationKey,
+        peek.title,
+        peek.body,
+        peek.footer,
+    ) {
+        onVisiblePeekState.value(peek.takeIf { it.hasContent })
     }
     Box(
         modifier = modifier
@@ -2639,13 +2681,14 @@ private fun NotificationPeekTileContent(
  * rotating face so the black tile slot behind it is revealed mid-flip. [flipSeed] drives a
  * per-tile random stagger so flips don't synchronize across the Start screen.
  *
- * When multiple notification peeks are queued ([backFaceCount] > 1), each front→back flip
- * shows the next peek in order (WP8.1 multi-notification cycle). [onAdvanceBackFace] is
- * invoked after returning to the front so the next flip uses the following peek.
+ * Shade notifications use [pushToken]: when the latest peek revision changes, the hold is
+ * interrupted and the tile push-flips to the back face (or re-flips if already showing it).
+ * Provider multi-peek queues ([backFaceCount] > 1) still advance via [onAdvanceBackFace]
+ * after each return to the front.
  *
- * [backFaceCount] must not be a [LaunchedEffect] key — a live notification refresh (e.g. a new
- * WhatsApp message) changes the peek queue size and would cancel mid-flip, leaving [rotation]
- * stuck edge-on through the next stagger + hold (seconds to a long freeze under rapid updates).
+ * [backFaceCount] / [pushToken] must not be [LaunchedEffect] keys — a live notification
+ * refresh would cancel mid-flip, leaving [rotation] stuck edge-on through the next stagger
+ * + hold. The loop observes them via [rememberUpdatedState] / [snapshotFlow] instead.
  *
  * When [edgeToEdge] is true (contact photo ↔ icon), the front fills the tile; inset is applied
  * only on the back face so the icon/title layout matches a normal Start tile.
@@ -2661,6 +2704,8 @@ private fun LiveTileFlipFace(
     enabled: Boolean = true,
     backFaceCount: Int = 1,
     onAdvanceBackFace: (nextIndex: Int) -> Unit = {},
+    pushToken: Long = 0L,
+    onShowingBackChange: (showingBack: Boolean) -> Unit = {},
     startBackground: StartBackgroundViewport? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -2671,8 +2716,15 @@ private fun LiveTileFlipFace(
     var backIndex by remember(flipSeed) { mutableIntStateOf(0) }
     val onAdvanceState = rememberUpdatedState(onAdvanceBackFace)
     val backFaceCountState = rememberUpdatedState(backFaceCount)
+    val pushTokenState = rememberUpdatedState(pushToken)
+    val onShowingBackChangeState = rememberUpdatedState(onShowingBackChange)
+    var lastHandledPush by remember(flipSeed) { mutableLongStateOf(pushToken) }
 
-    // Keys: flipSeed + enabled only. Peek-queue size changes must not restart this loop.
+    LaunchedEffect(showingBack) {
+        onShowingBackChangeState.value(showingBack)
+    }
+
+    // Keys: flipSeed + enabled only. Peek revisions must not restart this loop.
     LaunchedEffect(flipSeed, enabled) {
         if (!enabled) {
             rotation.snapTo(0f)
@@ -2686,11 +2738,32 @@ private fun LiveTileFlipFace(
             rotation.snapTo(0f)
             showingBack = false
         }
+        // Seed so cold Start / resume does not treat the current peek as a fresh push.
+        lastHandledPush = pushTokenState.value
         val rng = Random(flipSeed)
-        delay(rng.nextLong(0L, TILE_FLIP_STAGGER_MAX_MS + 1))
+        val staggerMs = rng.nextLong(0L, TILE_FLIP_STAGGER_MAX_MS + 1)
+        val earlyPush = awaitPeekPush(
+            baseline = lastHandledPush,
+            timeoutMs = staggerMs,
+            pushToken = { pushTokenState.value },
+        )
+        if (earlyPush != null) {
+            lastHandledPush = earlyPush
+            pushFlipToBack(rotation) { showingBack = true }
+        }
         while (true) {
             val jitter = rng.nextLong(-TILE_FLIP_HOLD_JITTER_MS, TILE_FLIP_HOLD_JITTER_MS + 1)
-            delay((TILE_FLIP_HOLD_MS + jitter).coerceAtLeast(2_500L))
+            val holdMs = (TILE_FLIP_HOLD_MS + jitter).coerceAtLeast(2_500L)
+            val pushed = awaitPeekPush(
+                baseline = lastHandledPush,
+                timeoutMs = holdMs,
+                pushToken = { pushTokenState.value },
+            )
+            if (pushed != null) {
+                lastHandledPush = pushed
+                pushFlipToBack(rotation) { showingBack = true }
+                continue
+            }
             // Front → notification: 0° → +90°, swap, −90° → 0°.
             // Notification → front: reverse 0° → −90°, swap, +90° → 0°.
             if (showingBack) {
@@ -2698,7 +2771,7 @@ private fun LiveTileFlipFace(
                 showingBack = false
                 rotation.snapTo(90f)
                 rotation.animateTo(0f, animationSpec = TileFlipSettleAnimation)
-                // After each peek, advance so the next flip shows the following notification.
+                // Provider multi-peek queues advance after each return to the front.
                 val count = backFaceCountState.value.coerceAtLeast(1)
                 if (count > 1) {
                     backIndex = (backIndex + 1) % count
@@ -2748,6 +2821,35 @@ private fun LiveTileFlipFace(
         }
         badge?.invoke(this, showingBack)
     }
+}
+
+/**
+ * Wait up to [timeoutMs] for [pushToken] to differ from [baseline] (and be non-zero).
+ * Returns the new token, or null on timeout. Used so notification arrival can interrupt
+ * the flip hold without keying [LaunchedEffect] on the revision (which would cancel mid-flip).
+ */
+private suspend fun awaitPeekPush(
+    baseline: Long,
+    timeoutMs: Long,
+    pushToken: () -> Long,
+): Long? = withTimeoutOrNull(timeoutMs) {
+    snapshotFlow { pushToken() }
+        .first { token -> token != 0L && token != baseline }
+}
+
+/**
+ * Push-flip onto the notification back face. [onRevealBack] runs at the edge-on swap so the
+ * peek is visible for the settle half — also covers the already-on-back case (re-flip with
+ * the newly composed lead peek).
+ */
+private suspend fun pushFlipToBack(
+    rotation: Animatable<Float, AnimationVector1D>,
+    onRevealBack: () -> Unit,
+) {
+    rotation.animateTo(90f, animationSpec = TileFlipHalfAnimation)
+    onRevealBack()
+    rotation.snapTo(-90f)
+    rotation.animateTo(0f, animationSpec = TileFlipSettleAnimation)
 }
 
 /** Seconds since Perlin shake started; 0 while edit mode is off or still settling. */

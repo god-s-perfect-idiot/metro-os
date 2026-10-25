@@ -284,7 +284,13 @@ class DialerState(context: Context) {
     }
 
     fun placeCall(number: String, displayName: String? = null) {
-        MetroTelecomBridge.placeOutgoingCall(appContext, number, displayName)
+        val trimmed = number.trim()
+        if (trimmed.isEmpty()) return
+        val label = displayName?.takeIf {
+            it.isNotBlank() && !DialerCallLogic.isPhoneNumberLabel(it, trimmed)
+        } ?: DialerCallLogic.resolveContactDisplayName(trimmed, contactSuggestions)
+            ?: contactsLookup.resolveContactName(trimmed)
+        MetroTelecomBridge.placeOutgoingCall(appContext, trimmed, label)
     }
 
     fun sendMessage(number: String) {

@@ -19,27 +19,37 @@ object DialerCallLogic {
         return builder.toString()
     }
 
+    /**
+     * Collapses **consecutive** log entries for the same number into one history row.
+     * An intervening call from another number ends the run, so the same contact can
+     * appear as multiple groups (WP 8.1 Phone history behavior).
+     */
     fun groupCalls(entries: List<CallEntry>): List<CallGroup> {
         if (entries.isEmpty()) return emptyList()
         val sorted = entries.sortedByDescending { it.timestamp }
-        val grouped = linkedMapOf<String, MutableList<CallEntry>>()
-        sorted.forEach { entry ->
-            grouped.getOrPut(entry.normalizedNumber) { mutableListOf() }.add(entry)
+        val runs = mutableListOf<MutableList<CallEntry>>()
+        for (entry in sorted) {
+            val current = runs.lastOrNull()
+            if (current != null && numbersEquivalent(current.first().normalizedNumber, entry.normalizedNumber)) {
+                current.add(entry)
+            } else {
+                runs.add(mutableListOf(entry))
+            }
         }
-        return grouped.map { (normalized, calls) ->
-            val latest = calls.maxBy { it.timestamp }
+        return runs.map { calls ->
+            val latest = calls.first()
             val displayName = calls.firstNotNullOfOrNull { it.contactName?.takeIf(String::isNotBlank) }
                 ?: formatDisplayNumber(latest.phoneNumber)
             CallGroup(
-                normalizedNumber = normalized,
+                normalizedNumber = latest.normalizedNumber,
                 phoneNumber = latest.phoneNumber,
                 displayName = displayName,
                 latestType = latest.type,
                 latestTimestamp = latest.timestamp,
                 callCount = calls.size,
-                calls = calls.sortedByDescending { it.timestamp },
+                calls = calls,
             )
-        }.sortedByDescending { it.latestTimestamp }
+        }
     }
 
     fun formatDisplayNumber(number: String): String {
@@ -253,6 +263,65 @@ object DialerCallLogic {
         return aCands.any { ac ->
             ac.length >= MIN_EQUIVALENT_DIGITS && bCands.contains(ac)
         }
+    }
+
+    /**
+     * Find a contact whose stored number matches [phoneNumber] across +CC / trunk / national
+     * forms. Used when placing a call from the dial pad and for in-call name resolution.
+     */
+    fun findContactByNumber(
+        phoneNumber: String,
+        contacts: List<ContactSuggestion>,
+    ): ContactSuggestion? {
+        if (phoneNumber.isBlank() || contacts.isEmpty()) return null
+        return contacts.firstOrNull { contact ->
+            numbersEquivalent(contact.phoneNumber, phoneNumber) ||
+                numbersEquivalent(contact.normalizedNumber, phoneNumber)
+        }
+    }
+
+    /** Contact display name for [phoneNumber], or null when no address-book hit. */
+    fun resolveContactDisplayName(
+        phoneNumber: String,
+        contacts: List<ContactSuggestion>,
+    ): String? {
+        val name = findContactByNumber(phoneNumber, contacts)?.displayName?.trim().orEmpty()
+        if (name.isEmpty() || isPhoneNumberLabel(name, phoneNumber)) return null
+        return name
+    }
+
+    /**
+     * Prefer a real contact name over a formatted number when binding in-call UI.
+     * [preferred] is typically the label already shown from the dial pad / T9 path;
+     * [fallback] is a later lookup (call log / PhoneLookup).
+     */
+    fun preferContactDisplayName(
+        preferred: String?,
+        fallback: String?,
+        phoneNumber: String,
+    ): String {
+        preferred?.takeIf { it.isNotBlank() && !isPhoneNumberLabel(it, phoneNumber) }?.let {
+            return it
+        }
+        fallback?.takeIf { it.isNotBlank() && !isPhoneNumberLabel(it, phoneNumber) }?.let {
+            return it
+        }
+        return formatDisplayNumber(phoneNumber)
+    }
+
+    /**
+     * True when [label] is essentially the dialed number (raw or formatted), not a
+     * contact display name. Digit-only labels that do not match [phoneNumber] stay names
+     * (e.g. a contact literally named "911").
+     */
+    fun isPhoneNumberLabel(label: String, phoneNumber: String): Boolean {
+        val trimmed = label.trim()
+        if (trimmed.isEmpty()) return true
+        if (trimmed.any { it.isLetter() }) return false
+        val labelDigits = digitsOnly(trimmed)
+        if (labelDigits.isEmpty()) return false
+        return numbersEquivalent(trimmed, phoneNumber) ||
+            trimmed == formatDisplayNumber(phoneNumber)
     }
 
     /**

@@ -24,7 +24,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 
 - `MainActivity` hosts `LauncherShell` with horizontal Start ↔ app list navigation
 - Pinned tiles persisted in `PinnedTileStore`; default seed for shipped metro apps only (uninstalled packages are omitted)
-- Tile taps launch via `PackageManager` / deep link from `MetroTileContract`
+- Front-face tile taps launch via `PackageManager` / deep link from `MetroTileContract`; peek-face taps open that notification’s contentIntent
 - App list: alphabetical `com.metro.*` discovery with inline search filter and find-by-letter jump list
 - Long-press tile edit overlay: resize (cycles small/medium/wide when `BuildConfig.WIDE_TILES`), unpin, brush customize (background + optional App Widget), and drag-to-reorder (tile follows thumb; magnet reflow; order persisted on drop)
 - `TILE_UPDATE` and `THEME_CHANGED` broadcasts refresh tile content and shell theme
@@ -83,7 +83,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Respond to `com.metro.system.TILE_UPDATE`
 - Fall back to static icon and title when an app has no live tile provider yet
 - With notification-listener access granted, merge active Android notifications into badges and flip/peek faces for any pinned package (shell FGS packages excluded)
-- When a package has multiple active notifications, the live tile cycles through each peek face one flip at a time (newest first); the badge still shows the total count
+- When a new notification arrives for a pinned package, Start push-flips that app’s tile to the latest peek (no multi-notif cycle); the badge still shows the total count
 - Gmail (`com.google.android.gm`) peeks map notification extras to two live-tile lines: From (sender, larger/semibold) and email content (body preview; subject is not shown as a middle title)
 - Progress-bar notifications overlay a WP8.1 Store-install rectangular bar on the pinned tile. Standard extras *and* custom RemoteViews (Bolt.Earth charging monitor: empty title/text extras, in-layout ProgressBar + elapsed/total times) drive the flip/peek face. Duration-only rows are treated as elapsed (“35 min completed”) plus total, not time remaining, unless the copy says remaining/left. Media-session notifications are skipped. Ongoing progress is not shown as an unread `1` badge.
 - Music apps: with the same notification-listener privilege, `MediaSessionManager` drives an Xbox Music–style now-playing face — album art as the tile image; 1×1 is play/pause only; 2×2 and 4×2 show song + artist + prev/play-pause/next. Transport taps do not launch the app; non-control taps on medium/wide still launch.
@@ -98,7 +98,8 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 
 ### Navigation contracts
 
-- Tile tap launches the app’s primary experience
+- Front-face tile tap launches the app’s primary experience (or provider deep link / widget tapAction)
+- Notification peek-face tap opens that shade notification’s contentIntent (same as toast tap); falls back to the notifying package if the intent is missing
 - Secondary tiles should deep-link when a provider supplies a URI
 - Back behavior should mirror shell expectations rather than random activity stack behavior
 

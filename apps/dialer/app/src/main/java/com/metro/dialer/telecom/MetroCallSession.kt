@@ -11,6 +11,7 @@ import android.telecom.VideoProfile
 import androidx.compose.runtime.mutableStateOf
 import com.metro.dialer.data.ActiveCall
 import com.metro.dialer.data.CallDirection
+import com.metro.dialer.data.DialerCallLogic
 import com.metro.system.MetroLockscreen
 
 /**
@@ -56,10 +57,18 @@ object MetroCallSession {
         telecomCall = call
         val number = call.details.handle?.schemeSpecificPart?.trim().orEmpty()
         val direction = resolveDirection(call)
-        _activeCall.value = ActiveCall(
+        val existing = _activeCall.value
+        val label = DialerCallLogic.preferContactDisplayName(
+            preferred = existing
+                ?.takeIf { DialerCallLogic.numbersEquivalent(it.phoneNumber, number) }
+                ?.displayName,
+            fallback = displayName,
             phoneNumber = number,
-            displayName = displayName,
-            startedAtMillis = System.currentTimeMillis(),
+        )
+        _activeCall.value = ActiveCall(
+            phoneNumber = number.ifEmpty { existing?.phoneNumber.orEmpty() },
+            displayName = label,
+            startedAtMillis = existing?.startedAtMillis ?: System.currentTimeMillis(),
             direction = direction,
             connected = call.state == Call.STATE_ACTIVE,
         )

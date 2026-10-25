@@ -11,39 +11,31 @@ fun tileGridColumnCount(showMoreColumns: Boolean): Int =
 
 /**
  * Assigns [gridCol]/[gridRow] to entries that lack them using first-fit packing.
- * Existing positions are preserved so intentional gaps survive.
+ * Still-valid coordinates are preserved (horizontal gaps and empty rows survive).
+ * Overlapping or out-of-bounds footprints are relocated — critical on the 6-col
+ * (3-across) Start where odd-column mediums can otherwise stack on neighbors.
  */
 fun ensureGridPositions(
     entries: List<PinnedTileEntry>,
     columns: Int = TILE_GRID_COLUMN_COUNT,
-): List<PinnedTileEntry> {
-    val occupied = mutableSetOf<Pair<Int, Int>>()
-    entries.filter { it.hasGridPosition() }.forEach { entry ->
-        markTileCells(occupied, entry.gridCol!!, entry.gridRow!!, entry.size.colSpan, entry.size.rowSpan)
-    }
-    return entries.map { entry ->
-        if (entry.hasGridPosition()) {
-            entry
-        } else {
-            val (col, row) = findFirstOpenAlignedSlot(
-                occupied,
-                entry.size.colSpan,
-                entry.size.rowSpan,
-                columns,
-                startRow = 0,
-            ) ?: findFirstOpenSlot(occupied, entry.size.colSpan, entry.size.rowSpan, columns)
-            markTileCells(occupied, col, row, entry.size.colSpan, entry.size.rowSpan)
-            entry.copy(gridCol = col, gridRow = row)
-        }
-    }
-}
+): List<PinnedTileEntry> = resolveTileGridConflicts(entries, columns)
 
 /**
  * Keeps tiles whose footprints still fit [columns]; first-fit packs only the rest
  * (and any unpositioned tiles) so shrinking from 6→4 never leaves overflow cells.
- * Still-valid coordinates are preserved (horizontal gaps survive).
+ * Still-valid coordinates are preserved (horizontal gaps survive). Fully empty
+ * rows are compacted afterward.
  */
 fun adaptTilesToColumnCount(
+    entries: List<PinnedTileEntry>,
+    columns: Int,
+): List<PinnedTileEntry> = compactEmptyRows(resolveTileGridConflicts(entries, columns))
+
+/**
+ * Conflict-aware placement without row compaction — used by [ensureGridPositions]
+ * so resize/pin can keep intentional empty rows while still unstacking overlaps.
+ */
+private fun resolveTileGridConflicts(
     entries: List<PinnedTileEntry>,
     columns: Int,
 ): List<PinnedTileEntry> {
@@ -86,7 +78,7 @@ fun adaptTilesToColumnCount(
         entry.copy(gridCol = col, gridRow = row)
     }
 
-    return compactEmptyRows(kept + relocated)
+    return kept + relocated
 }
 
 internal fun markTileCells(

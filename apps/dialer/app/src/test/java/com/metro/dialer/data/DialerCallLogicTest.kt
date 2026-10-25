@@ -11,7 +11,7 @@ class DialerCallLogicTest {
     }
 
     @Test
-    fun groupCalls_collapsesByNumber() {
+    fun groupCalls_collapsesConsecutiveByNumber() {
         val entries = listOf(
             callEntry("5551112222", CallDirection.Outgoing, 3000L),
             callEntry("5551112222", CallDirection.Incoming, 2000L),
@@ -22,6 +22,38 @@ class DialerCallLogicTest {
         assertEquals("5551112222", groups[0].normalizedNumber)
         assertEquals(2, groups[0].callCount)
         assertEquals(CallDirection.Outgoing, groups[0].latestType)
+    }
+
+    @Test
+    fun groupCalls_splitsWhenInterruptedByAnotherNumber() {
+        // Alice, Alice, Bob, Alice — Alice's early call is a separate run from the later pair.
+        val entries = listOf(
+            callEntry("5551112222", CallDirection.Outgoing, 4000L),
+            callEntry("5551112222", CallDirection.Incoming, 3000L),
+            callEntry("5559998888", CallDirection.Missed, 2000L),
+            callEntry("5551112222", CallDirection.Missed, 1000L),
+        )
+        val groups = DialerCallLogic.groupCalls(entries)
+        assertEquals(3, groups.size)
+        assertEquals("5551112222", groups[0].normalizedNumber)
+        assertEquals(2, groups[0].callCount)
+        assertEquals("5559998888", groups[1].normalizedNumber)
+        assertEquals(1, groups[1].callCount)
+        assertEquals("5551112222", groups[2].normalizedNumber)
+        assertEquals(1, groups[2].callCount)
+    }
+
+    @Test
+    fun groupCalls_continuesRunAcrossEquivalentNumberForms() {
+        val entries = listOf(
+            callEntry("+15551234567", CallDirection.Outgoing, 3000L),
+            callEntry("5551234567", CallDirection.Incoming, 2000L),
+            callEntry("5559998888", CallDirection.Missed, 1000L),
+        )
+        val groups = DialerCallLogic.groupCalls(entries)
+        assertEquals(2, groups.size)
+        assertEquals(2, groups[0].callCount)
+        assertEquals("+15551234567", groups[0].normalizedNumber)
     }
 
     @Test
@@ -259,6 +291,65 @@ class DialerCallLogicTest {
         assertTrue(DialerCallLogic.numbersEquivalent("+15551234567", "5551234567"))
         assertTrue(!DialerCallLogic.numbersEquivalent("+919876543210", "91"))
         assertTrue(!DialerCallLogic.numbersEquivalent("+919876543210", "+919876543211"))
+    }
+
+    @Test
+    fun resolveContactDisplayName_matchesPlusCountryAgainstTrunkAndNational() {
+        val contacts = listOf(
+            ContactSuggestion("Alice", "+91 98765 43210", "+919876543210"),
+            ContactSuggestion("Bob", "444-9999", "4449999"),
+        )
+        assertEquals("Alice", DialerCallLogic.resolveContactDisplayName("09876543210", contacts))
+        assertEquals("Alice", DialerCallLogic.resolveContactDisplayName("9876543210", contacts))
+        assertEquals("Alice", DialerCallLogic.resolveContactDisplayName("919876543210", contacts))
+        assertEquals("Alice", DialerCallLogic.resolveContactDisplayName("+919876543210", contacts))
+        assertEquals(null, DialerCallLogic.resolveContactDisplayName("9876543211", contacts))
+    }
+
+    @Test
+    fun resolveContactDisplayName_matchesNationalContactAgainstPlusDialed() {
+        val contacts = listOf(
+            ContactSuggestion("Alice", "09876543210", "09876543210"),
+        )
+        assertEquals("Alice", DialerCallLogic.resolveContactDisplayName("+919876543210", contacts))
+        assertEquals("Alice", DialerCallLogic.resolveContactDisplayName("919876543210", contacts))
+    }
+
+    @Test
+    fun preferContactDisplayName_keepsContactNameOverFormattedNumber() {
+        assertEquals(
+            "Alice",
+            DialerCallLogic.preferContactDisplayName(
+                preferred = "Alice",
+                fallback = "(555) 123-4567",
+                phoneNumber = "5551234567",
+            ),
+        )
+        assertEquals(
+            "Alice",
+            DialerCallLogic.preferContactDisplayName(
+                preferred = "5551234567",
+                fallback = "Alice",
+                phoneNumber = "5551234567",
+            ),
+        )
+        assertEquals(
+            "(555) 123-4567",
+            DialerCallLogic.preferContactDisplayName(
+                preferred = null,
+                fallback = null,
+                phoneNumber = "5551234567",
+            ),
+        )
+    }
+
+    @Test
+    fun isPhoneNumberLabel_detectsFormattedAndRawNumbers() {
+        assertTrue(DialerCallLogic.isPhoneNumberLabel("5551234567", "5551234567"))
+        assertTrue(DialerCallLogic.isPhoneNumberLabel("(555) 123-4567", "5551234567"))
+        assertTrue(DialerCallLogic.isPhoneNumberLabel("+91 98765 43210", "+919876543210"))
+        assertTrue(!DialerCallLogic.isPhoneNumberLabel("Alice", "5551234567"))
+        assertTrue(!DialerCallLogic.isPhoneNumberLabel("911", "5551234567"))
     }
 
     @Test

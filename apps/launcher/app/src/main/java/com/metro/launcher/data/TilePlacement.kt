@@ -235,7 +235,51 @@ fun placeTileAt(
     }
 
     settled.putAll(others)
-    return settled
+    // Corrupt / pre-overlapping baselines can leave untouched pairs stacked (common on
+    // 6-col when two mediums share a cell). Relocate only the conflicts.
+    return resolvePlacementOverlaps(settled, columns)
+}
+
+/**
+ * Keeps non-overlapping placements; first-fit relocates any tile that collides with an
+ * earlier one in reading order. Horizontal gaps among conflict-free tiles survive.
+ */
+internal fun resolvePlacementOverlaps(
+    placements: Map<TilePlacementKey, GridPlacement>,
+    columns: Int,
+): Map<TilePlacementKey, GridPlacement> {
+    if (placements.size <= 1) return placements
+    val readingOrder = placements.values.sortedWith(
+        compareBy({ it.row }, { it.col }, { it.key.packageName }, { it.key.tileId }),
+    )
+    val occupied = mutableSetOf<Pair<Int, Int>>()
+    val resolved = LinkedHashMap<TilePlacementKey, GridPlacement>(placements.size)
+    var changed = false
+    for (placement in readingOrder) {
+        val col = alignTileColumn(placement.col, placement.colSpan, columns)
+        val row = placement.row.coerceAtLeast(0)
+        val seated = if (canPlaceAt(occupied, col, row, placement.colSpan, placement.rowSpan, columns)) {
+            if (col != placement.col || row != placement.row) {
+                changed = true
+                placement.copy(col = col, row = row)
+            } else {
+                placement
+            }
+        } else {
+            changed = true
+            val (fitCol, fitRow) = findFirstOpenAlignedSlot(
+                occupied,
+                placement.colSpan,
+                placement.rowSpan,
+                columns,
+                startRow = 0,
+            ) ?: findFirstOpenSlot(occupied, placement.colSpan, placement.rowSpan, columns)
+            placement.copy(col = fitCol, row = fitRow)
+        }
+        markTileCells(occupied, seated.col, seated.row, seated.colSpan, seated.rowSpan)
+        resolved[seated.key] = seated
+    }
+    return if (changed) compactPlacementRows(resolved) else placements
 }
 
 /** Valid top-left columns for a footprint of [colSpan] on a [columns]-wide grid. */

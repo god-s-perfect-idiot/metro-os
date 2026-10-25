@@ -6,6 +6,7 @@ import android.telecom.CallAudioState
 import android.telecom.InCallService
 import com.metro.dialer.InCallActivity
 import com.metro.dialer.data.CallLogRepository
+import com.metro.dialer.data.ContactsLookup
 import com.metro.dialer.data.DialerCallLogic
 import com.metro.system.MetroLockscreen
 
@@ -67,12 +68,21 @@ class MetroInCallService : InCallService() {
 
     private fun resolveDisplayName(number: String): String {
         if (number.isEmpty()) return number
-        val repository = CallLogRepository(applicationContext)
-        val recent = repository.loadRecentCalls()
-        val fromLog = recent.firstOrNull {
-            DialerCallLogic.numbersEquivalent(it.phoneNumber, number)
-        }?.contactName
-        return fromLog?.takeIf { it.isNotBlank() }
-            ?: DialerCallLogic.formatDisplayNumber(number)
+        // Keep the label already shown from dial-pad / T9 when telecom binds the real call.
+        val existing = MetroCallSession.activeCall.value
+            ?.takeIf { DialerCallLogic.numbersEquivalent(it.phoneNumber, number) }
+            ?.displayName
+
+        val fromContacts = ContactsLookup(applicationContext).resolveContactName(number)
+        val fromLog = CallLogRepository(applicationContext).loadRecentCalls()
+            .firstOrNull { DialerCallLogic.numbersEquivalent(it.phoneNumber, number) }
+            ?.contactName
+            ?.takeIf { it.isNotBlank() }
+
+        return DialerCallLogic.preferContactDisplayName(
+            preferred = existing,
+            fallback = fromContacts ?: fromLog,
+            phoneNumber = number,
+        )
     }
 }

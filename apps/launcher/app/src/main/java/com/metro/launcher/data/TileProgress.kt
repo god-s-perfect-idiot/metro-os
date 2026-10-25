@@ -160,8 +160,8 @@ internal fun elapsedCaptionFromTexts(texts: List<String>): String? {
 }
 
 /**
- * One live-tile notification peek face (flip back). Apps with several active notifications
- * supply a list of these; the Start tile cycles through them one flip at a time.
+ * One live-tile notification peek face (flip back). Shade notifications contribute the
+ * latest peek for a push-flip; provider queues may still supply several faces to cycle.
  */
 data class TilePeekLines(
     val title: String?,
@@ -171,6 +171,11 @@ data class TilePeekLines(
     val footer: String? = null,
     /** Notifying app package — peek-cycle taps open this instead of the host tile. */
     val packageName: String? = null,
+    /**
+     * Shade [StatusBarNotification] key. When the flip face is showing, Start taps fire this
+     * notification's contentIntent instead of launching the host app.
+     */
+    val notificationKey: String? = null,
 ) {
     val hasContent: Boolean
         get() = !title.isNullOrBlank() || !subtitle.isNullOrBlank() || !body.isNullOrBlank()
@@ -194,6 +199,8 @@ data class TilePeekLines(
 
 /**
  * Newest-first queue of distinct peek faces for one package's active notifications.
+ * Start shows the lead only and push-flips when it changes; the full queue stays for
+ * badge / diagnostics. Dedupes by visible copy so a newer post keeps its [notificationKey].
  */
 internal fun buildNotificationPeekQueue(
     items: List<Pair<Long, TilePeekLines>>,
@@ -202,7 +209,7 @@ internal fun buildNotificationPeekQueue(
         .sortedByDescending { it.first }
         .map { it.second.normalizedForFlip() }
         .filter { it.hasContent }
-        .distinct()
+        .distinctBy { Triple(it.title, it.subtitle, it.body) }
 
 /**
  * Map custom RemoteViews text rows onto a peek face.

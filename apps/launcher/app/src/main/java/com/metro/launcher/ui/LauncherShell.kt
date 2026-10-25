@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.metro.launcher.R
 import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.DisplayTile
+import com.metro.launcher.data.TilePeekLines
 import com.metro.system.MetroAppInfo
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
@@ -156,7 +157,7 @@ fun LauncherShell(
     // Stable identities — unstable lambdas / modifiers force a full Start+AppList rebuild.
     val startPageModifier = remember { Modifier.testTag("metro_page_start") }
     val appListPageModifier = remember { Modifier.testTag("metro_page_app_list") }
-    val noopTileClick = remember<(DisplayTile, String?) -> Unit> { { _, _ -> } }
+    val noopTileClick = remember<(DisplayTile, TilePeekLines?) -> Unit> { { _, _ -> } }
     val openAppList = remember(state) { { state.currentPage = 1 } }
     val onTileClick = remember(state) { state::onTileClick }
     val onTileLongPress = remember(state) { state::onTileLongPress }
@@ -518,9 +519,9 @@ private fun LauncherPagerHost(
     coveredByCustomize: State<Boolean>,
     startPageModifier: Modifier,
     appListPageModifier: Modifier,
-    noopTileClick: (DisplayTile, String?) -> Unit,
+    noopTileClick: (DisplayTile, TilePeekLines?) -> Unit,
     openAppList: () -> Unit,
-    onTileClick: (DisplayTile, String?) -> Unit,
+    onTileClick: (DisplayTile, TilePeekLines?) -> Unit,
     onTileLongPress: (DisplayTile) -> Unit,
     onDismissEdit: () -> Unit,
     onResize: () -> Unit,

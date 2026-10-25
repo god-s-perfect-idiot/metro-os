@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.DisplayTile
+import com.metro.launcher.data.TilePeekLines
 import com.metro.ui.MetroCircleIconButton
 import com.metro.ui.MetroSystemIconType
 
@@ -52,7 +53,7 @@ private val NeverSuspendEditMotion: State<Boolean> = mutableStateOf(false)
 @Composable
 fun StartScreen(
     tiles: List<DisplayTile>,
-    onTileClick: (DisplayTile, peekPackageName: String?) -> Unit,
+    onTileClick: (DisplayTile, visiblePeek: TilePeekLines?) -> Unit,
     onTileLongPress: (DisplayTile) -> Unit,
     onOpenAppList: () -> Unit,
     modifier: Modifier = Modifier,

@@ -18,7 +18,7 @@ Target: **Windows Phone 8.1 GDR2+** Phone app on a portrait phone (768×1280 / x
 
 | WP 8.0 | WP 8.1 (build this) |
 |--------|---------------------|
-| Flat call log (every call listed) | **Grouped history** — repeat calls from same contact/number collapsed with `(n)` count |
+| Flat call log (every call listed) | **Grouped history** — consecutive calls from the same contact/number collapsed with `(n)` count; an intervening call from another number splits the run |
 | Call/Save on bottom app bar | **Call and save in dial-pad grid** |
 | No speed dial | **Speed dial pane** with pinned contacts |
 | Smaller in-call UI | **Full-screen outgoing call** with large name/photo and bottom end-call control |

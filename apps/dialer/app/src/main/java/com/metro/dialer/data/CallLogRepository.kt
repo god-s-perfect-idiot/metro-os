@@ -61,14 +61,20 @@ class CallLogRepository(
 
     private fun lookupContactName(resolver: ContentResolver, normalized: String): String? {
         if (normalized.isBlank()) return null
-        val uri = Uri.withAppendedPath(
-            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-            Uri.encode(normalized),
-        )
-        val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
-        resolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                return cursor.getString(0)
+        // Try every dialing shape so call-log `0987…` still hits a contact stored as `+91…`.
+        for (candidate in DialerCallLogic.dialingCandidates(normalized)) {
+            val uri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(candidate),
+            )
+            val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
+            resolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val name = cursor.getString(0)?.trim().orEmpty()
+                    if (name.isNotEmpty() && !DialerCallLogic.isPhoneNumberLabel(name, normalized)) {
+                        return name
+                    }
+                }
             }
         }
         return null
