@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.rememberPagerState
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.metro.launcher.R
 import com.metro.launcher.data.DisplayTile
+import com.metro.launcher.data.MusicTilePackages
 import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileBackgroundMode
@@ -60,6 +62,7 @@ import com.metro.launcher.data.supportsCustomWidget
 import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroIconPackInfo
 import com.metro.system.MetroIconPacks
+import com.metro.system.MetroMusicLiveTileStyle
 import com.metro.system.MetroPreferences
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroBorderButton
@@ -104,6 +107,8 @@ data class TileCustomizeDraft(
     val hideTitle: Boolean,
     val useCustomWidget: Boolean,
     val widgetProvider: String?,
+    /** Music now-playing face; only applied for connected music pins. */
+    val musicLiveTileStyle: MetroMusicLiveTileStyle = MetroMusicLiveTileStyle.DEFAULT,
 )
 
 @Composable
@@ -221,6 +226,7 @@ fun TileCustomizeScreen(
                 customName = customName,
             )
             1 -> WidgetsCustomizePage(
+                tile = tile,
                 draft = draft,
                 onDraftChange = onDraftChange,
                 showWidgetSection = showWidgetSection,
@@ -494,6 +500,7 @@ private fun TileIconImagePickerRow(
 
 @Composable
 private fun WidgetsCustomizePage(
+    tile: DisplayTile,
     draft: TileCustomizeDraft,
     onDraftChange: (TileCustomizeDraft) -> Unit,
     showWidgetSection: Boolean,
@@ -503,6 +510,9 @@ private fun WidgetsCustomizePage(
     draftRevealsWindow: Boolean,
     draftTileFill: Color,
 ) {
+    val context = LocalContext.current
+    val showMusicLiveTileStyles = MusicTilePackages.isMusicApp(context, tile.entry.packageName) &&
+        tile.entry.supportsCustomWidget()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -510,13 +520,41 @@ private fun WidgetsCustomizePage(
             .padding(bottom = 88.dp),
     ) {
         Spacer(modifier = Modifier.height(12.dp))
-        if (!showWidgetSection) {
-            MetroText(
-                text = stringResource(R.string.tile_customize_widget_empty),
-                style = MetroTextStyle.Body,
-                color = MetroTheme.colors.secondaryText,
+        if (showMusicLiveTileStyles) {
+            MetroListPicker(
+                selected = draft.musicLiveTileStyle,
+                options = listOf(
+                    MetroListPickerOption(
+                        MetroMusicLiveTileStyle.Presentation,
+                        stringResource(R.string.tile_customize_music_live_tile_presentation),
+                    ),
+                    MetroListPickerOption(
+                        MetroMusicLiveTileStyle.CompactControls,
+                        stringResource(R.string.tile_customize_music_live_tile_compact),
+                    ),
+                    MetroListPickerOption(
+                        MetroMusicLiveTileStyle.SpaciousControls,
+                        stringResource(R.string.tile_customize_music_live_tile_spacious),
+                    ),
+                ),
+                onSelectedChange = { style ->
+                    onDraftChange(draft.copy(musicLiveTileStyle = style))
+                },
+                label = stringResource(R.string.tile_customize_music_live_tile_label),
                 modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
             )
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+
+        if (!showWidgetSection) {
+            if (!showMusicLiveTileStyles) {
+                MetroText(
+                    text = stringResource(R.string.tile_customize_widget_empty),
+                    style = MetroTextStyle.Body,
+                    color = MetroTheme.colors.secondaryText,
+                    modifier = Modifier.padding(horizontal = MetroDimens.ScreenHorizontalMargin),
+                )
+            }
             return
         }
 
@@ -591,8 +629,9 @@ private fun WidgetsCustomizePage(
 }
 
 /**
- * Per-tile icon-pack picker: each cell is a Start-sized preview of this pin under that pack.
- * Selection updates the customize draft (applied on Save) — not the suite-wide preference.
+ * Per-tile icon-pack picker: each cell is a Start-proportioned preview of this pin under
+ * that pack (1×1 / 2×2 / 4×2 span the same columns as Start). Selection updates the
+ * customize draft (applied on Save) — not the suite-wide preference.
  */
 @Composable
 private fun TilesCustomizePage(
@@ -638,13 +677,11 @@ private fun TilesCustomizePage(
     }
     val packsLoaded = installedPacks != null
 
-    val tileAspect = when (tile.entry.size) {
-        PinnedTileSize.FourByTwo -> 2f
-        else -> 1f
-    }
+    val tileSize = tile.entry.size
+    val colSpan = tileSize.colSpan.coerceIn(1, IconPackGridColumns)
     val iconPackage = tile.entry.resolvedIconPackage()
     val faceTitle = draft.customTitle.takeIf { it.isNotBlank() } ?: tile.title
-    val showTitle = tile.entry.size != PinnedTileSize.OneByOne && !draft.hideTitle
+    val showTitle = tileSize != PinnedTileSize.OneByOne && !draft.hideTitle
     val contentColor = if (draftRevealsWindow) {
         Color.White
     } else {
@@ -686,8 +723,16 @@ private fun TilesCustomizePage(
                     vertical = 12.dp,
                 ),
         ) {
-            val cellWidth =
+            // Unit cell = 1×1 Start column; medium/wide previews span 2 / 4 columns.
+            val unitWidth =
                 (maxWidth - IconPackGridGap * (IconPackGridColumns - 1)) / IconPackGridColumns
+            val (previewWidth, previewHeight) = tilePixelSize(
+                unit = unitWidth,
+                colSpan = colSpan,
+                rowSpan = tileSize.rowSpan,
+                gap = IconPackGridGap,
+            )
+            val previewAspect = previewWidth / previewHeight
             LazyVerticalGrid(
                 columns = GridCells.Fixed(IconPackGridColumns),
                 modifier = Modifier.fillMaxSize(),
@@ -697,6 +742,7 @@ private fun TilesCustomizePage(
                 items(
                     items = options,
                     key = { option: IconPackGridOption -> option.packageName ?: "none" },
+                    span = { GridItemSpan(colSpan) },
                 ) { option: IconPackGridOption ->
                     val selected = option.packageName == highlightPack ||
                         (option.packageName == null && highlightPack.isNullOrBlank())
@@ -709,9 +755,9 @@ private fun TilesCustomizePage(
                         title = faceTitle.takeIf { showTitle },
                         selected = selected,
                         chromeLegacy = chromeLegacy,
-                        aspectRatio = tileAspect,
-                        cellWidth = cellWidth,
-                        tileSize = tile.entry.size,
+                        aspectRatio = previewAspect,
+                        cellWidth = previewWidth,
+                        tileSize = tileSize,
                         iconScale = draft.iconScale,
                         useWindowFill = draftRevealsWindow && !chromeLegacy,
                         tileFill = draftTileFill,

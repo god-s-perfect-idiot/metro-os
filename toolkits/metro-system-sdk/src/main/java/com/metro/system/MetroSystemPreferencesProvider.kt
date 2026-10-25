@@ -180,6 +180,7 @@ class MetroSystemPreferencesProvider : ContentProvider() {
         MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
         MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS,
         MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
+        MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE,
         MetroPreferenceKeys.CONNECTED_CONVERSATION_APPS,
         MetroPreferenceKeys.ICON_PACK_PACKAGE,
         -> prefs.getString(key, null)
@@ -208,6 +209,7 @@ class MetroSystemPreferencesProvider : ContentProvider() {
             MetroPreferenceKeys.CONNECTED_GALLERY_APPS,
             MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS,
             MetroPreferenceKeys.CONNECTED_MUSIC_APPS,
+            MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE,
             MetroPreferenceKeys.CONNECTED_CONVERSATION_APPS,
             MetroPreferenceKeys.ICON_PACK_PACKAGE,
         )

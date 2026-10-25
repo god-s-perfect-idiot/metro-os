@@ -26,6 +26,7 @@ import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.GalleryLiveTileStore
 import com.metro.launcher.data.LauncherRepository
 import com.metro.launcher.data.MusicNowPlayingStore
+import com.metro.launcher.data.MusicTilePackages
 import com.metro.launcher.data.PinnedTileEntry
 import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileAppWidgetController
@@ -51,6 +52,7 @@ import com.metro.system.MetroAppInfo
 import com.metro.system.MetroBroadcasts
 import com.metro.system.MetroIconPacks
 import com.metro.system.MetroIntents
+import com.metro.system.MetroMusicLiveTileStyle
 import com.metro.system.MetroPreferenceKeys
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStartBackground
@@ -118,6 +120,8 @@ class LauncherState(context: Context) {
      * Exposed so Start / app-list composables invalidate glyphs when the pack changes.
      */
     var iconPackPackage by mutableStateOf(metroPrefs.iconPackPackage)
+    /** Suite default music now-playing face (Settings → connected apps → Music). */
+    var musicLiveTileStyle by mutableStateOf(metroPrefs.musicLiveTileStyle)
         private set
     var currentPage by mutableIntStateOf(0)
     /** Package+tile to bring into view after pin-to-Start; consumed by Start. */
@@ -264,6 +268,8 @@ class LauncherState(context: Context) {
                 GalleryLiveTileStore.clearCache()
                 refreshTilesLiveAsync(pinnedEntries)
             }
+            MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE ->
+                musicLiveTileStyle = metroPrefs.musicLiveTileStyle
         }
     }
 
@@ -320,6 +326,7 @@ class LauncherState(context: Context) {
             applyShowMoreColumns(metroPrefs.showMoreColumns)
             applyUseCompactLayout(metroPrefs.useCompactLayout)
             applyIconPackPackage(metroPrefs.iconPackPackage)
+            musicLiveTileStyle = metroPrefs.musicLiveTileStyle
             clearAppListIconCache()
             // Album / connected-app edits from Settings arrive via the provider, not the
             // local SharedPreferences listener — drop the MediaStore cycle cache here.
@@ -655,6 +662,7 @@ class LauncherState(context: Context) {
             hideTitle = current.entry.hideTitle,
             useCustomWidget = current.entry.useCustomWidget,
             widgetProvider = current.entry.widgetProvider,
+            musicLiveTileStyle = current.entry.musicLiveTileStyle ?: musicLiveTileStyle,
         )
         tileCustomizeExiting = false
         tileCustomizeAppBarVisible = false
@@ -893,6 +901,7 @@ class LauncherState(context: Context) {
                 useCustomWidget = false,
                 widgetProvider = null,
                 appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID,
+                musicLiveTileStyle = draft.musicLiveTileStyle,
             )
             beginCloseTileCustomize()
             return
@@ -912,6 +921,7 @@ class LauncherState(context: Context) {
                 useCustomWidget = true,
                 widgetProvider = draft.widgetProvider,
                 appWidgetId = previous.appWidgetId,
+                musicLiveTileStyle = draft.musicLiveTileStyle,
             )
             beginCloseTileCustomize()
             return
@@ -989,6 +999,7 @@ class LauncherState(context: Context) {
             useCustomWidget = true,
             widgetProvider = draft.widgetProvider,
             appWidgetId = resolvedId,
+            musicLiveTileStyle = draft.musicLiveTileStyle,
         )
         beginCloseTileCustomize()
     }
@@ -1022,6 +1033,7 @@ class LauncherState(context: Context) {
             useCustomWidget = true,
             widgetProvider = provider,
             appWidgetId = appWidgetId,
+            musicLiveTileStyle = draft.musicLiveTileStyle,
         )
         beginCloseTileCustomize()
     }
@@ -1039,6 +1051,7 @@ class LauncherState(context: Context) {
         useCustomWidget: Boolean,
         widgetProvider: String?,
         appWidgetId: Int,
+        musicLiveTileStyle: MetroMusicLiveTileStyle,
     ) {
         TileCustomIcon.commit(
             context = appContext,
@@ -1063,6 +1076,11 @@ class LauncherState(context: Context) {
                     useCustomWidget = useCustomWidget,
                     widgetProvider = widgetProvider,
                     appWidgetId = appWidgetId,
+                    musicLiveTileStyle = if (MusicTilePackages.isMusicApp(appContext, key.packageName)) {
+                        musicLiveTileStyle
+                    } else {
+                        entry.musicLiveTileStyle
+                    },
                 )
             } else {
                 entry

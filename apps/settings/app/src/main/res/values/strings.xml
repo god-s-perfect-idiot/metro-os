@@ -98,6 +98,10 @@
     <string name="settings_music_apps_subtitle">now playing live tiles</string>
     <string name="settings_music_apps_title">music apps</string>
     <string name="settings_music_apps_intro">Apps on this list show the Xbox Music–style now-playing live tile on Start when media is active.</string>
+    <string name="settings_music_live_tile_label">Default Music Live tile</string>
+    <string name="settings_music_live_tile_presentation">Presentation</string>
+    <string name="settings_music_live_tile_compact">Compact controls</string>
+    <string name="settings_music_live_tile_spacious">Spacious controls</string>
     <string name="settings_conversation_apps">Conversation apps</string>
     <string name="settings_conversation_apps_subtitle">replyable chats</string>
     <string name="settings_conversation_apps_title">conversation apps</string>

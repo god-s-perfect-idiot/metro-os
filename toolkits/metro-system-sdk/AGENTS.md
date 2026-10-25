@@ -28,6 +28,7 @@ Cross-app system contracts: shared preferences, intents, broadcasts, content pro
 | `connected_gallery_apps` | `String` (CSV packages) | suite defaults when unset | Photos-style live-tile packages |
 | `connected_gallery_albums` | `String` (CSV MediaStore bucket IDs) | empty (none) | Albums whose photos appear on gallery live tiles |
 | `connected_music_apps` | `String` (CSV packages) | suite defaults when unset | Xbox Music now-playing live-tile packages |
+| `music_live_tile_style` | `String` (`presentation` / `compact` / `spacious`) | `compact` | Default music now-playing Start face ([MetroMusicLiveTileStyle]) |
 | `connected_conversation_apps` | `String` (CSV packages) | suite defaults when unset | Packages Conversations may show from the shade |
 
 Storage: Settings-hosted ContentProvider (`content://com.metro.system`) backed by

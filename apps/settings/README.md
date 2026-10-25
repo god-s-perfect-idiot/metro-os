@@ -38,7 +38,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 | lock screen | Done (launches `com.metro.lockscreen` setup) |
 | keyboard | Done (launches `com.metro.keyboard` settings) |
 | connected apps | Done (gallery / music live tiles + conversation apps) |
-| gallery apps / music apps | Done (apps corner list + multi-select picker; gallery also selects live-tile albums) |
+| gallery apps / music apps | Done (apps corner list + multi-select picker; music default live-tile style ListPicker; gallery also selects live-tile albums) |
 | about / more info | Done (device information; Software = metro-os alpha-3) |
 
 ## System functions and contracts
@@ -60,6 +60,7 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 - `connected_gallery_apps` (comma-separated packages; null → suite defaults)
 - `connected_gallery_albums` (comma-separated MediaStore bucket IDs; empty → no photos on gallery live tiles)
 - `connected_music_apps` (comma-separated packages; null → suite defaults)
+- `music_live_tile_style` (`presentation` / `compact` / `spacious`; default compact)
 
 ## Commands
 

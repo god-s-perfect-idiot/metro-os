@@ -155,6 +155,17 @@ class MetroPreferencesTest {
     }
 
     @Test
+    fun musicLiveTileStyle_defaultsCompactAndRoundTrips() {
+        assertEquals(MetroMusicLiveTileStyle.CompactControls, prefs.musicLiveTileStyle)
+        prefs.musicLiveTileStyle = MetroMusicLiveTileStyle.Presentation
+        assertEquals(MetroMusicLiveTileStyle.Presentation, prefs.musicLiveTileStyle)
+        prefs.musicLiveTileStyle = MetroMusicLiveTileStyle.SpaciousControls
+        assertEquals(MetroMusicLiveTileStyle.SpaciousControls, prefs.musicLiveTileStyle)
+        prefs.musicLiveTileStyle = MetroMusicLiveTileStyle.CompactControls
+        assertEquals(MetroMusicLiveTileStyle.CompactControls, prefs.musicLiveTileStyle)
+    }
+
+    @Test
     fun iconPackPackage_defaultsNullAndRoundTrips() {
         assertEquals(null, prefs.iconPackPackage)
         prefs.iconPackPackage = "com.example.iconpack"

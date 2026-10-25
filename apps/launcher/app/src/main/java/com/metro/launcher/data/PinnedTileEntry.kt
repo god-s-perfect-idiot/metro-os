@@ -1,6 +1,7 @@
 package com.metro.launcher.data
 
 import android.appwidget.AppWidgetManager
+import com.metro.system.MetroMusicLiveTileStyle
 
 /**
  * Tile footprint on the Start grid (4 columns default; 6 when show more columns is on).
@@ -96,6 +97,11 @@ data class PinnedTileEntry(
     val customTitle: String? = null,
     /** When true, medium/wide faces omit the bottom-left app name. */
     val hideTitle: Boolean = false,
+    /**
+     * Optional music now-playing face for connected music pins.
+     * Null → suite default ([com.metro.system.MetroPreferences.musicLiveTileStyle]).
+     */
+    val musicLiveTileStyle: MetroMusicLiveTileStyle? = null,
 ) {
     companion object {
         const val DEFAULT_ICON_SCALE = 1f

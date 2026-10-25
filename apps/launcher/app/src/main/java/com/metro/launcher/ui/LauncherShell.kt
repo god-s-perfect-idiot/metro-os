@@ -574,6 +574,7 @@ private fun LauncherPagerHost(
         LocalStartBackgroundViewport provides startBackground,
         LocalTileAppWidgetController provides state.widgetController,
         LocalIconPackPackage provides state.iconPackPackage,
+        LocalMusicLiveTileStyle provides state.musicLiveTileStyle,
     ) {
         Box(
             modifier = Modifier

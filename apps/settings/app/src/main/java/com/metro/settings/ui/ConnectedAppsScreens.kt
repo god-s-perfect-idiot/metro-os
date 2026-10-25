@@ -51,6 +51,7 @@ import com.metro.settings.data.GalleryAlbumEntry
 import com.metro.settings.data.InstalledAppEntry
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroPreferences
+import com.metro.system.MetroMusicLiveTileStyle
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppGlyphs
@@ -60,6 +61,8 @@ import com.metro.ui.MetroCheckBox
 import com.metro.ui.MetroColors
 import com.metro.ui.MetroDimens
 import com.metro.ui.MetroListItem
+import com.metro.ui.MetroListPicker
+import com.metro.ui.MetroListPickerOption
 import com.metro.ui.MetroMultiSelectItem
 import com.metro.ui.MetroMultiSelectList
 import com.metro.ui.MetroSettingsHeader
@@ -235,6 +238,33 @@ fun ConnectedAppListScreen(
         ) {
             item {
                 SettingsBodyText(text = intro)
+            }
+            if (kind == ConnectedAppKind.Music) {
+                item {
+                    MetroListPicker(
+                        selected = state.musicLiveTileStyle,
+                        options = listOf(
+                            MetroListPickerOption(
+                                MetroMusicLiveTileStyle.Presentation,
+                                stringResource(R.string.settings_music_live_tile_presentation),
+                            ),
+                            MetroListPickerOption(
+                                MetroMusicLiveTileStyle.CompactControls,
+                                stringResource(R.string.settings_music_live_tile_compact),
+                            ),
+                            MetroListPickerOption(
+                                MetroMusicLiveTileStyle.SpaciousControls,
+                                stringResource(R.string.settings_music_live_tile_spacious),
+                            ),
+                        ),
+                        onSelectedChange = state::applyMusicLiveTileStyle,
+                        label = stringResource(R.string.settings_music_live_tile_label),
+                        modifier = Modifier.padding(
+                            horizontal = MetroDimens.ScreenHorizontalMargin,
+                            vertical = 8.dp,
+                        ),
+                    )
+                }
             }
             if (selected.isEmpty()) {
                 item {

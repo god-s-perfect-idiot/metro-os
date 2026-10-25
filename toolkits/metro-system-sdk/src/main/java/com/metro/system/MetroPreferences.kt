@@ -188,6 +188,19 @@ class MetroPreferences(context: Context) {
         )
 
     /**
+     * Default music now-playing Start face (Settings → connected apps → Music apps).
+     * Individual pins may override via tile customize → widgets.
+     */
+    var musicLiveTileStyle: MetroMusicLiveTileStyle
+        get() = MetroMusicLiveTileStyle.fromStorage(
+            readStringNullable(MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE),
+        )
+        set(value) = writeString(
+            MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE,
+            value.storageValue,
+        )
+
+    /**
      * Packages Conversations may show from the shade. Null preference → suite defaults;
      * empty set when the user cleared the list in Settings → connected apps.
      */
@@ -413,6 +426,7 @@ class MetroPreferences(context: Context) {
         key == MetroPreferenceKeys.CONNECTED_GALLERY_APPS ||
             key == MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS ||
             key == MetroPreferenceKeys.CONNECTED_MUSIC_APPS ||
+            key == MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE ||
             key == MetroPreferenceKeys.CONNECTED_CONVERSATION_APPS
 
     private fun rawAsFloat(raw: Any?): Float? = when (raw) {

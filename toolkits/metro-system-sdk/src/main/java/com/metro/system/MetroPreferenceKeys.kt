@@ -45,6 +45,13 @@ object MetroPreferenceKeys {
     const val CONNECTED_MUSIC_APPS = "connected_music_apps"
 
     /**
+     * Default now-playing Start face for connected music apps
+     * ([MetroMusicLiveTileStyle] storage value). Null → [MetroMusicLiveTileStyle.DEFAULT].
+     * Per-tile override lives on the launcher pin (tile customize → widgets).
+     */
+    const val MUSIC_LIVE_TILE_STYLE = "music_live_tile_style"
+
+    /**
      * Comma-separated packages Conversations may surface from the notification shade.
      * Null (never written) → [MetroConnectedApps.DEFAULT_CONVERSATION_PACKAGES]; blank → none.
      */

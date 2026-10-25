@@ -1,9 +1,15 @@
 package com.metro.launcher
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.metro.launcher.data.MusicNowPlayingInfo
 import com.metro.launcher.data.MusicTilePackages
+import com.metro.launcher.data.PinnedTileSize
 import com.metro.launcher.data.TileNotificationInfo
 import com.metro.launcher.data.TileNotificationStore
+import com.metro.launcher.ui.musicTileTransportSize
+import com.metro.launcher.ui.presentationTextColor
+import com.metro.system.MetroMusicLiveTileStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -11,6 +17,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MusicNowPlayingTest {
+    @Test
+    fun musicTileTransportSize_denseIsSmallerThanStandard() {
+        assertTrue(
+            musicTileTransportSize(PinnedTileSize.TwoByTwo, dense = true) <
+                musicTileTransportSize(PinnedTileSize.TwoByTwo, dense = false),
+        )
+        assertTrue(
+            musicTileTransportSize(PinnedTileSize.FourByTwo, dense = true) <
+                musicTileTransportSize(PinnedTileSize.FourByTwo, dense = false),
+        )
+        assertEquals(28.dp, musicTileTransportSize(PinnedTileSize.TwoByTwo, dense = true))
+        assertEquals(34.dp, musicTileTransportSize(PinnedTileSize.TwoByTwo, dense = false))
+    }
+
     @Test
     fun knownPackages_includeMetroAndYoutubeMusic() {
         assertTrue(MusicTilePackages.contains("com.metro.music"))
@@ -81,6 +101,32 @@ class MusicNowPlayingTest {
         assertEquals(1, merged.counter)
         assertNull(merged.backFaceTitle)
         assertFalse(merged.hasFlipFace)
+    }
+
+    @Test
+    fun musicLiveTileStyle_defaultsCompactAndParses() {
+        assertEquals(MetroMusicLiveTileStyle.CompactControls, MetroMusicLiveTileStyle.DEFAULT)
+        assertEquals(
+            MetroMusicLiveTileStyle.Presentation,
+            MetroMusicLiveTileStyle.fromStorage("presentation"),
+        )
+        assertEquals(
+            MetroMusicLiveTileStyle.SpaciousControls,
+            MetroMusicLiveTileStyle.fromStorage("spacious"),
+        )
+        assertEquals(
+            MetroMusicLiveTileStyle.CompactControls,
+            MetroMusicLiveTileStyle.fromStorage(null),
+        )
+    }
+
+    @Test
+    fun presentationTextColor_lightensAccent() {
+        val accent = Color(0xFF144514)
+        val text = presentationTextColor(accent)
+        assertTrue(text.red > accent.red)
+        assertTrue(text.green > accent.green)
+        assertTrue(text.blue > accent.blue)
     }
 
     @Test

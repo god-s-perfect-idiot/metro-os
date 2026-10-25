@@ -2,6 +2,7 @@ package com.metro.launcher.data
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import com.metro.system.MetroMusicLiveTileStyle
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -60,6 +61,9 @@ class PinnedTileStore(context: Context) {
                             put("customTitle", it)
                         }
                         if (tile.hideTitle) put("hideTitle", true)
+                        tile.musicLiveTileStyle?.let {
+                            put("musicLiveTileStyle", it.storageValue)
+                        }
                     },
             )
         }
@@ -122,6 +126,9 @@ class PinnedTileStore(context: Context) {
                             customTitle = obj.optString("customTitle", "")
                                 .takeIf { it.isNotBlank() },
                             hideTitle = obj.optBoolean("hideTitle", false),
+                            musicLiveTileStyle = obj.optString("musicLiveTileStyle", "")
+                                .takeIf { it.isNotBlank() }
+                                ?.let { MetroMusicLiveTileStyle.fromStorage(it) },
                         ),
                     )
                 }

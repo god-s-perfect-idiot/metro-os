@@ -1658,6 +1658,8 @@ private fun LauncherTileCell(
                                 info = musicNowPlaying!!,
                                 size = tile.entry.size,
                                 fallbackColor = tile.backgroundColor,
+                                style = tile.entry.musicLiveTileStyle
+                                    ?: LocalMusicLiveTileStyle.current,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }

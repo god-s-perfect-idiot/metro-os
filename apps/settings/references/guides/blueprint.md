@@ -130,9 +130,10 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Layout:** Apps Corner pattern (`images/apps_corner_dark.png`):
   1. `SETTINGS` overline + lowercase page title (`gallery apps` / `music apps` / `conversation apps`)
   2. Intro body explaining Photos-style vs Xbox Music now-playing Start tiles vs Conversations shade membership
-  3. Vertical list of selected apps (square icon + display name)
-  4. Trailing **Apps** / **tap to select apps** row → multi-select picker
-  5. **Gallery only:** selected albums list + **Albums** / **tap to select albums** row → album **image** picker (MediaStore buckets). Requires photos permission; request in-page when missing.
+  3. **Music only:** `MetroListPicker` **Default Music Live tile** — Presentation / Compact controls / Spacious controls (`music_live_tile_style`; default Compact). Per-tile override: Start tile customize → widgets.
+  4. Vertical list of selected apps (square icon + display name)
+  5. Trailing **Apps** / **tap to select apps** row → multi-select picker
+  6. **Gallery only:** selected albums list + **Albums** / **tap to select albums** row → album **image** picker (MediaStore buckets). Requires photos permission; request in-page when missing.
 - **Picker (apps):** `MetroMultiSelectList` (`APPS` overline; checkbox + icon + name rows; app bar check / close). Saves to `MetroPreferences` (`connected_gallery_apps` / `connected_music_apps` / `connected_conversation_apps` comma-separated packages). Back / close discards draft.
 - **Picker (gallery albums):** Photos-style **2-column cover image grid** (`ALBUMS` overline; square cover thumbnails + album name bottom-left + checkbox overlay; app bar check / close). Not a folder / Apps Corner list. Saves to `connected_gallery_albums` (comma-separated MediaStore `BUCKET_ID`s). Only photos from selected albums appear on gallery live tiles; empty selection → accent-only tile faces.
 - **Defaults:** When an apps key has never been written, suite defaults from `MetroConnectedApps` apply (Photos / Music / common chat+mail packages). Saving an empty list clears membership. Gallery albums default to none until the user selects.

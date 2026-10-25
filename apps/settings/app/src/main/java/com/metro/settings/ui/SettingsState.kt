@@ -16,6 +16,7 @@ import com.metro.settings.data.SystemSettingsBridge
 import com.metro.settings.R
 import com.metro.system.MetroAccentPalette
 import com.metro.system.MetroFontScale
+import com.metro.system.MetroMusicLiveTileStyle
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStartBackground
 import com.metro.system.MetroTypeface
@@ -142,6 +143,9 @@ class SettingsState(
         private set
 
     var musicAppPackages by mutableStateOf(prefs.musicAppPackages)
+        private set
+
+    var musicLiveTileStyle by mutableStateOf(prefs.musicLiveTileStyle)
         private set
 
     var conversationAppPackages by mutableStateOf(prefs.conversationAppPackages)
@@ -379,6 +383,11 @@ class SettingsState(
         prefs.musicAppPackages = packages
     }
 
+    fun applyMusicLiveTileStyle(style: MetroMusicLiveTileStyle) {
+        musicLiveTileStyle = style
+        prefs.musicLiveTileStyle = style
+    }
+
     fun applyConversationAppPackages(packages: Set<String>) {
         conversationAppPackages = packages
         prefs.conversationAppPackages = packages
@@ -396,6 +405,7 @@ class SettingsState(
         galleryAppPackages = prefs.galleryAppPackages
         galleryAlbumBucketIds = prefs.galleryAlbumBucketIds
         musicAppPackages = prefs.musicAppPackages
+        musicLiveTileStyle = prefs.musicLiveTileStyle
         conversationAppPackages = prefs.conversationAppPackages
         applicationEntries = applications.listInstalledApps()
         selectedApp?.packageName?.let { pkg ->
