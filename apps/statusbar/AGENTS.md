@@ -41,7 +41,7 @@ Runs as overlay service. Does not host Action Center, toasts, or a notification 
    (`StatusBarAccessibilityService`); falls back to `TYPE_APPLICATION_OVERLAY` (hidden behind the
    system bar) when the accessibility service is off. `SYSTEM_ALERT_WINDOW` alone is not enough —
    it is layered below the system status bar.
-3. Clock updates every minute
+3. Clock updates every minute (`ACTION_TIME_TICK` / time / timezone / screen-on + Handler backup)
 4. Tap tray or Start/home expands indicators (staggered drop); auto-collapse after hold
 5. Swipe down on tray opens the Android notification shade; Metro overlay hides until the shade closes
 6. Immersive / fullscreen apps hide the tray (contract `MODE_HIDDEN` or system status-bar hide)

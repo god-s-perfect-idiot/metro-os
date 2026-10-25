@@ -8,6 +8,8 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
 import com.metro.conversations.tiles.ConversationsTileRefresh
+import com.metro.system.MetroBroadcasts
+import com.metro.system.MetroConversationFeed
 
 /**
  * Notification access for Conversations — supplies active replyable shade posts.
@@ -79,7 +81,15 @@ class ConversationsListenerService : NotificationListenerService() {
 
         private fun notifyChanged() {
             changeListener?.invoke()
-            instance?.applicationContext?.let { ConversationsTileRefresh.request(it) }
+            instance?.applicationContext?.let { ctx ->
+                ConversationsTileRefresh.request(ctx)
+                runCatching {
+                    ctx.contentResolver.notifyChange(MetroConversationFeed.CONTENT_URI, null)
+                }
+                runCatching {
+                    ctx.sendBroadcast(Intent(MetroBroadcasts.ACTION_CONVERSATIONS_CHANGED))
+                }
+            }
         }
     }
 }

@@ -42,4 +42,13 @@ object MetroPanoramaBrandGradients {
             MetroColors.AccentAmber,
         ),
     )
+
+    /** People — classic Lumia contact hub (cyan → cobalt → indigo). */
+    val People: Brush = Brush.horizontalGradient(
+        listOf(
+            MetroColors.AccentCyan,
+            MetroColors.AccentCobalt,
+            MetroColors.AccentIndigo,
+        ),
+    )
 }

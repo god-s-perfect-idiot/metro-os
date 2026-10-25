@@ -42,7 +42,6 @@ import com.metro.statusbar.ui.StatusTray
 import com.metro.system.MetroPreferences
 import com.metro.system.MetroStatusBar
 import com.metro.ui.MetroTheme
-import java.time.ZonedDateTime
 
 class StatusBarOverlayService :
     Service(),
@@ -107,6 +106,8 @@ class StatusBarOverlayService :
         displayRotation = readDisplayRotation()
         startForeground(NOTIFICATION_ID, buildNotification())
         rehostOverlay()
+        // Realign Handler after TIME_TICK / wall-clock / zone / screen-on (TrayState receivers).
+        trayState.onClockSynced = { scheduleNextClockTick() }
         trayState.registerReceivers(this)
         trayState.refreshTheme()
         trayState.refreshClock()
@@ -177,6 +178,7 @@ class StatusBarOverlayService :
         handler.removeCallbacks(notificationCycleRunnable)
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         removeOverlay()
+        trayState.onClockSynced = null
         trayState.unregisterReceivers(this)
         viewModelStore.clear()
         super.onDestroy()
@@ -387,9 +389,7 @@ class StatusBarOverlayService :
     }
 
     private fun scheduleNextClockTick() {
-        val now = ZonedDateTime.now()
-        val nextMinute = now.plusMinutes(1).withSecond(0).withNano(0)
-        val delayMs = java.time.Duration.between(now, nextMinute).toMillis().coerceAtLeast(1000L)
+        val delayMs = TrayClockScheduler.millisUntilNextMinute(System.currentTimeMillis())
         handler.removeCallbacks(clockRunnable)
         handler.postDelayed(clockRunnable, delayMs)
     }

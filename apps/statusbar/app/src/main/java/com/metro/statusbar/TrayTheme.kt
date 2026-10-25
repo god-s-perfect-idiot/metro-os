@@ -102,6 +102,14 @@ object TrayClockFormatter {
     fun format(now: ZonedDateTime = ZonedDateTime.now()): String = formatter.format(now)
 }
 
+/** Minute-boundary delay for the overlay Handler tick (backup to [Intent.ACTION_TIME_TICK]). */
+object TrayClockScheduler {
+    fun millisUntilNextMinute(nowMillis: Long): Long {
+        val remainder = nowMillis % 60_000L
+        return if (remainder == 0L) 60_000L else 60_000L - remainder
+    }
+}
+
 /**
  * Real battery telemetry from the sticky `ACTION_BATTERY_CHANGED` intent. This is genuine device
  * data (not a stub), kept decoupled from rendering so the indicator glyph just reads a

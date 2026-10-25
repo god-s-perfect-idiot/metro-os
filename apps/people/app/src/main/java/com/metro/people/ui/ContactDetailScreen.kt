@@ -114,6 +114,7 @@ private fun ProfilePivot(
         Row(modifier = Modifier.padding(bottom = 24.dp, top = 8.dp)) {
             ContactAvatar(
                 contactId = summary.id,
+                photoUri = summary.photoUri,
                 modifier = Modifier.size(200.dp),
             )
         }

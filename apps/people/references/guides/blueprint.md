@@ -10,74 +10,64 @@ Target: **Windows Phone 8.1 GDR2+** People hub on a portrait phone (768×1280 / 
 
 - **Control model:** `MetroPanorama` for the hub landing (horizontal panes). This is a panorama app, not a pivot app at the top level.
 - **Theme:** Black background (`#000000`) on all People surfaces unless a contact photo provides a full-bleed header.
-- **Typography:** Noto Sans stand-in for Segoe WP. Contact names are large and left-aligned; section headers use sentence-case lowercase panorama titles (`all`, `what's new`).
+- **Typography:** Noto Sans stand-in for Segoe WP. Contact names are large and left-aligned; section headers use sentence-case lowercase panorama titles (`what's new`, `recent`, `all`).
 - **App bar:** Minimized (… overflow) on panorama panes. Standard round icon buttons on contact detail and filter screens.
 - **No Material:** No FAB, chips, rounded avatar cards, or bottom sheets.
+- **Reference:** `images/hub_panorama_dark_blue.png` — WP People hub panorama (what's new / recent / together / all). metro-os omits together.
 
-## WP 8.1 deltas (vs WP 8.0)
+## Hub panes (metro-os)
 
-| WP 8.0 | WP 8.1 (build this) |
-|--------|---------------------|
-| Opens to What's new | Opens to **all** (contact list) |
-| Recent pane (last 8 people) | **Removed** — do not implement |
-| Together pane (Rooms / Groups) | **Removed** — do not implement |
-| In-hub Facebook like/comment | **Read-only feed**; tap opens external app |
-| Tap contact row → profile | Tap contact **name** → **call**; separate icon → profile |
-| Built-in Facebook/Twitter sync | App-linked accounts via Add an account |
+| Pane | Default? | Data |
+|------|----------|------|
+| **what's new** | **Yes** (landing) | Active Conversations shade posts for Settings → connected apps (`MetroConversationFeed`) |
+| **recent** | No | Up to **10** saved contacts who called or messaged (call log + SMS + conversation peers); **2×5** photo grid |
+| **all** | No | Contact list; top features newest conversation author + message |
+
+Together / Rooms: out of scope.
 
 ## Pages
 
-### Page 1 — People hub · all (default landing)
+### Page 1 — People hub · what's new (default landing)
 
 - **Layout:**
-  - Panorama pane title: lowercase `all` in large Light type (64sp class), flush left.
-  - Peek of next pane (`what's new`) visible on right edge (~40dp).
-  - Top of scrollable content (in order):
-    1. **Me row** — user's own square photo + display name. Tapping opens own profile (Me surface; may stub in v1).
-    2. **Add an account** row — launches account picker (`accounts_dark_blue.jpg`).
-    3. **Import SIM contacts** row — shown when SIM present; may stub in v1.
-    4. **Showing filter chip** — accent-colored label (e.g. `showing only contacts with phone numbers`). Tap opens filter contacts page.
-    5. **Alphabet jump tile** — small square accent tile with current letter or `#`. The active letter **sticks** at the top while that section's contacts scroll; the next letter pushes it up (`metroStickyLetterHeader`). Tap opens jump list overlay.
-    6. **Contact list** — grouped by first letter (or last name per settings). Each row:
-       - Square avatar (48dp), left.
-       - Display name, large (20sp SemiBold), left-aligned.
-       - **Profile icon** (small contact-card glyph) at row right — tap opens contact detail.
-       - **Row tap on name/primary area** — initiate call to default mobile number (WP 8.1 behavior).
-  - Rows separated by subtle 1px dividers at 20% white; no card elevation.
-- **Navigation:**
-  - Horizontal swipe → `what's new` pane.
-  - System Search key → in-app contact search overlay.
-  - … menu → Settings (sort/display name options, filter link, import SIM).
-  - `+` app bar icon → new contact form.
-- **Interactions:**
-  - Long-press contact row → context menu (pin to Start, link, delete) — implement pin + delete in v1; link optional.
-  - Scroll preserves position when returning from detail.
-- **Background:** Solid black.
-
-### Page 2 — People hub · what's new
-
-- **Layout:**
-  - Panorama pane title: `what's new` (lowercase, large Light).
-  - Optional network filter chip at top: `showing Facebook` (accent text). Tap cycles connected networks.
-  - Vertical feed of social posts from aggregated accounts. Each item:
-    - Poster name + square avatar.
-    - Post text (wrap).
-    - Optional link preview card.
-    - Source + relative time in grey (`Facebook · 34 minutes ago`).
-    - Comment count badge (grey speech bubble) on right — display only in v1.
-  - Empty state when no accounts connected: centred message + link to Add an account.
-- **Navigation:** Swipe back to `all`. Tap post → deep-link stub (toast "Open in Facebook" / external intent placeholder).
-- **Interactions:** No inline like/comment in v1 (WP 8.1 app-first model).
+  - Panorama pane title: `what's new` (lowercase, large Light). Peek of `recent` on the right.
+  - Vertical feed (People hub what's-new UI — match `detail_whatsnew_dark_blue.jpg` / panorama capture):
+    - Author name (large white).
+    - Message body in quotes.
+    - Source + relative time in grey (`WhatsApp 3 minutes ago`).
+    - Right: grey square badge with count or `+`.
+  - Empty: no Conversations notification access → explanation + open listener settings. Access granted but idle → short empty copy.
+- **Navigation:** Tap row → `MetroConversationFeed.open(key)`. Swipe → `recent`.
 - **Background:** Black.
 
-### Page 3 — Filter contacts
+### Page 2 — People hub · recent
+
+- **Layout:**
+  - Panorama pane title: `recent`.
+  - **2×5** square tile grid (WP mosaic). Photo tiles; accent + name when no photo.
+  - Max **10** unique **saved** contacts, newest call/message first.
+  - Message activity kept in a 10-entry ring (`MessageRecentStore`) — new unique contact pops the oldest.
+- **Data:** `CallLog.Calls` (saved only) + `Telephony.Sms` (when permitted) + conversation peers matched to contacts.
+- **Navigation:** Tap tile → contact detail. Empty / no call-log permission → allow access.
+- **Background:** Black.
+
+### Page 3 — People hub · all
+
+- **Layout:**
+  - Panorama pane title: `all`.
+  - **Featured conversation** at top when what's new is non-empty: large accent square + author name + quoted newest message + source/time.
+  - Then showing filter chip, sticky letter jump, alphabetical contact list (existing rows).
+- **Navigation:** Search hides panorama. `+` → new contact. Featured tap opens conversation.
+- **Background:** Black.
+
+### Page 4 — Filter contacts
 
 - **Layout:** Full-page settings surface (not a panorama pane).
   - Header: `FILTER CONTACTS` (small caps, 20sp).
   - **Hide contacts without phone numbers** — label + large On/Off state text + `MetroToggleSwitch` right.
   - Helper text below toggle in grey.
   - **show contacts from my** section — checkbox list per synced account (Outlook, Google, Facebook, etc.).
-  - Bottom app bar: check (save) and X (cancel) round buttons; … overflow right.
+  - Bottom app bar: single Store-style **done** text button (no icons). Back cancels.
 - **Navigation:** Reached from `showing` chip or Settings → filter my contact list. Back restores previous list scroll.
 - **Interactions:** Toggle/check changes apply on check tap; cancel discards.
 - **Reference:** `images/pivot_dark_blue.jpg`
@@ -164,14 +154,16 @@ Target: **Windows Phone 8.1 GDR2+** People hub on a portrait phone (768×1280 / 
 - `PersonDetail` extends summary with emails, social blurbs, linked apps
 - `ContactMethod(type, label, value)`
 - `PeopleFilter(hideNoPhone, visibleAccounts)`
-- `PeoplePane { All, WhatsNew }`
+- `PeoplePane { WhatsNew, Recent, All }`
+- `RecentPerson(contactId, displayName, phoneNumber?, lastKind, lastTimestamp)`
+- `WhatsNewItem(key, authorName, body, sourceLabel, postTimeMs, badgeCount)`
 
 ## Out of scope (v1)
 
-- Rooms, Groups, Together pane (WP 8.0 only)
-- Recent pane
+- Rooms, Groups, Together pane
 - Inline social like/comment/reply
-- Real Facebook/Twitter/LinkedIn API sync (stub feeds + external deep links only)
+- Real Facebook/Twitter/LinkedIn API sync (Conversations shade posts replace that feed)
 - Me tile as live Start tile
 - Dual-SIM per-contact defaults
 - Contact binding / Connect tile rich content APIs
+- Full call-history list in People (Dialer owns history; Recent is people-centric, max 10)

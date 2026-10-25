@@ -26,6 +26,16 @@
     <string name="send_email">send email</string>
     <string name="add_apps">add apps</string>
     <string name="history_empty">No communication history yet.</string>
+    <string name="pane_all">all</string>
+    <string name="pane_recent">recent</string>
+    <string name="pane_whats_new">what\'s new</string>
+    <string name="recent_empty">no recent calls or messages yet</string>
+    <string name="recent_permission_body">Allow call history (and SMS) to show people you\'ve recently talked to.</string>
+    <string name="grant_call_log">allow call history</string>
+    <string name="whats_new_empty">No conversations right now. Connected chat apps appear here when they post to the status bar.</string>
+    <string name="whats_new_permission_body">Allow People to access notifications so what\'s new can show chats from your connected apps. In the next screen, find People and turn it on.</string>
+    <string name="grant_notification_access">allow access</string>
+    <string name="whats_new_open_failed">Couldn\'t open conversation</string>
     <string name="search_contacts">search contacts</string>
     <string name="people_search">People Search</string>
     <string name="account_device">Device</string>
@@ -37,6 +47,7 @@
     <string name="new_contact">new contact</string>
     <string name="save_contact">save</string>
     <string name="cancel">cancel</string>
+    <string name="done">done</string>
     <string name="add_photo">add photo</string>
     <string name="remove_photo">remove photo</string>
     <string name="contact_photo">contact photo</string>

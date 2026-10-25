@@ -34,6 +34,7 @@ object MetroIntents {
     const val PACKAGE_LAUNCHER = "com.metro.launcher"
     const val PACKAGE_DIALER = "com.metro.dialer"
     const val PACKAGE_PEOPLE = "com.metro.people"
+    const val PACKAGE_CONVERSATIONS = "com.metro.conversations"
     const val PACKAGE_WIDGETS = "com.metro.widgets"
 
     /**
@@ -125,6 +126,11 @@ object MetroIntents {
 object MetroBroadcasts {
     const val ACTION_THEME_CHANGED = "com.metro.system.THEME_CHANGED"
     const val ACTION_TILE_UPDATE = "com.metro.system.TILE_UPDATE"
+    /**
+     * Fired by Conversations when the shade conversation set changes (post/remove/listener).
+     * People (and others) reload the conversation feed ContentProvider.
+     */
+    const val ACTION_CONVERSATIONS_CHANGED = "com.metro.system.CONVERSATIONS_CHANGED"
 
     /** Sent by the navbar app whenever the overlay is enabled or disabled. */
     const val ACTION_NAVBAR_CHANGED = "com.metro.system.NAVBAR_CHANGED"

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,9 +30,9 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metro.people.R
+import com.metro.people.data.PeoplePane
 import com.metro.ui.LocalMetroSubpageExit
 import com.metro.ui.MetroAppBar
-import com.metro.ui.MetroAppBarDefaults
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppTitle
 import com.metro.ui.MetroColors
@@ -57,6 +58,8 @@ private val SearchFieldBottomSpacing = 8.dp
 fun PeopleShell(
     state: PeopleState,
     onRequestWriteContacts: () -> Unit,
+    onRequestCallLogPermission: () -> Unit = {},
+    onRequestNotificationAccess: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val generation = state.generation
@@ -64,9 +67,14 @@ fun PeopleShell(
     val observeState = generation
 
     var scrollToLetter by remember { mutableStateOf<Char?>(null) }
+    var hubIntroPlayed by remember { mutableStateOf(false) }
     val searching = state.searchVisible
     val scope = rememberCoroutineScope()
     val toast = rememberMetroToastController()
+    val hubPagerState = rememberPagerState(
+        initialPage = PeoplePane.WhatsNew.ordinal,
+        pageCount = { PeoplePane.entries.size },
+    )
 
     LaunchedEffect(state.toastMessage) {
         val message = state.toastMessage ?: return@LaunchedEffect
@@ -131,13 +139,9 @@ fun PeopleShell(
             onGoBack = state::closeOverlay,
             modifier = Modifier.fillMaxSize(),
             rootContent = {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    MetroAppTitle(
-                        title = stringResource(
-                            if (searching) R.string.people_search else R.string.app_name,
-                        ),
-                    )
-                    if (searching) {
+                if (searching) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        MetroAppTitle(title = stringResource(R.string.people_search))
                         ContactSearchBar(
                             query = state.searchQuery,
                             onQueryChange = state::updateSearchQuery,
@@ -146,31 +150,34 @@ fun PeopleShell(
                                 vertical = SearchFieldBottomSpacing,
                             ),
                         )
-                    } else {
-                        MetroText(
-                            text = "all",
-                            style = MetroTextStyle.HubTitle,
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .padding(top = 4.dp, bottom = 12.dp),
+                        AllPane(
+                            filterLabel = state.filterLabel,
+                            grouped = state.groupedContacts,
+                            flatContacts = state.visibleContacts,
+                            isLoading = state.contactsLoading,
+                            searchActive = true,
+                            onFilterClick = state::openFilter,
+                            onJumpClick = state::toggleJumpList,
+                            onOpenDetail = { state.openDetail(it.id) },
+                            onAddToSpeedDial = state::addToSpeedDial,
+                            onPinToStart = state::pinToStart,
+                            onDeleteContact = state::deleteContact,
+                            scrollToLetter = scrollToLetter,
+                            onScrollConsumed = { scrollToLetter = null },
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
-                    AllPane(
-                        filterLabel = state.filterLabel,
-                        grouped = state.groupedContacts,
-                        flatContacts = state.visibleContacts,
-                        searchActive = searching,
-                        onFilterClick = state::openFilter,
-                        onJumpClick = state::toggleJumpList,
-                        onOpenDetail = { state.openDetail(it.id) },
-                        onAddToSpeedDial = state::addToSpeedDial,
-                        onPinToStart = state::pinToStart,
-                        onDeleteContact = state::deleteContact,
+                } else {
+                    PeopleHub(
+                        state = state,
+                        pagerState = hubPagerState,
                         scrollToLetter = scrollToLetter,
                         onScrollConsumed = { scrollToLetter = null },
-                        modifier = Modifier.padding(
-                            bottom = if (searching) 0.dp else MetroAppBarDefaults.BarHeight,
-                        ),
+                        onRequestCallLogPermission = onRequestCallLogPermission,
+                        onRequestNotificationAccess = onRequestNotificationAccess,
+                        skipIntro = hubIntroPlayed,
+                        onIntroPlayed = { hubIntroPlayed = true },
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             },

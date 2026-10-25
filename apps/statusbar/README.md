@@ -8,7 +8,8 @@
 **Implemented** — renders the WP8.1 system tray on top of the Android status bar: collapsed
 rightmost-icon only (usually clock), tap/home staggered indicator reveal (drop from above L→R,
 3/5/10s hold or Never, exit upward until only the rightmost remains), freely justified icon groups
-across the full tray width, minute-boundary clock ticks, indeterminate progress affordance, and
+across the full tray width, minute-boundary clock ticks (`ACTION_TIME_TICK` / time / timezone /
+screen-on, with a Handler backup realigned on those events), indeterminate progress affordance, and
 per-app opaque/translucent/hidden modes. Battery is real device telemetry (`ACTION_BATTERY_CHANGED`)
 with proportional fill (red at ≤20%, foreground above). While charging, a solid two-prong plug with
 a black edge stroke interrupts the casing (head at the top gap, cord ending at the bottom line).

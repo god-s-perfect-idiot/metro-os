@@ -98,17 +98,68 @@ data class PeopleFilter(
     val visibleAccounts: Set<String> = emptySet(),
 )
 
-data class SocialPost(
-    val id: String,
-    val authorName: String,
-    val body: String,
-    val source: String,
-    val relativeTime: String,
-    val commentCount: Int = 0,
-)
-
 data class AccountOption(
     val id: String,
     val label: String,
     val subtitle: String? = null,
 )
+
+enum class CallDirection {
+    Incoming,
+    Outgoing,
+    Missed,
+}
+
+enum class RecentActivityKind {
+    Call,
+    Message,
+}
+
+/** Raw call-log row used when building the recent grid. */
+data class PeopleCallEntry(
+    val id: Long,
+    val phoneNumber: String,
+    val normalizedNumber: String,
+    val type: CallDirection,
+    val timestamp: Long,
+    val contactId: Long?,
+    val contactName: String?,
+)
+
+/** One SMS/MMS touch used for the recent grid (saved contacts only). */
+data class PeopleMessageTouch(
+    val contactId: Long,
+    val displayName: String,
+    val phoneNumber: String,
+    val timestamp: Long,
+)
+
+/**
+ * One tile on the People hub **recent** grid — saved contacts only, max 10,
+ * newest call or message first.
+ */
+data class RecentPerson(
+    val contactId: Long,
+    val displayName: String,
+    val phoneNumber: String?,
+    val photoUri: String? = null,
+    val lastKind: RecentActivityKind,
+    val lastTimestamp: Long,
+)
+
+/** One what's-new feed row (conversation shade post). */
+data class WhatsNewItem(
+    val key: String,
+    val authorName: String,
+    val body: String,
+    val sourceLabel: String,
+    val postTimeMs: Long,
+    val badgeCount: Int,
+    val packageName: String,
+)
+
+enum class PeoplePane {
+    WhatsNew,
+    Recent,
+    All,
+}

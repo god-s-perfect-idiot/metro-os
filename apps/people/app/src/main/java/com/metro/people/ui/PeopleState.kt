@@ -13,21 +13,38 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.metro.people.PeopleListenerService
 import com.metro.people.R
 import com.metro.people.data.AccountOption
+import com.metro.people.data.CallLogRepository
 import com.metro.people.data.ContactAccountTarget
 import com.metro.people.data.ContactDraft
 import com.metro.people.data.ContactEditorLogic
 import com.metro.people.data.ContactPrefill
 import com.metro.people.data.ContactWriter
 import com.metro.people.data.ContactsRepository
+import com.metro.people.data.MessageRecentStore
 import com.metro.people.data.PeopleContactsLogic
+import com.metro.people.data.PeopleConversationRepository
 import com.metro.people.data.PeopleFilter
+import com.metro.people.data.PeopleMessageTouch
+import com.metro.people.data.PeopleRecentLogic
 import com.metro.people.data.PersonDetail
 import com.metro.people.data.PersonSummary
+import com.metro.people.data.RecentPerson
+import com.metro.people.data.SmsRecentRepository
 import com.metro.people.data.WhatsAppLink
+import com.metro.people.data.WhatsNewItem
 import com.metro.people.tiles.PeopleTileLogic
 import com.metro.system.MetroIntents
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class PeopleRoute {
     data object Hub : PeopleRoute()
@@ -40,7 +57,18 @@ sealed class PeopleRoute {
 class PeopleState(context: Context) {
     private val repository = ContactsRepository(context)
     private val contactWriter = ContactWriter(context)
+    private val callLogRepository = CallLogRepository(context)
+    private val smsRecentRepository = SmsRecentRepository(context)
+    private val messageRecentStore = MessageRecentStore(context)
+    private val conversationRepository = PeopleConversationRepository(context)
     internal val appContext = context.applicationContext
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var conversationDebounceJob: Job? = null
+    /** Monotonic tokens so a superseded IO result is ignored instead of cancelling mid-flight. */
+    private var reloadAllGeneration = 0
+    private var contactsLoadId = 0
+    private var conversationsLoadId = 0
+    private var recentLoadId = 0
 
     /** Bumped on every mutation so Compose recomposes. */
     var generation by mutableIntStateOf(0)
@@ -50,38 +78,89 @@ class PeopleState(context: Context) {
         generation++
     }
 
-    var hasContactsPermission: Boolean = false
+    fun dispose() {
+        PeopleListenerService.setChangeListener(null)
+        conversationDebounceJob?.cancel()
+        scope.cancel()
+    }
+
+    var hasContactsPermission by mutableStateOf(false)
         private set
 
-    var hasWriteContactsPermission: Boolean = false
+    var hasWriteContactsPermission by mutableStateOf(false)
+        private set
+
+    var hasCallLogPermission by mutableStateOf(false)
+        private set
+
+    var hasSmsPermission by mutableStateOf(false)
+        private set
+
+    var hasConversationAccess by mutableStateOf(false)
         private set
 
     /** False until the first [refreshPermission] completes — avoids flashing the permission gate. */
-    var permissionsChecked: Boolean = false
+    var permissionsChecked by mutableStateOf(false)
         private set
 
-    var route: PeopleRoute = PeopleRoute.Hub
+    var recentPeople by mutableStateOf<List<RecentPerson>>(emptyList())
         private set
 
-    var allContacts: List<PersonSummary> = emptyList()
+    /** True until the first recent load finishes (success or empty). */
+    var recentLoading by mutableStateOf(true)
         private set
 
-    var filter: PeopleFilter = PeopleFilter(hideWithoutPhone = true)
+    var whatsNewItems by mutableStateOf<List<WhatsNewItem>>(emptyList())
         private set
 
-    var searchQuery: String = ""
+    /** True until the first what's-new load finishes (success, empty, or no access). */
+    var whatsNewLoading by mutableStateOf(true)
         private set
 
-    var searchVisible: Boolean = false
+    /** True until the first contacts load finishes. */
+    var contactsLoading by mutableStateOf(true)
         private set
 
-    var jumpListVisible: Boolean = false
+    val featuredConversation: WhatsNewItem?
+        get() = whatsNewItems.firstOrNull()
+
+    /** Address-book match for the featured what's-new author, when available. */
+    val featuredContact: PersonSummary?
+        get() {
+            val item = featuredConversation ?: return null
+            return allContacts.firstOrNull {
+                it.displayName.equals(item.authorName, ignoreCase = true)
+            }
+        }
+
+    var route by mutableStateOf<PeopleRoute>(PeopleRoute.Hub)
         private set
 
-    var selectedDetail: PersonDetail? = null
+    var allContacts by mutableStateOf<List<PersonSummary>>(emptyList())
         private set
 
-    var newContactPrefill: ContactPrefill? = null
+    var visibleContacts by mutableStateOf<List<PersonSummary>>(emptyList())
+        private set
+
+    var groupedContacts by mutableStateOf<Map<Char, List<PersonSummary>>>(emptyMap())
+        private set
+
+    var filter by mutableStateOf(PeopleFilter(hideWithoutPhone = true))
+        private set
+
+    var searchQuery by mutableStateOf("")
+        private set
+
+    var searchVisible by mutableStateOf(false)
+        private set
+
+    var jumpListVisible by mutableStateOf(false)
+        private set
+
+    var selectedDetail by mutableStateOf<PersonDetail?>(null)
+        private set
+
+    var newContactPrefill by mutableStateOf<ContactPrefill?>(null)
         private set
 
     /** When true, open new-contact after contacts permission is granted. */
@@ -101,19 +180,19 @@ class PeopleState(context: Context) {
 
     private var knownAccounts: Set<String> = emptySet()
 
-    val visibleContacts: List<PersonSummary>
-        get() {
-            val filtered = PeopleContactsLogic.applyFilter(allContacts, filter, knownAccounts)
-            val query = searchQuery.trim().lowercase()
-            if (query.isEmpty()) return filtered
-            return filtered.filter { it.displayName.lowercase().contains(query) }
-        }
-
-    val groupedContacts: Map<Char, List<PersonSummary>>
-        get() = PeopleContactsLogic.groupBySortKey(visibleContacts)
-
     val filterLabel: String
         get() = PeopleContactsLogic.filterLabel(filter)
+
+    private fun recomputeVisibleContacts() {
+        val filtered = PeopleContactsLogic.applyFilter(allContacts, filter, knownAccounts)
+        val query = searchQuery.trim().lowercase()
+        visibleContacts = if (query.isEmpty()) {
+            filtered
+        } else {
+            filtered.filter { it.displayName.lowercase().contains(query) }
+        }
+        groupedContacts = PeopleContactsLogic.groupBySortKey(visibleContacts)
+    }
 
     fun refreshPermission(context: Context) {
         hasContactsPermission = ContextCompat.checkSelfPermission(
@@ -123,6 +202,14 @@ class PeopleState(context: Context) {
         hasWriteContactsPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.WRITE_CONTACTS,
+        ) == PackageManager.PERMISSION_GRANTED
+        hasCallLogPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_CALL_LOG,
+        ) == PackageManager.PERMISSION_GRANTED
+        hasSmsPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_SMS,
         ) == PackageManager.PERMISSION_GRANTED
         permissionsChecked = true
         if (hasContactsPermission && pendingOpenNewContact) {
@@ -141,13 +228,57 @@ class PeopleState(context: Context) {
             appContext,
             Manifest.permission.WRITE_CONTACTS,
         ) == PackageManager.PERMISSION_GRANTED
+        hasCallLogPermission = ContextCompat.checkSelfPermission(
+            appContext,
+            Manifest.permission.READ_CALL_LOG,
+        ) == PackageManager.PERMISSION_GRANTED
+        hasSmsPermission = ContextCompat.checkSelfPermission(
+            appContext,
+            Manifest.permission.READ_SMS,
+        ) == PackageManager.PERMISSION_GRANTED
         if (hasContactsPermission) {
-            reloadContacts()
             if (pendingOpenNewContact) {
                 pendingOpenNewContact = false
                 openNewContact(newContactPrefill)
             }
+            reloadAll()
         }
+        notifyChanged()
+    }
+
+    /**
+     * Hub data load after resume / permission grant.
+     * Contacts first (address book), then conversations + recent in parallel.
+     * Debounced so rapid ON_RESUME ticks coalesce; IO is never cancelled mid-flight —
+     * stale results are dropped via load tokens instead.
+     */
+    fun reloadAll() {
+        val gen = ++reloadAllGeneration
+        scope.launch {
+            delay(ReloadAllDebounceMs)
+            if (gen != reloadAllGeneration) return@launch
+            reloadContactsAndAwait()
+            if (gen != reloadAllGeneration) return@launch
+            reloadConversations()
+            reloadRecent()
+        }
+    }
+
+    fun onCallLogPermissionResult(granted: Boolean) {
+        hasCallLogPermission = granted || ContextCompat.checkSelfPermission(
+            appContext,
+            Manifest.permission.READ_CALL_LOG,
+        ) == PackageManager.PERMISSION_GRANTED
+        reloadRecent()
+        notifyChanged()
+    }
+
+    fun onSmsPermissionResult(granted: Boolean) {
+        hasSmsPermission = granted || ContextCompat.checkSelfPermission(
+            appContext,
+            Manifest.permission.READ_SMS,
+        ) == PackageManager.PERMISSION_GRANTED
+        reloadRecent()
         notifyChanged()
     }
 
@@ -164,13 +295,146 @@ class PeopleState(context: Context) {
     }
 
     fun reloadContacts() {
-        if (!hasContactsPermission) return
-        allContacts = repository.loadContacts()
+        scope.launch { reloadContactsAndAwait() }
+    }
+
+    private suspend fun reloadContactsAndAwait() {
+        if (!hasContactsPermission) {
+            contactsLoading = false
+            notifyChanged()
+            return
+        }
+        val loadId = ++contactsLoadId
+        val loaded = withContext(Dispatchers.IO) {
+            runCatching { repository.loadContacts() }.getOrElse { error ->
+                Log.e(TAG, "loadContacts failed", error)
+                emptyList()
+            }
+        }
+        if (loadId != contactsLoadId) return
+        allContacts = loaded
         knownAccounts = repository.discoverAccounts(allContacts)
         if (filter.visibleAccounts.isEmpty()) {
             filter = filter.copy(visibleAccounts = knownAccounts)
         }
+        recomputeVisibleContacts()
+        contactsLoading = false
         notifyChanged()
+    }
+
+    fun reloadConversations() {
+        val loadId = ++conversationsLoadId
+        scope.launch {
+            val access = conversationRepository.hasNotificationAccess()
+            if (loadId != conversationsLoadId) return@launch
+            hasConversationAccess = access
+            if (!access) {
+                whatsNewItems = emptyList()
+                whatsNewLoading = false
+                notifyChanged()
+                return@launch
+            }
+            val contactsSnapshot = allContacts
+            val items = withContext(Dispatchers.IO) {
+                runCatching {
+                    val feed = conversationRepository.loadWhatsNew()
+                    val matched = feed.mapNotNull { item ->
+                        val match = contactsSnapshot.firstOrNull {
+                            it.displayName.equals(item.authorName, ignoreCase = true)
+                        } ?: return@mapNotNull null
+                        PeopleMessageTouch(
+                            contactId = match.id,
+                            displayName = match.displayName,
+                            phoneNumber = match.defaultPhone.orEmpty(),
+                            timestamp = item.postTimeMs,
+                        )
+                    }
+                    if (matched.isNotEmpty()) {
+                        messageRecentStore.recordAll(matched)
+                    }
+                    feed
+                }.getOrElse { error ->
+                    Log.e(TAG, "loadWhatsNew failed", error)
+                    emptyList()
+                }
+            }
+            if (loadId != conversationsLoadId) return@launch
+            whatsNewItems = items
+            whatsNewLoading = false
+            notifyChanged()
+        }
+    }
+
+    fun reloadRecent() {
+        val loadId = ++recentLoadId
+        scope.launch {
+            val callPerm = hasCallLogPermission
+            val smsPerm = hasSmsPermission
+            val contactsSnapshot = allContacts
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching {
+                    val calls = if (callPerm) callLogRepository.loadRecentCalls() else emptyList()
+                    val smsTouches = if (smsPerm) {
+                        smsRecentRepository.loadRecentMessageTouches()
+                    } else {
+                        emptyList()
+                    }
+                    if (smsTouches.isNotEmpty()) {
+                        messageRecentStore.recordAll(smsTouches)
+                    }
+                    PeopleRecentLogic.withPhotos(
+                        recent = PeopleRecentLogic.uniqueRecentPeople(
+                            calls = calls,
+                            messages = messageRecentStore.load(),
+                        ),
+                        contacts = contactsSnapshot,
+                    )
+                }.getOrElse { error ->
+                    Log.e(TAG, "loadRecent failed", error)
+                    emptyList()
+                }
+            }
+            if (loadId != recentLoadId) return@launch
+            recentPeople = loaded
+            recentLoading = false
+            notifyChanged()
+        }
+    }
+
+    fun openRecentPerson(person: RecentPerson) {
+        if (person.contactId > 0L) {
+            openDetail(person.contactId)
+            return
+        }
+        val number = person.phoneNumber ?: return
+        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        appContext.startActivity(intent)
+    }
+
+    fun openWhatsNewItem(item: WhatsNewItem) {
+        if (!conversationRepository.open(item.key)) {
+            showToast(R.string.whats_new_open_failed)
+        }
+    }
+
+    fun conversationAccessSettingsIntent(): Intent =
+        PeopleListenerService.notificationAccessSettingsIntent()
+
+    fun startConversationListening() {
+        PeopleListenerService.setChangeListener {
+            // Shade posts fire often — debounce so the UI does not hitch on every ping.
+            conversationDebounceJob?.cancel()
+            conversationDebounceJob = scope.launch {
+                delay(ConversationDebounceMs)
+                reloadConversations()
+            }
+        }
+    }
+
+    fun stopConversationListening() {
+        conversationDebounceJob?.cancel()
+        PeopleListenerService.setChangeListener(null)
     }
 
     fun openFilter() {
@@ -222,16 +486,19 @@ class PeopleState(context: Context) {
         if (!searchVisible && searchQuery.isEmpty()) return
         searchVisible = false
         searchQuery = ""
+        recomputeVisibleContacts()
         notifyChanged()
     }
 
     fun updateSearchQuery(query: String) {
         searchQuery = query
+        recomputeVisibleContacts()
         notifyChanged()
     }
 
     fun saveFilter(newFilter: PeopleFilter) {
         filter = newFilter
+        recomputeVisibleContacts()
         notifyChanged()
     }
 
@@ -426,6 +693,8 @@ class PeopleState(context: Context) {
 
     companion object {
         private const val TAG = "PeopleState"
+        private const val ConversationDebounceMs = 450L
+        private const val ReloadAllDebounceMs = 150L
 
         fun isNewContactIntent(intent: Intent): Boolean {
             if (intent.action == Intent.ACTION_INSERT) return true

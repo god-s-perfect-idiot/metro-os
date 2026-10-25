@@ -41,6 +41,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val requestCallLog = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { results ->
+        peopleState?.onCallLogPermissionResult(
+            results[Manifest.permission.READ_CALL_LOG] == true,
+        )
+        peopleState?.onSmsPermissionResult(
+            results[Manifest.permission.READ_SMS] == true,
+        )
+    }
+
     private var permissionResult: ((Boolean) -> Unit)? = null
     private var peopleState: PeopleState? = null
     private var onDeepLink: ((Intent) -> Unit)? = null
@@ -78,10 +89,15 @@ class MainActivity : ComponentActivity() {
                 onDispose { lifecycle.removeObserver(observer) }
             }
 
+            DisposableEffect(state) {
+                state.startConversationListening()
+                onDispose { state.stopConversationListening() }
+            }
+
             DisposableEffect(permissionTick) {
                 state.refreshPermission(context)
                 if (state.hasContactsPermission) {
-                    state.reloadContacts()
+                    state.reloadAll()
                 }
                 PeopleTileRefresh.request(context)
                 onDispose { }
@@ -120,6 +136,17 @@ class MainActivity : ComponentActivity() {
                                         arrayOf(Manifest.permission.WRITE_CONTACTS),
                                     )
                                 },
+                                onRequestCallLogPermission = {
+                                    requestCallLog.launch(
+                                        arrayOf(
+                                            Manifest.permission.READ_CALL_LOG,
+                                            Manifest.permission.READ_SMS,
+                                        ),
+                                    )
+                                },
+                                onRequestNotificationAccess = {
+                                    startActivity(state.conversationAccessSettingsIntent())
+                                },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -150,5 +177,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         onDeepLink?.invoke(intent) ?: peopleState?.handleLaunchIntent(intent)
+    }
+
+    override fun onDestroy() {
+        peopleState?.dispose()
+        peopleState = null
+        super.onDestroy()
     }
 }

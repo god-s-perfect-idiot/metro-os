@@ -23,8 +23,10 @@ Curated links for how this app should look and behave on Windows Phone 8.1.
 
 | Resource | URL | Notes |
 |----------|-----|-------|
-| Microsoft — Rediscovering the People Hub | https://blogs.windows.com/windowsexperience/2013/03/18/rediscovering-the-people-hub/ | All / what's new / recent / together (8.0; skip recent+together for 8.1) |
-| Microsoft — Deep dive People Hub | https://blogs.windows.com/devices/2014/03/19/deep-dive-people-hub/ | Jump list, filter, Me tile, import SIM |
+| Microsoft — Rediscovering the People Hub | https://blogs.windows.com/windowsexperience/2013/03/18/rediscovering-the-people-hub/ | All / what's new / recent / together (8.0). metro-os restores **recent** from call log. |
+| Microsoft — Deep dive People Hub | https://blogs.windows.com/devices/2014/03/19/deep-dive-people-hub/ | Jump list, filter, Me tile, import SIM, recent activity |
+| WPXbox — People / Call 8.1 | https://www.wpxbox.com/windows-phone-8-1-people-hub-call-app-features/ | Confirms stock 8.1 removed Recent; we restore intentionally |
+| Reddit — Recent missing in 8.1 beta | https://www.reddit.com/r/windowsphone/comments/25vs1f/missing_section_of_people_app_in_wp81_beta/ | User confirmation that last-N contacts pane was cut |
 | Nokia Lumia 820 — filter contacts | https://nokia-lumia-820.helpdoc.net/en-gb/people-messaging/contacts/add-or-delete-a-contact/ | Hide no-phone toggle; filter by account |
 | Nokia Lumia 1520 — People hub | https://nokia-lumia-1520.helpdoc.net/en-gb/people-messaging/contacts/people-hub/ | Panorama pane names |
 | Windows Central — filter tips | https://forums.windowscentral.com/threads/wp8-1-tips-tricks.275061/ | … → Settings → filter contact list |

@@ -47,6 +47,7 @@ import com.metro.ui.MetroContextMenuItem
 import com.metro.ui.MetroContextMenuPopup
 import com.metro.ui.MetroJumpListLogic
 import com.metro.ui.MetroLetterTile
+import com.metro.ui.MetroLoadingDots
 import com.metro.ui.MetroMessageDialog
 import com.metro.ui.MetroShowingLabel
 import com.metro.ui.MetroSystemIcon
@@ -55,6 +56,7 @@ import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroTransitions
+import com.metro.ui.metroClickable
 import com.metro.ui.metroStickyLetterHeader
 
 /** Mutable holder so layout callbacks can update without triggering recomposition. */
@@ -68,7 +70,11 @@ fun AllPane(
     filterLabel: String,
     grouped: Map<Char, List<PersonSummary>>,
     flatContacts: List<PersonSummary> = emptyList(),
+    isLoading: Boolean = false,
     searchActive: Boolean = false,
+    featuredConversation: com.metro.people.data.WhatsNewItem? = null,
+    featuredContact: PersonSummary? = null,
+    onFeaturedClick: (() -> Unit)? = null,
     onFilterClick: () -> Unit,
     onJumpClick: () -> Unit,
     onOpenDetail: (PersonSummary) -> Unit,
@@ -79,12 +85,25 @@ fun AllPane(
     onScrollConsumed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isLoading && flatContacts.isEmpty() && grouped.isEmpty()) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            MetroLoadingDots()
+        }
+        return
+    }
+
     val listState = rememberLazyListState()
     val showLetterMarkers = !searchActive
-    // Index 0 is the "showing" filter row when markers are visible.
-    val headerIndices = remember(grouped, showLetterMarkers) {
+    // Leading rows: optional featured conversation, then "showing" filter chip.
+    val headerIndices = remember(grouped, showLetterMarkers, featuredConversation) {
         if (!showLetterMarkers) return@remember emptyMap()
-        var index = 1
+        var index = if (featuredConversation != null) 2 else 1
         buildMap {
             grouped.forEach { (letter, people) ->
                 put(MetroJumpListLogic.normalize(letter), index)
@@ -146,6 +165,15 @@ fun AllPane(
                 .padding(horizontal = 12.dp),
         ) {
             if (showLetterMarkers) {
+                if (featuredConversation != null) {
+                    item {
+                        FeaturedConversationHeader(
+                            item = featuredConversation,
+                            contact = featuredContact,
+                            onClick = onFeaturedClick,
+                        )
+                    }
+                }
                 item {
                     MetroShowingLabel(
                         label = filterLabel,
@@ -252,6 +280,66 @@ fun AllPane(
     }
 }
 
+@Composable
+private fun FeaturedConversationHeader(
+    item: com.metro.people.data.WhatsNewItem,
+    contact: PersonSummary?,
+    onClick: (() -> Unit)?,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null) {
+                    Modifier.metroClickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
+            .padding(top = 8.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        ContactAvatar(
+            contactId = contact?.id ?: 0L,
+            photoUri = contact?.photoUri,
+            fallbackLabel = if (contact == null) item.authorName else null,
+            modifier = Modifier.size(96.dp),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 12.dp),
+        ) {
+            MetroText(
+                text = item.authorName,
+                style = MetroTextStyle.ListItemTitle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (item.body.isNotBlank()) {
+                MetroText(
+                    text = "\"${item.body}\"",
+                    style = MetroTextStyle.Body,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            MetroText(
+                text = com.metro.people.data.PeopleRecentLogic.whatsNewMeta(
+                    item.sourceLabel,
+                    item.postTimeMs,
+                ),
+                style = MetroTextStyle.ListItemSubtitle,
+                color = MetroTheme.colors.secondaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ContactRow(
@@ -288,6 +376,7 @@ private fun ContactRow(
     ) {
         ContactAvatar(
             contactId = person.id,
+            photoUri = person.photoUri,
             modifier = Modifier
                 .size(48.dp)
                 .onGloballyPositioned { coordinates ->

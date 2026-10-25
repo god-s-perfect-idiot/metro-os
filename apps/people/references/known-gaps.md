@@ -6,8 +6,8 @@ Items the blueprint requires but we do not yet have in `images/`.
 
 | File | What we need | Workaround |
 |------|--------------|------------|
-| `hub_dark_blue.jpg` | WP 8.1 **all** pane — Me row, Add account, showing chip, jump tile, contact list | Row styling: `apps/launcher/references/images/applist_dark_blue.png`. Layout: `guides/blueprint.md` Page 1 + `guides/people-hub.md`. |
-| `hub_whatsnew_dark_blue.jpg` | Hub-level **what's new** panorama pane (aggregated feed) | Per-contact feed: `detail_whatsnew_dark_blue.jpg`. Hub behavior: `guides/people-hub.md`. |
+| `hub_dark_blue.jpg` | Isolated WP 8.1 **all** pane capture | Use `hub_panorama_dark_blue.png` (all column) + list row styling from launcher applist. |
+| _(sourced)_ `hub_panorama_dark_blue.png` | Full People hub panorama (what's new / recent / together / all) | Authoritative hub layout for metro-os panes (omit together). |
 
 ## How to close gaps
 

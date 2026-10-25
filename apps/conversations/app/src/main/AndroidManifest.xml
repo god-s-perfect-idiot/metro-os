@@ -52,5 +52,10 @@
                 android:name="com.metro.tile.provider"
                 android:value="true" />
         </provider>
+
+        <provider
+            android:name=".data.ConversationsFeedProvider"
+            android:authorities="com.metro.conversations.feed"
+            android:exported="true" />
     </application>
 </manifest>

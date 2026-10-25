@@ -6,9 +6,10 @@
 
 | Page | Blueprint | Image | Supplementary |
 |------|-----------|-------|---------------|
-| Hub · all (contacts) | [blueprint § Page 1](guides/blueprint.md) | _missing_ — [`known-gaps.md`](known-gaps.md) | [`guides/people-hub.md`](guides/people-hub.md) |
-| Hub · what's new | [blueprint § Page 2](guides/blueprint.md) | _missing_ — [`known-gaps.md`](known-gaps.md) | [`guides/people-hub.md`](guides/people-hub.md) |
-| Filter contacts | [blueprint § Page 3](guides/blueprint.md) | `images/pivot_dark_blue.jpg` | [`web-resources.md#filter-contacts`](web-resources.md) |
+| Hub · what's new | [blueprint § Page 1](guides/blueprint.md) | `images/hub_panorama_dark_blue.png` | [`guides/people-hub.md`](guides/people-hub.md) |
+| Hub · recent | [blueprint § Page 2](guides/blueprint.md) | `images/hub_panorama_dark_blue.png` | [`guides/people-hub.md`](guides/people-hub.md) |
+| Hub · all | [blueprint § Page 3](guides/blueprint.md) | `images/hub_panorama_dark_blue.png` | [`guides/people-hub.md`](guides/people-hub.md) |
+| Filter contacts | [blueprint § Page 4](guides/blueprint.md) | `images/pivot_dark_blue.jpg` | [`web-resources.md#filter-contacts`](web-resources.md) |
 | Jump list | [blueprint § Page 4](guides/blueprint.md) | `images/jumplist_dark_blue.png` | [`guides/people-hub.md`](guides/people-hub.md) |
 | Contact detail · profile | [blueprint § Page 6](guides/blueprint.md) | `images/detail_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |
 | Contact detail · connect | [blueprint § Page 7](guides/blueprint.md) | `images/detail_connect_dark_blue.jpg` | [`guides/contact-detail.md`](guides/contact-detail.md) |
@@ -25,7 +26,7 @@ references/
 ├── web-resources.md       # Curated links
 ├── guides/
 │   ├── blueprint.md       # Authoritative — read first
-│   ├── people-hub.md      # Panorama panes (all, what's new)
+│   ├── people-hub.md      # Panorama panes (what's new, recent, all)
 │   └── contact-detail.md  # Profile / connect / feeds / history
 └── images/                # WP 8.1 screenshots (visual aid only)
 ```
@@ -41,7 +42,8 @@ Screenshots from [All About Windows Phone](https://allaboutwindowsphone.com/feat
 | `detail_connect_dark_blue.jpg` | Connect pivot — linked app tiles |
 | `detail_whatsnew_dark_blue.jpg` | Per-contact what's new feed |
 | `accounts_dark_blue.jpg` | Add an account provider list |
-| `hub_dark_blue.jpg` | _Not yet added_ — all-pane contact list |
+| `hub_panorama_dark_blue.png` | Full People hub panorama — what's new / recent / together / all |
+| `hub_dark_blue.jpg` | _Not yet added_ — isolated all-pane capture |
 
 ## Image naming
 

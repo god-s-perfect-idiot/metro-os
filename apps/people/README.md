@@ -23,15 +23,20 @@ The app should feel like a Metro hub, not a generic Android contacts manager. Th
 
 Authoritative spec: [`references/guides/blueprint.md`](references/guides/blueprint.md)
 
-### 1. People hub · all (default)
+### 1. People hub · what's new (default)
 
-- Panorama landing pane: Me row, add account, contact list, jump list
-- Reference: `references/images/hub_dark_blue.jpg` (not yet sourced — see `references/known-gaps.md`)
+- Conversations shade posts for connected apps — People hub feed UI
+- Reference: `references/images/hub_panorama_dark_blue.png`
 
-### 2. People hub · what's new
+### 2. People hub · recent
 
-- Aggregated social feed pane; read-only in v1 with external deep-link stubs
+- 10 saved contacts who recently called/messaged — 2×5 photo grid
 - Supplementary: `references/guides/people-hub.md`
+
+### 3. People hub · all
+
+- Featured newest conversation + alphabetical contact list
+- Reference: `references/images/hub_panorama_dark_blue.png`
 
 ### 3. Filter contacts
 
@@ -60,7 +65,7 @@ Authoritative spec: [`references/guides/blueprint.md`](references/guides/bluepri
 
 ## UI and interaction guardrails
 
-- `MetroPanorama` for hub landing (`all` + `what's new` panes)
+- `MetroPanorama` for hub landing (`what's new` + `recent` + `all`)
 - `MetroPivot` on contact detail only
 - WP 8.1: tap contact name → call; profile icon → detail
 - No Material contact chips, floating add buttons, or rounded avatar card grids
@@ -119,6 +124,8 @@ cd apps/people
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | Social integration surfaces backed by Microsoft/social services | Out of current v1 backend scope | Focus on local contacts first and stub or omit external social feeds with explicit documentation |
+| WP social what's new / no Facebook APIs | Conversations already owns connected-app shade posts | what's new reads `MetroConversationFeed` (Conversations ContentProvider) |
+| WP 8.1 removed Recent pane | Need call + message people mosaic | `recent` = max 10 saved contacts from call log + SMS + conversation peers |
 | Skype / social call-chat rows on profile | WhatsApp is the common Android messaging binding | When WhatsApp (or Business) is installed and has synced the contact, show `call WhatsApp` / `text WhatsApp` via ContactsContract data rows (or `wa.me` for text if only a raw-contact sync exists) |
 
 ## Agent postmortem

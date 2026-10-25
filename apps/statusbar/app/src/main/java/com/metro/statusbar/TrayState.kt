@@ -93,6 +93,12 @@ class TrayState(context: Context) {
     var clockText by mutableStateOf(TrayClockFormatter.format())
         private set
 
+    /**
+     * Invoked after a wall-clock sync ([Intent.ACTION_TIME_TICK] / time / zone / screen-on) so
+     * the overlay can realign its Handler minute tick. Setup UI leaves this null.
+     */
+    var onClockSynced: (() -> Unit)? = null
+
     var battery by mutableStateOf(BatteryStatus.Unknown)
         private set
 
@@ -233,6 +239,25 @@ class TrayState(context: Context) {
     private val bluetoothReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshBluetoothAudio()
+        }
+    }
+
+    /**
+     * System minute / wall-clock / timezone / wake. Handler-only ticks drift under Doze and miss
+     * NTP / manual time changes — same pattern as lockscreen + widgets.
+     */
+    private val timeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_TIME_TICK,
+                Intent.ACTION_TIME_CHANGED,
+                Intent.ACTION_TIMEZONE_CHANGED,
+                Intent.ACTION_SCREEN_ON,
+                -> {
+                    refreshClock()
+                    onClockSynced?.invoke()
+                }
+            }
         }
     }
 
@@ -596,8 +621,21 @@ class TrayState(context: Context) {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             context.registerReceiver(bluetoothReceiver, bluetoothFilter)
         }
+        val timeFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            addAction(Intent.ACTION_SCREEN_ON)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(timeReceiver, timeFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(timeReceiver, timeFilter)
+        }
         StatusBarNotificationStore.addListener(notificationStoreListener)
         refreshIconFlags()
+        refreshClock()
         refreshDataConnectionLabel()
         refreshSignalBars()
         refreshRingerMute()
@@ -613,6 +651,7 @@ class TrayState(context: Context) {
         runCatching { context.unregisterReceiver(wifiReceiver) }
         runCatching { context.unregisterReceiver(ringerReceiver) }
         runCatching { context.unregisterReceiver(bluetoothReceiver) }
+        runCatching { context.unregisterReceiver(timeReceiver) }
         StatusBarNotificationStore.removeListener(notificationStoreListener)
         unregisterTelephonyUpdates()
     }

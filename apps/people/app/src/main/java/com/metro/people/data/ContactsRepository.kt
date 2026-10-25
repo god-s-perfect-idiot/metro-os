@@ -30,6 +30,7 @@ class ContactsRepository(private val context: Context) {
             ContactsContract.Contacts._ID,
             ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
             ContactsContract.Contacts.PHOTO_URI,
+            ContactsContract.Contacts.PHOTO_THUMBNAIL_URI,
             ContactsContract.Contacts.HAS_PHONE_NUMBER,
         )
         // Do not filter IN_VISIBLE_GROUP — locally created contacts are often outside a
@@ -44,6 +45,7 @@ class ContactsRepository(private val context: Context) {
             val idCol = cursor.getColumnIndexOrThrow(ContactsContract.Contacts._ID)
             val nameCol = cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY)
             val photoCol = cursor.getColumnIndexOrThrow(ContactsContract.Contacts.PHOTO_URI)
+            val thumbCol = cursor.getColumnIndexOrThrow(ContactsContract.Contacts.PHOTO_THUMBNAIL_URI)
             val hasPhoneCol = cursor.getColumnIndexOrThrow(ContactsContract.Contacts.HAS_PHONE_NUMBER)
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
@@ -52,10 +54,12 @@ class ContactsRepository(private val context: Context) {
                 val hasPhone = cursor.getInt(hasPhoneCol) > 0
                 val phone = phoneById[id]?.firstOrNull()?.value
                 val email = emailById[id]?.firstOrNull()?.value
+                val photo = cursor.getString(photoCol)?.takeIf { it.isNotBlank() }
+                    ?: cursor.getString(thumbCol)?.takeIf { it.isNotBlank() }
                 results += PersonSummary(
                     id = id,
                     displayName = name,
-                    photoUri = cursor.getString(photoCol),
+                    photoUri = photo,
                     hasPhone = hasPhone,
                     defaultPhone = phone,
                     defaultEmail = email,
