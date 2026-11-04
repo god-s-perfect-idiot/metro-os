@@ -2,10 +2,12 @@ package com.metro.launcher.ui
 
 import android.graphics.Matrix
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,9 +21,69 @@ import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.PathParser
+import com.metro.launcher.data.BrandTileFace
 import kotlin.math.hypot
 import kotlin.math.min
+
+/** Matches toolkit [com.metro.ui.MetroSplashFace] glyph box. */
+private val BrandSplashIconSize = 288.dp
+
+/** Renders a composed brand Start face for app-list squares. */
+@Composable
+fun BrandTileFaceContent(
+    face: BrandTileFace,
+    modifier: Modifier = Modifier,
+) {
+    when (face) {
+        BrandTileFace.Chrome -> ChromeTileContent(modifier = modifier)
+        BrandTileFace.Facebook -> FacebookTileContent(modifier = modifier)
+        BrandTileFace.YouTube -> YouTubeTileContent(modifier = modifier)
+        BrandTileFace.YouTubeMusic -> YouTubeMusicTileContent(modifier = modifier)
+        BrandTileFace.Amazon -> AmazonTileContent(modifier = modifier)
+    }
+}
+
+/**
+ * Open-splash face: full-bleed brand [backgroundColor] with the mark centered in the
+ * standard splash glyph box (Start tiles keep their own corner/edge anchoring).
+ */
+@Composable
+fun BrandTileFaceSplashContent(
+    face: BrandTileFace,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(backgroundColor),
+        contentAlignment = Alignment.Center,
+    ) {
+        when (face) {
+            // Tile face bottom-right-anchors the “f”; splash centers the mark alone.
+            BrandTileFace.Facebook -> {
+                Canvas(modifier = Modifier.size(BrandSplashIconSize)) {
+                    drawPath(
+                        path = facebookFPath(
+                            width = size.width,
+                            height = size.height,
+                            centered = true,
+                        ),
+                        color = FacebookTileColors.Mark,
+                    )
+                }
+            }
+            else -> {
+                BrandTileFaceContent(
+                    face = face,
+                    modifier = Modifier.size(BrandSplashIconSize),
+                )
+            }
+        }
+    }
+}
 
 /** Google Chrome brand colors (Material / product palette). */
 internal object ChromeTileColors {
@@ -526,40 +588,96 @@ private fun facebookLocalToViewBox(x: Float, y: Float): Offset {
 
 /**
  * Classic Facebook “f” from the brand SVG path.
- * Uniform scale from the short tile edge; anchored bottom-right so the stem stays flush
- * and the mark does not stretch on wide tiles.
+ *
+ * Start tiles: uniform scale from the short edge, bottom-right anchored so the stem stays
+ * flush. Open splash: [centered] fits the mark’s real bounds into the glyph box.
  */
-private fun facebookFPath(width: Float, height: Float): Path {
-    val scale = min(width, height) / FacebookSvgSize
-    val offsetX = width - FacebookSvgSize * scale
-    val offsetY = height - FacebookSvgSize * scale
-    fun pt(x: Float, y: Float): Offset {
-        val v = facebookLocalToViewBox(x, y)
+private fun facebookFPath(
+    width: Float,
+    height: Float,
+    centered: Boolean = false,
+): Path {
+    // Absolute points parsed from the relative SVG path under g4682 (viewBox space).
+    val local = listOf(
+        0f to 0f,
+        0f to 103.355f,
+        34.693f to 103.355f,
+        39.887f to 143.635f,
+        0f to 143.635f,
+        0f to 169.352f,
+        0f to 181.014f, // c1a
+        3.238f to 188.961f, // c1b
+        19.962f to 188.961f,
+        41.292f to 188.971f,
+        41.292f to 224.997f,
+        37.602f to 225.487f, // c2a
+        24.941f to 226.584f, // c2b
+        10.211f to 226.584f,
+        -20.542f to 226.584f, // c3a
+        -41.595f to 207.813f, // c3b
+        -41.595f to 173.340f,
+        -41.595f to 143.635f,
+        -76.376f to 143.635f,
+        -76.376f to 103.355f,
+        -41.595f to 103.355f,
+        -41.595f to 0f,
+    ).map { (x, y) -> facebookLocalToViewBox(x, y) }
+
+    val scale: Float
+    val offsetX: Float
+    val offsetY: Float
+    if (centered) {
+        var minX = Float.POSITIVE_INFINITY
+        var minY = Float.POSITIVE_INFINITY
+        var maxX = Float.NEGATIVE_INFINITY
+        var maxY = Float.NEGATIVE_INFINITY
+        for (p in local) {
+            minX = min(minX, p.x)
+            minY = min(minY, p.y)
+            maxX = maxOf(maxX, p.x)
+            maxY = maxOf(maxY, p.y)
+        }
+        val srcW = (maxX - minX).coerceAtLeast(1f)
+        val srcH = (maxY - minY).coerceAtLeast(1f)
+        // Inset so the mark matches MetroSplashFace glyph weight (~70% of the box).
+        val pad = min(width, height) * 0.15f
+        val avail = (min(width, height) - 2f * pad).coerceAtLeast(1f)
+        scale = avail / maxOf(srcW, srcH)
+        offsetX = (width - srcW * scale) / 2f - minX * scale
+        offsetY = (height - srcH * scale) / 2f - minY * scale
+    } else {
+        scale = min(width, height) / FacebookSvgSize
+        offsetX = width - FacebookSvgSize * scale
+        offsetY = height - FacebookSvgSize * scale
+    }
+
+    fun pt(index: Int): Offset {
+        val v = local[index]
         return Offset(offsetX + v.x * scale, offsetY + v.y * scale)
     }
-    // Absolute points parsed from the relative SVG path under g4682.
-    val p0 = pt(0f, 0f)
-    val p1 = pt(0f, 103.355f)
-    val p2 = pt(34.693f, 103.355f)
-    val p3 = pt(39.887f, 143.635f)
-    val p4 = pt(0f, 143.635f)
-    val p5 = pt(0f, 169.352f)
-    val c1a = pt(0f, 181.014f)
-    val c1b = pt(3.238f, 188.961f)
-    val p6 = pt(19.962f, 188.961f)
-    val p7 = pt(41.292f, 188.971f)
-    val p8 = pt(41.292f, 224.997f)
-    val c2a = pt(37.602f, 225.487f)
-    val c2b = pt(24.941f, 226.584f)
-    val p9 = pt(10.211f, 226.584f)
-    val c3a = pt(-20.542f, 226.584f)
-    val c3b = pt(-41.595f, 207.813f)
-    val p10 = pt(-41.595f, 173.340f)
-    val p11 = pt(-41.595f, 143.635f)
-    val p12 = pt(-76.376f, 143.635f)
-    val p13 = pt(-76.376f, 103.355f)
-    val p14 = pt(-41.595f, 103.355f)
-    val p15 = pt(-41.595f, 0f)
+
+    val p0 = pt(0)
+    val p1 = pt(1)
+    val p2 = pt(2)
+    val p3 = pt(3)
+    val p4 = pt(4)
+    val p5 = pt(5)
+    val c1a = pt(6)
+    val c1b = pt(7)
+    val p6 = pt(8)
+    val p7 = pt(9)
+    val p8 = pt(10)
+    val c2a = pt(11)
+    val c2b = pt(12)
+    val p9 = pt(13)
+    val c3a = pt(14)
+    val c3b = pt(15)
+    val p10 = pt(16)
+    val p11 = pt(17)
+    val p12 = pt(18)
+    val p13 = pt(19)
+    val p14 = pt(20)
+    val p15 = pt(21)
     return Path().apply {
         moveTo(p0.x, p0.y)
         lineTo(p1.x, p1.y)

@@ -54,6 +54,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.metro.launcher.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.TilePeekLines
@@ -61,6 +63,7 @@ import com.metro.system.MetroAppInfo
 import com.metro.ui.MetroAppBar
 import com.metro.ui.MetroAppBarIcon
 import com.metro.ui.MetroAppGlyphs
+import com.metro.ui.MetroAppLaunchPivot
 import com.metro.ui.MetroAppOpenSplash
 import com.metro.ui.MetroAppPickerScreen
 import com.metro.ui.MetroLoadingScreen
@@ -468,21 +471,60 @@ fun LauncherShell(
         // activity starts after enter (Start must stay resumed to animate).
         val openSplash = state.appOpenSplash
         if (openSplash != null) {
-            val bitmapPainter = openSplash.iconBitmap?.let { bmp ->
-                remember(bmp) { BitmapPainter(bmp) }
+            val splashModifier = Modifier
+                .fillMaxSize()
+                .testTag("metro_app_open_splash")
+            when {
+                openSplash.brandFace != null -> {
+                    MetroAppLaunchPivot(
+                        modifier = splashModifier,
+                        enterVisibleImmediately = true,
+                        onEnterComplete = state::onAppOpenSplashEnterComplete,
+                    ) {
+                        BrandTileFaceSplashContent(
+                            face = openSplash.brandFace,
+                            backgroundColor = openSplash.backgroundColor,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+                openSplash.customIconBitmap != null -> {
+                    MetroAppLaunchPivot(
+                        modifier = splashModifier,
+                        enterVisibleImmediately = true,
+                        onEnterComplete = state::onAppOpenSplashEnterComplete,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(openSplash.backgroundColor),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(
+                                bitmap = openSplash.customIconBitmap,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    val bitmapPainter = openSplash.iconBitmap?.let { bmp ->
+                        remember(bmp) { BitmapPainter(bmp) }
+                    }
+                    val iconPainter = when {
+                        openSplash.glyphResId != null -> painterResource(openSplash.glyphResId)
+                        else -> bitmapPainter
+                    }
+                    MetroAppOpenSplash(
+                        icon = iconPainter,
+                        backgroundColor = openSplash.backgroundColor,
+                        onEnterComplete = state::onAppOpenSplashEnterComplete,
+                        modifier = splashModifier,
+                    )
+                }
             }
-            val iconPainter = when {
-                openSplash.glyphResId != null -> painterResource(openSplash.glyphResId)
-                else -> bitmapPainter
-            }
-            MetroAppOpenSplash(
-                icon = iconPainter,
-                backgroundColor = openSplash.backgroundColor,
-                onEnterComplete = state::onAppOpenSplashEnterComplete,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("metro_app_open_splash"),
-            )
             // Fallback if the target never brings us to pause (launch failure).
             LaunchedEffect(openSplash.launched, openSplash.packageName) {
                 if (!openSplash.launched) return@LaunchedEffect
@@ -641,6 +683,7 @@ private fun LauncherPagerHost(
                         onUninstall = onUninstall,
                         queryAppOptions = queryAppOptions,
                         onLaunchAppOption = onLaunchAppOption,
+                        glyphAppearanceFor = state::glyphAppearanceFor,
                         restPoseRequestId = appListRestPoseRequestId,
                         modifier = appListPageModifier,
                     )

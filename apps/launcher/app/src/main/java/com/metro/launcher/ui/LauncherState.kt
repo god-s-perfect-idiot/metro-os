@@ -21,7 +21,8 @@ import com.metro.launcher.BuildConfig
 import com.metro.launcher.R
 import com.metro.launcher.TileNotificationListenerService
 import com.metro.launcher.data.AppLauncherOption
-import com.metro.launcher.data.CustomTileBranding
+import com.metro.launcher.data.AppGlyphAppearance
+import com.metro.launcher.data.BrandTileFace
 import com.metro.launcher.data.DisplayTile
 import com.metro.launcher.data.GalleryLiveTileStore
 import com.metro.launcher.data.LauncherRepository
@@ -40,6 +41,8 @@ import com.metro.launcher.data.applyTileResize
 import com.metro.launcher.data.ensureGridPositions
 import com.metro.launcher.data.mergePinnedDisplayTiles
 import com.metro.launcher.data.normalizeLaunchTargetPackage
+import com.metro.launcher.data.pinForPackage
+import com.metro.launcher.data.resolveAppGlyphAppearance
 import com.metro.launcher.data.resolvedIconScale
 import com.metro.launcher.data.resolvedLaunchTargetForPicker
 import com.metro.launcher.data.supportsCustomWidget
@@ -79,6 +82,10 @@ data class AppOpenSplashRequest(
     val backgroundColor: Color,
     val iconBitmap: ImageBitmap?,
     @DrawableRes val glyphResId: Int?,
+    /** Full-bleed composed brand face; when set, ignores [iconBitmap] / [glyphResId]. */
+    val brandFace: BrandTileFace? = null,
+    /** Full-bleed custom photo icon; when set (and no brand face), ignores glyph. */
+    val customIconBitmap: ImageBitmap? = null,
     val shortcut: AppLauncherOption? = null,
     val launched: Boolean = false,
 )
@@ -506,6 +513,7 @@ class LauncherState(context: Context) {
             packageName = tile.entry.packageName,
             deepLinkUri = tile.deepLinkUri,
             backgroundColor = tile.backgroundColor,
+            pinned = tile.entry,
         )
     }
 
@@ -517,6 +525,22 @@ class LauncherState(context: Context) {
             packageName = app.packageName,
             deepLinkUri = null,
             backgroundColor = pinnedTile?.backgroundColor,
+            pinned = pinnedTile?.entry,
+        )
+    }
+
+    /** App-list / splash glyph appearance — matches Start when a pin overrides the icon. */
+    fun glyphAppearanceFor(packageName: String): AppGlyphAppearance {
+        val pinned = pinnedEntries.pinForPackage(packageName)
+        val bg = displayTiles.firstOrNull {
+            it.entry.packageName == packageName &&
+                (pinned == null || it.entry.tileId == pinned.tileId)
+        }?.backgroundColor
+        return resolveAppGlyphAppearance(
+            context = appContext,
+            packageName = packageName,
+            pinned = pinned,
+            backgroundColor = bg,
         )
     }
 
@@ -530,24 +554,67 @@ class LauncherState(context: Context) {
         deepLinkUri: String?,
         backgroundColor: Color? = null,
         shortcut: AppLauncherOption? = null,
+        pinned: PinnedTileEntry? = null,
     ) {
         if (appOpenSplash != null) return
-        val glyphResId = CustomTileBranding.glyphResId(packageName)
-        val bg = backgroundColor
-            ?: CustomTileBranding.resolveBackgroundColor(appContext, packageName)
+        val pin = pinned ?: pinnedEntries.pinForPackage(packageName)
+        val appearance = resolveAppGlyphAppearance(
+            context = appContext,
+            packageName = packageName,
+            pinned = pin,
+            backgroundColor = backgroundColor,
+        )
+        val bg = appearance.backgroundColor
+            ?: backgroundColor
             ?: MetroAppBranding.resolveTileBackgroundColor(appContext, packageName)
         val px = (OPEN_SPLASH_ICON_DP * appContext.resources.displayMetrics.density)
             .toInt()
             .coerceAtLeast(1)
-        val packIcon = iconPackPackage?.let { pack ->
-            MetroIconPacks.loadIconForPackage(appContext, pack, packageName)
+
+        if (appearance.brandFace != null) {
+            appOpenSplash = AppOpenSplashRequest(
+                packageName = packageName,
+                deepLinkUri = deepLinkUri,
+                backgroundColor = bg,
+                iconBitmap = null,
+                glyphResId = null,
+                brandFace = appearance.brandFace,
+                shortcut = shortcut,
+            )
+            return
+        }
+
+        if (appearance.useCustomIcon) {
+            val pkg = appearance.customIconPackageName ?: packageName
+            val tileId = appearance.customIconTileId ?: "primary"
+            val customBmp = TileCustomIcon.decode(appContext, pkg, tileId)
+                ?.asImageBitmap()
+            appOpenSplash = AppOpenSplashRequest(
+                packageName = packageName,
+                deepLinkUri = deepLinkUri,
+                backgroundColor = bg,
+                iconBitmap = null,
+                glyphResId = null,
+                customIconBitmap = customBmp,
+                shortcut = shortcut,
+            )
+            return
+        }
+
+        val iconPkg = appearance.iconPackage
+        val packName = appearance.iconPackPackage ?: iconPackPackage
+        val packIcon = if (!packName.isNullOrBlank()) {
+            MetroIconPacks.loadIconForPackage(appContext, packName, iconPkg)
                 ?.toBitmap(px, px)
                 ?.asImageBitmap()
+        } else {
+            null
         }
+        val glyphResId = appearance.glyphResId
         val iconBitmap = when {
             packIcon != null -> packIcon
             glyphResId == null -> {
-                MetroAppBranding.loadAppIcon(appContext, packageName)
+                MetroAppBranding.loadAppIcon(appContext, iconPkg)
                     ?.toBitmap(px, px)
                     ?.asImageBitmap()
             }
@@ -1092,6 +1159,8 @@ class LauncherState(context: Context) {
             it.entry.packageName == key.packageName && it.entry.tileId == key.tileId
         }
         customizingTile = editingTile
+        // Pin icon overrides also drive app-list / open-splash glyphs.
+        clearAppListIconCache()
         // Keep app-bar / pivot session stable through save; visibility is owned by close.
         persistPinnedEntriesAsync()
         refreshTilesLiveAsync(
@@ -1303,6 +1372,7 @@ class LauncherState(context: Context) {
             packageName = option.packageName,
             deepLinkUri = null,
             shortcut = option,
+            pinned = pinnedEntries.pinForPackage(option.packageName),
         )
     }
 

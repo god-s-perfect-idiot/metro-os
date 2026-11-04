@@ -79,8 +79,10 @@ import kotlin.math.roundToInt
 import kotlin.math.min
 import androidx.core.graphics.drawable.toBitmap
 import android.util.LruCache
+import com.metro.launcher.data.AppGlyphAppearance
 import com.metro.launcher.data.AppLauncherOption
 import com.metro.launcher.data.CustomTileBranding
+import com.metro.launcher.data.TileCustomIcon
 import com.metro.system.MetroAppBranding
 import com.metro.system.MetroAppInfo
 import com.metro.system.MetroIconPacks
@@ -97,6 +99,7 @@ import com.metro.ui.MetroTransitions
 import com.metro.ui.metroStickyLetterHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.layout.ContentScale
 
 private val AppListIconSize = 48.dp
 private val LetterHeaderBorderWidth = 1.5.dp
@@ -149,6 +152,8 @@ private class RectRef {
 private data class CachedAppIcon(
     val bitmap: ImageBitmap?,
     val backgroundColor: Color,
+    /** Custom photo fills the square edge-to-edge (no inner padding). */
+    val edgeToEdge: Boolean = false,
 )
 
 /** Survives LazyColumn recycling so scrolling past apps does not re-decode icons. */
@@ -181,6 +186,13 @@ fun AppListScreen(
     queryAppOptions: suspend (String) -> List<AppLauncherOption>,
     onLaunchAppOption: (AppLauncherOption) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Start tile icon overrides (custom photo / pack / composed face / Metro tile glyph)
+     * so app-list squares match the pinned Start look.
+     */
+    glyphAppearanceFor: (String) -> AppGlyphAppearance = { packageName ->
+        AppGlyphAppearance(iconPackage = packageName)
+    },
     /**
      * Bump to clear launch-exit pose and snap pivot layers to rest
      * (resume / unlock after a row open left rows at alpha 0).
@@ -467,6 +479,7 @@ fun AppListScreen(
                             ) {
                                 AppListAppRow(
                                     app = app,
+                                    appearance = glyphAppearanceFor(app.packageName),
                                     highlightQuery = if (searchActive) searchQuery else "",
                                     contextMenuTarget = contextMenuApp?.packageName == app.packageName,
                                     contextMenuFocusFraction = contextMenuFocusFraction,
@@ -755,6 +768,7 @@ private fun AppListContextMenuItem(
 @Composable
 private fun AppListAppRow(
     app: MetroAppInfo,
+    appearance: AppGlyphAppearance,
     highlightQuery: String,
     contextMenuTarget: Boolean,
     contextMenuFocusFraction: Float,
@@ -792,6 +806,7 @@ private fun AppListAppRow(
             AppListSquareIcon(
                 packageName = app.packageName,
                 label = app.label,
+                appearance = appearance,
                 onBoundsChange = { iconBounds.value = it },
             )
         },
@@ -873,18 +888,59 @@ private fun LetterHeader(
 private fun AppListSquareIcon(
     packageName: String,
     label: String,
+    appearance: AppGlyphAppearance,
     onBoundsChange: (Rect) -> Unit,
 ) {
+    val boundsModifier = Modifier
+        .size(AppListIconSize)
+        .onGloballyPositioned { coordinates ->
+            onBoundsChange(coordinates.boundsInWindow())
+        }
+
+    // Composed brand faces paint themselves (same art as Start tiles).
+    appearance.brandFace?.let { face ->
+        Box(modifier = boundsModifier) {
+            BrandTileFaceContent(face = face, modifier = Modifier.fillMaxSize())
+        }
+        return
+    }
+
     val context = LocalContext.current
     val density = LocalDensity.current
     val accentHex = MetroTheme.colors.accent.let { color ->
         // Cache key must change when system accent changes (Metro/system square fills).
         String.format("#%06X", (0xFFFFFF and color.toArgb()))
     }
-    val iconPackPackage = LocalIconPackPackage.current
+    val globalPack = LocalIconPackPackage.current
+    val resolvedPack = appearance.iconPackPackage ?: globalPack
+    val iconPackage = appearance.iconPackage
+    val glyphResId = appearance.glyphResId
+    val useCustomIcon = appearance.useCustomIcon
+    val customPkg = appearance.customIconPackageName
+    val customTileId = appearance.customIconTileId
     val pixelSize = with(density) { AppListIconSize.roundToPx() }.coerceAtLeast(1)
-    val cacheKey = remember(packageName, pixelSize, accentHex, iconPackPackage) {
-        "$packageName@$pixelSize@$accentHex@${iconPackPackage.orEmpty()}"
+    val cacheKey = remember(
+        packageName,
+        iconPackage,
+        pixelSize,
+        accentHex,
+        resolvedPack,
+        glyphResId,
+        useCustomIcon,
+        customPkg,
+        customTileId,
+    ) {
+        buildString {
+            append(packageName)
+            append('@').append(iconPackage)
+            append('@').append(pixelSize)
+            append('@').append(accentHex)
+            append('@').append(resolvedPack.orEmpty())
+            append('@').append(glyphResId ?: 0)
+            append('@').append(useCustomIcon)
+            append('@').append(customPkg.orEmpty())
+            append('@').append(customTileId.orEmpty())
+        }
     }
     var cached by remember(cacheKey) {
         mutableStateOf(appListIconCache.get(cacheKey))
@@ -893,35 +949,46 @@ private fun AppListSquareIcon(
     LaunchedEffect(cacheKey) {
         if (cached != null) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) {
-            val packDrawable = if (!iconPackPackage.isNullOrBlank()) {
-                MetroIconPacks.loadIconForPackage(context, iconPackPackage, packageName)
-            } else {
-                null
-            }
-            if (packDrawable != null) {
-                val bg = MetroAppBranding.resolveTileBackgroundColor(
-                    context,
-                    packageName,
-                    drawable = packDrawable,
-                )
+            if (useCustomIcon && customPkg != null && customTileId != null) {
+                val bmp = TileCustomIcon.decode(context, customPkg, customTileId)
                 CachedAppIcon(
-                    bitmap = packDrawable.toBitmap(pixelSize, pixelSize).asImageBitmap(),
-                    backgroundColor = bg,
+                    bitmap = bmp?.asImageBitmap(),
+                    backgroundColor = appearance.backgroundColor ?: Color.Transparent,
+                    edgeToEdge = true,
                 )
             } else {
-                val customBg = CustomTileBranding.resolveBackgroundColor(context, packageName)
-                val customGlyph = CustomTileBranding.glyphResId(packageName)?.let { resId ->
-                    ContextCompat.getDrawable(context, resId)
+                val packDrawable = if (!resolvedPack.isNullOrBlank()) {
+                    MetroIconPacks.loadIconForPackage(context, resolvedPack, iconPackage)
+                } else {
+                    null
                 }
-                if (customGlyph != null && customBg != null) {
+                if (packDrawable != null) {
+                    val bg = appearance.backgroundColor
+                        ?: MetroAppBranding.resolveTileBackgroundColor(
+                            context,
+                            iconPackage,
+                            drawable = packDrawable,
+                        )
                     CachedAppIcon(
-                        bitmap = customGlyph.toBitmap(pixelSize, pixelSize).asImageBitmap(),
-                        backgroundColor = customBg,
+                        bitmap = packDrawable.toBitmap(pixelSize, pixelSize).asImageBitmap(),
+                        backgroundColor = bg,
+                    )
+                } else if (glyphResId != null) {
+                    val glyph = ContextCompat.getDrawable(context, glyphResId)
+                    val bg = appearance.backgroundColor
+                        ?: CustomTileBranding.resolveBackgroundColor(context, iconPackage)
+                        ?: Color.Transparent
+                    CachedAppIcon(
+                        bitmap = glyph?.toBitmap(pixelSize, pixelSize)?.asImageBitmap(),
+                        backgroundColor = bg,
                     )
                 } else {
-                    val asset = MetroAppBranding.loadAppIconAsset(context, packageName)
+                    val asset = MetroAppBranding.loadAppIconAsset(context, iconPackage)
                     val bitmap = asset.drawable?.toBitmap(pixelSize, pixelSize)?.asImageBitmap()
-                    CachedAppIcon(bitmap = bitmap, backgroundColor = asset.backgroundColor)
+                    CachedAppIcon(
+                        bitmap = bitmap,
+                        backgroundColor = appearance.backgroundColor ?: asset.backgroundColor,
+                    )
                 }
             }
         }
@@ -930,11 +997,7 @@ private fun AppListSquareIcon(
     }
 
     Box(
-        modifier = Modifier
-            .size(AppListIconSize)
-            .onGloballyPositioned { coordinates ->
-                onBoundsChange(coordinates.boundsInWindow())
-            }
+        modifier = boundsModifier
             .background(cached?.backgroundColor ?: Color.Transparent),
         contentAlignment = Alignment.Center,
     ) {
@@ -943,9 +1006,18 @@ private fun AppListSquareIcon(
             Image(
                 bitmap = bitmap,
                 contentDescription = label,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(IconInnerPadding),
+                contentScale = if (cached?.edgeToEdge == true) {
+                    ContentScale.Crop
+                } else {
+                    ContentScale.Fit
+                },
+                modifier = if (cached?.edgeToEdge == true) {
+                    Modifier.fillMaxSize()
+                } else {
+                    Modifier
+                        .fillMaxSize()
+                        .padding(IconInnerPadding)
+                },
             )
         } else if (cached != null) {
             val glyph = label.firstOrNull()?.uppercaseChar()?.toString() ?: "?"

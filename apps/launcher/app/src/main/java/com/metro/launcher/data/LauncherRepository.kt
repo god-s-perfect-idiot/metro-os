@@ -282,6 +282,8 @@ class LauncherRepository(private val context: Context) {
             TileBackgroundMode.Accent -> return true
             TileBackgroundMode.Default -> Unit
         }
+        // Composed brand faces are opaque brand fills (Facebook grape, YT gray, …).
+        if (brandTileFaceFor(entry.packageName, entry) != null) return false
         CustomTileBranding.entry(entry.packageName)?.let { branding ->
             // Explicit brand hex → opaque; accent-tracking custom glyph → transparent.
             return branding.backgroundHex == null
@@ -302,6 +304,11 @@ class LauncherRepository(private val context: Context) {
                     ?: prefs.accentColor
             }
             TileBackgroundMode.Default -> {
+                // Composed brand faces paint their own fill — keep DisplayTile in sync so
+                // open-splash / list overrides match the face (Facebook grape, YT gray, …).
+                brandTileFaceFor(entry.packageName, entry)?.let { face ->
+                    return brandFaceBackground(face)
+                }
                 CustomTileBranding.resolveBackgroundColor(context, entry.packageName)
                     ?: MetroAppBranding.resolveTileBackgroundColor(
                         context = context,
