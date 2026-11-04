@@ -64,6 +64,7 @@ These apps form the **Metro Shell** (launcher, status bar, notifications, naviga
 | **Conversations** | `com.metro.conversations` | Replyable chats from the notification shade; panorama home with per-app tiles (SMS off by default; opt-in via connected apps) |
 | **News** | `com.metro.news` | Bing/MSN News–style panorama: top-story hero + category headline panes; RSS-backed articles |
 | **Metron** | `com.metro.metron` | Mihon manga-reader fork with Metro UI: panorama home (explore / library / updates / history / browse), series detail, reader |
+| **Feedback** | `com.metro.feedback` | Suite feedback + diagnostics: pivot `feedback` (title, metro logcat attach, GitHub issue submit) and `metrics` (RAM / cache per metro app) |
 
 New apps are added only after they have an entry in this table and a folder scaffold under `apps/`.
 

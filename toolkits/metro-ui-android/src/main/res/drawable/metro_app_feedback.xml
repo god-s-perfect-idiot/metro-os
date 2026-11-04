@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Feedback adaptive foreground: speech bubble with accent bar (72dp safe zone). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:scaleX="0.62"
+        android:scaleY="0.62">
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M20,2H4c-1.1,0 -2,0.9 -2,2v12c0,1.1 0.9,2 2,2h4l3,3 3,-3h6c1.1,0 2,-0.9 2,-2V4c0,-1.1 -0.9,-2 -2,-2zM7,11h2V9H7zm0,-3h2V6H7zm4,3h6V9h-6zm0,-3h6V6h-6z" />
+    </group>
+</vector>

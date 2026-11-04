@@ -76,8 +76,13 @@ data class PinnedTileEntry(
     /**
      * Optional Android icon-pack package for this tile's glyph only.
      * - Null → follow suite [com.metro.system.MetroPreferences.iconPackPackage]
+     *   (Chrome / Facebook / YouTube / YouTube Music / Amazon: default composed brand face until customized)
      * - Blank → force system / suite glyphs (ignore the global pack)
      * - [CHROME_LEGACY_FACE] → composed Chrome wedge face (Chrome packages only)
+     * - [FACEBOOK_CUSTOM_FACE] → composed Facebook brand face (Facebook packages only)
+     * - [YOUTUBE_CUSTOM_FACE] → composed YouTube brand face (YouTube packages only)
+     * - [YOUTUBE_MUSIC_CUSTOM_FACE] → composed YouTube Music face (Music packages only)
+     * - [AMAZON_CUSTOM_FACE] → composed Amazon brand face (Amazon Shopping packages only)
      * - Otherwise → that pack for this pin
      *
      * Ignored when [useCustomIcon] is true.
@@ -109,13 +114,45 @@ data class PinnedTileEntry(
         const val MAX_ICON_SCALE = 1.5f
 
         /**
-         * Sentinel stored in [iconPackPackage] for the legacy Chrome wedge Start face
+         * Sentinel stored in [iconPackPackage] for the composed Chrome wedge Start face
          * (tile customize → tiles). Not a real Android package name.
          */
         const val CHROME_LEGACY_FACE = "__metro_chrome_legacy__"
 
+        /**
+         * Sentinel stored in [iconPackPackage] for the composed Facebook brand Start face
+         * (tile customize → tiles). Not a real Android package name.
+         */
+        const val FACEBOOK_CUSTOM_FACE = "__metro_facebook__"
+
+        /**
+         * Sentinel stored in [iconPackPackage] for the composed YouTube brand Start face
+         * (tile customize → tiles). Not a real Android package name.
+         */
+        const val YOUTUBE_CUSTOM_FACE = "__metro_youtube__"
+
+        /**
+         * Sentinel stored in [iconPackPackage] for the composed YouTube Music Start face
+         * (tile customize → tiles). Not a real Android package name.
+         */
+        const val YOUTUBE_MUSIC_CUSTOM_FACE = "__metro_youtube_music__"
+
+        /**
+         * Sentinel stored in [iconPackPackage] for the composed Amazon brand Start face
+         * (tile customize → tiles). Not a real Android package name.
+         */
+        const val AMAZON_CUSTOM_FACE = "__metro_amazon__"
+
         fun clampIconScale(value: Float): Float =
             value.coerceIn(MIN_ICON_SCALE, MAX_ICON_SCALE)
+
+        /** True when [value] is a composed brand-face sentinel (not an icon pack). */
+        fun isComposedTileFace(value: String?): Boolean =
+            value == CHROME_LEGACY_FACE ||
+                value == FACEBOOK_CUSTOM_FACE ||
+                value == YOUTUBE_CUSTOM_FACE ||
+                value == YOUTUBE_MUSIC_CUSTOM_FACE ||
+                value == AMAZON_CUSTOM_FACE
     }
 }
 
@@ -126,14 +163,60 @@ fun PinnedTileEntry.resolvedIconPackage(): String =
 /**
  * Icon-pack override for [com.metro.launcher.ui.MetroAppIcon].
  * Null → caller should use the suite global pack; blank → force system icons;
- * [CHROME_LEGACY_FACE] → not an icon pack (composed face); otherwise → that pack.
+ * composed brand-face sentinels → not an icon pack; otherwise → that pack.
  */
 fun PinnedTileEntry.resolvedIconPackOverride(): String? =
-    iconPackPackage.takeUnless { it == PinnedTileEntry.CHROME_LEGACY_FACE }
+    iconPackPackage.takeUnless { PinnedTileEntry.isComposedTileFace(it) }
 
-/** True when this pin should draw the composed Chrome wedge face. */
+/**
+ * True when this pin should draw the composed Chrome wedge face.
+ * Default for never-customized pins ([iconPackPackage] null); blank / pack = opted out.
+ */
 fun PinnedTileEntry.usesChromeLegacyFace(): Boolean =
-    iconPackPackage == PinnedTileEntry.CHROME_LEGACY_FACE
+    when (iconPackPackage) {
+        null, PinnedTileEntry.CHROME_LEGACY_FACE -> true
+        else -> false
+    }
+
+/**
+ * True when this pin should draw the composed Facebook brand face.
+ * Default for never-customized pins ([iconPackPackage] null); blank / pack = opted out.
+ */
+fun PinnedTileEntry.usesFacebookCustomFace(): Boolean =
+    when (iconPackPackage) {
+        null, PinnedTileEntry.FACEBOOK_CUSTOM_FACE -> true
+        else -> false
+    }
+
+/**
+ * True when this pin should draw the composed YouTube brand face.
+ * Default for never-customized pins ([iconPackPackage] null); blank / pack = opted out.
+ */
+fun PinnedTileEntry.usesYouTubeCustomFace(): Boolean =
+    when (iconPackPackage) {
+        null, PinnedTileEntry.YOUTUBE_CUSTOM_FACE -> true
+        else -> false
+    }
+
+/**
+ * True when this pin should draw the composed YouTube Music brand face.
+ * Default for never-customized pins ([iconPackPackage] null); blank / pack = opted out.
+ */
+fun PinnedTileEntry.usesYouTubeMusicCustomFace(): Boolean =
+    when (iconPackPackage) {
+        null, PinnedTileEntry.YOUTUBE_MUSIC_CUSTOM_FACE -> true
+        else -> false
+    }
+
+/**
+ * True when this pin should draw the composed Amazon brand face.
+ * Default for never-customized pins ([iconPackPackage] null); blank / pack = opted out.
+ */
+fun PinnedTileEntry.usesAmazonCustomFace(): Boolean =
+    when (iconPackPackage) {
+        null, PinnedTileEntry.AMAZON_CUSTOM_FACE -> true
+        else -> false
+    }
 
 fun PinnedTileEntry.resolvedIconScale(): Float =
     PinnedTileEntry.clampIconScale(iconScale)

@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -235,10 +236,12 @@ fun PhotoGridTileContent(
             text = title,
             style = LocalTileChrome.current.titleStyle,
             color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
             modifier = Modifier
                 .align(Alignment.BottomStart)
+                .fillMaxWidth()
                 .padding(
                     horizontal = LocalTileChrome.current.titlePaddingH,
                     vertical = LocalTileChrome.current.titlePaddingV,
@@ -314,10 +317,12 @@ fun CyclingPhotoTileContent(
             text = title,
             style = LocalTileChrome.current.titleStyle,
             color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
             modifier = Modifier
                 .align(Alignment.BottomStart)
+                .fillMaxWidth()
                 .padding(
                     horizontal = LocalTileChrome.current.titlePaddingH,
                     vertical = LocalTileChrome.current.titlePaddingV,
@@ -494,10 +499,12 @@ fun StaticPhotoTileContent(
                 text = title,
                 style = chrome.titleStyle,
                 color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
+                    .fillMaxWidth()
                     .padding(
                         horizontal = chrome.titlePaddingH,
                         vertical = chrome.titlePaddingV,

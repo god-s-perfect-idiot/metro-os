@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.READ_LOGS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <queries>
+        <package android:name="com.metro.launcher" />
+        <package android:name="com.metro.statusbar" />
+        <package android:name="com.metro.notifications" />
+        <package android:name="com.metro.navbar" />
+        <package android:name="com.metro.volume" />
+        <package android:name="com.metro.lockscreen" />
+        <package android:name="com.metro.keyboard" />
+        <package android:name="com.metro.browser" />
+        <package android:name="com.metro.notes" />
+        <package android:name="com.metro.music" />
+        <package android:name="com.metro.photos" />
+        <package android:name="com.metro.camera" />
+        <package android:name="com.metro.calendar" />
+        <package android:name="com.metro.mail" />
+        <package android:name="com.metro.messaging" />
+        <package android:name="com.metro.people" />
+        <package android:name="com.metro.dialer" />
+        <package android:name="com.metro.store" />
+        <package android:name="com.metro.settings" />
+        <package android:name="com.metro.calculator" />
+        <package android:name="com.metro.clock" />
+        <package android:name="com.metro.files" />
+        <package android:name="com.metro.hub" />
+        <package android:name="com.metro.widgets" />
+        <package android:name="com.metro.conversations" />
+        <package android:name="com.metro.news" />
+        <package android:name="com.metro.metron" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MetroFeedback">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Metro.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.metro.feedback.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

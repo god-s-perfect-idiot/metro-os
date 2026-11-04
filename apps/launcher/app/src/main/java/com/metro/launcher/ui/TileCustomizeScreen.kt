@@ -651,13 +651,29 @@ private fun TilesCustomizePage(
 
     val noneLabel = stringResource(R.string.tile_customize_tiles_none)
     val chromeOldLabel = stringResource(R.string.tile_customize_tiles_chrome_old)
+    val facebookFaceLabel = stringResource(R.string.tile_customize_tiles_facebook)
+    val youtubeFaceLabel = stringResource(R.string.tile_customize_tiles_youtube)
+    val youtubeMusicFaceLabel = stringResource(R.string.tile_customize_tiles_youtube_music)
+    val amazonFaceLabel = stringResource(R.string.tile_customize_tiles_amazon)
     val showChromeOldOption = isChromeTilePackage(tile.entry.packageName)
+    val showFacebookFaceOption = isFacebookTilePackage(tile.entry.packageName)
+    val showYouTubeFaceOption = isYouTubeTilePackage(tile.entry.packageName)
+    val showYouTubeMusicFaceOption = isYouTubeMusicTilePackage(tile.entry.packageName)
+    val showAmazonFaceOption = isAmazonTilePackage(tile.entry.packageName)
     val installedPacks = packs
     val options: List<IconPackGridOption> = remember(
         installedPacks,
         noneLabel,
         chromeOldLabel,
+        facebookFaceLabel,
+        youtubeFaceLabel,
+        youtubeMusicFaceLabel,
+        amazonFaceLabel,
         showChromeOldOption,
+        showFacebookFaceOption,
+        showYouTubeFaceOption,
+        showYouTubeMusicFaceOption,
+        showAmazonFaceOption,
     ) {
         val installed = installedPacks.orEmpty()
         buildList {
@@ -667,6 +683,38 @@ private fun TilesCustomizePage(
                     IconPackGridOption(
                         packageName = PinnedTileEntry.CHROME_LEGACY_FACE,
                         label = chromeOldLabel,
+                    ),
+                )
+            }
+            if (showFacebookFaceOption) {
+                add(
+                    IconPackGridOption(
+                        packageName = PinnedTileEntry.FACEBOOK_CUSTOM_FACE,
+                        label = facebookFaceLabel,
+                    ),
+                )
+            }
+            if (showYouTubeFaceOption) {
+                add(
+                    IconPackGridOption(
+                        packageName = PinnedTileEntry.YOUTUBE_CUSTOM_FACE,
+                        label = youtubeFaceLabel,
+                    ),
+                )
+            }
+            if (showYouTubeMusicFaceOption) {
+                add(
+                    IconPackGridOption(
+                        packageName = PinnedTileEntry.YOUTUBE_MUSIC_CUSTOM_FACE,
+                        label = youtubeMusicFaceLabel,
+                    ),
+                )
+            }
+            if (showAmazonFaceOption) {
+                add(
+                    IconPackGridOption(
+                        packageName = PinnedTileEntry.AMAZON_CUSTOM_FACE,
+                        label = amazonFaceLabel,
                     ),
                 )
             }
@@ -687,12 +735,30 @@ private fun TilesCustomizePage(
     } else {
         MetroTheme.colors.primaryText
     }
-    // Null draft = follow suite global — highlight whatever Start would show today.
+    // Null draft = never customized. Brand packages default to their composed face;
+    // other packages follow the suite global pack.
     val globalPack = LocalIconPackPackage.current
+    val defaultBrandFace = when {
+        showChromeOldOption -> PinnedTileEntry.CHROME_LEGACY_FACE
+        showFacebookFaceOption -> PinnedTileEntry.FACEBOOK_CUSTOM_FACE
+        showYouTubeFaceOption -> PinnedTileEntry.YOUTUBE_CUSTOM_FACE
+        showYouTubeMusicFaceOption -> PinnedTileEntry.YOUTUBE_MUSIC_CUSTOM_FACE
+        showAmazonFaceOption -> PinnedTileEntry.AMAZON_CUSTOM_FACE
+        else -> null
+    }
     val highlightPack = when {
         draft.iconPackPackage == PinnedTileEntry.CHROME_LEGACY_FACE ->
             PinnedTileEntry.CHROME_LEGACY_FACE
+        draft.iconPackPackage == PinnedTileEntry.FACEBOOK_CUSTOM_FACE ->
+            PinnedTileEntry.FACEBOOK_CUSTOM_FACE
+        draft.iconPackPackage == PinnedTileEntry.YOUTUBE_CUSTOM_FACE ->
+            PinnedTileEntry.YOUTUBE_CUSTOM_FACE
+        draft.iconPackPackage == PinnedTileEntry.YOUTUBE_MUSIC_CUSTOM_FACE ->
+            PinnedTileEntry.YOUTUBE_MUSIC_CUSTOM_FACE
+        draft.iconPackPackage == PinnedTileEntry.AMAZON_CUSTOM_FACE ->
+            PinnedTileEntry.AMAZON_CUSTOM_FACE
         draft.iconPackPackage != null -> draft.iconPackPackage.takeIf { it.isNotBlank() }
+        defaultBrandFace != null -> defaultBrandFace
         else -> globalPack
     }
 
@@ -746,20 +812,26 @@ private fun TilesCustomizePage(
                 ) { option: IconPackGridOption ->
                     val selected = option.packageName == highlightPack ||
                         (option.packageName == null && highlightPack.isNullOrBlank())
-                    val chromeLegacy =
-                        option.packageName == PinnedTileEntry.CHROME_LEGACY_FACE
+                    val brandFace = when (option.packageName) {
+                        PinnedTileEntry.CHROME_LEGACY_FACE -> BrandFacePreview.Chrome
+                        PinnedTileEntry.FACEBOOK_CUSTOM_FACE -> BrandFacePreview.Facebook
+                        PinnedTileEntry.YOUTUBE_CUSTOM_FACE -> BrandFacePreview.YouTube
+                        PinnedTileEntry.YOUTUBE_MUSIC_CUSTOM_FACE -> BrandFacePreview.YouTubeMusic
+                        PinnedTileEntry.AMAZON_CUSTOM_FACE -> BrandFacePreview.Amazon
+                        else -> BrandFacePreview.None
+                    }
                     IconPackPreviewTile(
                         packageName = iconPackage,
                         iconPackPackage = option.packageName,
                         label = option.label,
                         title = faceTitle.takeIf { showTitle },
                         selected = selected,
-                        chromeLegacy = chromeLegacy,
+                        brandFace = brandFace,
                         aspectRatio = previewAspect,
                         cellWidth = previewWidth,
                         tileSize = tileSize,
                         iconScale = draft.iconScale,
-                        useWindowFill = draftRevealsWindow && !chromeLegacy,
+                        useWindowFill = draftRevealsWindow && brandFace == BrandFacePreview.None,
                         tileFill = draftTileFill,
                         contentColor = contentColor,
                         onClick = {
@@ -783,9 +855,18 @@ private data class IconPackGridOption(
     val label: String,
 )
 
+private enum class BrandFacePreview {
+    None,
+    Chrome,
+    Facebook,
+    YouTube,
+    YouTubeMusic,
+    Amazon,
+}
+
 /**
  * Mini Start tile showing [packageName]'s glyph under [iconPackPackage] (null = system),
- * or the legacy Chrome wedge face when [chromeLegacy] is true.
+ * or a composed brand face when [brandFace] is set.
  */
 @Composable
 private fun IconPackPreviewTile(
@@ -794,7 +875,7 @@ private fun IconPackPreviewTile(
     label: String,
     title: String?,
     selected: Boolean,
-    chromeLegacy: Boolean,
+    brandFace: BrandFacePreview,
     aspectRatio: Float,
     cellWidth: Dp,
     tileSize: PinnedTileSize,
@@ -823,7 +904,7 @@ private fun IconPackPreviewTile(
             )
             .then(
                 when {
-                    chromeLegacy -> Modifier
+                    brandFace != BrandFacePreview.None -> Modifier
                     useWindowFill -> Modifier.drawStartBackgroundWindow(startBackground)
                     else -> Modifier.background(tileFill)
                 },
@@ -836,42 +917,71 @@ private fun IconPackPreviewTile(
                 },
             ),
     ) {
-        if (chromeLegacy) {
-            // Title is drawn inside ChromeTileContent (white on brand wedges).
-            ChromeTileContent(
-                title = title,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                // Blank pack string forces system icons for the "none" cell.
-                MetroAppIcon(
-                    packageName = packageName,
-                    size = iconSize,
-                    modifier = Modifier.size(iconSize),
-                    contentDescription = label,
-                    fallbackLabel = title ?: label,
-                    fallbackColor = contentColor,
-                    iconPackPackage = iconPackPackage.orEmpty(),
+        when (brandFace) {
+            BrandFacePreview.Chrome -> {
+                // Title is drawn inside ChromeTileContent (white on brand wedges).
+                ChromeTileContent(
+                    title = title,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
-            if (!title.isNullOrBlank()) {
-                TileText(
-                    text = title,
-                    style = chrome.titleStyle,
-                    color = contentColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(
-                            horizontal = chrome.titlePaddingH,
-                            vertical = chrome.titlePaddingV,
-                        ),
+            BrandFacePreview.Facebook -> {
+                FacebookTileContent(
+                    title = title,
+                    modifier = Modifier.fillMaxSize(),
                 )
+            }
+            BrandFacePreview.YouTube -> {
+                YouTubeTileContent(
+                    title = title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            BrandFacePreview.YouTubeMusic -> {
+                YouTubeMusicTileContent(
+                    title = title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            BrandFacePreview.Amazon -> {
+                AmazonTileContent(
+                    title = title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            BrandFacePreview.None -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Blank pack string forces system icons for the "none" cell.
+                    MetroAppIcon(
+                        packageName = packageName,
+                        size = iconSize,
+                        modifier = Modifier.size(iconSize),
+                        contentDescription = label,
+                        fallbackLabel = title ?: label,
+                        fallbackColor = contentColor,
+                        iconPackPackage = iconPackPackage.orEmpty(),
+                    )
+                }
+                if (!title.isNullOrBlank()) {
+                    TileText(
+                        text = title,
+                        style = chrome.titleStyle,
+                        color = contentColor,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Clip,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = chrome.titlePaddingH,
+                                vertical = chrome.titlePaddingV,
+                            ),
+                    )
+                }
             }
         }
     }
@@ -934,10 +1044,12 @@ private fun WidgetProviderPreviewTile(
             text = option.label,
             style = chrome.titleStyle,
             color = titleColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
             modifier = Modifier
                 .align(Alignment.BottomStart)
+                .fillMaxWidth()
                 .padding(
                     horizontal = chrome.titlePaddingH,
                     vertical = chrome.titlePaddingV,

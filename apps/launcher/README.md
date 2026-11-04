@@ -94,7 +94,7 @@ The launcher is not a generic Android home screen. It must behave like WP8.1 fir
 - Re-render within one frame after preference changes
 - Never hardcode tile accent variants outside the official palette
 - Metro suite and Android system apps use the system accent for Start/app-list tile fills unless `MetroAppRegistry.strongBrandHex` is set; third-party apps keep icon-derived brands
-- Selected third-party packages use `CustomTileBranding` (white Metro glyph + accent or brand fill). Includes Google Search (accent), Gmail (accent M monogram), YouTube Music (red), WhatsApp (green), and Camera (accent). Chrome defaults to a regular package icon; tile customize → tiles offers the legacy wedge “old tile” face per pin.
+- Selected third-party packages use `CustomTileBranding` (white Metro glyph + accent or brand fill). Includes Google Search (accent), Gmail (accent M monogram), WhatsApp (green), and Camera (accent). Chrome, Facebook, YouTube, YouTube Music, and Amazon default to composed brand Start faces (“old tile” / “metro tile”); tile customize → tiles can switch to system icon or an icon pack. Once a pin’s tiles option is changed, that choice is kept. Music now-playing still replaces the idle Music face when a session is active.
 
 ### Navigation contracts
 

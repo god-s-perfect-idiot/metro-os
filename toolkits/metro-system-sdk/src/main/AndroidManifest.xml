@@ -25,4 +25,16 @@
             <action android:name="com.teslacoilsw.launcher.THEME" />
         </intent>
     </queries>
+
+    <application>
+        <!--
+          Per-app PSS probe for Feedback metrics. Authority uses the host applicationId
+          so each suite app exports content://{pkg}.metro.memory.
+        -->
+        <provider
+            android:name="com.metro.system.MetroMemoryProvider"
+            android:authorities="${applicationId}.metro.memory"
+            android:exported="true"
+            android:enabled="true" />
+    </application>
 </manifest>

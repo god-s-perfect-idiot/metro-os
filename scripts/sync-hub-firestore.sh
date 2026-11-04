@@ -126,7 +126,7 @@ const shell = new Set([
 const core = new Set([
   "browser", "notes", "music", "calculator", "clock", "files", "settings", "store", "hub",
   "photos", "camera", "calendar", "mail", "messaging", "people", "dialer", "widgets", "conversations",
-  "news", "metron",
+  "news", "metron", "feedback",
 ]);
 
 const descriptions = {
@@ -157,6 +157,7 @@ const descriptions = {
   conversations: "Reply inbox for third-party shade chats (RemoteInput).",
   news: "Bing News–style panorama with RSS headlines and article summaries.",
   metron: "Mihon manga-reader fork with Metro panorama UI.",
+  feedback: "Report suite issues with metro logcat and inspect RAM/cache metrics.",
 };
 
 const glyphFiles = {
@@ -187,6 +188,7 @@ const glyphFiles = {
   conversations: "metro_app_conversations.xml",
   news: "metro_app_news.xml",
   metron: "metro_app_metron.xml",
+  feedback: "metro_app_feedback.xml",
 };
 
 /** Catalog brand fills (MetroAppRegistry.brandHex) when launcher bg is missing. */
@@ -211,6 +213,7 @@ const brandHexFallback = {
   conversations: "#00ABA9",
   news: "#A20025",
   metron: "#AA00FF",
+  feedback: "#647687",
 };
 
 const DEFAULT_BACKGROUND_COLOR = "#1BA1E2";

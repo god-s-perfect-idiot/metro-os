@@ -98,6 +98,10 @@ import com.metro.launcher.data.resolvedIconPackage
 import com.metro.launcher.data.resolvedIconPackOverride
 import com.metro.launcher.data.resolvedIconScale
 import com.metro.launcher.data.usesChromeLegacyFace
+import com.metro.launcher.data.usesFacebookCustomFace
+import com.metro.launcher.data.usesYouTubeCustomFace
+import com.metro.launcher.data.usesAmazonCustomFace
+import com.metro.launcher.data.usesYouTubeMusicCustomFace
 import com.metro.system.MetroTileAgenda
 import com.metro.system.MetroTileContract
 import kotlin.math.abs
@@ -1430,12 +1434,35 @@ private fun LauncherTileCell(
     val showMessagingUnreadFace = messagingUnread != null && !isSmall &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMusicNowPlaying &&
         !showCustomWidget && !showWidgetFace && !showCustomIcon
-    // Legacy Chrome wedge face — opt-in via tile customize → tiles ("old tile").
+    // Composed brand faces — default until the user picks another tiles option.
     val showChromeFace = tile.entry.usesChromeLegacyFace() &&
         isChromeTilePackage(tile.entry.packageName) &&
         !showCustomIcon &&
         !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
         !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
+    val showFacebookFace = tile.entry.usesFacebookCustomFace() &&
+        isFacebookTilePackage(tile.entry.packageName) &&
+        !showCustomIcon &&
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
+        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
+    val showYouTubeFace = tile.entry.usesYouTubeCustomFace() &&
+        isYouTubeTilePackage(tile.entry.packageName) &&
+        !showCustomIcon &&
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
+        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
+    val showYouTubeMusicFace = tile.entry.usesYouTubeMusicCustomFace() &&
+        isYouTubeMusicTilePackage(tile.entry.packageName) &&
+        !showCustomIcon &&
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
+        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
+    val showAmazonFace = tile.entry.usesAmazonCustomFace() &&
+        isAmazonTilePackage(tile.entry.packageName) &&
+        !showCustomIcon &&
+        !showPhotoContent && !showStaticPhoto && !showAgenda && !showMessagingUnreadFace &&
+        !showMusicNowPlaying && !showCustomWidget && !showWidgetFace
+    val showBrandFace =
+        showChromeFace || showFacebookFace || showYouTubeFace ||
+            showYouTubeMusicFace || showAmazonFace
     val startBackground = LocalStartBackgroundViewport.current
     // Custom App Widgets and Metro widget faces keep the same transparent-window fill as
     // accent tiles so they read as Metro tiles (wallpaper windows when Start bg is set).
@@ -1443,7 +1470,7 @@ private fun LauncherTileCell(
         startBackground != null &&
         !showPhotoContent &&
         !showStaticPhoto &&
-        !showChromeFace &&
+        !showBrandFace &&
         !showMusicNowPlaying &&
         !showCustomIcon
     val contentColor = if (useWindowFill) {
@@ -1458,7 +1485,7 @@ private fun LauncherTileCell(
         !showPhotoGrid &&
         !showAgenda &&
         !showMessagingUnreadFace &&
-        !showChromeFace &&
+        !showBrandFace &&
         !showMusicNowPlaying &&
         !showCustomWidget &&
         !showWidgetFace &&
@@ -1476,7 +1503,7 @@ private fun LauncherTileCell(
     // and nudges the icon left so the numeral does not sit on top of it.
     val tileMinEdge = min(width.value, height.value).dp
     val showSmallIconBadge = isSmall && badgeCount != null &&
-        !showPhotoContent && !showStaticPhoto && !showChromeFace && !showMusicNowPlaying &&
+        !showPhotoContent && !showStaticPhoto && !showBrandFace && !showMusicNowPlaying &&
         !showCustomWidget && !showWidgetFace && !showCustomIcon
     val iconBadgeShift = when {
         badgeCount == null -> 0.dp
@@ -1549,7 +1576,7 @@ private fun LauncherTileCell(
                             showWidgetFace && useWindowFill ->
                                 Modifier.drawStartBackgroundWindow(startBackground)
                             showWidgetFace -> Modifier.background(tile.backgroundColor)
-                            showPhotoContent || showStaticPhoto || showChromeFace ||
+                            showPhotoContent || showStaticPhoto || showBrandFace ||
                                 showMusicNowPlaying || showCustomIcon -> Modifier
                             canFlip -> Modifier.background(MetroColors.DarkBackground)
                             showProgressOverlay -> if (useWindowFill) {
@@ -1625,6 +1652,30 @@ private fun LauncherTileCell(
                         }
                         showChromeFace -> {
                             ChromeTileContent(
+                                title = if (isSmall) null else faceTitle,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        showFacebookFace -> {
+                            FacebookTileContent(
+                                title = if (isSmall) null else faceTitle,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        showYouTubeFace -> {
+                            YouTubeTileContent(
+                                title = if (isSmall) null else faceTitle,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        showYouTubeMusicFace -> {
+                            YouTubeMusicTileContent(
+                                title = if (isSmall) null else faceTitle,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        showAmazonFace -> {
+                            AmazonTileContent(
                                 title = if (isSmall) null else faceTitle,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -1792,10 +1843,10 @@ private fun LauncherTileCell(
                 // Edge-to-edge faces skip chrome content inset on the container; pad the badge
                 // itself so the numeral keeps the same margin as inset tiles.
                 val badgeNeedsOwnInset = showPhotoContent || showStaticPhoto ||
-                    showChromeFace || showMusicNowPlaying || showProgressOverlay ||
+                    showBrandFace || showMusicNowPlaying || showProgressOverlay ||
                     showWidgetFace || showCustomIcon || (canFlip && tile.flipToIcon)
                 val insetFront = showProgressOverlay &&
-                    !showPhotoContent && !showStaticPhoto && !showChromeFace &&
+                    !showPhotoContent && !showStaticPhoto && !showBrandFace &&
                     !showMusicNowPlaying && !showWidgetFace && !showCustomIcon && !canFlip
                 val wrappedFront: @Composable () -> Unit = {
                     if (insetFront) {
@@ -2317,8 +2368,9 @@ private fun StaticIconTileContent(
                 text = title!!,
                 style = chrome.titleStyle,
                 color = contentColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -2367,10 +2419,12 @@ private fun CustomIconTileContent(
                 text = title,
                 style = chrome.titleStyle,
                 color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
+                    .fillMaxWidth()
                     .padding(
                         horizontal = chrome.titlePaddingH,
                         vertical = chrome.titlePaddingV,
@@ -2411,8 +2465,9 @@ private fun MessagingIdleTileContent(
                 text = title!!,
                 style = chrome.titleStyle,
                 color = contentColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -2665,7 +2720,8 @@ private fun NotificationPeekTileContent(
                     style = chrome.titleStyle,
                     color = contentColor,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
                     modifier = Modifier
                         .weight(1f)
                         .padding(end = footerEndReserve),
