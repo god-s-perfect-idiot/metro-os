@@ -1058,6 +1058,12 @@ class TileGridTest {
     }
 
     @Test
+    fun tileEditCornerHang_isHalfCornerDisc() {
+        assertEquals(TileCornerButtonSize / 2, tileEditCornerHang())
+        assertEquals(tileEditCornerHang(), tileGridEditTopHang())
+    }
+
+    @Test
     fun tileGridEditTopHang_isHalfCornerDisc() {
         assertEquals(TileCornerButtonSize / 2, tileGridEditTopHang())
     }

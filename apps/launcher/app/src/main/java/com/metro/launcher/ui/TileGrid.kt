@@ -133,8 +133,12 @@ val TILE_GRID_GAP = TileChrome.Standard.gap
 private val NeverSuspendEditMotion: State<Boolean> = mutableStateOf(false)
 /** Default (4-col) Start side gutter — dense grid uses [TileChrome.horizontalPadding]. */
 val TILE_GRID_PADDING = TileChrome.Standard.horizontalPadding
-/** How far edit corner discs hang past the tile into the side gutter. */
-private fun tileCornerSideHang(horizontalPad: Dp) = minOf(horizontalPad, TILE_GRID_PADDING)
+/**
+ * How far edit corner discs hang past each tile edge so the disc center sits on the
+ * corner vertex (half on the tile, half outside). Same on 4-col and dense 3-across —
+ * do not clamp to the side gutter or the discs sit inward of the corners.
+ */
+internal fun tileEditCornerHang(): Dp = TileCornerButtonSize / 2
 /** Duration for tile resize / magnet reflow — matches Metro page transition timing. */
 private const val TILE_RESIZE_MS = 300
 /** Slightly snappier magnet motion while a tile is mid-drag. */
@@ -420,7 +424,7 @@ fun tilePixelSize(unit: Dp, colSpan: Int, rowSpan: Int, gap: Dp = TILE_GRID_GAP)
  * Half the edit-corner disc. Applied as top inset only while edit progress is active so
  * resting Start has no dead scroll before the first tile row leaves the viewport.
  */
-internal fun tileGridEditTopHang(): Dp = TileCornerButtonSize / 2
+internal fun tileGridEditTopHang(): Dp = tileEditCornerHang()
 
 /**
  * Vertical scroll offset that parks a newly pinned tile in the upper portion of Start
@@ -678,14 +682,14 @@ fun TileGrid(
     val chrome = remember(columns) { TileChrome.forColumns(columns) }
     CompositionLocalProvider(LocalTileChrome provides chrome) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        // Side gutters from [TileChrome] start/end padding. Corner discs hang into that
-        // gutter so edit mode never widens the grid or reflows `unit` — recess is graphics-only.
+        // Side gutters from [TileChrome] start/end padding. Corner discs hang past the tile
+        // into that gutter (and slightly past the screen on edge tiles in dense mode) so
+        // edit mode never widens the grid or reflows `unit` — recess is graphics-only.
         // Top hang is edit-only (× editProgress) so resting Start scrolls with tiles flush.
-        val cornerOverhang = TileCornerButtonSize / 2
+        val cornerOverhang = tileEditCornerHang()
         val startPad = chrome.horizontalPadding
         val endPad = chrome.endPadding
         val gap = chrome.gap
-        val cornerSideHang = tileCornerSideHang(minOf(startPad, endPad))
         val topPad = tileGridEditTopHang() * editProgress
         // Content width must match the padded inner box — never size the grid to the
         // full maxWidth after applying side gutters (that overflows and can stack the
@@ -1983,11 +1987,9 @@ private fun LauncherTileCell(
             }
         }
         if (editMode && isActive) {
-            // Vertical hang is half the disc; horizontal hang matches the near-side gutter so
-            // edge tiles never paint past the screen (scroll clips overflow).
-            val cornerOffsetY = TileCornerButtonSize / 2
-            val cornerHangEnd = tileCornerSideHang(chrome.endPadding)
-            val cornerHangStart = tileCornerSideHang(chrome.horizontalPadding)
+            // Half the disc on each axis so the control centers on the tile corner vertex
+            // (WP8.1). Same hang in 4-col and dense 3-across — gutter clamps look inset.
+            val cornerHang = tileEditCornerHang()
             val controlsVisible = !isDragging
             TileEditCornerButton(
                 onClick = {
@@ -1998,7 +2000,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = cornerHangEnd, y = -cornerOffsetY)
+                    .offset(x = cornerHang, y = -cornerHang)
                     // Keep composed while dragging so removing the clickable child cannot
                     // cancel the tile's in-progress pointerInput gesture.
                     .alpha(if (controlsVisible) 1f else 0f),
@@ -2011,7 +2013,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = cornerHangEnd, y = cornerOffsetY)
+                    .offset(x = cornerHang, y = cornerHang)
                     .alpha(if (controlsVisible) 1f else 0f),
             )
             TileEditCornerButton(
@@ -2022,7 +2024,7 @@ private fun LauncherTileCell(
                 enabled = controlsVisible,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .offset(x = -cornerHangStart, y = cornerOffsetY)
+                    .offset(x = -cornerHang, y = cornerHang)
                     .alpha(if (controlsVisible) 1f else 0f),
             )
         }
