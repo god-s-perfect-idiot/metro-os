@@ -91,6 +91,11 @@ fun MetroAppPivotShell(
  * Motion matches Start tile continuum ([MetroTransitions.TilePivotEnterStartDegrees] outer
  * swing + inner slide), not the milder in-app [MetroPagePivotLoad].
  *
+ * Enter starts opaque at the swing pose (no alpha-0 frame) so Start black never flashes
+ * while tiles peel underneath. Start must stay resumed through the enter — call
+ * [onEnterComplete] only after it finishes, then start the target (starting earlier pauses
+ * Start and freezes Compose mid-pivot).
+ *
  * [icon] is optional (accent-only splash when null). Prefer a raster/vector [Painter] from the
  * package’s launcher glyph — do not pass adaptive-icon XML via [painterResource].
  */
@@ -104,6 +109,7 @@ fun MetroAppOpenSplash(
     MetroAppLaunchPivot(
         modifier = modifier.fillMaxSize(),
         skipEnter = false,
+        enterVisibleImmediately = true,
         onEnterComplete = onEnterComplete,
     ) {
         if (icon != null) {
@@ -126,8 +132,10 @@ fun MetroAppOpenSplash(
  * Start tiles ([MetroTransitions.TilePivotEnter*] / [MetroTransitions.TilePivotExit*]).
  *
  * Enter: stay hidden through [delayMs], then alpha snaps visible and outer swing + inner
- * slide settle. Exit: opacity holds through the swing, then drops; left-edge hinge for both
- * directions. Prefer this for staggered list / chrome cascades ([MetroStaggeredPivotEnter]).
+ * slide settle — unless [enterVisibleImmediately], which keeps alpha at 1 from the first
+ * frame at the enter pose (app-open splash; avoids a Start-black flash). Exit: opacity holds
+ * through the swing, then drops; left-edge hinge for both directions. Prefer this for
+ * staggered list / chrome cascades ([MetroStaggeredPivotEnter]).
  */
 @Composable
 fun MetroAppLaunchPivot(
@@ -136,6 +144,11 @@ fun MetroAppLaunchPivot(
     delayMs: Long = 0L,
     exiting: Boolean = false,
     skipEnter: Boolean = false,
+    /**
+     * When entering, paint opaque at the enter pose from frame 0 (no alpha-0 hold).
+     * Used by [MetroAppOpenSplash]; list stagger keeps the default hidden-until-delay path.
+     */
+    enterVisibleImmediately: Boolean = false,
     exitDurationMs: Int = MetroTransitions.TilePivotExitMs,
     onExitComplete: (() -> Unit)? = null,
     onEnterComplete: (() -> Unit)? = null,
@@ -153,11 +166,21 @@ fun MetroAppLaunchPivot(
         Animatable(if (atRest) 0f else slideStartTxPx)
     }
     val exitSlideFraction = remember(loadKey) { Animatable(0f) }
-    val alpha = remember(loadKey) { Animatable(if (atRest) 1f else 0f) }
+    val alpha = remember(loadKey) {
+        Animatable(if (atRest || enterVisibleImmediately) 1f else 0f)
+    }
     var exitPose by remember(loadKey) { mutableStateOf(false) }
     val exitTween = MetroTransitions.tilePivotExitTween<Float>(exitDurationMs)
 
-    LaunchedEffect(loadKey, exiting, delayMs, skipEnter, slideStartTxPx, exitDurationMs) {
+    LaunchedEffect(
+        loadKey,
+        exiting,
+        delayMs,
+        skipEnter,
+        enterVisibleImmediately,
+        slideStartTxPx,
+        exitDurationMs,
+    ) {
         if (skipEnter && !exiting) {
             outerRotationY.snapTo(0f)
             enterSlideTxPx.snapTo(0f)
@@ -194,10 +217,16 @@ fun MetroAppLaunchPivot(
             outerRotationY.snapTo(MetroTransitions.TilePivotEnterStartDegrees)
             enterSlideTxPx.snapTo(slideStartTxPx)
             exitSlideFraction.snapTo(0f)
-            // Stay hidden until stagger delay ends (matches Start tile continuum).
-            alpha.snapTo(0f)
-            if (delayMs > 0L) delay(delayMs)
-            alpha.snapTo(1f)
+            if (enterVisibleImmediately) {
+                // Cover Start from frame 0 at the enter pose, then swing to rest.
+                alpha.snapTo(1f)
+                if (delayMs > 0L) delay(delayMs)
+            } else {
+                // Stay hidden until stagger delay ends (matches Start tile continuum).
+                alpha.snapTo(0f)
+                if (delayMs > 0L) delay(delayMs)
+                alpha.snapTo(1f)
+            }
             coroutineScope {
                 launch {
                     outerRotationY.animateTo(0f, MetroTransitions.tilePivotEnterOuterTween())

@@ -157,7 +157,7 @@ class LauncherRepository(private val context: Context) {
             putExtra(MetroIntents.EXTRA_PACKAGE, packageName)
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        // No platform slide — Start launches are instant until a custom open anim ships.
+        // No platform slide — Start owns the Disco open splash ([MetroAppOpenSplash]).
         MetroActivities.startActivityWithoutTransition(launchContext, intent)
     }
 

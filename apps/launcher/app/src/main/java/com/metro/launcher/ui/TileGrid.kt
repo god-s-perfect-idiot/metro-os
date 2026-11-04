@@ -723,9 +723,9 @@ fun TileGrid(
             delay(enterWaveDurationMs)
             liveMotionEnabled = true
         }
-        // Freeze live motion for the exit wave. Launch only when the tapped tile's exit
-        // swing finishes (see TilePivotEnter onExitComplete) so the weave is never cut
-        // short by a wall-clock race.
+        // Freeze live motion for the exit wave. Arm open splash only when the tapped
+        // tile's exit finishes (see TilePivotEnter onExitComplete) so the Start peel
+        // stays visible — that peel is the launch continuum from home.
         LaunchedEffect(exitingTileKey) {
             if (exitingTileKey != null) liveMotionEnabled = false
         }

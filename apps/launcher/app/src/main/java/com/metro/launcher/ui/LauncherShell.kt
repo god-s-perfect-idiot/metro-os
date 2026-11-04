@@ -136,6 +136,14 @@ fun LauncherShell(
         appListPeeled = false
         appListRestPoseRequestId++
     }
+    /**
+     * Home / resume safety net: always leave the app list out of exit-complete
+     * (rows at alpha 0). Flag races after a row open can miss [appListPeeled] /
+     * [pausedAfterAppLaunch] and leave a black empty list.
+     */
+    fun ensureAppListNotInExitComplete() {
+        snapAppListToRest()
+    }
     fun bumpEnterWave() {
         if (stoppedBehindLock) return
         val now = SystemClock.elapsedRealtime()
@@ -264,9 +272,13 @@ fun LauncherShell(
         }
         if (state.currentPage != 1) {
             state.dismissSearch()
+            // Leaving for Start — clear any leftover peel so page 1 is never black.
+            if (appListPeeled) {
+                ensureAppListNotInExitComplete()
+            }
         } else if (appListPeeled) {
             // Opened app list while still peeled — snap static (no enter wave).
-            snapAppListToRest()
+            ensureAppListNotInExitComplete()
         }
     }
 
@@ -325,6 +337,9 @@ fun LauncherShell(
                     val fromLock = stoppedBehindLock || stillLocked
                     val fromAppLaunch = pausedAfterAppLaunch
                     pausedAfterAppLaunch = false
+                    // Always clear app-list exit-complete on resume/home — flag races after
+                    // a row open can leave rows at alpha 0 (black empty list).
+                    ensureAppListNotInExitComplete()
                     // Edit / tile-customize: Home returns to Start with the enter wave, not
                     // the in-place edit chrome. Unlock skips the wave so tiles stay painted.
                     if (state.onHomeRequested()) {
@@ -338,10 +353,9 @@ fun LauncherShell(
                     }
                     if (state.currentPage != 0) {
                         if (fromLock && !stillLocked) stoppedBehindLock = false
-                        if (state.currentPage == 1 && (appListPeeled || fromAppLaunch || fromLock)) {
-                            // App list is static — snap out of peel; never replay an enter wave.
+                        if (state.currentPage == 1) {
+                            // App list is static — never replay an enter wave.
                             stoppedBehindLock = false
-                            snapAppListToRest()
                         }
                         return@LifecycleEventObserver
                     }
@@ -366,6 +380,7 @@ fun LauncherShell(
     // Home while edit/customize was open — remount Start (if covered) and play enter wave.
     LaunchedEffect(state.homeEnterRequestId) {
         if (state.homeEnterRequestId == 0) return@LaunchedEffect
+        ensureAppListNotInExitComplete()
         // Arm snapExit before clearing edit so tiles do not play the edit outro.
         customizeSuspendStart.value = true
         startCoveredByCustomize.value = false
@@ -382,12 +397,11 @@ fun LauncherShell(
         bumpEnterWave()
     }
 
-    // Start/Home MAIN while not in edit — snap app list out of peel if needed.
+    // Start/Home MAIN while not in edit — always clear app-list exit-complete.
+    // onNewIntent MAIN can fire without a pause flag, so do not gate on [appListPeeled].
     LaunchedEffect(state.startKeyRequestId) {
         if (state.startKeyRequestId == 0) return@LaunchedEffect
-        if (state.currentPage == 1 && appListPeeled) {
-            snapAppListToRest()
-        }
+        ensureAppListNotInExitComplete()
     }
 
     Box(
@@ -450,7 +464,8 @@ fun LauncherShell(
             )
         }
 
-        // System-wide app open: splash pivots in over Start, then the activity starts underneath.
+        // System-wide app open: after Start/app-list peel, Disco splash pivots in;
+        // activity starts after enter (Start must stay resumed to animate).
         val openSplash = state.appOpenSplash
         if (openSplash != null) {
             val bitmapPainter = openSplash.iconBitmap?.let { bmp ->

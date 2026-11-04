@@ -72,7 +72,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** Start-owned open animation request — splash pivots in, then the activity starts underneath. */
+/** Start-owned open splash — armed after the Start/app-list peel; activity starts after enter. */
 data class AppOpenSplashRequest(
     val packageName: String,
     val deepLinkUri: String?,
@@ -521,8 +521,9 @@ class LauncherState(context: Context) {
     }
 
     /**
-     * Shows [MetroAppOpenSplash] for [packageName], then starts the activity when the
-     * pivot enter completes. Covers suite and third-party packages alike.
+     * Shows [MetroAppOpenSplash] after the Start/app-list peel. Opaque at the enter pose so
+     * Start black does not flash between peel and splash. Activity starts when enter settles
+     * ([onAppOpenSplashEnterComplete]) — starting earlier pauses Start and freezes Compose.
      */
     fun beginAppOpen(
         packageName: String,
@@ -562,7 +563,7 @@ class LauncherState(context: Context) {
         )
     }
 
-    /** Pivot enter finished — start the target under the splash, then clear on pause. */
+    /** Disco enter finished — start the target under the settled splash; clear on pause. */
     fun onAppOpenSplashEnterComplete() {
         val req = appOpenSplash ?: return
         if (req.launched) return

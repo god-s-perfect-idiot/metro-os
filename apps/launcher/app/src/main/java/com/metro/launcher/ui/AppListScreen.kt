@@ -201,7 +201,7 @@ fun AppListScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val imeVisible = WindowInsets.isImeVisible
     var imeWasVisibleWhileSearching by remember { mutableStateOf(false) }
-    // Package launch: exit wave (tapped row last).
+    // Package launch: exit wave (tapped row last), then open splash.
     var exitingPackage by remember { mutableStateOf<String?>(null) }
     var pendingLaunch by remember { mutableStateOf<(() -> Unit)?>(null) }
     /** Visible wave keys top→bottom at exit start — search + letters + apps. */
