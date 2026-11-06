@@ -5,7 +5,7 @@
 
 ## Status
 
-Implemented — Settings root with `system` | `applications` pivot (all launchable user + system apps; in-Settings app detail with toggles/open/uninstall), start+theme (accent colour + font + icon pack + Start background choose photo + show more columns + compact layout), accent picker (20 WP8 colours), ease of access (10-step text size), brightness, storage sense, connected apps (gallery / music live-tile package lists + gallery live-tile albums + conversation apps), navigation bar / status bar / notifications / volume / lock screen (launch shell setup apps), keyboard (launches `com.metro.keyboard`), and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
+Implemented — Settings root with `system` | `applications` pivot (all launchable user + system apps; in-Settings app detail with toggles/open/uninstall), start+theme (accent colour + font + icon pack + Start background choose photo + show more columns + compact layout), accent picker (20 WP8 colours), ease of access (10-step text size), brightness, storage sense, connected apps (gallery / music live-tile package lists + gallery live-tile albums + conversation apps), hidden apps (multi-select packages omitted from the launcher app list), navigation bar / status bar / notifications / volume / lock screen (launch shell setup apps), keyboard (launches `com.metro.keyboard`), and about (WP8.1 more info device details; Software = metro-os alpha-3). Hosts `content://com.metro.system` preferences provider.
 
 ## App role
 

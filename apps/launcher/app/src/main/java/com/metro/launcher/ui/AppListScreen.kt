@@ -182,6 +182,7 @@ fun AppListScreen(
     onSearchQueryChange: (String) -> Unit,
     onAppClick: (MetroAppInfo) -> Unit,
     onPinToStart: (MetroAppInfo) -> Unit,
+    onHide: (MetroAppInfo) -> Unit,
     onUninstall: (MetroAppInfo) -> Unit,
     queryAppOptions: suspend (String) -> List<AppLauncherOption>,
     onLaunchAppOption: (AppLauncherOption) -> Unit,
@@ -579,6 +580,10 @@ fun AppListScreen(
                                 snapDismissContextMenu()
                                 onPinToStart(app)
                             },
+                            onHide = {
+                                snapDismissContextMenu()
+                                onHide(app)
+                            },
                             onUninstall = {
                                 onUninstall(app)
                                 dismissContextMenu()
@@ -672,12 +677,14 @@ private fun AppListContextMenu(
     uninstallEnabled: Boolean,
     appOptions: List<AppLauncherOption>,
     onPinToStart: () -> Unit,
+    onHide: () -> Unit,
     onUninstall: () -> Unit,
     onLaunchAppOption: (AppLauncherOption) -> Unit,
 ) {
     val menuEntries = remember(pinToStartEnabled, uninstallEnabled, appOptions) {
         buildList {
             add(ContextMenuEntry("pin to start", enabled = pinToStartEnabled))
+            add(ContextMenuEntry("hide"))
             add(ContextMenuEntry("uninstall", enabled = uninstallEnabled))
             appOptions.forEach { option ->
                 add(ContextMenuEntry(option.label.lowercase(), option = option))
@@ -713,6 +720,7 @@ private fun AppListContextMenu(
                     when {
                         entry.option != null -> onLaunchAppOption(entry.option)
                         entry.label == "pin to start" -> onPinToStart()
+                        entry.label == "hide" -> onHide()
                         entry.label == "uninstall" -> onUninstall()
                     }
                 },

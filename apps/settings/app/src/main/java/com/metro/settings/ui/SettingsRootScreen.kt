@@ -62,7 +62,7 @@ fun SettingsRootScreen(
         stringResource(R.string.settings_system_title),
         stringResource(R.string.settings_applications_title),
     )
-    val systemRowCount = 12
+    val systemRowCount = 13
     val appSlotCount = remember(state.applicationEntries) {
         val user = state.applicationEntries.count { !it.isSystemApp }
         val system = state.applicationEntries.count { it.isSystemApp }
@@ -167,6 +167,12 @@ private fun SystemSettingsList(
             title = stringResource(R.string.settings_connected_apps),
             subtitle = stringResource(R.string.settings_connected_apps_subtitle),
             onClick = { state.open(SettingsRoute.ConnectedApps) },
+        ),
+        SystemSettingsRow(
+            key = "hidden_apps",
+            title = stringResource(R.string.settings_hidden_apps),
+            subtitle = state.hiddenAppsSubtitle,
+            onClick = { state.open(SettingsRoute.HiddenApps) },
         ),
         SystemSettingsRow(
             key = "navigation_bar",

@@ -113,6 +113,14 @@
     <string name="settings_connected_apps_save">done</string>
     <string name="settings_connected_apps_cancel">cancel</string>
 
+    <string name="settings_hidden_apps">hidden apps</string>
+    <string name="settings_hidden_apps_none">none</string>
+    <string name="settings_hidden_apps_one">1 app</string>
+    <string name="settings_hidden_apps_count">%d apps</string>
+    <string name="settings_hidden_apps_section">Apps</string>
+    <string name="settings_hidden_apps_save">done</string>
+    <string name="settings_hidden_apps_cancel">cancel</string>
+
     <string name="settings_about">extras+info</string>
     <string name="settings_about_suite">metro-os</string>
     <string name="settings_about_intro">metro-os recreates the Windows Phone 8.1 experience on this device.</string>

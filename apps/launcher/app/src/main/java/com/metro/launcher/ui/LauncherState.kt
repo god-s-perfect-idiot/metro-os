@@ -227,7 +227,7 @@ class LauncherState(context: Context) {
     var displayTiles by mutableStateOf(
         repository.resolveDisplayTiles(pinnedEntries, liveContent = false),
     )
-    var apps by mutableStateOf(repository.discoverApps(pinnedEntries))
+    var apps by mutableStateOf(visibleApps(repository.discoverApps(pinnedEntries)))
 
     /**
      * True while [refreshAllAsync] is resolving live tile providers (contacts, photos, …).
@@ -277,6 +277,7 @@ class LauncherState(context: Context) {
             }
             MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE ->
                 musicLiveTileStyle = metroPrefs.musicLiveTileStyle
+            MetroPreferenceKeys.HIDDEN_APPS -> refreshVisibleApps()
         }
     }
 
@@ -335,9 +336,10 @@ class LauncherState(context: Context) {
             applyIconPackPackage(metroPrefs.iconPackPackage)
             musicLiveTileStyle = metroPrefs.musicLiveTileStyle
             clearAppListIconCache()
-            // Album / connected-app edits from Settings arrive via the provider, not the
-            // local SharedPreferences listener — drop the MediaStore cycle cache here.
+            // Album / connected-app / hidden-app edits from Settings arrive via the provider,
+            // not the local SharedPreferences listener — drop the MediaStore cycle cache here.
             GalleryLiveTileStore.clearCache()
+            refreshVisibleApps()
             schedulePrefsDrivenRefresh()
         }
     }
@@ -375,7 +377,9 @@ class LauncherState(context: Context) {
             val pinned = withContext(Dispatchers.IO) { repository.loadPinnedTiles(columns) }
             if (epochAtStart != layoutEpoch) return
             pinnedEntries = pinned
-            apps = withContext(Dispatchers.IO) { repository.discoverApps(pinned) }
+            apps = withContext(Dispatchers.IO) {
+                visibleApps(repository.discoverApps(pinned))
+            }
             if (epochAtStart != layoutEpoch) return
             // Settings provider is often unreachable on the first frame after a cold start;
             // pull with retries so system/Metro tiles get the real accent before paint.
@@ -1326,6 +1330,12 @@ class LauncherState(context: Context) {
         pinTile(packageName = packageName, tileId = tileId, size = size)
     }
 
+    fun hideApp(app: MetroAppInfo) {
+        val hidden = metroPrefs.hiddenAppPackages + app.packageName
+        metroPrefs.hiddenAppPackages = hidden
+        apps = apps.filter { it.packageName != app.packageName }
+    }
+
     fun uninstallApp(app: MetroAppInfo) {
         if (app.isSystemApp) return
         pendingUninstallApp = app
@@ -1456,6 +1466,22 @@ class LauncherState(context: Context) {
         apps = apps.map { app ->
             val pinned = app.packageName in pinnedPackages
             if (app.isPinned == pinned) app else app.copy(isPinned = pinned)
+        }
+    }
+
+    private fun visibleApps(discovered: List<MetroAppInfo>): List<MetroAppInfo> {
+        val hidden = metroPrefs.hiddenAppPackages
+        if (hidden.isEmpty()) return discovered
+        return discovered.filter { it.packageName !in hidden }
+    }
+
+    private fun refreshVisibleApps() {
+        val pinned = pinnedEntries
+        persistScope.launch {
+            val discovered = repository.discoverApps(pinned)
+            withContext(Dispatchers.Main) {
+                apps = visibleApps(discovered)
+            }
         }
     }
 

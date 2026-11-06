@@ -41,6 +41,7 @@ enum class SettingsRoute {
     GalleryAlbumPicker,
     MusicAppPicker,
     ConversationAppPicker,
+    HiddenApps,
 }
 
 class SettingsState(
@@ -151,8 +152,18 @@ class SettingsState(
     var conversationAppPackages by mutableStateOf(prefs.conversationAppPackages)
         private set
 
+    var hiddenAppPackages by mutableStateOf(prefs.hiddenAppPackages)
+        private set
+
     val accentColor: Color
         get() = MetroPreferences.parseAccentHex(accentHex)
+
+    val hiddenAppsSubtitle: String
+        get() = when (val count = hiddenAppPackages.size) {
+            0 -> appContext.getString(R.string.settings_hidden_apps_none)
+            1 -> appContext.getString(R.string.settings_hidden_apps_one)
+            else -> appContext.getString(R.string.settings_hidden_apps_count, count)
+        }
 
     val accentDisplayName: String
         get() = MetroAccentPalette.displayName(accentHex)
@@ -196,6 +207,7 @@ class SettingsState(
             -> route = SettingsRoute.GalleryApps
             SettingsRoute.MusicAppPicker -> route = SettingsRoute.MusicApps
             SettingsRoute.ConversationAppPicker -> route = SettingsRoute.ConversationApps
+            SettingsRoute.HiddenApps,
             SettingsRoute.EaseOfAccess,
             SettingsRoute.Brightness,
             SettingsRoute.StorageSense,
@@ -393,6 +405,11 @@ class SettingsState(
         prefs.conversationAppPackages = packages
     }
 
+    fun applyHiddenAppPackages(packages: Set<String>) {
+        hiddenAppPackages = packages
+        prefs.hiddenAppPackages = packages
+    }
+
     fun refreshSystemReads() {
         brightness = system.brightnessFraction()
         accentHex = prefs.accentColorHex
@@ -407,6 +424,7 @@ class SettingsState(
         musicAppPackages = prefs.musicAppPackages
         musicLiveTileStyle = prefs.musicLiveTileStyle
         conversationAppPackages = prefs.conversationAppPackages
+        hiddenAppPackages = prefs.hiddenAppPackages
         applicationEntries = applications.listInstalledApps()
         selectedApp?.packageName?.let { pkg ->
             selectedApp = applications.loadApp(pkg)

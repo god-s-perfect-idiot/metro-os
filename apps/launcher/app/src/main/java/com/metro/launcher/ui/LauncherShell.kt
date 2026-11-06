@@ -195,6 +195,7 @@ fun LauncherShell(
     val onSearchQueryChange = remember(state) { state::onSearchQueryChange }
     val onAppClick = remember(state) { state::launchApp }
     val onPinToStart = remember(state) { state::pinApp }
+    val onHide = remember(state) { state::hideApp }
     val onUninstall = remember(state) { state::uninstallApp }
     val queryAppOptions = remember(state) { state::queryAppOptions }
     val onLaunchAppOption = remember(state) { state::launchAppOption }
@@ -441,6 +442,7 @@ fun LauncherShell(
                 onSearchQueryChange = onSearchQueryChange,
                 onAppClick = onAppClick,
                 onPinToStart = onPinToStart,
+                onHide = onHide,
                 onUninstall = onUninstall,
                 queryAppOptions = queryAppOptions,
                 onLaunchAppOption = onLaunchAppOption,
@@ -591,6 +593,7 @@ private fun LauncherPagerHost(
     onSearchQueryChange: (String) -> Unit,
     onAppClick: (MetroAppInfo) -> Unit,
     onPinToStart: (MetroAppInfo) -> Unit,
+    onHide: (MetroAppInfo) -> Unit,
     onUninstall: (MetroAppInfo) -> Unit,
     queryAppOptions: suspend (String) -> List<AppLauncherOption>,
     onLaunchAppOption: (AppLauncherOption) -> Unit,
@@ -680,6 +683,7 @@ private fun LauncherPagerHost(
                         onSearchQueryChange = onSearchQueryChange,
                         onAppClick = onAppClick,
                         onPinToStart = onPinToStart,
+                        onHide = onHide,
                         onUninstall = onUninstall,
                         queryAppOptions = queryAppOptions,
                         onLaunchAppOption = onLaunchAppOption,

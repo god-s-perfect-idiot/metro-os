@@ -104,6 +104,7 @@ private fun SettingsSubpageContent(
             kind = ConnectedAppKind.Conversation,
             modifier = modifier,
         )
+        SettingsRoute.HiddenApps -> HiddenAppsScreen(state = state, modifier = modifier)
         SettingsRoute.Root -> Unit
     }
 }
@@ -134,5 +135,6 @@ private fun subpageLoadKey(route: SettingsRoute, state: SettingsState): Any = wh
     SettingsRoute.GalleryAlbumPicker -> "GalleryAlbumPicker"
     SettingsRoute.MusicAppPicker -> "MusicAppPicker"
     SettingsRoute.ConversationAppPicker -> "ConversationAppPicker"
+    SettingsRoute.HiddenApps -> "HiddenApps"
     else -> route
 }

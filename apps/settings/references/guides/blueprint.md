@@ -16,6 +16,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
   - `brightness`
   - `ease of access`
   - `connected apps` — gallery / music live-tile package lists + conversation apps
+  - `hidden apps` — multi-select which packages are omitted from the launcher app list
   - `navigation bar` — launches `com.metro.navbar` MainActivity (soft-key overlay setup / permissions). Does **not** open Android Settings.
   - `status bar` — launches `com.metro.statusbar` MainActivity (system tray overlay setup / permissions). Does **not** open Android Settings.
   - `notifications` — launches `com.metro.notifications` MainActivity (toast banner setup / permissions). Does **not** open Android Settings.
@@ -139,6 +140,14 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Defaults:** When an apps key has never been written, suite defaults from `MetroConnectedApps` apply (Photos / Music / common chat+mail packages). Saving an empty list clears membership. Gallery albums default to none until the user selects.
 - **Navigation:** Back → connected apps. App/album picker back → gallery/music/conversation page.
 - **Consumers:** Launcher reads gallery/music package lists and gallery album bucket IDs for live tiles; Conversations reads the conversation list to decide which shade packages appear.
+
+### Page 9 — hidden apps
+
+- **Layout:** Direct `MetroMultiSelectList` (`APPS` overline; checkbox + icon + name rows; app bar check / close). Lists every launchable app from the applications catalog. Checked = hidden from the launcher app list.
+- **Navigation:** From Settings root `hidden apps` row. Back / close discards draft; check saves and returns to root.
+- **Interactions:** Writes `MetroPreferences.hidden_apps` (comma-separated packages). Empty selection → none hidden. Launcher app-list long-press **hide** also appends to this set. Start pinned tiles are unaffected — only the alphabetical app list is filtered.
+- **Background:** Theme background.
+- **Reference:** Same multi-select chrome as connected-apps pickers (`images/apps_multiselect_dark.png`).
 
 ## Images
 
