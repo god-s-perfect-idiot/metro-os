@@ -44,6 +44,7 @@ unlock (PIN / pattern / password) UI.
 6. Optional: grant calendar → next appointment appears under the date
 7. Setup **Background** ListPicker → Accent / Custom (choose photo + crop) / Bing (fetch + cache)
 8. Optional: **Glance lockscreen** → black AMOLED surface over system AOD when keyguard locked
+9. Optional: **24-hour clock** → lock / glance chrome uses `HH:mm` instead of `hh:mm`
 
 ## Verify
 

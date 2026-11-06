@@ -17,6 +17,8 @@
     <string name="icon_hide_timeout_5s">5 seconds</string>
     <string name="icon_hide_timeout_10s">10 seconds</string>
     <string name="icon_hide_timeout_never">Never</string>
+    <string name="use_24_hour_format">24-hour clock</string>
+    <string name="show_battery_percent">Show battery percentage</string>
     <string name="configure_statusbar">configure statusbar</string>
     <string name="configure_statusbar_subtitle">Add spacers, move icons around.</string>
     <string name="configure_page_title">configure</string>

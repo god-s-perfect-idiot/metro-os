@@ -27,7 +27,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 ### Page 4 — Setup
 
-- **Layout:** Fixed `STATUS BAR` app overline + pivot tabs `customise` | `icons` (do not scroll). **customise** scrollable body: master **Show status bar** toggle + **Statusbar background** / **Hide icons after** ListPickers + **configure statusbar** border button (subtitle: Add spacers, move icons around.) + **preview** tray + accent **permissions** section with body copy and overlay / accessibility / phone-state / notification-access / Bluetooth grants. **icons** scrollable body: toggles for Network, Wi-Fi, Silent, Notification icons, Wi-Fi hotspot, Bluetooth audio, Battery + bottom **preview** glyph strip (order: network bars, network type, Wi-Fi, silent, notification app, hotspot, Bluetooth audio, battery, clock). **configure** subpage: centered tray preview with accent drag thumbs sticking out under each enabled icon / spacer; drag thumbs to reorder; **add spacer** / **add tiny spacer** border buttons at the bottom (subtitle: You can use spacers to cover the notch and active mic areas.; spacers after the last icon stay after auto-hide; only blocked when another spacer would fold the tray); tap a spacer thumb to remove it. Multiple spacers allowed.
+- **Layout:** Fixed `STATUS BAR` app overline + pivot tabs `customise` | `icons` (do not scroll). **customise** scrollable body: master **Show status bar** toggle + **Statusbar background** / **Hide icons after** ListPickers + **24-hour clock** / **Show battery percentage** toggles + **configure statusbar** border button (subtitle: Add spacers, move icons around.) + **preview** tray + accent **permissions** section with body copy and overlay / accessibility / phone-state / notification-access / Bluetooth grants. **icons** scrollable body: toggles for Network, Wi-Fi, Silent, Notification icons, Wi-Fi hotspot, Bluetooth audio, Battery + bottom **preview** glyph strip (order: network bars, network type, Wi-Fi, silent, notification app, hotspot, Bluetooth audio, battery, clock). **configure** subpage: centered tray preview with accent drag thumbs sticking out under each enabled icon / spacer; drag thumbs to reorder; **add spacer** / **add tiny spacer** border buttons at the bottom (subtitle: You can use spacers to cover the notch and active mic areas.; spacers after the last icon stay after auto-hide; only blocked when another spacer would fold the tray); tap a spacer thumb to remove it. Multiple spacers allowed.
 - **Navigation:** Launcher → Status Bar app.
 - **Interactions:** Grant overlay + enable accessibility, then master toggle starts/stops the overlay FGS. Boot respects the same flag. Phone-state permission is optional (enables the mobile network label). Notification access is optional (cycles active notification app icons). Bluetooth connect is optional (headset vs speaker glyph).
 
@@ -35,7 +35,8 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 | Signal | Behavior |
 |--------|----------|
-| Clock | Updates on minute boundary without layout jump |
+| Clock | Updates on minute boundary without layout jump. Default `h:mm` (12-hour, no AM/PM); customise **24-hour clock** switches to `H:mm` |
+| Battery percent | Customise **Show battery percentage** draws `N%` right of the battery glyph (off by default; WP kept percent in Action Center) |
 | Theme | Observe `com.metro.system.THEME_CHANGED` |
 | Visibility | Apps request opaque / translucent (0.5) / hidden modes via `metro-system-sdk` API; fullscreen surfaces use `MetroStatusBarFullscreenEffect` / `requestFullscreen` |
 | Immersive | When Android status bars are hidden (API 30+), the Metro tray creeps out like `MODE_HIDDEN` |

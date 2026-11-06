@@ -79,23 +79,30 @@ object TrayLayout {
      * Estimated intrinsic width (dp) for a layout icon — matches tray glyph sizes so spacer
      * budgeting mirrors real folding.
      */
-    fun estimatedIconWidthDp(kind: TrayLayoutIcon): Int = when (kind) {
+    fun estimatedIconWidthDp(
+        kind: TrayLayoutIcon,
+        showBatteryPercent: Boolean = false,
+    ): Int = when (kind) {
         TrayLayoutIcon.Network -> 42 // cellular 18 + gap 2 + data label 22
         TrayLayoutIcon.Wifi -> 13
         TrayLayoutIcon.Mute -> 18
         TrayLayoutIcon.Notifications -> 20
         TrayLayoutIcon.Hotspot -> 20
         TrayLayoutIcon.BluetoothAudio -> 20
-        TrayLayoutIcon.Battery -> 29
-        TrayLayoutIcon.Clock -> 36 // ~"12:00" at tray clock size
+        // Glyph 29; optional "100%" + 4dp gap ~25 → 54.
+        TrayLayoutIcon.Battery -> if (showBatteryPercent) 54 else 29
+        TrayLayoutIcon.Clock -> 36 // ~"12:00" / "23:59" at tray clock size
     }
 
     /** Estimated intrinsic content width for [slots] (SpaceBetween free gaps do not add). */
-    fun estimatedContentWidthDp(slots: List<TrayLayoutSlot>): Int {
+    fun estimatedContentWidthDp(
+        slots: List<TrayLayoutSlot>,
+        showBatteryPercent: Boolean = false,
+    ): Int {
         if (slots.isEmpty()) return 0
         return slots.sumOf { slot ->
             when (slot) {
-                is TrayLayoutSlot.Icon -> estimatedIconWidthDp(slot.kind)
+                is TrayLayoutSlot.Icon -> estimatedIconWidthDp(slot.kind, showBatteryPercent)
                 is TrayLayoutSlot.Spacer -> slot.widthDp
             }
         }
@@ -108,8 +115,9 @@ object TrayLayout {
     fun wouldFold(
         slots: List<TrayLayoutSlot>,
         availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+        showBatteryPercent: Boolean = false,
     ): Boolean =
-        estimatedContentWidthDp(slots) > availableWidthDp.coerceAtLeast(0)
+        estimatedContentWidthDp(slots, showBatteryPercent) > availableWidthDp.coerceAtLeast(0)
 
     /**
      * Spacers allowed for the current icons-tab set: as many as fit without folding.
@@ -118,6 +126,7 @@ object TrayLayout {
     fun maxSpacers(
         flags: TrayIconFlags,
         availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+        showBatteryPercent: Boolean = false,
     ): Int {
         val icons = TrayLayoutIcon.entries
             .filter { it.isEnabled(flags) }
@@ -127,7 +136,7 @@ object TrayLayout {
             val trial = icons + List(allowed + 1) {
                 TrayLayoutSlot.Spacer(id = "budget_$it")
             }
-            if (wouldFold(trial, availableWidthDp)) break
+            if (wouldFold(trial, availableWidthDp, showBatteryPercent)) break
             allowed++
         }
         return allowed
@@ -138,6 +147,7 @@ object TrayLayout {
         flags: TrayIconFlags,
         availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
         widthDp: Int = DEFAULT_SPACER_WIDTH_DP,
+        showBatteryPercent: Boolean = false,
     ): Boolean {
         if (spacerCount(slots) >= ABSOLUTE_MAX_SPACERS) return false
         val withSpacer = slots + TrayLayoutSlot.Spacer(id = "probe", widthDp = widthDp)
@@ -147,7 +157,7 @@ object TrayLayout {
                 is TrayLayoutSlot.Icon -> slot.kind.isEnabled(flags)
             }
         }
-        return !wouldFold(visible, availableWidthDp)
+        return !wouldFold(visible, availableWidthDp, showBatteryPercent)
     }
 
     /**
@@ -159,6 +169,7 @@ object TrayLayout {
         slots: List<TrayLayoutSlot>,
         flags: TrayIconFlags,
         availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+        showBatteryPercent: Boolean = false,
     ): List<TrayLayoutSlot> {
         fun visibleOf(list: List<TrayLayoutSlot>): List<TrayLayoutSlot> =
             list.filter { slot ->
@@ -170,7 +181,7 @@ object TrayLayout {
         var result = slots
         while (
             spacerCount(result) > 0 &&
-            wouldFold(visibleOf(result), availableWidthDp)
+            wouldFold(visibleOf(result), availableWidthDp, showBatteryPercent)
         ) {
             val dropAt = result.indexOfLast { it is TrayLayoutSlot.Spacer }
             if (dropAt < 0) break
@@ -228,6 +239,7 @@ object TrayLayout {
         slots: List<TrayLayoutSlot>,
         flags: TrayIconFlags,
         availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
+        showBatteryPercent: Boolean = false,
     ): List<TrayLayoutSlot> =
         trimSpacersToMax(
             slots = slots.filter { slot ->
@@ -238,6 +250,7 @@ object TrayLayout {
             },
             flags = flags,
             availableWidthDp = availableWidthDp,
+            showBatteryPercent = showBatteryPercent,
         )
 
     /**
@@ -250,7 +263,8 @@ object TrayLayout {
         slots: List<TrayLayoutSlot>,
         flags: TrayIconFlags,
         availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
-    ): List<TrayLayoutSlot> = visible(slots, flags, availableWidthDp)
+        showBatteryPercent: Boolean = false,
+    ): List<TrayLayoutSlot> = visible(slots, flags, availableWidthDp, showBatteryPercent)
 
     /**
      * Whether the glyph for [kind] should paint. When false the slot still occupies layout
@@ -331,8 +345,9 @@ object TrayLayout {
         flags: TrayIconFlags,
         availableWidthDp: Int = TraySpec.DEFAULT_CONTENT_WIDTH_DP,
         widthDp: Int = DEFAULT_SPACER_WIDTH_DP,
+        showBatteryPercent: Boolean = false,
     ): List<TrayLayoutSlot> {
-        if (!canAddSpacer(slots, flags, availableWidthDp, widthDp)) {
+        if (!canAddSpacer(slots, flags, availableWidthDp, widthDp, showBatteryPercent)) {
             return slots
         }
         return slots + TrayLayoutSlot.Spacer(id = newSpacerId(), widthDp = widthDp)

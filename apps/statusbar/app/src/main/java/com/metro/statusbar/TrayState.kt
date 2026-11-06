@@ -90,7 +90,9 @@ class TrayState(context: Context) {
     var theme by mutableStateOf(resolveTheme())
         private set
 
-    var clockText by mutableStateOf(TrayClockFormatter.format())
+    var clockText by mutableStateOf(
+        TrayClockFormatter.format(use24Hour = trayPrefs.use24HourFormat),
+    )
         private set
 
     /**
@@ -100,6 +102,14 @@ class TrayState(context: Context) {
     var onClockSynced: (() -> Unit)? = null
 
     var battery by mutableStateOf(BatteryStatus.Unknown)
+        private set
+
+    /** Customise-tab: 24-hour clock digits. */
+    var use24HourFormat by mutableStateOf(trayPrefs.use24HourFormat)
+        private set
+
+    /** Customise-tab: draw charge percent beside the battery glyph. */
+    var showBatteryPercent by mutableStateOf(trayPrefs.showBatteryPercent)
         private set
 
     var dataConnectionLabel by mutableStateOf<String?>(null)
@@ -176,6 +186,7 @@ class TrayState(context: Context) {
             iconFlags = iconFlags,
             layout = layout,
             battery = battery,
+            showBatteryPercent = showBatteryPercent,
             theme = theme,
             notificationShadeOpen = notificationShadeOpen,
             systemStatusBarsHidden = systemStatusBarsHidden,
@@ -187,6 +198,7 @@ class TrayState(context: Context) {
         val occupying = TrayLayout.liveOccupying(
             slots = layout,
             flags = iconFlags,
+            showBatteryPercent = showBatteryPercent,
         )
         return TrayLayout.animatingIcons(occupying).size
     }
@@ -366,11 +378,18 @@ class TrayState(context: Context) {
     }
 
     fun refreshClock(now: ZonedDateTime = ZonedDateTime.now()) {
-        clockText = TrayClockFormatter.format(now)
+        clockText = TrayClockFormatter.format(now, use24Hour = use24HourFormat)
     }
 
     fun refreshBattery() {
         battery = BatterySource.current(appContext)
+    }
+
+    /** Re-reads customise-tab clock / battery-percent toggles and refreshes clock digits. */
+    fun refreshDisplayPrefs() {
+        use24HourFormat = trayPrefs.use24HourFormat
+        showBatteryPercent = trayPrefs.showBatteryPercent
+        refreshClock()
     }
 
     fun refreshDataConnectionLabel() {

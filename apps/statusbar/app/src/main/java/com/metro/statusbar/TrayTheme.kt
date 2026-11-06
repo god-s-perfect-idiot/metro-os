@@ -97,9 +97,17 @@ object TrayThemeResolver {
 }
 
 object TrayClockFormatter {
-    private val formatter = DateTimeFormatter.ofPattern("h:mm", Locale.getDefault())
+    private val twelveHour = DateTimeFormatter.ofPattern("h:mm", Locale.getDefault())
+    private val twentyFourHour = DateTimeFormatter.ofPattern("H:mm", Locale.getDefault())
 
-    fun format(now: ZonedDateTime = ZonedDateTime.now()): String = formatter.format(now)
+    /**
+     * Formats tray clock digits. [use24Hour] selects `H:mm` vs the WP-style 12-hour `h:mm`
+     * (no AM/PM — the tray never showed a meridian marker).
+     */
+    fun format(
+        now: ZonedDateTime = ZonedDateTime.now(),
+        use24Hour: Boolean = false,
+    ): String = (if (use24Hour) twentyFourHour else twelveHour).format(now)
 }
 
 /** Minute-boundary delay for the overlay Handler tick (backup to [Intent.ACTION_TIME_TICK]). */

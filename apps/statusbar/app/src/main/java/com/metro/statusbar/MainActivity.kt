@@ -88,6 +88,8 @@ class MainActivity : ComponentActivity() {
             var iconHideTimeoutMs by remember { mutableLongStateOf(trayPrefs.iconHideTimeoutMs) }
             var notchPosition by remember { mutableStateOf(trayPrefs.notchPosition) }
             var backgroundMode by remember { mutableStateOf(trayPrefs.backgroundMode) }
+            var use24HourFormat by remember { mutableStateOf(trayPrefs.use24HourFormat) }
+            var showBatteryPercent by remember { mutableStateOf(trayPrefs.showBatteryPercent) }
             var iconFlags by remember { mutableStateOf(trayPrefs.iconFlags) }
             var trayLayout by remember { mutableStateOf(trayPrefs.layout) }
             var hideSystemStatusBar by remember { mutableStateOf(trayPrefs.hideSystemStatusBar) }
@@ -112,9 +114,12 @@ class MainActivity : ComponentActivity() {
                         iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
                         notchPosition = trayPrefs.notchPosition
                         backgroundMode = trayPrefs.backgroundMode
+                        use24HourFormat = trayPrefs.use24HourFormat
+                        showBatteryPercent = trayPrefs.showBatteryPercent
                         iconFlags = trayPrefs.iconFlags
                         trayLayout = trayPrefs.layout
                         hideSystemStatusBar = trayPrefs.hideSystemStatusBar
+                        state.refreshDisplayPrefs()
                         // Keep overlay aligned with the master toggle after returning from Settings.
                         if (trayPrefs.enabled &&
                             Settings.canDrawOverlays(context) &&
@@ -252,6 +257,8 @@ class MainActivity : ComponentActivity() {
                                         canToggleTray = canToggleTray,
                                         backgroundMode = backgroundMode,
                                         iconHideTimeoutMs = iconHideTimeoutMs,
+                                        use24HourFormat = use24HourFormat,
+                                        showBatteryPercent = showBatteryPercent,
                                         notchPosition = notchPosition,
                                         overlayGranted = overlayGranted,
                                         accessibilityEnabled = accessibilityEnabled,
@@ -275,6 +282,18 @@ class MainActivity : ComponentActivity() {
                                             trayPrefs.iconHideTimeoutMs = timeoutMs
                                             iconHideTimeoutMs = trayPrefs.iconHideTimeoutMs
                                             StatusBarOverlayService.requestIconHideTimeoutRefresh()
+                                        },
+                                        onUse24HourFormatChange = { enabled ->
+                                            trayPrefs.use24HourFormat = enabled
+                                            use24HourFormat = trayPrefs.use24HourFormat
+                                            state.refreshDisplayPrefs()
+                                            StatusBarOverlayService.requestDisplayPrefsRefresh()
+                                        },
+                                        onShowBatteryPercentChange = { enabled ->
+                                            trayPrefs.showBatteryPercent = enabled
+                                            showBatteryPercent = trayPrefs.showBatteryPercent
+                                            state.refreshDisplayPrefs()
+                                            StatusBarOverlayService.requestDisplayPrefsRefresh()
                                         },
                                         onHideSystemStatusBarChange = { wantHide ->
                                             if (hideSystemBusy) return@EditTab
@@ -354,12 +373,14 @@ class MainActivity : ComponentActivity() {
                                         layout = trayLayout,
                                         clockText = state.clockText,
                                         theme = state.theme,
+                                        showBatteryPercent = showBatteryPercent,
                                         onFlagsChange = { next ->
                                             trayPrefs.iconFlags = next
                                             iconFlags = trayPrefs.iconFlags
                                             val trimmed = TrayLayout.trimSpacersToMax(
                                                 trayPrefs.layout,
                                                 next,
+                                                showBatteryPercent = showBatteryPercent,
                                             )
                                             if (trimmed != trayPrefs.layout) {
                                                 trayPrefs.layout = trimmed
@@ -380,6 +401,7 @@ class MainActivity : ComponentActivity() {
                                     layout = trayLayout,
                                     iconFlags = iconFlags,
                                     clockText = state.clockText,
+                                    showBatteryPercent = showBatteryPercent,
                                     onLayoutChange = { next ->
                                         trayPrefs.layout = next
                                         trayLayout = trayPrefs.layout
@@ -402,20 +424,23 @@ private fun ConfigurePage(
     layout: List<TrayLayoutSlot>,
     iconFlags: TrayIconFlags,
     clockText: String,
+    showBatteryPercent: Boolean,
     onLayoutChange: (List<TrayLayoutSlot>) -> Unit,
 ) {
-    val visibleSlots = remember(layout, iconFlags) {
-        TrayLayout.visible(layout, iconFlags)
+    val visibleSlots = remember(layout, iconFlags, showBatteryPercent) {
+        TrayLayout.visible(layout, iconFlags, showBatteryPercent = showBatteryPercent)
     }
     val canAddSpacer = TrayLayout.canAddSpacer(
         slots = layout,
         flags = iconFlags,
         widthDp = TrayLayout.DEFAULT_SPACER_WIDTH_DP,
+        showBatteryPercent = showBatteryPercent,
     )
     val canAddTinySpacer = TrayLayout.canAddSpacer(
         slots = layout,
         flags = iconFlags,
         widthDp = TrayLayout.TINY_SPACER_WIDTH_DP,
+        showBatteryPercent = showBatteryPercent,
     )
     Column(
         modifier = Modifier
@@ -438,6 +463,7 @@ private fun ConfigurePage(
                 slots = visibleSlots,
                 iconFlags = iconFlags,
                 clockText = clockText,
+                showBatteryPercent = showBatteryPercent,
                 onSlotsChange = { nextVisible ->
                     onLayoutChange(
                         mergeVisibleLayoutEdit(
@@ -459,6 +485,7 @@ private fun ConfigurePage(
                         slots = layout,
                         flags = iconFlags,
                         widthDp = TrayLayout.DEFAULT_SPACER_WIDTH_DP,
+                        showBatteryPercent = showBatteryPercent,
                     ),
                 )
             },
@@ -475,6 +502,7 @@ private fun ConfigurePage(
                         slots = layout,
                         flags = iconFlags,
                         widthDp = TrayLayout.TINY_SPACER_WIDTH_DP,
+                        showBatteryPercent = showBatteryPercent,
                     ),
                 )
             },
@@ -526,6 +554,8 @@ private fun EditTab(
     canToggleTray: Boolean,
     backgroundMode: StatusBarBackgroundMode,
     iconHideTimeoutMs: Long,
+    use24HourFormat: Boolean,
+    showBatteryPercent: Boolean,
     notchPosition: NotchPosition,
     overlayGranted: Boolean,
     accessibilityEnabled: Boolean,
@@ -538,6 +568,8 @@ private fun EditTab(
     onTrayEnabledChange: (Boolean) -> Unit,
     onBackgroundModeChange: (StatusBarBackgroundMode) -> Unit,
     onIconHideTimeoutChange: (Long) -> Unit,
+    onUse24HourFormatChange: (Boolean) -> Unit,
+    onShowBatteryPercentChange: (Boolean) -> Unit,
     onHideSystemStatusBarChange: (Boolean) -> Unit,
     onGetShizuku: () -> Unit,
     onOpenShizuku: () -> Unit,
@@ -650,6 +682,30 @@ private fun EditTab(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+        MetroToggleSwitch(
+            checked = use24HourFormat,
+            onCheckedChange = onUse24HourFormatChange,
+            label = stringResource(R.string.use_24_hour_format),
+            labelStyle = MetroTextStyle.DialogBody,
+            statusStyle = MetroTextStyle.Body,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+        MetroToggleSwitch(
+            checked = showBatteryPercent,
+            onCheckedChange = onShowBatteryPercentChange,
+            label = stringResource(R.string.show_battery_percent),
+            labelStyle = MetroTextStyle.DialogBody,
+            statusStyle = MetroTextStyle.Body,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
         MetroBorderButton(
             text = stringResource(R.string.configure_statusbar),
             onClick = onConfigureClick,
@@ -680,6 +736,7 @@ private fun EditTab(
             clockText = state.clockText,
             layout = state.layout,
             theme = state.theme,
+            showBatteryPercent = showBatteryPercent,
             leftPaddingDp = previewPadding.left,
             rightPaddingDp = previewPadding.right,
             modifier = Modifier
@@ -875,6 +932,7 @@ private fun IconsTab(
     layout: List<TrayLayoutSlot>,
     clockText: String,
     theme: TrayThemeSnapshot,
+    showBatteryPercent: Boolean,
     onFlagsChange: (TrayIconFlags) -> Unit,
 ) {
     Column(
@@ -933,6 +991,7 @@ private fun IconsTab(
             layout = layout,
             clockText = clockText,
             theme = theme,
+            showBatteryPercent = showBatteryPercent,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),

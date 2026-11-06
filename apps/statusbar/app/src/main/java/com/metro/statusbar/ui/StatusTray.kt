@@ -251,10 +251,12 @@ fun StatusTray(
     val layoutSlots = remember(
         snapshot.layout,
         snapshot.iconFlags,
+        snapshot.showBatteryPercent,
     ) {
         TrayLayout.liveOccupying(
             slots = snapshot.layout,
             flags = snapshot.iconFlags,
+            showBatteryPercent = snapshot.showBatteryPercent,
         )
     }
     val rightmostIconIndex = remember(layoutSlots) {
@@ -402,6 +404,7 @@ fun StatusTray(
                             clockText = snapshot.clockText,
                             showProgress = snapshot.showProgress,
                             battery = snapshot.battery,
+                            showBatteryPercent = snapshot.showBatteryPercent,
                             dataConnectionLabel = snapshot.dataConnectionLabel,
                             signalBars = snapshot.signalBars,
                             bluetoothAudio = snapshot.bluetoothAudio,
@@ -582,6 +585,7 @@ fun TraySlotGlyph(
     accentColor: Color = Color.Transparent,
     showProgress: Boolean = false,
     battery: BatteryStatus = TrayPreviewSamples.battery,
+    showBatteryPercent: Boolean = false,
     dataConnectionLabel: String? = TrayPreviewSamples.DATA_LABEL,
     signalBars: SignalBarsStatus = TrayPreviewSamples.signalBars,
     bluetoothAudio: BluetoothAudioKind? = TrayPreviewSamples.bluetoothAudio,
@@ -611,12 +615,30 @@ fun TraySlotGlyph(
             }
         }
         TrayLayoutIcon.Battery -> {
-            TrayBatteryGlyph(
-                battery = battery,
-                color = foreground,
-                backgroundColor = backdrop,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = modifier,
-            )
+            ) {
+                TrayBatteryGlyph(
+                    battery = battery,
+                    color = foreground,
+                    backgroundColor = backdrop,
+                )
+                if (showBatteryPercent) {
+                    BasicText(
+                        text = "${battery.percent}%",
+                        style = MetroTextStyle.DialogBody.toTextStyle().copy(
+                            color = foreground,
+                            fontSize = TrayClockFontSize,
+                            lineHeight = TrayClockLineHeight,
+                        ),
+                        modifier = Modifier.semantics {
+                            contentDescription = "Battery ${battery.percent} percent"
+                        },
+                    )
+                }
+            }
         }
         TrayLayoutIcon.Network -> {
             Row(

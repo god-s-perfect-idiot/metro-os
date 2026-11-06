@@ -1,14 +1,16 @@
 package com.metro.lockscreen
 
 import android.content.Context
+import android.text.format.DateFormat
 
 /**
  * Local setup preferences for the Metro lock screen. Owned by this app (not
  * [com.metro.system.MetroPreferences]).
  */
 class LockscreenPreferences(context: Context) {
+    private val appContext = context.applicationContext
     private val prefs =
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /** Whether the user wants the Metro lock surface presented over the keyguard. */
     var enabled: Boolean
@@ -22,6 +24,18 @@ class LockscreenPreferences(context: Context) {
     var glanceEnabled: Boolean
         get() = prefs.getBoolean(KEY_GLANCE_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_GLANCE_ENABLED, value).apply()
+
+    /**
+     * Whether lock / glance chrome uses 24-hour time (e.g. `19:30` vs `07:30`).
+     * Defaults to the system 24-hour setting until the user changes the setup toggle.
+     */
+    var use24HourFormat: Boolean
+        get() = if (prefs.contains(KEY_USE_24_HOUR)) {
+            prefs.getBoolean(KEY_USE_24_HOUR, false)
+        } else {
+            DateFormat.is24HourFormat(appContext)
+        }
+        set(value) = prefs.edit().putBoolean(KEY_USE_24_HOUR, value).apply()
 
     /** Accent / custom photo / Bing wallpaper. */
     var backgroundMode: LockscreenBackgroundMode
@@ -67,6 +81,7 @@ class LockscreenPreferences(context: Context) {
         private const val PREFS_NAME = "metro_lockscreen"
         private const val KEY_ENABLED = "lockscreen_enabled"
         private const val KEY_GLANCE_ENABLED = "lockscreen_glance_enabled"
+        private const val KEY_USE_24_HOUR = "lockscreen_use_24_hour"
         private const val KEY_BACKGROUND_MODE = "lockscreen_background_mode"
         private const val KEY_CUSTOM_BACKGROUND_ENABLED = "lockscreen_custom_background_enabled"
         private const val KEY_BING_START_DATE = "lockscreen_bing_start_date"

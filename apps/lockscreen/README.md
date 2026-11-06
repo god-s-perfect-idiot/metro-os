@@ -50,6 +50,7 @@ background-activity restrictions most of the time. The lock **fill** uses
 
 - Master **Show lock screen** toggle
 - **Glance lockscreen** toggle — AMOLED black glance surface over system AOD (time / day / date + battery glyph/% + quick-status; configured apps flip on new notification)
+- **24-hour clock** toggle — lock / glance chrome time + event range (`19:30` vs `07:30`); defaults to the system format until changed
 - **Background** ListPicker (Accent colour / Custom background / Bing wallpaper)
 - **Quick status** — five bordered app slots (+ when empty); tap opens **choose an app** page
 - Custom background: Start-background-style thumb + choose photo / remove + crop

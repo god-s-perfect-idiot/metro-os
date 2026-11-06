@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
             var permissionTick by remember { mutableIntStateOf(0) }
             var enabled by remember { mutableStateOf(prefs.enabled) }
             var glanceEnabled by remember { mutableStateOf(prefs.glanceEnabled) }
+            var use24HourFormat by remember { mutableStateOf(prefs.use24HourFormat) }
             var backgroundMode by remember { mutableStateOf(prefs.backgroundMode) }
             var customEnabled by remember { mutableStateOf(prefs.customBackgroundEnabled) }
             var customEpoch by remember { mutableIntStateOf(0) }
@@ -112,6 +113,7 @@ class MainActivity : ComponentActivity() {
                         permissionTick++
                         enabled = prefs.enabled
                         glanceEnabled = prefs.glanceEnabled
+                        use24HourFormat = prefs.use24HourFormat
                         backgroundMode = prefs.backgroundMode
                         customEnabled = prefs.customBackgroundEnabled
                         if (prefs.enabled &&
@@ -255,6 +257,22 @@ class MainActivity : ComponentActivity() {
                                             .padding(top = 8.dp),
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.height(24.dp))
+                                MetroToggleSwitch(
+                                    checked = use24HourFormat,
+                                    onCheckedChange = { value ->
+                                        prefs.use24HourFormat = value
+                                        use24HourFormat = prefs.use24HourFormat
+                                        LockscreenHostService.requestRehost()
+                                    },
+                                    label = stringResource(R.string.use_24_hour_clock),
+                                    labelStyle = MetroTextStyle.Body,
+                                    statusStyle = MetroTextStyle.ListItemTitle,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp),
+                                )
 
                                 Spacer(modifier = Modifier.height(24.dp))
 

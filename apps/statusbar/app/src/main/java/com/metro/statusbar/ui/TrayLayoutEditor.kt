@@ -70,6 +70,7 @@ fun TrayLayoutEditor(
     clockText: String,
     onSlotsChange: (List<TrayLayoutSlot>) -> Unit,
     modifier: Modifier = Modifier,
+    showBatteryPercent: Boolean = false,
 ) {
     val accent = MetroTheme.colors.accent
     val foreground = MetroTheme.colors.primaryText
@@ -112,6 +113,7 @@ fun TrayLayoutEditor(
             flags = iconFlags,
             clockText = clockText,
             layout = slots,
+            showBatteryPercent = showBatteryPercent,
             onSlotCentersChanged = { next ->
                 if (slotCenters != next) {
                     slotCenters = next

@@ -506,6 +506,15 @@ class StatusBarOverlayService :
             }
         }
 
+        /** Re-reads 24-hour clock / battery-percent customise toggles on the running overlay. */
+        fun requestDisplayPrefsRefresh() {
+            instance?.let { svc ->
+                svc.handler.post {
+                    svc.trayState.refreshDisplayPrefs()
+                }
+            }
+        }
+
         /** Re-reads configure-page layout (order + spacers) on the running overlay. */
         fun requestLayoutRefresh() {
             instance?.let { svc ->

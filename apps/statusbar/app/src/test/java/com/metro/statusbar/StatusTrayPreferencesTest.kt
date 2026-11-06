@@ -245,4 +245,30 @@ class StatusTrayPreferencesTest {
         assertFalse(StatusTrayPreferences(RuntimeEnvironment.getApplication()).hideSystemStatusBar)
     }
 
+    @Test
+    fun use24HourFormat_defaultsToFalse() {
+        assertFalse(prefs.use24HourFormat)
+    }
+
+    @Test
+    fun use24HourFormat_persistsAcrossInstances() {
+        prefs.use24HourFormat = true
+        assertTrue(StatusTrayPreferences(RuntimeEnvironment.getApplication()).use24HourFormat)
+        prefs.use24HourFormat = false
+        assertFalse(StatusTrayPreferences(RuntimeEnvironment.getApplication()).use24HourFormat)
+    }
+
+    @Test
+    fun showBatteryPercent_defaultsToFalse() {
+        assertFalse(prefs.showBatteryPercent)
+    }
+
+    @Test
+    fun showBatteryPercent_persistsAcrossInstances() {
+        prefs.showBatteryPercent = true
+        assertTrue(StatusTrayPreferences(RuntimeEnvironment.getApplication()).showBatteryPercent)
+        prefs.showBatteryPercent = false
+        assertFalse(StatusTrayPreferences(RuntimeEnvironment.getApplication()).showBatteryPercent)
+    }
+
 }

@@ -175,6 +175,15 @@ class TrayLayoutTest {
     }
 
     @Test
+    fun estimatedBatteryWidth_growsWhenPercentShown() {
+        assertEquals(29, TrayLayout.estimatedIconWidthDp(TrayLayoutIcon.Battery))
+        assertEquals(
+            54,
+            TrayLayout.estimatedIconWidthDp(TrayLayoutIcon.Battery, showBatteryPercent = true),
+        )
+    }
+
+    @Test
     fun visible_filtersDisabledIconsKeepsSpacers() {
         val flags = TrayIconFlags(
             network = true,

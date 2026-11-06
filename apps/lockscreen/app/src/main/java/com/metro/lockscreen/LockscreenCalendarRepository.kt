@@ -16,6 +16,7 @@ import java.util.Locale
  */
 class LockscreenCalendarRepository(context: Context) {
     private val appContext = context.applicationContext
+    private val prefs = LockscreenPreferences(appContext)
     private val zoneId: ZoneId = ZoneId.systemDefault()
 
     fun hasPermission(): Boolean =
@@ -24,7 +25,7 @@ class LockscreenCalendarRepository(context: Context) {
 
     fun loadNextGlanceEvent(
         now: ZonedDateTime = ZonedDateTime.now(zoneId),
-        use24Hour: Boolean = DateFormat.is24HourFormat(appContext),
+        use24Hour: Boolean = prefs.use24HourFormat,
         locale: Locale = Locale.getDefault(),
     ): LockscreenChromeLogic.GlanceEvent? {
         if (!hasPermission()) return null
@@ -41,7 +42,7 @@ class LockscreenCalendarRepository(context: Context) {
         now: ZonedDateTime = ZonedDateTime.now(zoneId),
     ): LockscreenChromeLogic.ChromeLabels {
         val locale = Locale.getDefault()
-        val use24Hour = DateFormat.is24HourFormat(appContext)
+        val use24Hour = prefs.use24HourFormat
         val datePattern = DateFormat.getBestDateTimePattern(locale, "MMMMd")
         return LockscreenChromeLogic.labels(
             now = now,

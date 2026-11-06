@@ -19,10 +19,10 @@ ringer volume (`STREAM_RING`) is 0, a mute glyph (speaker + X) appears after Wi-
 expand/collapse stagger.
 
 The setup screen is a two-tab pivot (**customise** | **icons**). **customise** holds the
-master toggle, a **system status bar** Shizuku section, ListPickers, then a live **preview**, then
-an accent **permissions** section; **icons** holds per-glyph toggles (Network, Wi-Fi, Silent,
-Notification icons, Wi-Fi hotspot, Bluetooth audio, Battery) and a static **preview** strip in tray
-order. **Show status bar** starts and stops the overlay. **system status bar** nudges the user to
+master toggle, a **system status bar** Shizuku section, ListPickers, **24-hour clock** and
+**Show battery percentage** toggles, then a live **preview**, then an accent **permissions**
+section; **icons** holds per-glyph toggles (Network, Wi-Fi, Silent, Notification icons, Wi-Fi
+hotspot, Bluetooth audio, Battery) and a static **preview** strip in tray order. **Show status bar** starts and stops the overlay. **system status bar** nudges the user to
 install / start / authorize [Shizuku](https://shizuku.rikka.app/download/); when Shizuku is ready,
 **Hide system status bar** clears Android SystemUI icons under the Metro tray via a privileged
 UserService (`cmd statusbar send-disable-flag system-icons clock notification-icons`). Turning that
@@ -36,8 +36,11 @@ launcher icon’s tile brand color — adaptive background — with glyphs flipp
 accent color** (always the system accent), or **Transparent** (no tray fill; glyphs float over the
 content behind the status bar, with light/dark glyph contrast from the system theme). **Hide icons
 after** (`MetroListPicker`) chooses the expanded-indicator hold: 3, 5, or 10 seconds, or **Never**
-(stay expanded; WP default 5s). **configure statusbar** opens **configure**: a centered live-looking
-tray preview with accent drag thumbs sticking out under each enabled icon (and any spacers).
+(stay expanded; WP default 5s). **24-hour clock** (`MetroToggleSwitch`) switches tray digits from
+`h:mm` to `H:mm`. **Show battery percentage** (`MetroToggleSwitch`) draws a whole-number `N%`
+label right of the battery glyph (off by default). **configure statusbar** opens **configure**: a
+centered live-looking tray preview with accent drag thumbs sticking out under each enabled icon
+(and any spacers).
 Drag thumbs to rearrange; **add spacer** / **add tiny spacer** at the bottom insert blank slots
 (40dp / 16dp; multiple allowed; tap a spacer thumb to remove). Spacers after the last icon stay
 visible when icons auto-hide. Subtext: *You can use spacers to cover the notch and active mic

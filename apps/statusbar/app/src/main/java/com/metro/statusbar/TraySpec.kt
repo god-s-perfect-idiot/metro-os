@@ -260,6 +260,8 @@ data class TraySnapshot(
      */
     val layout: List<TrayLayoutSlot> = TrayLayout.DEFAULT,
     val battery: BatteryStatus,
+    /** When true, draw `N%` beside the battery glyph. */
+    val showBatteryPercent: Boolean = false,
     val theme: TrayThemeSnapshot,
     /**
      * True while the Android notification shade is open. The accessibility overlay must not draw

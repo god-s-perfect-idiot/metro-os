@@ -48,6 +48,7 @@ fun trayPreviewSnapshot(
     layout: List<TrayLayoutSlot> = TrayLayout.DEFAULT,
     theme: TrayThemeSnapshot,
     notificationPackage: String? = null,
+    showBatteryPercent: Boolean = false,
 ): TraySnapshot = TraySnapshot(
     clockText = clockText,
     expanded = true,
@@ -64,6 +65,7 @@ fun trayPreviewSnapshot(
     iconFlags = flags,
     layout = layout,
     battery = if (flags.battery) TrayPreviewSamples.battery else TrayPreviewSamples.battery.copy(present = false),
+    showBatteryPercent = showBatteryPercent,
     theme = theme,
 )
 
@@ -81,6 +83,7 @@ fun TrayPreview(
     modifier: Modifier = Modifier,
     leftPaddingDp: Int = TraySpec.START_PADDING_DP,
     rightPaddingDp: Int = TraySpec.END_PADDING_DP,
+    showBatteryPercent: Boolean = false,
     /**
      * Live tray theme from [com.metro.statusbar.TrayState] so setup previews match fill /
      * glyph contrast (black on light accent / match-app fills). Falls back to dark chrome.
@@ -96,13 +99,14 @@ fun TrayPreview(
         visibilityMode = TrayVisibilityMode.Opaque,
         backdropColor = MetroColors.DarkBackground,
     )
-    val snapshot = remember(flags, layout, clockText, resolvedTheme) {
+    val snapshot = remember(flags, layout, clockText, resolvedTheme, showBatteryPercent) {
         trayPreviewSnapshot(
             clockText = clockText,
             flags = flags,
             layout = layout,
             theme = resolvedTheme,
             notificationPackage = TrayPreviewSamples.NOTIFICATION_PACKAGE,
+            showBatteryPercent = showBatteryPercent,
         )
     }
     StatusTray(

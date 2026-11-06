@@ -22,12 +22,14 @@ fun TrayIconsPreview(
     },
     layout: List<TrayLayoutSlot> = TrayLayout.DEFAULT,
     theme: TrayThemeSnapshot? = null,
+    showBatteryPercent: Boolean = false,
 ) {
     TrayPreview(
         flags = flags,
         clockText = clockText,
         layout = layout,
         theme = theme,
+        showBatteryPercent = showBatteryPercent,
         modifier = modifier,
     )
 }

@@ -109,6 +109,22 @@ class StatusTrayPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_HIDE_SYSTEM_STATUS_BAR, false)
         set(value) = prefs.edit().putBoolean(KEY_HIDE_SYSTEM_STATUS_BAR, value).apply()
 
+    /**
+     * When true, the tray clock uses 24-hour digits (`H:mm`). Defaults off so the clock stays
+     * on the WP-style 12-hour `h:mm` form until the user opts in.
+     */
+    var use24HourFormat: Boolean
+        get() = prefs.getBoolean(KEY_USE_24_HOUR_FORMAT, false)
+        set(value) = prefs.edit().putBoolean(KEY_USE_24_HOUR_FORMAT, value).apply()
+
+    /**
+     * When true, a whole-number charge label (`72%`) draws beside the battery glyph. Defaults
+     * off — WP8.1 kept percent in Action Center, not the tray.
+     */
+    var showBatteryPercent: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_BATTERY_PERCENT, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_BATTERY_PERCENT, value).apply()
+
     companion object {
         private const val PREFS_NAME = "metro_statusbar"
         private const val KEY_ENABLED = "status_tray_enabled"
@@ -126,6 +142,8 @@ class StatusTrayPreferences(context: Context) {
         private const val KEY_ICON_BATTERY = "icon_battery"
         private const val KEY_LAYOUT = "tray_layout"
         private const val KEY_HIDE_SYSTEM_STATUS_BAR = "hide_system_status_bar"
+        private const val KEY_USE_24_HOUR_FORMAT = "use_24_hour_format"
+        private const val KEY_SHOW_BATTERY_PERCENT = "show_battery_percent"
 
         const val TIMEOUT_3S_MS = 3_000L
         const val TIMEOUT_5S_MS = MetroStatusBar.AUTO_COLLAPSE_MS
