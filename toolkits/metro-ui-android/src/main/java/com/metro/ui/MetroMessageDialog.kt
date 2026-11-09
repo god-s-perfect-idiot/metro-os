@@ -151,13 +151,19 @@ fun MetroMessageDialog(
         SideEffect {
             val window = (dialogView.parent as? DialogWindowProvider)?.window ?: return@SideEffect
             // Edge-to-edge so chrome can sit under the Metro tray (toast band model).
+            // Without fitInsetsTypes=0, the window is already pushed below the status bar
+            // and our tray spacer would double the top inset.
             WindowCompat.setDecorFitsSystemWindows(window, false)
             window.statusBarColor = android.graphics.Color.TRANSPARENT
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                window.attributes = window.attributes.apply {
+            window.attributes = window.attributes.apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     layoutInDisplayCutoutMode =
                         WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    fitInsetsTypes = 0
+                    fitInsetsSides = 0
                 }
             }
             WindowCompat.getInsetsController(window, dialogView).isAppearanceLightStatusBars = false

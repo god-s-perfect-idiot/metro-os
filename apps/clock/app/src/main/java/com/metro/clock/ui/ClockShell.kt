@@ -147,10 +147,11 @@ fun ClockShell(
         presentAlert(alert)
     }
 
+    // Timers auto-dismiss after 5s (blueprint); alarms stay until the user taps close.
     LaunchedEffect(activeAlert) {
-        if (activeAlert == null) return@LaunchedEffect
+        if (activeAlert !is ClockAlert.Timer) return@LaunchedEffect
         delay(5_000L)
-        if (activeAlert != null) dismissAlert()
+        if (activeAlert is ClockAlert.Timer) dismissAlert()
     }
 
     val pivotPage = pagerState.currentPage
