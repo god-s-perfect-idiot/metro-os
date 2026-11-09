@@ -88,9 +88,29 @@ class TrayShellFillTest {
     }
 
     @Test
+    fun dialogShellFill_outranksNotifications() {
+        trayState.applyShellFill(
+            MetroStatusBar.OWNER_NOTIFICATIONS,
+            Color(0xFF1BA1E2),
+        )
+        trayState.applyShellFill(
+            MetroStatusBar.OWNER_DIALOG,
+            Color(0xFF1F1F1F),
+            underlay = false,
+        )
+        assertEquals(Color(0xFF1F1F1F), trayState.theme.backgroundColor)
+        assertEquals(false, trayState.dialogShellUnderlay)
+
+        trayState.applyShellFill(MetroStatusBar.OWNER_DIALOG, null)
+        assertEquals(Color(0xFF1BA1E2), trayState.theme.backgroundColor)
+        trayState.applyShellFill(MetroStatusBar.OWNER_NOTIFICATIONS, null)
+    }
+
+    @Test
     fun unknownOwner_isIgnored() {
         trayState.applyShellFill("unknown", Color(0xFFFF0000))
         assertNull(trayState.notificationsShellFill)
+        assertNull(trayState.dialogShellFill)
         assertNull(trayState.volumeShellFill)
     }
 }

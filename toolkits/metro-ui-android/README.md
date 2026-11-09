@@ -35,7 +35,7 @@ Per-control shape, button, and interaction rules: [`METRO-UX-LANGUAGE.md`](METRO
 | `MetroJumpList` | Find-by-letter overlay (`#`, a–z, globe); accent = active |
 | `MetroLetterTile` | Accent/inactive letter square for list anchors and jump grid |
 | `metroStickyLetterHeader` | LazyColumn sticky letter section marker (pins until next letter pushes it) |
-| `MetroMessageDialog` | WP8.1 MessageBox — top-anchored full-width confirm (flip enter/exit; yes/no) |
+| `MetroMessageDialog` | WP8.1 MessageBox — app-bar chrome panel, 2-slot text buttons (flip enter/exit) |
 | `MetroToast` / `MetroToastHost` | In-app WP8.1 toast banner (accent bar + glyph + one line) |
 | `MetroLoadingScreen` | Full-page await — centered label + dancing dots |
 | `MetroLoadingDots` | Inline WP8.1 indeterminate dancing-dots indicator |

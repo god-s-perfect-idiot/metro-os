@@ -58,6 +58,13 @@ object MetroPreferenceKeys {
     const val CONNECTED_CONVERSATION_APPS = "connected_conversation_apps"
 
     /**
+     * Comma-separated packages hidden from the launcher app list.
+     * Null or blank → none. Settings → hidden apps and the app-list long-press menu own writes;
+     * launcher filters the list on read.
+     */
+    const val HIDDEN_APPS = "hidden_apps"
+
+    /**
      * Active Android icon-pack package for Start / app list glyphs.
      * Null or blank → system / suite icons ([MetroIconPacks]).
      */

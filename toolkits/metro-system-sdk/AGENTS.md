@@ -30,6 +30,7 @@ Cross-app system contracts: shared preferences, intents, broadcasts, content pro
 | `connected_music_apps` | `String` (CSV packages) | suite defaults when unset | Xbox Music now-playing live-tile packages |
 | `music_live_tile_style` | `String` (`presentation` / `compact` / `spacious`) | `compact` | Default music now-playing Start face ([MetroMusicLiveTileStyle]) |
 | `connected_conversation_apps` | `String` (CSV packages) | suite defaults when unset | Packages Conversations may show from the shade |
+| `hidden_apps` | `String` (CSV packages) | empty | Packages hidden from the launcher app list |
 
 Storage: Settings-hosted ContentProvider (`content://com.metro.system`) backed by
 `SharedPreferences` file `metro_system`. Client apps always attempt ContentResolver first,

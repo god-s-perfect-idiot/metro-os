@@ -258,7 +258,7 @@ Each subsection defines **anatomy → states → do / don't → toolkit mapping*
 | Width | Intrinsic to label — **do not** `fillMaxWidth()` |
 | Label | Max 2 words; verb-first ("save", "delete", "connect") |
 
-**Dialog button order:** Affirmative (**ok**, **yes**, **save**) on the **left**; dismissive (**cancel**, **no**) on the **right**. In `MetroMessageDialog` only, action buttons **share the panel width equally** (WP MessageBox); that stretch is owned by the dialog, not by `MetroBorderButton`.
+**Dialog button order:** Affirmative (**ok**, **yes**, **save**) on the **left**; dismissive (**cancel**, **no**) on the **right**. In `MetroMessageDialog` only, actions use a **fixed 2-slot** outlined row (same language as app-bar text buttons): max two verbs; a single button is **half width, left-anchored**. That stretch is owned by the dialog, not by `MetroBorderButton`.
 
 **Setup / permission screens:** Apply the 12dp content margin on the button itself
 (`Modifier = Modifier.padding(horizontal = 12.dp)`). Do **not** put `padding(horizontal)` on a
@@ -471,18 +471,18 @@ Full-page await surface — use whenever a page is blocked on async work (> 500m
 
 ### 6.15 Message dialog (`MetroMessageDialog`)
 
-WP8.1 MessageBox — top strip confirmation (uninstall, reset phone, delete, add store, etc.). Not a centered card.
+WP8.1 MessageBox — top strip confirmation (uninstall, reset phone, delete, add store, timer/alarm dismiss, etc.). Not a centered card.
 
 | Property | Spec |
 |----------|------|
-| Panel | **Top-anchored** below the status bar, **full width**, **0dp** corners, theme **background** (`#000000` dark / white light) so it reads as the WP MessageBox strip |
-| Title | 24sp Regular, primary foreground (sentence case OK — do not force lowercase) |
-| Body | 16sp Regular, primary foreground |
-| Buttons | Equal-width outlined row spanning the panel — affirmative (**yes** / **ok**) left, dismissive (**no** / **cancel**) right (dialog-only stretch; in-page `MetroBorderButton` still hugs label). Labels render lowercase. |
+| Panel | **Top-anchored**, **full width**, **0dp** corners; fill is always app-bar chrome (`MetroAppBarDefaults.ChromeBackground` / `#1F1F1F`) with **white** title/body/button glyphs. Same band model as the notifications toast: chrome Column from y=0, tray-height spacer, copy/actions in the safe inset; `MetroStatusBar.requestShellFill(OWNER_DIALOG)` tints the Metro tray to the same chrome. |
+| Title | 24sp Regular, white (sentence case OK — do not force lowercase) |
+| Body | 16sp Regular, white |
+| Buttons | **Fixed 2-slot** outlined row matching Store/app-bar text buttons (`TextButtonSpacing` 12dp; outline height = `BarHeight − 2×TextButtonVerticalInset`). Max **two** verbs; one button → **half width, left-anchored** (empty right slot). Affirmative left, dismissive right. Labels lowercase. |
 | Scrim | `#80000000` over page; tap dismisses |
 | Entry / exit | Perspective `rotationX` flip 90° ↔ 0° (300ms, same camera sizing as toast) on enter **and** every dismiss path (scrim, back, all action buttons) — no Material bottom sheet |
 
-**Agent rule:** Destructive / binary confirms (uninstall, delete, reset) use **yes** / **no**. Prefer this shared dialog over per-app popups or Android `AlertDialog`.
+**Agent rule:** Destructive / binary confirms (uninstall, delete, reset) use **yes** / **no**. Single-action alerts (timer/alarm) use one **close** button in the left slot. Prefer this shared dialog over per-app popups or Android `AlertDialog`.
 
 ---
 

@@ -69,6 +69,20 @@ class TrayState(context: Context) {
     var notificationsShellUnderlay by mutableStateOf(false)
         private set
 
+    /**
+     * Temporary app-bar chrome fill while a [com.metro.ui.MetroMessageDialog] is visible
+     * (outranks toast; outranked by volume).
+     */
+    var dialogShellFill by mutableStateOf<Color?>(null)
+        private set
+
+    /**
+     * When [dialogShellFill] is set, true = tray transparent over the dialog underlay;
+     * false = opaque chrome on the tray (continuous band with the dialog panel).
+     */
+    var dialogShellUnderlay by mutableStateOf(false)
+        private set
+
     /** Temporary charcoal fill while the Metro volume HUD is visible (outranks toast). */
     var volumeShellFill by mutableStateOf<Color?>(null)
         private set
@@ -504,11 +518,12 @@ class TrayState(context: Context) {
 
     /**
      * Applies or clears a temporary shell-overlay fill. [owner] must be
-     * [MetroStatusBar.OWNER_NOTIFICATIONS] or [MetroStatusBar.OWNER_VOLUME]; unknown owners are
-     * ignored. Volume outranks notifications when both are set.
+     * [MetroStatusBar.OWNER_NOTIFICATIONS], [MetroStatusBar.OWNER_DIALOG], or
+     * [MetroStatusBar.OWNER_VOLUME]; unknown owners are ignored. Volume outranks
+     * dialog/notifications when both are set; dialog outranks notifications.
      *
-     * Toast / volume can paint as an underlay (tray transparent over a continuous band) or as an
-     * opaque tray fill (exit handoff so the system bar stays covered).
+     * Toast / dialog / volume can paint as an underlay (tray transparent over a continuous band)
+     * or as an opaque tray fill (exit handoff so the system bar stays covered).
      *
      * [durationMs] is stored for [StatusTray] color morphs so they can match the overlay motion.
      * [underlay] applies while that owner's color is set; clears reset underlay flags.
@@ -529,6 +544,14 @@ class TrayState(context: Context) {
                 notificationsShellFill = color
                 notificationsShellUnderlay = nextUnderlay
             }
+            MetroStatusBar.OWNER_DIALOG -> {
+                val nextUnderlay = if (color == null) false else underlay
+                if (dialogShellFill == color && dialogShellUnderlay == nextUnderlay) {
+                    return
+                }
+                dialogShellFill = color
+                dialogShellUnderlay = nextUnderlay
+            }
             MetroStatusBar.OWNER_VOLUME -> {
                 val nextUnderlay = if (color == null) true else underlay
                 if (volumeShellFill == color && volumeShellUnderlay == nextUnderlay) return
@@ -540,14 +563,16 @@ class TrayState(context: Context) {
         theme = resolveTheme()
     }
 
-    private fun effectiveShellFill(): Color? = volumeShellFill ?: notificationsShellFill
+    private fun effectiveShellFill(): Color? =
+        volumeShellFill ?: dialogShellFill ?: notificationsShellFill
 
     /**
      * Active shell overlay paints under the tray (transparent) so one continuous band can animate
-     * behind the glyphs. Volume outranks toast.
+     * behind the glyphs. Volume outranks dialog/toast.
      */
     private fun shellFillUnderlay(): Boolean = when {
         volumeShellFill != null -> volumeShellUnderlay
+        dialogShellFill != null -> dialogShellUnderlay
         notificationsShellFill != null -> notificationsShellUnderlay
         else -> false
     }

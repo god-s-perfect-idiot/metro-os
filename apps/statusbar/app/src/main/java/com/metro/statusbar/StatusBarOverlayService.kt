@@ -161,6 +161,7 @@ class StatusBarOverlayService :
                 // Rehost so glyphs stay above the overlay band.
                 val raiseTray = color != null && (
                     owner == MetroStatusBar.OWNER_NOTIFICATIONS ||
+                        owner == MetroStatusBar.OWNER_DIALOG ||
                         (owner == MetroStatusBar.OWNER_VOLUME && underlay)
                     )
                 if (raiseTray) {

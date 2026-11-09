@@ -67,7 +67,7 @@ object MetroStatusBar {
 
     /**
      * Owner id for [ACTION_SET_SHELL_FILL] — each overlay clears only its own request.
-     * See [OWNER_NOTIFICATIONS] / [OWNER_VOLUME].
+     * See [OWNER_NOTIFICATIONS] / [OWNER_DIALOG] / [OWNER_VOLUME].
      */
     const val EXTRA_SHELL_FILL_OWNER = "shell_fill_owner"
 
@@ -86,6 +86,12 @@ object MetroStatusBar {
 
     /** [EXTRA_SHELL_FILL_OWNER] value used by `com.metro.notifications` toasts. */
     const val OWNER_NOTIFICATIONS = "notifications"
+
+    /**
+     * [EXTRA_SHELL_FILL_OWNER] value used by in-app [com.metro.ui.MetroMessageDialog] so the
+     * tray strip and dialog chrome read as one continuous band.
+     */
+    const val OWNER_DIALOG = "dialog"
 
     /** [EXTRA_SHELL_FILL_OWNER] value used by `com.metro.volume` HUD. Outranks notifications. */
     const val OWNER_VOLUME = "volume"

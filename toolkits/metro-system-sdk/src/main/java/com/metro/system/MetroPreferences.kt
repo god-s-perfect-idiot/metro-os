@@ -214,6 +214,19 @@ class MetroPreferences(context: Context) {
         )
 
     /**
+     * Packages hidden from the launcher app list. Empty when unset or cleared.
+     * Settings → hidden apps and the launcher long-press menu own writes.
+     */
+    var hiddenAppPackages: Set<String>
+        get() = MetroConnectedApps.decode(
+            readStringNullable(MetroPreferenceKeys.HIDDEN_APPS),
+        )
+        set(value) = writeString(
+            MetroPreferenceKeys.HIDDEN_APPS,
+            MetroConnectedApps.encode(value),
+        )
+
+    /**
      * Active Android icon-pack package for Start / app-list glyphs (Settings → start+theme).
      * Null or blank → system icons. See [MetroIconPacks].
      *
@@ -427,7 +440,8 @@ class MetroPreferences(context: Context) {
             key == MetroPreferenceKeys.CONNECTED_GALLERY_ALBUMS ||
             key == MetroPreferenceKeys.CONNECTED_MUSIC_APPS ||
             key == MetroPreferenceKeys.MUSIC_LIVE_TILE_STYLE ||
-            key == MetroPreferenceKeys.CONNECTED_CONVERSATION_APPS
+            key == MetroPreferenceKeys.CONNECTED_CONVERSATION_APPS ||
+            key == MetroPreferenceKeys.HIDDEN_APPS
 
     private fun rawAsFloat(raw: Any?): Float? = when (raw) {
         is Float -> raw

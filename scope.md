@@ -286,7 +286,7 @@ Official **Windows Phone 8 / 8.1** 20-color set (Settings → start+theme → Ac
 | `ListBox` / `LongListSelector` | `MetroListItem` | Press-nudge on tap (~4dp down-left; never Material ripple) |
 | `TextBox` | Underline style when focused | Accent underline, no Material TextInputLayout |
 | `ApplicationBar` | `MetroAppBar` | See App bar section |
-| `MessageDialog` | Top-anchored full-width modal | Title 24sp, body 16sp, equal-width border buttons; flip enter/exit |
+| `MessageDialog` | Top-anchored full-width modal | App-bar chrome `#1F1F1F` panel; title 24sp / body 16sp; fixed 2-slot border buttons (1 button = half width left); flip enter/exit |
 | `ListPicker` | `MetroListPicker` | Bordered field; expands inline to inverted options panel (no Material menu) |
 | `CustomDatePicker` / `TimePicker` | Looping selectors | WP8.1 scroll-wheel style |
 | `LiveTile` | App tile widget → launcher | See Tiles section; apps export data, launcher renders |
@@ -385,7 +385,7 @@ Reusable scaffolding so animations and UX stay consistent across apps.
 
 ### `metro-system-sdk`
 
-- `MetroPreferences`: read/write `accent_color`, `theme_mode`, `font_scale`, `font_family`, `nav_bar_color`, `show_more_columns`, `use_compact_layout`
+- `MetroPreferences`: read/write `accent_color`, `theme_mode`, `font_scale`, `font_family`, `nav_bar_color`, `show_more_columns`, `use_compact_layout`, `hidden_apps`
 - Intent contracts: `MetroIntents.LAUNCH_APP`, `MetroIntents.SEARCH`, `MetroIntents.SHARE`
 - `ContentProvider` URI scheme: `content://com.metro.system/...`
 - Broadcast: `com.metro.system.THEME_CHANGED`

@@ -166,6 +166,15 @@ class MetroPreferencesTest {
     }
 
     @Test
+    fun hiddenAppPackages_defaultsEmptyAndRoundTrips() {
+        assertTrue(prefs.hiddenAppPackages.isEmpty())
+        prefs.hiddenAppPackages = setOf("com.example.a", "com.example.b")
+        assertEquals(setOf("com.example.a", "com.example.b"), prefs.hiddenAppPackages)
+        prefs.hiddenAppPackages = emptySet()
+        assertTrue(prefs.hiddenAppPackages.isEmpty())
+    }
+
+    @Test
     fun iconPackPackage_defaultsNullAndRoundTrips() {
         assertEquals(null, prefs.iconPackPackage)
         prefs.iconPackPackage = "com.example.iconpack"
