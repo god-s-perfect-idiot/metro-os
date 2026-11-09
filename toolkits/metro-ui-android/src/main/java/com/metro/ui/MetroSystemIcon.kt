@@ -82,8 +82,10 @@ enum class MetroSystemIconType {
     /** Three-node share — app bar share / send-to. */
     Share,
     Check,
-    /** Download / save-to tray (filled arrow into bar). */
+    /** Floppy disk — commit / save form chrome. */
     Save,
+    /** Download / install — filled arrow into tray (WP Store / Music song-row). */
+    Download,
     Attach,
     Microphone,
     /** Funnel filter — library / browse filter chrome. */
@@ -253,6 +255,7 @@ fun DrawScope.drawMetroSystemIconGlyph(
         MetroSystemIconType.Share -> drawShareGlyph(color, glyphStroke)
         MetroSystemIconType.Check -> drawCheckGlyph(color)
         MetroSystemIconType.Save -> drawSaveGlyph(color)
+        MetroSystemIconType.Download -> drawDownloadGlyph(color)
         MetroSystemIconType.Attach -> drawAttachGlyph(color, glyphStroke)
         MetroSystemIconType.Microphone -> drawMicrophoneGlyph(color, glyphStroke)
         MetroSystemIconType.Filter,
@@ -735,6 +738,28 @@ private fun DrawScope.drawSaveGlyph(color: Color) {
         translate(left = -512f, top = -512f)
     }) {
         drawPath(saveGlyphPath, color)
+    }
+}
+
+/** Filled download — 512 viewBox path (arrow into tray). */
+private const val DOWNLOAD_GLYPH_PATH =
+    "M442.2 186.2H302.5V0h-93.1v186.2H69.8L256 418.9l186.2-232.7zm23.3 186.2v93.1h-419v-93.1H0V512h512V372.4h-46.5z"
+
+private val downloadGlyphPath: Path by lazy {
+    PathParser().parsePathString(DOWNLOAD_GLYPH_PATH).toPath()
+}
+
+/** WP download / install — filled arrow pointing into a bottom bar. */
+private fun DrawScope.drawDownloadGlyph(color: Color) {
+    val scale = size.minDimension / 512f * 0.55f
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    withTransform({
+        translate(left = cx, top = cy)
+        scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        translate(left = -256f, top = -256f)
+    }) {
+        drawPath(downloadGlyphPath, color)
     }
 }
 

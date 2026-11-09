@@ -20,8 +20,10 @@ import com.metro.hub.data.GitHubReleaseClient
 import com.metro.hub.data.HubAppCatalog
 import com.metro.hub.data.HubAppCategory
 import com.metro.hub.data.HubFirestorePaths
+import com.metro.hub.data.HubInstallPreferences
 import com.metro.hub.data.ReleaseApkAsset
 import com.metro.hub.data.toReleaseApkAsset
+import com.metro.hub.shizuku.ShizukuApkInstaller
 import com.metro.system.MetroAppRegistry
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -41,6 +43,7 @@ enum class HubRoute {
     ExtrasInfo,
     Updater,
     Device,
+    Settings,
 }
 
 /**
@@ -71,11 +74,16 @@ class HubState(
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(Dispatchers.Main.immediate)
     private val iconResolver = ApkIconResolver(appContext, client)
+    private val installPrefs = HubInstallPreferences(appContext)
     private var fetchJob: Job? = null
     private var downloadJob: Job? = null
     private var deviceScanJob: Job? = null
     private val iconJobs = ConcurrentHashMap<String, Job>()
     private var catalogSnapshot = CatalogSnapshot.None
+
+    /** Master toggle: prefer Shizuku silent installs when the host is ready. */
+    var shizukuInstallEnabled by mutableStateOf(installPrefs.shizukuInstallEnabled)
+        private set
 
     var generation by mutableIntStateOf(0)
         private set
@@ -347,6 +355,14 @@ class HubState(
     var suiteBatchUpdating by mutableStateOf(false)
         private set
 
+    /** Apps queued when the current/last update-all run started. */
+    var suiteBatchTotal by mutableIntStateOf(0)
+        private set
+
+    /** Apps finished (installed or handed to the package installer) in that run. */
+    var suiteBatchCompleted by mutableIntStateOf(0)
+        private set
+
     private val suiteInstallQueue: ArrayDeque<ReleaseApkAsset> = ArrayDeque()
 
     /** Home link: first-party suite apps only (Firestore `first-party`, GitHub fallback). */
@@ -473,6 +489,29 @@ class HubState(
         bump()
     }
 
+    fun openSettings() {
+        selectedAssetName = null
+        downloadError = null
+        route = HubRoute.Settings
+        bump()
+    }
+
+    fun closeSettings() {
+        route = HubRoute.Hub
+        bump()
+    }
+
+    fun applyShizukuInstallEnabled(enabled: Boolean) {
+        installPrefs.shizukuInstallEnabled = enabled
+        shizukuInstallEnabled = enabled
+        bump()
+    }
+
+    /** Recompose settings when Shizuku binder / permission changes. */
+    fun bumpShizukuState() {
+        bump()
+    }
+
     /**
      * Verify every first-party suite APK against the latest GitHub release, then
      * download + install all missing / outdated packages (one install prompt at a time).
@@ -487,11 +526,15 @@ class HubState(
                 if (needed.isEmpty()) {
                     suiteBatchUpdating = false
                     suiteInstallQueue.clear()
+                    suiteBatchTotal = 0
+                    suiteBatchCompleted = 0
                     bump()
                     return@refreshDeviceApps
                 }
                 suiteInstallQueue.clear()
                 suiteInstallQueue.addAll(needed)
+                suiteBatchTotal = needed.size
+                suiteBatchCompleted = 0
                 suiteBatchUpdating = true
                 bump()
                 startNextSuiteInstall()
@@ -510,6 +553,13 @@ class HubState(
     private fun cancelSuiteBatch() {
         suiteInstallQueue.clear()
         suiteBatchUpdating = false
+        suiteBatchTotal = 0
+        suiteBatchCompleted = 0
+    }
+
+    private fun markSuiteBatchItemFinished() {
+        if (suiteBatchTotal <= 0) return
+        suiteBatchCompleted = (suiteBatchCompleted + 1).coerceAtMost(suiteBatchTotal)
     }
 
     private fun startNextSuiteInstall() {
@@ -531,6 +581,7 @@ class HubState(
             HubRoute.ExtrasInfo -> closeExtrasInfo()
             HubRoute.Updater -> closeUpdater()
             HubRoute.Device -> closeDevice()
+            HubRoute.Settings -> closeSettings()
             HubRoute.Hub -> Unit
         }
     }
@@ -656,6 +707,7 @@ class HubState(
             downloadError = "No download URL for ${asset.displayName}."
             if (fromBatch) {
                 suiteInstallQueue.removeFirstOrNull()
+                markSuiteBatchItemFinished()
                 startNextSuiteInstall()
             }
             bump()
@@ -666,6 +718,7 @@ class HubState(
             openExternalUrl(asset.downloadUrl)
             if (fromBatch) {
                 suiteInstallQueue.removeAll { it.name == asset.name }
+                markSuiteBatchItemFinished()
                 startNextSuiteInstall()
             }
             return
@@ -687,29 +740,53 @@ class HubState(
                 }
             }
             result.onSuccess { file ->
-                pendingInstallFile = file
                 downloadError = null
                 ensureIcon(asset)
                 if (fromBatch) {
-                    // Drop this APK from the queue; next starts after the install intent fires.
+                    // Drop this APK from the queue; next starts after install begins / finishes.
                     if (suiteInstallQueue.firstOrNull()?.name == asset.name) {
                         suiteInstallQueue.removeFirst()
                     } else {
                         suiteInstallQueue.removeAll { it.name == asset.name }
                     }
                 }
+                val useShizuku = ShizukuApkInstaller.shouldUseShizuku(
+                    appContext,
+                    installPrefs.shizukuInstallEnabled,
+                )
+                if (useShizuku) {
+                    // Keep the busy indicator through the silent install.
+                    bump()
+                    val installResult = ShizukuApkInstaller.install(appContext, file)
+                    if (installResult.isSuccess) {
+                        downloadingAssetName = null
+                        if (fromBatch) {
+                            markSuiteBatchItemFinished()
+                            bump()
+                            startNextSuiteInstall()
+                            return@launch
+                        }
+                    } else {
+                        // Fall back to the stock package installer so the APK is not stranded.
+                        pendingInstallFile = file
+                        downloadingAssetName = null
+                    }
+                } else {
+                    pendingInstallFile = file
+                    downloadingAssetName = null
+                }
             }.onFailure {
                 pendingInstallFile = null
                 downloadError = it.message ?: "Download failed."
+                downloadingAssetName = null
                 if (fromBatch) {
                     suiteInstallQueue.removeAll { it.name == asset.name }
-                    downloadingAssetName = null
+                    markSuiteBatchItemFinished()
                     bump()
                     startNextSuiteInstall()
                     return@launch
                 }
             }
-            downloadingAssetName = null
             bump()
         }
     }
@@ -717,10 +794,13 @@ class HubState(
     fun consumePendingInstall(): File? {
         val file = pendingInstallFile
         pendingInstallFile = null
-        bump()
         if (file != null && suiteBatchUpdating) {
+            markSuiteBatchItemFinished()
+            bump()
             // Next download after the package installer is launched.
             scope.launch { startNextSuiteInstall() }
+        } else {
+            bump()
         }
         return file
     }

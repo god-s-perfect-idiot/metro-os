@@ -26,6 +26,7 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 | extras+info | Full page (Lumia extras+info language) | Blueprint § Page 6 / `extras_info_dark_cyan.png` |
 | Updater | Full page (WP8.1 phone update) | Blueprint § Page 9 / `phone_update_dark_red.png` |
 | Device | Full page installed-apps list + update | Blueprint § Page 10 |
+| Settings | Full page Shizuku install grant + master toggle | Blueprint § Page 11 |
 
 ## WP8.1 rules
 
@@ -45,7 +46,8 @@ Read [`scope.md`](../../scope.md) and root [`AGENTS.md`](../../AGENTS.md) first.
 6. Swipe to featured → 4 random apps from combined catalogs → tap opens detail
 7. App-bar search → filter suite catalog → open app detail
 8. Tap `extras+info` → Metro Ruby about page (latest release + support tiles)
-9. Swipe to local → `updater` / `device` icon tiles → OS update status or installed-apps list with update buttons
+9. Swipe to local → `updater` / `device` / `settings` icon tiles → OS update status, installed-apps list, or Hub settings (Shizuku install)
+10. Quick links `settings` (5th tile) or local `settings` → grant Shizuku + master **Install with Shizuku** toggle; when on + ready, download/update uses silent Shizuku install
 
 ## Golden screenshots
 
@@ -70,4 +72,4 @@ New suite apps must register `metro_app_<name>.xml` in `MetroAppGlyphs` and
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | No WP8.1 Hub inbox equivalent | N/A | Music panorama + metro-os catalog |
-| Silent APK install | User must confirm package installer | `REQUEST_INSTALL_PACKAGES` + install intent |
+| Silent APK install | User must confirm package installer | Default: `REQUEST_INSTALL_PACKAGES` + install intent. Optional: Shizuku UserService `PackageInstaller` when Settings master toggle is on and Shizuku is granted |

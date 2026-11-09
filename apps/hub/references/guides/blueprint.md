@@ -26,13 +26,12 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 - **Pane title:** lowercase HubTitle `apps` (peeks from page 1).
 - **In-pane header:** Small section title `quick links` (`MetroTextStyle.SectionHeader`).
-- **Content:** Accent square tiles (Music get-music tile language: 0dp corners, accent fill, label bottom-start), two-up row:
-  - `core apps`
-  - `shell apps`
-  - `utility apps`
-  - `productivity apps`
-  - `3rd party apps`
-  - `second party apps`
+- **Content:** Accent square tiles (Music get-music tile language: 0dp corners, accent fill, label top-start), two-up rows:
+  1. `core`
+  2. `shell`
+  3. `second party`
+  4. `third party`
+  5. `settings` → **Page 11 — Settings** (not a catalog filter)
 - Tapping a category opens a filtered APK list from the same latest-release catalog (empty categories show an empty state).
 - **App bar:** Minimized.
 
@@ -99,9 +98,10 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 
 - **Pane:** Fourth panorama page after featured.
 - **In-pane header:** Small section title `local` (`MetroTextStyle.SectionHeader`).
-- **Tiles:** Music get-music–style accent tiles (0dp corners, accent fill, **centered icon**, label bottom-start), two-up row:
+- **Tiles:** Music get-music–style accent tiles (0dp corners, accent fill, **centered icon**, label bottom-start), two-up rows:
   1. `updater` → **Page 9 — Updater**
   2. `device` → **Page 10 — Device**
+  3. `settings` → **Page 11 — Settings**
 - **Suite list:** Below the tiles, section header `metro os apps` + installed **first-party** suite packages (Core/Shell catalog / `com.metro.*`). Same row language as Device (square icon, name, version/update description, circular download when an update is available).
 - **App bar:** Minimized.
 
@@ -110,7 +110,8 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Pattern:** Full page mirroring WP8.1 **Settings → phone update** (`references/images/phone_update_dark_red.png`): `MetroAppTitle` overline `SETTINGS` + large page title `updater`.
 - **Section:** `Update status` (`SectionHeader`) + body copy naming the latest metro-os release tag and whether every first-party suite APK is installed at that release’s versions (missing or older count).
 - **Link:** Underlined `Learn more.` → GitHub release page for that tag (or `/releases/latest` if unknown).
-- **Action:** Bordered `update all` (`MetroBorderButton`) — enabled when any suite app is missing or outdated; **greyed** when all are installed and current. Downloads and installs every missing/outdated APK (one package-installer confirmation at a time).
+- **Action:** Bordered `update all` (`MetroBorderButton`) — enabled when any suite app is missing or outdated; **greyed** when all are installed and current. Downloads and installs every missing/outdated APK (one package-installer confirmation at a time; silent when Shizuku install is on).
+- **Progress:** During / after an update-all run, a determinate rectangular accent progress bar + `N of M apps updated` sit below the button (and above the per-app downloading line).
 - **Omit:** Notification checkboxes and preferred install time (out of scope).
 - **App bar:** None.
 - **Back:** Returns to panorama hub.
@@ -121,6 +122,16 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Content:** Only **installed** packages that appear in Hub first-party / second-party / third-party catalogs **and** have a catalog `versionName` or `versionCode`. Store-style square icon, name + version/update description, circular download when a catalog APK URL exists.
 - **Tap update:** Downloads and installs that APK (same install pipeline as app detail).
 - **App bar:** Refresh (re-scan installed packages against the catalog).
+- **Back:** Returns to panorama hub.
+
+### Page 11 — Settings (drill-in)
+
+- **Pattern:** Full page with `MetroAppTitle` overline `HUB` + page title `settings`.
+- **Entry:** Local `settings` tile, or quick-links `settings` tile (5th quick link).
+- **Section:** `installation` (`SectionHeader` + accent) + body copy explaining optional Shizuku silent installs.
+- **Shizuku setup:** Nudge install / start / allow (bordered buttons) until Shizuku is ready; ready state shows a short hint.
+- **Master toggle:** `Install with Shizuku` (`MetroToggleSwitch`). When **off**, Hub always uses the stock package-installer confirm UI even if Shizuku permission is already granted. When **on** and Shizuku is ready, download / update / update-all route through Shizuku `PackageInstaller` (silent). When **on** but Shizuku is not ready, Hub falls back to the stock installer.
+- **App bar:** None.
 - **Back:** Returns to panorama hub.
 
 ## Images
@@ -136,4 +147,4 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - Empty 3rd-party catalog until curated docs exist
 - In-app update of Hub itself mid-session UX polish beyond install intent
 - Curated Firestore `explore` docs driving featured (v1 uses random picks from combined catalogs)
-- Batch silent install of every outdated APK in one tap (platform requires per-APK confirmation)
+- Stock (non-Shizuku) batch silent install of every outdated APK in one tap (platform requires per-APK confirmation; Shizuku path installs silently per APK in the update-all queue)

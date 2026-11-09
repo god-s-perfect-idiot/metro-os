@@ -1,5 +1,6 @@
 package com.metro.hub.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +13,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -140,8 +143,31 @@ fun UpdaterScreen(
                 onClick = state::updateAll,
             )
 
-            if (busy) {
+            val batchTotal = state.suiteBatchTotal
+            val batchCompleted = state.suiteBatchCompleted
+            val showBatchProgress = batchTotal > 0 && (busy || batchCompleted > 0)
+            if (showBatchProgress) {
                 Spacer(modifier = Modifier.height(16.dp))
+                UpdaterBatchProgressBar(
+                    fraction = batchCompleted.toFloat() / batchTotal.toFloat(),
+                    accent = MetroTheme.colors.accent,
+                    track = secondary.copy(alpha = 0.28f),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                MetroText(
+                    text = stringResource(
+                        R.string.updater_batch_progress,
+                        batchCompleted,
+                        batchTotal,
+                    ),
+                    style = MetroTextStyle.Body,
+                    color = secondary,
+                )
+            }
+
+            if (busy) {
+                Spacer(modifier = Modifier.height(12.dp))
                 MetroLoadingDots()
                 Spacer(modifier = Modifier.height(8.dp))
                 MetroText(
@@ -159,6 +185,29 @@ fun UpdaterScreen(
                     color = secondary,
                 )
             }
+        }
+    }
+}
+
+/** Rectangular determinate WP progress bar (toolkit MetroProgressBar still planned). */
+@Composable
+private fun UpdaterBatchProgressBar(
+    fraction: Float,
+    accent: Color,
+    track: Color,
+    modifier: Modifier = Modifier,
+) {
+    val clamped = fraction.coerceIn(0f, 1f)
+    Canvas(
+        modifier = modifier.height(4.dp),
+    ) {
+        drawRect(track)
+        val width = size.width * clamped
+        if (width > 0f) {
+            drawRect(
+                color = accent,
+                size = Size(width, size.height),
+            )
         }
     }
 }

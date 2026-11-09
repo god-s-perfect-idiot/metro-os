@@ -48,6 +48,8 @@ import com.metro.ui.MetroPanoramaBodyEnter
 import com.metro.ui.MetroPanoramaBrandEnter
 import com.metro.ui.MetroPanoramaBrandGradients
 import com.metro.ui.MetroPanoramaBrandTitle
+import com.metro.ui.MetroSystemIcon
+import com.metro.ui.MetroSystemIconType
 import com.metro.ui.MetroText
 import com.metro.ui.MetroTextStyle
 import com.metro.ui.MetroTheme
@@ -189,13 +191,19 @@ private fun HubLinkRow(
     }
 }
 
+private sealed class QuickLinkEntry {
+    data class Category(val category: HubAppCategory) : QuickLinkEntry()
+    data object Settings : QuickLinkEntry()
+}
+
 @Composable
 private fun QuickLinksPane(state: HubState) {
     val tiles = listOf(
-        HubAppCategory.Core,
-        HubAppCategory.Shell,
-        HubAppCategory.SecondParty,
-        HubAppCategory.ThirdParty,
+        QuickLinkEntry.Category(HubAppCategory.Core),
+        QuickLinkEntry.Category(HubAppCategory.Shell),
+        QuickLinkEntry.Category(HubAppCategory.SecondParty),
+        QuickLinkEntry.Category(HubAppCategory.ThirdParty),
+        QuickLinkEntry.Settings,
     )
 
     Column(
@@ -215,12 +223,19 @@ private fun QuickLinksPane(state: HubState) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 tiles.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { category ->
-                            QuickLinkTile(
-                                title = category.label,
-                                onClick = { state.openCategory(category) },
-                                modifier = Modifier.size(tileSize),
-                            )
+                        row.forEach { entry ->
+                            when (entry) {
+                                is QuickLinkEntry.Category -> QuickLinkTile(
+                                    title = entry.category.label,
+                                    onClick = { state.openCategory(entry.category) },
+                                    modifier = Modifier.size(tileSize),
+                                )
+                                QuickLinkEntry.Settings -> QuickLinkTile(
+                                    title = stringResource(R.string.tile_settings),
+                                    onClick = state::openSettings,
+                                    modifier = Modifier.size(tileSize),
+                                )
+                            }
                         }
                         if (row.size == 1) {
                             Spacer(modifier = Modifier.size(tileSize))
@@ -347,19 +362,39 @@ private fun LocalPane(state: HubState) {
         )
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val tileSize = ((maxWidth - 8.dp) / 2) * QuickLinkTileWidthScale
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LocalHubTile(
-                    title = stringResource(R.string.local_updater),
-                    glyph = LocalTileGlyph.Updater,
-                    onClick = state::openUpdater,
-                    modifier = Modifier.size(tileSize),
-                )
-                LocalHubTile(
-                    title = stringResource(R.string.local_device),
-                    glyph = LocalTileGlyph.Device,
-                    onClick = state::openDevice,
-                    modifier = Modifier.size(tileSize),
-                )
+            val localTiles = listOf(
+                Triple(
+                    stringResource(R.string.local_updater),
+                    LocalTileGlyph.Updater,
+                    state::openUpdater,
+                ),
+                Triple(
+                    stringResource(R.string.local_device),
+                    LocalTileGlyph.Device,
+                    state::openDevice,
+                ),
+                Triple(
+                    stringResource(R.string.local_settings),
+                    LocalTileGlyph.Settings,
+                    state::openSettings,
+                ),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                localTiles.chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { (title, glyph, onClick) ->
+                            LocalHubTile(
+                                title = title,
+                                glyph = glyph,
+                                onClick = onClick,
+                                modifier = Modifier.size(tileSize),
+                            )
+                        }
+                        if (row.size == 1) {
+                            Spacer(modifier = Modifier.size(tileSize))
+                        }
+                    }
+                }
             }
         }
 
@@ -413,6 +448,7 @@ private fun LocalPane(state: HubState) {
 private enum class LocalTileGlyph {
     Updater,
     Device,
+    Settings,
 }
 
 @Composable
@@ -424,10 +460,6 @@ private fun LocalHubTile(
 ) {
     val background = MetroTheme.colors.accent
     val content = MetroColors.tileContentColor(background)
-    val glyphRes = when (glyph) {
-        LocalTileGlyph.Updater -> R.drawable.hub_local_updater
-        LocalTileGlyph.Device -> R.drawable.hub_local_device
-    }
     BoxWithConstraints(
         modifier = modifier
             .background(background)
@@ -439,15 +471,37 @@ private fun LocalHubTile(
             .semantics { contentDescription = title }
             .padding(QuickLinkTileInset),
     ) {
-        val iconSize = minOf(maxWidth, maxHeight) * 0.54f
-        Image(
-            painter = painterResource(id = glyphRes),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(content),
+        // Settings gear draws at ~0.42 of its canvas — size the box up so it matches
+        // the updater/device drawables visually.
+        val iconSize = minOf(maxWidth, maxHeight) *
+            if (glyph == LocalTileGlyph.Settings) 0.82f else 0.54f
+        Box(
             modifier = Modifier
                 .size(iconSize)
                 .align(Alignment.Center),
-        )
+            contentAlignment = Alignment.Center,
+        ) {
+            when (glyph) {
+                LocalTileGlyph.Updater -> Image(
+                    painter = painterResource(id = R.drawable.hub_local_updater),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(content),
+                    modifier = Modifier.fillMaxSize(),
+                )
+                LocalTileGlyph.Device -> Image(
+                    painter = painterResource(id = R.drawable.hub_local_device),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(content),
+                    modifier = Modifier.fillMaxSize(),
+                )
+                LocalTileGlyph.Settings -> MetroSystemIcon(
+                    type = MetroSystemIconType.Settings,
+                    iconSize = iconSize,
+                    color = content,
+                    showCircle = false,
+                )
+            }
+        }
         MetroText(
             text = title,
             style = MetroTextStyle.ListItemTitle,

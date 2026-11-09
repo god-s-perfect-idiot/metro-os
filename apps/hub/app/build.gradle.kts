@@ -30,6 +30,7 @@ android {
 
     buildFeatures {
         compose = true
+        aidl = true
     }
 
     compileOptions {
@@ -60,6 +61,11 @@ dependencies {
 
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-firestore")
+
+    // Optional silent APK install / update (nudged from Hub settings).
+    val shizuku = "13.1.5"
+    implementation("dev.rikka.shizuku:api:$shizuku")
+    implementation("dev.rikka.shizuku:provider:$shizuku")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

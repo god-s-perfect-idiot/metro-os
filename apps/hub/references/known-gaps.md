@@ -3,7 +3,8 @@
 | Missing / low-fidelity | Should show | Workaround |
 |------------------------|-------------|------------|
 | Dedicated Hub panorama capture (dark + accent) | Brand `hub`, panes home / apps / featured / local, HubLinks + quick-link tiles + featured list + local icon tiles | Use `images/panorama_dark_teal.png` (Music hub layout stand-in) + [`guides/blueprint.md`](guides/blueprint.md) |
-| Local pane capture | Section header `local` + updater/device icon tiles | Music get-music tile language + blueprint § Page 8 |
+| Local pane capture | Section header `local` + updater/device/settings icon tiles | Music get-music tile language + blueprint § Page 8 |
+| Hub settings capture | HUB overline + settings title + Shizuku install section | Blueprint § Page 11 + Status Bar Shizuku nudge language |
 | Device apps list capture | Installed app rows with optional bordered update | Blueprint § Page 10 |
 | Suite apps list capture | Dense `MetroListItem` rows of release APKs with install affordance | Blueprint § Page 4 + live GitHub latest release |
 | Search page capture | Music-style TextBox + filtered catalog rows | Blueprint § Page 7 + Music explore reference |

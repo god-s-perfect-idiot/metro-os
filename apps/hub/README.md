@@ -13,13 +13,14 @@ About / suite catalog for metro-os: panoramic overview, category quick links, an
 
 ## Screen inventory
 
-1. **Hub panorama** — brand `hub`; panes `home` (HubLinks), `apps` (quick-link tiles), `featured` (4 random Store rows), and `local` (icon tiles for updater / device); app-bar search opens catalog search
+1. **Hub panorama** — brand `hub`; panes `home` (HubLinks), `apps` (quick-link tiles incl. settings), `featured` (4 random Store rows), and `local` (icon tiles for updater / device / settings); app-bar search opens catalog search
 2. **Suite apps list** — Firestore / release assets as Store-style rows (title, description, By); tap opens detail
 3. **App detail** — version (plus installed version for first-party when on device), size, category, full description; bottom app bar primary action is `download` / `update` / `get app`
 4. **extras+info** — project about page (Metro Ruby alphas, latest release, support tiles)
 5. **Search** — Music explore–style `MetroTextBox` filtering the suite catalog; tap opens detail
 6. **Updater** — WP8.1 phone-update language: latest metro-os release, Learn more → GitHub release, update now
 7. **Device** — installed apps list with per-row update when Hub catalog has a newer build
+8. **Settings** — Shizuku grant / start / allow + master **Install with Shizuku** toggle (silent installs when on + ready)
 
 See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
@@ -27,8 +28,9 @@ See [`references/guides/blueprint.md`](references/guides/blueprint.md).
 
 - Firestore: `first-party`, `second-party`, `third-party`, `explore`
 - Network: GitHub Releases API (`releases/latest`) for APK bytes / fallback catalog
-- Install: `REQUEST_INSTALL_PACKAGES` + `FileProvider` + `ACTION_VIEW` package archive
+- Install: `REQUEST_INSTALL_PACKAGES` + `FileProvider` + `ACTION_VIEW` package archive; optional Shizuku UserService silent install when Settings toggle is on and Shizuku is ready
 - Theme via `MetroSystemTheme` / `MetroPreferences`
+- Hub-local prefs: `HubInstallPreferences` (`shizuku_install_enabled` master toggle)
 - Secrets (gitignored): `app/google-services.json`, `../../firebase/service-account.json`
 
 ## UI guardrails
@@ -74,7 +76,7 @@ cd apps/hub
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
 | No WP8.1 Hub inbox app | N/A | Music-style panorama for metro-os catalog |
-| Silent sideload | Package installer confirmation required | Request unknown-sources install permission + user prompt |
+| Silent sideload | Package installer confirmation required | Default: unknown-sources permission + stock confirm. Optional Shizuku path (Settings) skips confirm when master toggle is on and Shizuku is granted |
 | Store CDN icons | Logos as vector XML, base64 PNG, or https PNG URL (`iconUrl` / `logoXml`); modern Android rejects string-backed `Drawable.createFromXml` | Rasterize `<vector>`/`<group>`/`<path>` (incl. evenOdd + fillAlpha) via `HubLogoDecoder` + Coil for remote PNGs |
 
 ## Agent postmortem

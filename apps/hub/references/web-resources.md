@@ -25,6 +25,14 @@ Hub is a **metro-os original** about / suite-catalog app. There is no 1:1 WP8.1 
 | Lumia extras+info capture | `images/extras_info_dark_cyan.png` | Page title, Software release accent name + circular `i`, underlined policies link, component list, more info border button |
 | Settings extras+info | [`apps/settings`](../../settings/README.md) | Suite already uses the `extras+info` title string for device about |
 
+## Settings (Hub install / Shizuku)
+
+| Source | URL / path | Notes |
+|--------|------------|-------|
+| Shizuku download | https://shizuku.rikka.app/download/ | Install + wireless debugging / root host |
+| Status Bar Shizuku nudge | [`apps/statusbar`](../../statusbar/README.md) | Same grant / start / allow language reused for Hub Settings |
+| Shizuku PackageInstaller demo | https://github.com/RikkaApps/Shizuku-API | Privileged session install pattern |
+
 ## Updater (phone update)
 
 | Source | URL | What it informs |

@@ -14,6 +14,8 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- Shizuku host for optional silent APK installs. -->
+        <package android:name="moe.shizuku.privileged.api" />
         <package android:name="com.metro.launcher" />
         <package android:name="com.metro.keyboard" />
         <package android:name="com.metro.navbar" />
@@ -66,5 +68,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Shizuku binder provider (optional silent installs from Hub settings). -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 </manifest>

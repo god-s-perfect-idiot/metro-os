@@ -195,6 +195,12 @@ private fun HubSubpageContent(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
+            HubRoute.Settings -> {
+                SettingsScreen(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             HubRoute.Search -> {
                 SearchScreen(
                     state = state,
@@ -213,6 +219,7 @@ private fun HubRoute.parentRoute(state: HubState): HubRoute = when (this) {
     HubRoute.ExtrasInfo -> HubRoute.Hub
     HubRoute.Updater -> HubRoute.Hub
     HubRoute.Device -> HubRoute.Hub
+    HubRoute.Settings -> HubRoute.Hub
     HubRoute.Hub -> HubRoute.Hub
 }
 
@@ -223,5 +230,6 @@ private fun subpageLoadKey(route: HubRoute, state: HubState): Any = when (route)
     HubRoute.ExtrasInfo -> "ExtrasInfo"
     HubRoute.Updater -> "Updater"
     HubRoute.Device -> "Device"
+    HubRoute.Settings -> "Settings"
     HubRoute.Hub -> "Hub"
 }

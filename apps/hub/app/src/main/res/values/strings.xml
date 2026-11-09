@@ -32,6 +32,7 @@
     <string name="tile_shell">shell</string>
     <string name="tile_second_party">second party</string>
     <string name="tile_third_party">third party</string>
+    <string name="tile_settings">settings</string>
     <string name="apps_empty">No apps in this category yet.</string>
     <string name="apps_loading">Loading…</string>
     <string name="apps_error">Could not load the latest release.</string>
@@ -54,6 +55,7 @@
     <string name="local_section">local</string>
     <string name="local_updater">updater</string>
     <string name="local_device">device</string>
+    <string name="local_settings">settings</string>
     <string name="local_suite_apps">metro os apps</string>
     <string name="local_suite_empty">No metro-os apps are installed yet.</string>
     <string name="updater_overline">SETTINGS</string>
@@ -68,6 +70,7 @@
     <string name="updater_update_now">update now</string>
     <string name="updater_update_all">update all</string>
     <string name="updater_downloading_app">Downloading %1$s…</string>
+    <string name="updater_batch_progress">%1$d of %2$d apps updated</string>
     <string name="device_title">device</string>
     <string name="device_empty">No catalog apps with a version are installed.</string>
     <string name="device_version_line">Version %1$s</string>
@@ -76,5 +79,20 @@
     <string name="device_version_unknown">—</string>
     <string name="device_update">update</string>
     <string name="device_updating">updating…</string>
+    <string name="settings_overline">HUB</string>
+    <string name="settings_title">settings</string>
+    <string name="settings_install_section">installation</string>
+    <string name="settings_install_body">Hub can install and update suite apps silently through Shizuku when it is running and allowed. Turn the toggle off anytime to use the stock package installer instead.</string>
+    <string name="settings_shizuku_nudge_not_installed">Install Shizuku, start it with wireless debugging, then return here to allow Hub.</string>
+    <string name="settings_shizuku_nudge_not_running">Shizuku is installed but not running. Open Shizuku and start it, then return here.</string>
+    <string name="settings_shizuku_nudge_need_permission">Allow Hub to use Shizuku so downloads can install without the stock confirm step.</string>
+    <string name="settings_shizuku_ready_hint">Shizuku is ready. Use the toggle below to install and update through Shizuku.</string>
+    <string name="settings_shizuku_get">Get Shizuku</string>
+    <string name="settings_shizuku_open">Open Shizuku</string>
+    <string name="settings_shizuku_allow">Allow Shizuku</string>
+    <string name="settings_shizuku_install_toggle">Install with Shizuku</string>
+    <string name="settings_shizuku_install_on_ready">Downloads and updates install silently through Shizuku.</string>
+    <string name="settings_shizuku_install_on_waiting">Install with Shizuku is on. Finish the Shizuku setup above, or Hub will keep using the stock installer until Shizuku is ready.</string>
+    <string name="settings_shizuku_install_off">Install with Shizuku is off. Hub uses the stock package installer even if Shizuku is already allowed.</string>
     <string name="stub_coming_soon">Coming soon</string>
 </resources>

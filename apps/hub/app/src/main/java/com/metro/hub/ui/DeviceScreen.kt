@@ -226,7 +226,7 @@ internal fun DeviceAppRowItem(
                         )
                     }
                     MetroSystemIcon(
-                        type = MetroSystemIconType.Save,
+                        type = MetroSystemIconType.Download,
                         iconSize = DeviceUpdateIconSize,
                         color = primary,
                         showCircle = false,
