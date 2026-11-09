@@ -23,12 +23,14 @@ It should prioritize clarity, thread continuity, and Metro styling. Avoid chat-a
 
 ### 1. Thread list
 
-- Primary list of conversations
+- Pivot: **threads** (all conversations) | **chats** (saved contacts only)
+- Remembers last open conversation and pivot page across launches
 - Reference: `references/images/threads_dark_yellow.jpg` (official WP8 capture)
 
 ### 2. Conversation page
 
 - Individual thread view with sent/received message styling
+- Downloaded MMS images inline in bubbles; tap opens fullscreen viewer
 - Reference: `references/images/conversation_schematic.png` (official layout schematic)
 
 ## System functions and contracts

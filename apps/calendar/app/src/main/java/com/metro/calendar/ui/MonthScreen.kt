@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.metro.calendar.data.CalendarEvent
@@ -40,8 +41,11 @@ fun MonthScreen(
     epochDay: Long,
     grid: List<MonthGridCell>,
     selectedDayEvents: List<CalendarEvent>,
+    contextMenuEvent: CalendarEvent?,
+    contextMenuFocusFraction: Float,
     onSelectDay: (Long) -> Unit,
     onEventClick: (CalendarEvent) -> Unit,
+    onEventLongPress: (CalendarEvent, Rect) -> Unit,
     zoneId: ZoneId = ZoneId.systemDefault(),
     modifier: Modifier = Modifier,
 ) {
@@ -108,10 +112,17 @@ fun MonthScreen(
                 )
             }
             items(selectedDayEvents, key = { "sel-${it.id}-${it.startMillis}" }) { event ->
+                val boundsRef = remember(event.id, event.startMillis) { EventBoundsRef() }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(onClick = { onEventClick(event) })
+                        .calendarEventInteraction(
+                            isContextTarget = event.matchesContextTarget(contextMenuEvent),
+                            contextMenuFocusFraction = contextMenuFocusFraction,
+                            boundsRef = boundsRef,
+                            onClick = { onEventClick(event) },
+                            onLongPress = { bounds -> onEventLongPress(event, bounds) },
+                        )
                         .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

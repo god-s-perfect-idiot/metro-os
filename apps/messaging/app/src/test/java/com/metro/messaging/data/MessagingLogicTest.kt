@@ -76,6 +76,53 @@ class MessagingLogicTest {
     }
 
     @Test
+    fun mmsMessageId_staysOutOfSmsIdSpace() {
+        assertEquals(-2L, MmsMessagingDataSource.mmsMessageId(1L))
+        assertTrue(MmsMessagingDataSource.mmsMessageId(42L) < 0L)
+    }
+
+    @Test
+    fun mergeMessages_keepsMmsImages() {
+        val mms = MessageItem(
+            id = MmsMessagingDataSource.mmsMessageId(9L),
+            threadId = 1L,
+            body = "photo",
+            timestamp = 50L,
+            direction = MessageDirection.Incoming,
+            imageUris = listOf("content://mms/part/3"),
+            isMms = true,
+        )
+        val merged = MessagingLogic.mergeMessages(listOf(mms))
+        assertEquals(listOf("content://mms/part/3"), merged.single().imageUris)
+    }
+
+    @Test
+    fun applyLocalReads_clearsUntilNewerMessage() {
+        val threads = listOf(
+            ConversationThread(1L, "+1", "A", "old", 100L, 2),
+            ConversationThread(2L, "+2", "B", "new", 300L, 1),
+        )
+        val applied = MessagingLogic.applyLocalReads(
+            threads,
+            localReadAtByThread = mapOf(1L to 100L, 2L to 200L),
+        )
+        assertEquals(0, applied[0].unreadCount)
+        assertEquals(1, applied[1].unreadCount)
+    }
+
+    @Test
+    fun chatThreads_keepsOnlySavedContacts() {
+        val threads = listOf(
+            ConversationThread(1L, "+15551111111", "Alice", "hi", 300L, 0),
+            ConversationThread(2L, "+15552222222", null, "code", 200L, 0),
+            ConversationThread(3L, "+15553333333", "  ", "blank name", 100L, 0),
+            ConversationThread(4L, "+15554444444", "Bob", "yo", 50L, 1),
+        )
+        val chats = MessagingLogic.chatThreads(threads)
+        assertEquals(listOf(1L, 4L), chats.map { it.id })
+    }
+
+    @Test
     fun threadsFromSmsRows_groupsByThreadNewestFirst() {
         val rows = sequenceOf(
             MessagingLogic.SmsRow(10L, "+15551111111", "latest A", 300L, read = true),

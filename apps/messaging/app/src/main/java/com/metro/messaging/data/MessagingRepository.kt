@@ -14,6 +14,7 @@ class MessagingRepository(
     private val draftStore = DraftStore(appContext)
     private val localStore = LocalMessageStore(appContext)
     private val smsSource = SmsMessagingDataSource(appContext)
+    private val mmsSource = MmsMessagingDataSource(appContext)
 
     var hasReadSmsPermission: Boolean = false
         private set
@@ -50,9 +51,36 @@ class MessagingRepository(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun loadThreads(): List<ConversationThread> {
+    fun seedContactNames(names: Map<String, String>) {
+        smsSource.seedContactNames(names)
+    }
+
+    fun knownContactNames(): Map<String, String> = smsSource.knownContactNames()
+
+    /**
+     * Fast first paint: Telephony threads + cached/seeded contact names only.
+     * Skips PhoneLookup and the unread-SMS scan; call [enrichThreads] after publishing.
+     */
+    fun loadThreadsFast(): List<ConversationThread> = loadThreads(
+        SmsMessagingDataSource.LoadOptions(
+            resolveContacts = false,
+            accurateUnread = false,
+            resolveMissingAddresses = true,
+        ),
+    )
+
+    fun enrichThreads(threads: List<ConversationThread>): List<ConversationThread> {
+        if (!canAccessSystemSms || threads.isEmpty()) return threads
+        val enrichedSms = runCatching { smsSource.enrichThreads(threads) }.getOrElse { threads }
+        val localThreads = localStore.localThreads()
+        return MessagingLogic.mergeThreads(enrichedSms, localThreads)
+    }
+
+    fun loadThreads(
+        options: SmsMessagingDataSource.LoadOptions = SmsMessagingDataSource.LoadOptions(),
+    ): List<ConversationThread> {
         val smsThreads = if (canAccessSystemSms) {
-            runCatching { smsSource.loadThreads() }.getOrElse { emptyList() }
+            runCatching { smsSource.loadThreads(options) }.getOrElse { emptyList() }
         } else {
             emptyList()
         }
@@ -62,13 +90,23 @@ class MessagingRepository(
     }
 
     fun loadMessages(threadId: Long): List<MessageItem> {
-        val smsMessages = if (canAccessSystemSms) {
-            runCatching { smsSource.loadMessages(threadId) }.getOrElse { emptyList() }
-        } else {
-            StubMessagingDataSource.demoMessages(threadId)
+        if (!canAccessSystemSms) {
+            val demo = StubMessagingDataSource.demoMessages(threadId)
+            val localMessages = localStore.messagesForThread(threadId)
+            return MessagingLogic.mergeMessages(demo, localMessages)
         }
+        val smsMessages = runCatching { smsSource.loadMessages(threadId) }.getOrElse { emptyList() }
+        val mmsMessages = runCatching { mmsSource.loadMessages(threadId) }.getOrElse { emptyList() }
         val localMessages = localStore.messagesForThread(threadId)
-        return MessagingLogic.mergeMessages(smsMessages, localMessages)
+        return MessagingLogic.mergeMessages(smsMessages, mmsMessages, localMessages)
+    }
+
+    /** Persists read state to the SMS/MMS providers when possible. */
+    fun markThreadRead(threadId: Long): Boolean {
+        if (!canAccessSystemSms) return true
+        val sms = runCatching { smsSource.markThreadRead(threadId) }.getOrDefault(false)
+        val mms = runCatching { mmsSource.markThreadRead(threadId) }.getOrDefault(false)
+        return sms || mms
     }
 
     fun threadForAddress(address: String): ConversationThread {

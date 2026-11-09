@@ -5,7 +5,7 @@
 
 ## Status
 
-Implemented — agenda / day / month pivot views with local calendar provider data, demo fallback, and live tile provider.
+Implemented — day / week / month / year views with local calendar provider data (past + future navigation), new-event create via CalendarContract (Google sync through the device provider), demo fallback, and live tile provider.
 
 ## App role
 
@@ -38,9 +38,11 @@ The emphasis is information clarity, fast pivot switching, and Metro layout disc
 
 ## System functions and contracts
 
-- Use local calendar provider data in v1
+- Use local calendar provider data in v1 (`READ_CALENDAR` / `WRITE_CALENDAR`)
 - Provide a Today action in the app bar
-- Normalize event models so agenda/day/month render from the same source of truth
+- Allow swiping into past day/week/month/year periods (pivot windows centered on today; re-anchor when drilling in)
+- New event form writes through CalendarContract so Google/Exchange calendars sync via the system account
+- Normalize event models so day/week/month/year render from the same source of truth
 - Define recurrence and timezone handling explicitly before edge-case bug fixing begins
 
 ## UI and interaction guardrails
@@ -62,7 +64,7 @@ The emphasis is information clarity, fast pivot switching, and Metro layout disc
 3. Implement agenda view
 4. Implement day view
 5. Implement month view
-6. Add event detail/create flows if in scope
+6. Add event create flow (edit/delete later)
 
 ## Test-critical user flows
 
@@ -99,7 +101,8 @@ cd apps/calendar
 
 | WP8.1 behavior | Android limitation | Compromise |
 |----------------|-------------------|------------|
-| Exact WP calendar account integrations | Android provider/account combinations differ by device | Build the Metro surfaces over local provider data first and document unsupported account-specific quirks |
+| Exact WP calendar account integrations | Android provider/account combinations differ by device | Build the Metro surfaces over local provider data; new events sync to Google when written into a Google calendar account via CalendarContract |
+| Event edit/delete parity | Not shipped yet | Create + read only; tap existing event still shows title toast |
 
 ## Agent postmortem
 

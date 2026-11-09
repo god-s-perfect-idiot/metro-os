@@ -34,6 +34,9 @@ data class MessageItem(
     val timestamp: Long,
     val direction: MessageDirection,
     val sendState: SendState = SendState.Sent,
+    /** `content://mms/part/…` URIs for inline MMS images. */
+    val imageUris: List<String> = emptyList(),
+    val isMms: Boolean = false,
 )
 
 data class DraftState(

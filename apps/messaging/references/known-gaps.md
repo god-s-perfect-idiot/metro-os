@@ -8,6 +8,7 @@ Items the blueprint requires but we do not yet have a high-fidelity capture for 
 |------|--------------|------------|
 | `new_message_dark_yellow.jpg` | New-message / composer page — recipient field, message box, send + attach app bar | Behavior documented in `web-resources.md` (Lumia 920 "send a message"); render from blueprint Page 2 composer spec (same gray outgoing bubble). |
 | `permission_gate_dark_yellow.jpg` | Permission / demo gate (Page 3) — WP8.1 had no equivalent (Android-only screen) | No WP source exists; implement per blueprint Page 3 using standard Metro full-page text + border buttons. |
+| `chats_pivot_dark_yellow.jpg` | Pivot landing with `threads` \| `chats` — WP8.1 Messaging had no chats filter page | metro-os extension: `chats` = saved-contact threads only; layout matches threads list. |
 
 Closed: `conversation_dark_orange.png` supplies a real dark-theme conversation capture (orange accent) for bubble geometry, colors, and the gray composer prompt.
 

@@ -23,7 +23,7 @@ Standard `MetroAppBar` anchored to the bottom:
 | Icon | Label | Action |
 |------|-------|--------|
 | Today | `today` | Jump selected date to today; scroll agenda/day to current time |
-| Add | `new` | Stub in v1 — toast "Event creation not available in v1" |
+| Add | `new` | Opens new-event subpage; saves via Android Calendar provider (syncs to Google when that calendar is selected) |
 | (ellipsis) | — | Expand bar; menu items below |
 
 Max 4 icons. No FAB.
@@ -44,10 +44,10 @@ Max 4 icons. No FAB.
 
 - **Layout:** Black background. Header area shows date label (small caps), large day name (lowercase, `HubTitle` style), peek of adjacent day names in secondary text to the right.
 - **All-day / holiday row:** Below header, all-day events listed with accent-colored title.
-- **Hourly grid:** Time labels on left (8 AM – 8 PM default window, scrollable). Thin horizontal divider lines. Events shown as accent-colored blocks or inline title + time within their hour slot.
-- **Weather:** Out of scope v1 (platform stub acceptable).
+- **Hourly grid:** Time labels on left (full day scrollable). Thin horizontal divider lines. Events show title with a colored left tab (calendar/accent color). Day schedule sits inside a square 1dp frame.
+- **Weather:** Top-right above the hour blocks — temperature + condition glyph. Unit (°F/°C) and visibility live in Settings. Stubbed locally until a suite Weather app ships.
 - **Navigation:** Swipe left/right on day content changes selected date by ±1 day.
-- **Interactions:** Tap empty hour slot → stub toast. Tap event → detail stub.
+- **Interactions:** Tap event → title toast. Long-press → context menu (delete).
 
 ### Page 3 — Month pivot
 
@@ -103,11 +103,25 @@ When there are no upcoming events the tile shows just the date badge and footer.
 | `week_expanded_dark_blue.png` | (ref only) | Expanded week day — out of v1 scope |
 | `hero_dark_blue.jpg` | (ref only) | Marketing hero |
 
+## Event create
+
+- App-bar **new** opens a `MetroSubpageHost` form: subject, location, all-day toggle, start time, duration, writable calendar picker.
+- Saves with `WRITE_CALENDAR` into `CalendarContract.Events`. Choosing a Google account calendar lets the system sync adapter push the event to Google Calendar — no Google REST client in-app.
+- Edit/delete of existing events remains out of scope.
+
+## Settings
+
+App-bar overflow **settings** opens a `MetroSubpageHost` page:
+
+- Show weather on day view (toggle)
+- Temperature unit Fahrenheit / Celsius (list picker)
+- 24-hour time (toggle)
+- Default view day / week / month / year (list picker)
+
 ## Out of scope (v1)
 
-- Week view and year view
-- Weather integration in day/week headers
-- Event create/edit flows (stub only)
-- Account-specific sync (Exchange/Google quirks)
+- Live Weather app / location API (day weather is a stable local stub)
+- Event edit flows
+- Account-specific sync UI beyond the device calendar provider
 - Cortana scheduling
 - Landscape layout

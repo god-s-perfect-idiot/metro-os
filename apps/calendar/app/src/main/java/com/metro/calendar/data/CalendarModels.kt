@@ -11,6 +11,27 @@ data class CalendarEvent(
     val location: String?,
 )
 
+/** A device calendar the user can write new events into (Google/Exchange/local). */
+data class WritableCalendar(
+    val id: Long,
+    val displayName: String,
+    val accountName: String?,
+    val accountType: String?,
+    val colorHex: String,
+    val isPrimary: Boolean,
+)
+
+data class EventDraft(
+    val title: String = "",
+    val location: String = "",
+    val allDay: Boolean = false,
+    val epochDay: Long,
+    val startHour: Int = 9,
+    val startMinute: Int = 0,
+    val durationMinutes: Int = 60,
+    val calendarId: Long? = null,
+)
+
 data class DayBucket(
     val epochDay: Long,
     val headerLabel: String,

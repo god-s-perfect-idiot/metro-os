@@ -7,6 +7,7 @@
     <string name="grant_sms">allow access</string>
     <string name="continue_demo">continue with demo data</string>
     <string name="threads_empty">No conversations yet.</string>
+    <string name="chats_empty">No chats with saved contacts yet.</string>
     <string name="demo_data_banner">Showing demo conversations — grant SMS access or set as default messaging app for real messages.</string>
     <string name="composer_hint">type a text message</string>
     <string name="send">send</string>

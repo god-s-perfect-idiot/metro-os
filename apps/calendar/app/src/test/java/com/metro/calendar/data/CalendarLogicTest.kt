@@ -100,10 +100,19 @@ class CalendarLogicTest {
     }
 
     @Test
-    fun buildTabTitles_dayStartsWithToday() {
-        val titles = CalendarLogic.buildTabTitles(CalendarViewType.Day, tabCount = 3, zoneId = zoneId)
-        assertEquals("today", titles[0])
-        assertEquals("tomorrow", titles[1])
+    fun buildTabTitles_dayLabelsTodayInWindow() {
+        val today = LocalDate.now(zoneId)
+        val past = CalendarLogic.dayPastTabOffset(tabCount = 12)
+        val titles = CalendarLogic.buildTabTitles(CalendarViewType.Day, tabCount = 12, zoneId = zoneId)
+        assertEquals("today", titles[past])
+        assertEquals("tomorrow", titles[past + 1])
+        if (past > 0) {
+            assertEquals("yesterday", titles[past - 1])
+        }
+        assertEquals(
+            today.minusDays(past.toLong()).toEpochDay(),
+            CalendarLogic.epochDayForTab(CalendarViewType.Day, 0, zoneId),
+        )
     }
 
     @Test
@@ -111,6 +120,24 @@ class CalendarLogicTest {
         val day0 = CalendarLogic.epochDayForTab(CalendarViewType.Day, 0, zoneId)
         val day1 = CalendarLogic.epochDayForTab(CalendarViewType.Day, 1, zoneId)
         assertEquals(day0 + 1, day1)
+    }
+
+    @Test
+    fun epochDayForTab_monthIncludesPast() {
+        val today = LocalDate.now(zoneId)
+        val past = CalendarLogic.pastTabOffset(CalendarViewType.Month)
+        val current = CalendarLogic.epochDayForTab(CalendarViewType.Month, past, zoneId)
+        val previous = CalendarLogic.epochDayForTab(CalendarViewType.Month, past - 1, zoneId)
+        assertEquals(today.withDayOfMonth(1).toEpochDay(), current)
+        assertEquals(today.withDayOfMonth(1).minusMonths(1).toEpochDay(), previous)
+    }
+
+    @Test
+    fun tabIndexForEpochDay_pastMonth() {
+        val today = LocalDate.now(zoneId)
+        val pastMonth = today.withDayOfMonth(1).minusMonths(2).toEpochDay()
+        val index = CalendarLogic.tabIndexForEpochDay(CalendarViewType.Month, pastMonth, zoneId)
+        assertEquals(CalendarLogic.pastTabOffset(CalendarViewType.Month) - 2, index)
     }
 
     @Test
@@ -148,13 +175,18 @@ class CalendarLogicTest {
     }
 
     @Test
-    fun buildTabTitles_monthStartsWithCurrentMonth() {
+    fun buildTabTitles_monthCentersCurrentMonth() {
         val today = LocalDate.now(zoneId)
-        val titles = CalendarLogic.buildTabTitles(CalendarViewType.Month, tabCount = 2, zoneId = zoneId)
-        assertEquals(CalendarLogic.monthNameLower(today.toEpochDay(), zoneId), titles[0])
+        val past = CalendarLogic.pastTabOffset(CalendarViewType.Month)
+        val titles = CalendarLogic.buildTabTitles(CalendarViewType.Month, tabCount = 12, zoneId = zoneId)
+        assertEquals(CalendarLogic.monthNameLower(today.toEpochDay(), zoneId), titles[past])
         assertEquals(
             CalendarLogic.monthNameLower(today.plusMonths(1).toEpochDay(), zoneId),
-            titles[1],
+            titles[past + 1],
+        )
+        assertEquals(
+            CalendarLogic.monthNameLower(today.minusMonths(1).toEpochDay(), zoneId),
+            titles[past - 1],
         )
     }
 

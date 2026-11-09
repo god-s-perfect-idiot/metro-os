@@ -12,6 +12,15 @@ class SmsMessagingDataSource(
     private val contactNameCache = HashMap<String, String?>()
     private val canonicalAddressCache = HashMap<Long, String?>()
 
+    data class LoadOptions(
+        /** When false, only use already-cached / seeded contact names (no PhoneLookup). */
+        val resolveContacts: Boolean = true,
+        /** When false, rely on Threads.READ instead of scanning unread SMS. */
+        val accurateUnread: Boolean = true,
+        /** When false, skip per-thread SMS address fallback queries. */
+        val resolveMissingAddresses: Boolean = true,
+    )
+
     /**
      * Loads conversation rows from [Telephony.Threads] (one row per thread). Falls back to
      * scanning [Telephony.Sms.CONTENT_URI] only when the threads table is unavailable — the
@@ -20,10 +29,41 @@ class SmsMessagingDataSource(
      * Avoids [Telephony.Sms.Conversations], which is incomplete or throws on many OEMs when
      * projecting DATE/READ/SNIPPET.
      */
-    fun loadThreads(): List<ConversationThread> {
-        contactNameCache.clear()
-        canonicalAddressCache.clear()
-        return loadThreadsFromThreadsTable() ?: loadThreadsByScanningSms()
+    fun loadThreads(options: LoadOptions = LoadOptions()): List<ConversationThread> {
+        return loadThreadsFromThreadsTable(options) ?: loadThreadsByScanningSms(options)
+    }
+
+    /** Seeds the in-memory contact cache from a previous session for instant name paint. */
+    fun seedContactNames(names: Map<String, String>) {
+        names.forEach { (key, value) ->
+            val normalized = MessagingLogic.normalizeAddress(key).ifEmpty { key.trim() }
+            if (normalized.isNotEmpty()) {
+                contactNameCache[normalized] = value
+            }
+        }
+    }
+
+    fun knownContactNames(): Map<String, String> =
+        contactNameCache.mapNotNull { (key, value) ->
+            value?.takeIf { it.isNotBlank() }?.let { key to it }
+        }.toMap()
+
+    /**
+     * Second-pass polish: PhoneLookup for missing names + accurate unread counts.
+     * Does not re-query the threads table.
+     */
+    fun enrichThreads(threads: List<ConversationThread>): List<ConversationThread> {
+        if (threads.isEmpty()) return threads
+        val unreadByThread = loadUnreadCountsByThread()
+        return threads.map { thread ->
+            val name = thread.displayName?.takeIf { it.isNotBlank() }
+                ?: cachedContactName(thread.address, resolve = true)
+            val unreadFromSms = unreadByThread[thread.id]
+            thread.copy(
+                displayName = name,
+                unreadCount = unreadFromSms ?: thread.unreadCount,
+            )
+        }
     }
 
     /**
@@ -52,7 +92,7 @@ class SmsMessagingDataSource(
             }
         }
         val label = latestAddress?.let { address ->
-            cachedContactName(address)?.takeIf { it.isNotBlank() }
+            cachedContactName(address, resolve = true)?.takeIf { it.isNotBlank() }
                 ?: MessagingLogic.formatAddress(address)
         }
         return SmsTilePeek(
@@ -61,7 +101,7 @@ class SmsMessagingDataSource(
         )
     }
 
-    private fun loadThreadsFromThreadsTable(): List<ConversationThread>? {
+    private fun loadThreadsFromThreadsTable(options: LoadOptions): List<ConversationThread>? {
         val uri = Telephony.Threads.CONTENT_URI.buildUpon()
             .appendQueryParameter("simple", "true")
             .build()
@@ -90,13 +130,21 @@ class SmsMessagingDataSource(
             val snippetIdx = c.columnIndexOrNull(Telephony.Threads.SNIPPET)
             val readIdx = c.columnIndexOrNull(Telephony.Threads.READ)
 
-            val unreadByThread = loadUnreadCountsByThread()
+            val unreadByThread = if (options.accurateUnread) {
+                loadUnreadCountsByThread()
+            } else {
+                emptyMap()
+            }
             val threads = ArrayList<ConversationThread>(c.count.coerceAtLeast(0))
             while (c.moveToNext()) {
                 val threadId = c.getLong(idIdx)
                 val recipientIds = recipientsIdx?.let { c.getString(it) }.orEmpty()
                 val address = addressForRecipientIds(recipientIds)
-                    ?: latestAddressForThread(threadId)
+                    ?: if (options.resolveMissingAddresses) {
+                        latestAddressForThread(threadId)
+                    } else {
+                        null
+                    }
                     ?: continue
                 val read = readIdx == null || c.getInt(readIdx) == 1
                 val unreadFromSms = unreadByThread[threadId] ?: 0
@@ -104,13 +152,13 @@ class SmsMessagingDataSource(
                     ConversationThread(
                         id = threadId,
                         address = address,
-                        displayName = cachedContactName(address),
+                        displayName = cachedContactName(address, resolve = options.resolveContacts),
                         preview = MessagingLogic.previewText(
                             snippetIdx?.let { c.getString(it) }.orEmpty(),
                         ),
                         timestamp = c.getLong(dateIdx),
                         unreadCount = when {
-                            unreadFromSms > 0 -> unreadFromSms
+                            options.accurateUnread && unreadFromSms > 0 -> unreadFromSms
                             read -> 0
                             else -> 1
                         },
@@ -125,7 +173,7 @@ class SmsMessagingDataSource(
      * Fallback for devices where the threads table query fails. Scans SMS newest-first and
      * groups by thread id; contact lookups are memoized so each address hits Contacts once.
      */
-    private fun loadThreadsByScanningSms(): List<ConversationThread> {
+    private fun loadThreadsByScanningSms(options: LoadOptions): List<ConversationThread> {
         val projection = arrayOf(
             Telephony.Sms.THREAD_ID,
             Telephony.Sms.ADDRESS,
@@ -161,7 +209,9 @@ class SmsMessagingDataSource(
                     )
                 }
             }
-            MessagingLogic.threadsFromSmsRows(rows, displayNameFor = ::cachedContactName)
+            MessagingLogic.threadsFromSmsRows(rows) { address ->
+                cachedContactName(address, resolve = options.resolveContacts)
+            }
         }
     }
 
@@ -186,6 +236,40 @@ class SmsMessagingDataSource(
             }
         }
         return counts
+    }
+
+    /**
+     * Marks every SMS in [threadId] as read/seen in the Telephony provider.
+     * Required so reloads (and the system unread badge) do not resurrect the marker.
+     */
+    fun markThreadRead(threadId: Long): Boolean {
+        val values = android.content.ContentValues().apply {
+            put(Telephony.Sms.READ, 1)
+            put(Telephony.Sms.SEEN, 1)
+        }
+        val updated = runCatching {
+            context.contentResolver.update(
+                Telephony.Sms.CONTENT_URI,
+                values,
+                "${Telephony.Sms.THREAD_ID} = ? AND ${Telephony.Sms.READ} = 0",
+                arrayOf(threadId.toString()),
+            )
+        }.getOrDefault(0)
+        // Best-effort Threads row update — some OEMs ignore this URI.
+        runCatching {
+            val threadValues = android.content.ContentValues().apply {
+                put(Telephony.Threads.READ, 1)
+            }
+            context.contentResolver.update(
+                Telephony.Threads.CONTENT_URI.buildUpon()
+                    .appendQueryParameter("simple", "true")
+                    .build(),
+                threadValues,
+                "${Telephony.Threads._ID} = ?",
+                arrayOf(threadId.toString()),
+            )
+        }
+        return updated > 0
     }
 
     fun loadMessages(threadId: Long): List<MessageItem> {
@@ -263,7 +347,7 @@ class SmsMessagingDataSource(
                 return ConversationThread(
                     id = cursor.getLong(threadIdIdx),
                     address = resolvedAddress,
-                    displayName = cachedContactName(resolvedAddress),
+                    displayName = cachedContactName(resolvedAddress, resolve = true),
                     preview = MessagingLogic.previewText(bodyIdx?.let { cursor.getString(it) }.orEmpty()),
                     timestamp = cursor.getLong(dateIdx),
                     unreadCount = if (readIdx == null || cursor.getInt(readIdx) == 1) 0 else 1,
@@ -321,10 +405,14 @@ class SmsMessagingDataSource(
         return null
     }
 
-    private fun cachedContactName(address: String): String? {
+    private fun cachedContactName(address: String, resolve: Boolean): String? {
         val key = MessagingLogic.normalizeAddress(address).ifEmpty { address.trim() }
         if (key.isEmpty()) return null
-        return contactNameCache.getOrPut(key) { lookupContactName(address) }
+        if (contactNameCache.containsKey(key)) return contactNameCache[key]
+        if (!resolve) return null
+        val name = lookupContactName(address)
+        contactNameCache[key] = name
+        return name
     }
 
     private fun lookupContactName(address: String): String? {

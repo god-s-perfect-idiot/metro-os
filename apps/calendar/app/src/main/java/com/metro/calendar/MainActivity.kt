@@ -28,12 +28,22 @@ import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
     private val requestCalendar = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { results ->
+        val granted = results[Manifest.permission.READ_CALENDAR] == true
+        permissionResult?.invoke(granted)
+        // WRITE may arrive with the same grant dialog when both were requested.
+        writePermissionResult?.invoke(results[Manifest.permission.WRITE_CALENDAR] == true)
+    }
+
+    private val requestWriteCalendar = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        permissionResult?.invoke(granted)
+        writePermissionResult?.invoke(granted)
     }
 
     private var permissionResult: ((Boolean) -> Unit)? = null
+    private var writePermissionResult: ((Boolean) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         MetroSplash.install(this)
@@ -82,7 +92,15 @@ class MainActivity : ComponentActivity() {
                                     permissionResult = { granted ->
                                         state.onPermissionResult(granted)
                                     }
-                                    requestCalendar.launch(Manifest.permission.READ_CALENDAR)
+                                    writePermissionResult = { granted ->
+                                        state.onWritePermissionResult(granted)
+                                    }
+                                    requestCalendar.launch(
+                                        arrayOf(
+                                            Manifest.permission.READ_CALENDAR,
+                                            Manifest.permission.WRITE_CALENDAR,
+                                        ),
+                                    )
                                 },
                                 onContinueWithDemo = state::continueWithDemo,
                                 modifier = Modifier.fillMaxSize(),
@@ -91,6 +109,12 @@ class MainActivity : ComponentActivity() {
                         else -> {
                             CalendarShell(
                                 state = state,
+                                onRequestWritePermission = {
+                                    writePermissionResult = { granted ->
+                                        state.onWritePermissionResult(granted)
+                                    }
+                                    requestWriteCalendar.launch(Manifest.permission.WRITE_CALENDAR)
+                                },
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }

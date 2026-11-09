@@ -158,6 +158,28 @@ object MessagingLogic {
         }
 
     /**
+     * Clears unread for threads the user already opened, unless a newer message arrived after
+     * [localReadAtByThread] (keyed by thread id → epoch millis when marked read).
+     */
+    fun applyLocalReads(
+        threads: List<ConversationThread>,
+        localReadAtByThread: Map<Long, Long>,
+    ): List<ConversationThread> {
+        if (localReadAtByThread.isEmpty()) return threads
+        return threads.map { thread ->
+            val readAt = localReadAtByThread[thread.id] ?: return@map thread
+            if (thread.timestamp <= readAt) thread.copy(unreadCount = 0) else thread
+        }
+    }
+
+    /**
+     * Chats pivot: conversations with a saved contact display name.
+     * Threads pivot keeps the full list (saved + unknown numbers).
+     */
+    fun chatThreads(threads: List<ConversationThread>): List<ConversationThread> =
+        threads.filter { !it.displayName.isNullOrBlank() }
+
+    /**
      * Matches contacts by display-name substring or phone-number digits while composing "to".
      */
     fun contactSuggestions(

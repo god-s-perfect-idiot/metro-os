@@ -42,6 +42,7 @@ fun ConversationScreen(
     onBack: () -> Unit,
     onComposerChange: (String) -> Unit,
     onSend: () -> Unit,
+    onOpenImage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BackHandler(onBack = onBack)
@@ -94,7 +95,10 @@ fun ConversationScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(messages, key = { it.id }) { message ->
-                MessageBubble(message = message)
+                MessageBubble(
+                    message = message,
+                    onOpenImage = onOpenImage,
+                )
             }
         }
 
@@ -111,7 +115,10 @@ fun ConversationScreen(
 }
 
 @Composable
-private fun MessageBubble(message: MessageItem) {
+private fun MessageBubble(
+    message: MessageItem,
+    onOpenImage: (String) -> Unit,
+) {
     val isOutgoing = message.direction == MessageDirection.Outgoing
     val kind = if (isOutgoing) MessageBubbleKind.Outgoing else MessageBubbleKind.Incoming
     val background = if (isOutgoing) {
@@ -124,6 +131,8 @@ private fun MessageBubble(message: MessageItem) {
         SendState.Failed -> " · failed"
         else -> ""
     }
+    val hasBody = message.body.isNotBlank()
+    val hasImages = message.imageUris.isNotEmpty()
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -139,12 +148,30 @@ private fun MessageBubble(message: MessageItem) {
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    MetroText(
-                        text = message.body,
-                        style = MetroTextStyle.Body,
-                        color = MetroColors.TileContentOnAccent,
-                        modifier = Modifier.padding(end = 4.dp, bottom = 4.dp),
-                    )
+                    message.imageUris.forEach { uri ->
+                        MmsBubbleImage(
+                            uri = uri,
+                            onOpen = { onOpenImage(uri) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = if (hasBody || hasImages) 8.dp else 0.dp),
+                        )
+                    }
+                    if (hasBody) {
+                        MetroText(
+                            text = message.body,
+                            style = MetroTextStyle.Body,
+                            color = MetroColors.TileContentOnAccent,
+                            modifier = Modifier.padding(end = 4.dp, bottom = 4.dp),
+                        )
+                    } else if (!hasImages) {
+                        MetroText(
+                            text = if (message.isMms) "Multimedia message" else "",
+                            style = MetroTextStyle.Body,
+                            color = MetroColors.TileContentOnAccent,
+                            modifier = Modifier.padding(end = 4.dp, bottom = 4.dp),
+                        )
+                    }
                     MetroText(
                         text = MessagingLogic.bubbleTime(message.timestamp) + statusSuffix,
                         style = MetroTextStyle.DialogBody,

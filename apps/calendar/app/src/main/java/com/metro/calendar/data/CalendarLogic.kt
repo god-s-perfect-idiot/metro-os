@@ -60,13 +60,15 @@ object CalendarLogic {
         return "${date.dayOfMonth} $month"
     }
 
-    fun formatEventTime(event: CalendarEvent, zoneId: ZoneId = ZoneId.systemDefault()): String {
+    fun formatEventTime(
+        event: CalendarEvent,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+        use24Hour: Boolean = true,
+    ): String {
         if (event.allDay) return "All day"
-        val time = Instant.ofEpochMilli(event.startMillis)
-            .atZone(zoneId)
-            .toLocalTime()
-            .format(DateTimeFormatter.ofPattern("HH:mm", locale))
-        return time
+        val local = Instant.ofEpochMilli(event.startMillis).atZone(zoneId).toLocalTime()
+        val pattern = if (use24Hour) "HH:mm" else "h:mm a"
+        return local.format(DateTimeFormatter.ofPattern(pattern, locale))
     }
 
     fun formatEventDuration(event: CalendarEvent, zoneId: ZoneId = ZoneId.systemDefault()): String {
@@ -127,18 +129,20 @@ object CalendarLogic {
     fun buildHourSlots(
         events: List<CalendarEvent>,
         epochDay: Long,
-        startHour: Int = 8,
-        endHour: Int = 20,
+        startHour: Int = 0,
+        endHour: Int = 23,
         zoneId: ZoneId = ZoneId.systemDefault(),
+        use24Hour: Boolean = false,
     ): List<HourSlot> {
         val timed = timedEventsForDay(events, epochDay, zoneId)
         return (startHour..endHour).map { hour ->
             val hourStart = millisFromEpochDay(epochDay, zoneId) + TimeUnit.HOURS.toMillis(hour.toLong())
             val hourEnd = hourStart + TimeUnit.HOURS.toMillis(1)
-            val label = formatHourLabel(hour)
-            val inHour = timed.filter { event ->
-                event.startMillis < hourEnd && event.endMillis > hourStart
-            }
+            val label = formatHourLabel(hour, use24Hour)
+            // List an event only in the hour it starts so multi-event hours expand as stacked rows.
+            val inHour = timed
+                .filter { event -> event.startMillis in hourStart until hourEnd }
+                .sortedBy { it.startMillis }
             HourSlot(hour = hour, label = label, events = inHour)
         }
     }
@@ -229,13 +233,26 @@ object CalendarLogic {
         }
     }
 
-    private fun formatHourLabel(hour: Int): String {
+    fun formatHourLabel(hour: Int, use24Hour: Boolean = false): String {
         val normalized = hour % 24
+        if (use24Hour) {
+            return String.format(locale, "%02d:00", normalized)
+        }
         return when {
             normalized == 0 -> "12 AM"
             normalized < 12 -> "$normalized AM"
             normalized == 12 -> "12 PM"
             else -> "${normalized - 12} PM"
+        }
+    }
+
+    fun parseEventColorHex(hex: String, fallbackAccentHex: String): Long {
+        val cleaned = hex.trim().removePrefix("#")
+        val raw = cleaned.ifBlank { fallbackAccentHex.removePrefix("#") }
+        return try {
+            raw.toLong(16) or 0xFF000000L
+        } catch (_: NumberFormatException) {
+            fallbackAccentHex.removePrefix("#").toLongOrNull(16)?.or(0xFF000000L) ?: 0xFF1BA1E2L
         }
     }
 
@@ -249,16 +266,89 @@ object CalendarLogic {
         else -> 12
     }
 
+    /**
+     * How many pivot tabs sit before the "current" period when the window is centered on today.
+     * Day view uses [dayPastTabOffset] / [defaultDayPivotStartEpochDay] instead.
+     */
+    fun pastTabOffset(viewType: CalendarViewType): Int = when (viewType) {
+        CalendarViewType.Day -> 0
+        CalendarViewType.Week -> 6
+        CalendarViewType.Month -> 6
+        CalendarViewType.Year -> 2
+    }
+
+    /** Days before today included when the day pivot is anchored around now. */
+    fun dayPastTabOffset(tabCount: Int = tabCountForViewType(CalendarViewType.Day)): Int =
+        (tabCount / 2).coerceAtLeast(0)
+
+    fun defaultDayPivotStartEpochDay(
+        zoneId: ZoneId = ZoneId.systemDefault(),
+        tabCount: Int = tabCountForViewType(CalendarViewType.Day),
+    ): Long = todayEpochDay(zoneId) - dayPastTabOffset(tabCount)
+
+    /** Epoch day for tab 0 of [viewType] when the window is centered on today. */
+    fun defaultPeriodPivotStartEpochDay(
+        viewType: CalendarViewType,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ): Long {
+        val today = LocalDate.now(zoneId)
+        val past = pastTabOffset(viewType)
+        return when (viewType) {
+            CalendarViewType.Day -> defaultDayPivotStartEpochDay(zoneId)
+            CalendarViewType.Week -> today
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(past.toLong())
+                .toEpochDay()
+            CalendarViewType.Month -> today
+                .withDayOfMonth(1)
+                .minusMonths(past.toLong())
+                .toEpochDay()
+            CalendarViewType.Year -> LocalDate.of(today.year - past, 1, 1).toEpochDay()
+        }
+    }
+
+    /**
+     * Re-anchors a period pivot so [epochDay] lands on [focusTabIndex] (usually the centered
+     * "current" slot). Used when drilling into a month/year outside the default today window.
+     */
+    fun periodPivotStartForFocus(
+        viewType: CalendarViewType,
+        epochDay: Long,
+        focusTabIndex: Int = pastTabOffset(viewType),
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ): Long {
+        val date = LocalDate.ofEpochDay(epochDay)
+        return when (viewType) {
+            CalendarViewType.Day -> epochDay - focusTabIndex
+            CalendarViewType.Week -> date
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(focusTabIndex.toLong())
+                .toEpochDay()
+            CalendarViewType.Month -> date
+                .withDayOfMonth(1)
+                .minusMonths(focusTabIndex.toLong())
+                .toEpochDay()
+            CalendarViewType.Year -> LocalDate.of(date.year - focusTabIndex, 1, 1).toEpochDay()
+        }
+    }
+
     fun buildTabTitles(
         viewType: CalendarViewType,
         tabCount: Int = tabCountForViewType(viewType),
         zoneId: ZoneId = ZoneId.systemDefault(),
         dayPivotStartEpochDay: Long? = null,
+        periodPivotStartEpochDay: Long? = null,
     ): List<String> {
         val today = LocalDate.now(zoneId)
-        val dayStart = dayPivotStartEpochDay?.let(LocalDate::ofEpochDay) ?: today
+        val pivotStart = resolvePivotStart(
+            viewType = viewType,
+            zoneId = zoneId,
+            tabCount = tabCount,
+            dayPivotStartEpochDay = dayPivotStartEpochDay,
+            periodPivotStartEpochDay = periodPivotStartEpochDay,
+        )
         return (0 until tabCount).map { index ->
-            tabTitle(viewType, index, today, dayStart, zoneId)
+            tabTitle(viewType, index, today, pivotStart, zoneId)
         }
     }
 
@@ -267,21 +357,19 @@ object CalendarLogic {
         tabIndex: Int,
         zoneId: ZoneId = ZoneId.systemDefault(),
         dayPivotStartEpochDay: Long? = null,
+        periodPivotStartEpochDay: Long? = null,
     ): Long {
-        val today = LocalDate.now(zoneId)
-        val dayStart = dayPivotStartEpochDay?.let(LocalDate::ofEpochDay) ?: today
+        val pivotStart = resolvePivotStart(
+            viewType = viewType,
+            zoneId = zoneId,
+            dayPivotStartEpochDay = dayPivotStartEpochDay,
+            periodPivotStartEpochDay = periodPivotStartEpochDay,
+        )
         return when (viewType) {
-            CalendarViewType.Day -> dayStart.plusDays(tabIndex.toLong()).toEpochDay()
-            CalendarViewType.Week -> {
-                val thisWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                thisWeekStart.plusWeeks(tabIndex.toLong()).toEpochDay()
-            }
-            CalendarViewType.Month -> {
-                today.withDayOfMonth(1).plusMonths(tabIndex.toLong()).toEpochDay()
-            }
-            CalendarViewType.Year -> {
-                LocalDate.of(today.year + tabIndex, 1, 1).toEpochDay()
-            }
+            CalendarViewType.Day -> pivotStart.plusDays(tabIndex.toLong()).toEpochDay()
+            CalendarViewType.Week -> pivotStart.plusWeeks(tabIndex.toLong()).toEpochDay()
+            CalendarViewType.Month -> pivotStart.plusMonths(tabIndex.toLong()).toEpochDay()
+            CalendarViewType.Year -> LocalDate.of(pivotStart.year + tabIndex, 1, 1).toEpochDay()
         }
     }
 
@@ -290,27 +378,45 @@ object CalendarLogic {
         epochDay: Long,
         zoneId: ZoneId = ZoneId.systemDefault(),
         dayPivotStartEpochDay: Long? = null,
+        periodPivotStartEpochDay: Long? = null,
+        tabCount: Int = tabCountForViewType(viewType),
     ): Int {
-        val today = LocalDate.now(zoneId)
+        val pivotStart = resolvePivotStart(
+            viewType = viewType,
+            zoneId = zoneId,
+            tabCount = tabCount,
+            dayPivotStartEpochDay = dayPivotStartEpochDay,
+            periodPivotStartEpochDay = periodPivotStartEpochDay,
+        )
         val date = LocalDate.ofEpochDay(epochDay)
-        val dayStart = dayPivotStartEpochDay?.let(LocalDate::ofEpochDay) ?: today
-        return when (viewType) {
-            CalendarViewType.Day -> {
-                ChronoUnit.DAYS.between(dayStart, date).toInt().coerceAtLeast(0)
-            }
+        val raw = when (viewType) {
+            CalendarViewType.Day -> ChronoUnit.DAYS.between(pivotStart, date).toInt()
             CalendarViewType.Week -> {
-                val thisWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 val targetWeekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                ChronoUnit.WEEKS.between(thisWeekStart, targetWeekStart).toInt().coerceAtLeast(0)
+                ChronoUnit.WEEKS.between(pivotStart, targetWeekStart).toInt()
             }
             CalendarViewType.Month -> {
-                val months = (date.year - today.year) * 12 + (date.monthValue - today.monthValue)
-                months.coerceAtLeast(0)
+                (date.year - pivotStart.year) * 12 + (date.monthValue - pivotStart.monthValue)
             }
-            CalendarViewType.Year -> {
-                (date.year - today.year).coerceAtLeast(0)
-            }
+            CalendarViewType.Year -> date.year - pivotStart.year
         }
+        return raw.coerceIn(0, (tabCount - 1).coerceAtLeast(0))
+    }
+
+    private fun resolvePivotStart(
+        viewType: CalendarViewType,
+        zoneId: ZoneId,
+        tabCount: Int = tabCountForViewType(viewType),
+        dayPivotStartEpochDay: Long?,
+        periodPivotStartEpochDay: Long?,
+    ): LocalDate {
+        val epoch = when (viewType) {
+            CalendarViewType.Day -> dayPivotStartEpochDay
+                ?: defaultDayPivotStartEpochDay(zoneId, tabCount)
+            else -> periodPivotStartEpochDay
+                ?: defaultPeriodPivotStartEpochDay(viewType, zoneId)
+        }
+        return LocalDate.ofEpochDay(epoch)
     }
 
     fun weekDayEpochDays(weekStartEpochDay: Long): List<Long> =
@@ -322,31 +428,32 @@ object CalendarLogic {
         viewType: CalendarViewType,
         tabIndex: Int,
         today: LocalDate,
-        dayStart: LocalDate,
+        pivotStart: LocalDate,
         zoneId: ZoneId,
     ): String = when (viewType) {
         CalendarViewType.Day -> {
-            val date = dayStart.plusDays(tabIndex.toLong())
+            val date = pivotStart.plusDays(tabIndex.toLong())
             when (date) {
                 today -> "today"
                 today.plusDays(1) -> "tomorrow"
+                today.minusDays(1) -> "yesterday"
                 else -> "${dayNameLower(date.toEpochDay(), zoneId)} ${date.dayOfMonth}"
             }
         }
-        CalendarViewType.Week -> when (tabIndex) {
-            0 -> "this week"
-            1 -> "next week"
-            else -> {
-                val weekStart = today
-                    .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                    .plusWeeks(tabIndex.toLong())
-                "${monthNameLower(weekStart.toEpochDay(), zoneId)} ${weekStart.dayOfMonth}"
+        CalendarViewType.Week -> {
+            val weekStart = pivotStart.plusWeeks(tabIndex.toLong())
+            val thisWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            when (weekStart) {
+                thisWeekStart -> "this week"
+                thisWeekStart.plusWeeks(1) -> "next week"
+                thisWeekStart.minusWeeks(1) -> "last week"
+                else -> "${monthNameLower(weekStart.toEpochDay(), zoneId)} ${weekStart.dayOfMonth}"
             }
         }
         CalendarViewType.Month -> {
-            val monthDate = today.withDayOfMonth(1).plusMonths(tabIndex.toLong())
+            val monthDate = pivotStart.plusMonths(tabIndex.toLong())
             monthNameLower(monthDate.toEpochDay(), zoneId)
         }
-        CalendarViewType.Year -> (today.year + tabIndex).toString()
+        CalendarViewType.Year -> (pivotStart.year + tabIndex).toString()
     }
 }

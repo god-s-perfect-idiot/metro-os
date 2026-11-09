@@ -13,6 +13,7 @@ import com.metro.messaging.data.ConversationThread
 import com.metro.messaging.data.MessageItem
 import com.metro.messaging.data.MessagingLogic
 import com.metro.messaging.data.MessagingRepository
+import com.metro.messaging.data.MessagingSessionStore
 import com.metro.messaging.data.SendState
 import com.metro.messaging.tiles.MessagingTileRefresh
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,8 @@ sealed class MessagingRoute {
     data object NewMessage : MessagingRoute()
 
     data class Conversation(val threadId: Long) : MessagingRoute()
+
+    data class ImageViewer(val threadId: Long, val uri: String) : MessagingRoute()
 }
 
 class MessagingState(
@@ -37,6 +40,7 @@ class MessagingState(
     private val appContext = context.applicationContext
     private val repository = MessagingRepository(appContext)
     private val contactsLookup = ContactsLookup(appContext)
+    private val sessionStore = MessagingSessionStore(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var threadsLoadJob: Job? = null
@@ -45,6 +49,9 @@ class MessagingState(
     private var conversationLoadGeneration = 0
     private var sendInFlight = false
     private var newSendInFlight = false
+    private var sessionRestored = false
+    private var deepLinkHandled = false
+    private val messageCache = LinkedHashMap<Long, List<MessageItem>>(16, 0.75f, true)
 
     var generation by mutableIntStateOf(0)
         private set
@@ -58,15 +65,15 @@ class MessagingState(
     var messages by mutableStateOf<List<MessageItem>>(emptyList())
         private set
 
-    /** True while [loadConversation] is awaiting SMS/provider IO. */
+    /** True while [loadConversation] is awaiting SMS/provider IO and no cache is ready. */
     var isLoadingMessages by mutableStateOf(false)
         private set
 
     /**
-     * True until the first (or an empty-list) [reloadThreads] completes.
-     * Starts true so cold open never flashes the empty placeholder.
+     * True only while the first paint has nothing to show.
+     * Disk snapshots and silent refreshes never flip this back to a blocking loader.
      */
-    var isLoadingThreads by mutableStateOf(true)
+    var isLoadingThreads by mutableStateOf(false)
         private set
 
     var composerText by mutableStateOf("")
@@ -90,11 +97,17 @@ class MessagingState(
     var skippedPermissions by mutableStateOf(false)
         private set
 
-    /** False until the first [refreshPermissions] completes — avoids flashing the permission gate. */
-    var permissionsChecked by mutableStateOf(false)
+    /** Synced in init — UI never waits on a permission-check loader. */
+    var permissionsChecked by mutableStateOf(true)
+        private set
+
+    /** 0 = threads (all), 1 = chats (saved contacts). */
+    var pivotPage by mutableIntStateOf(sessionStore.lastPivotPage())
         private set
 
     private var allContacts: List<ContactSuggestion> = emptyList()
+    /** threadId → opened-at millis; suppresses unread until a newer message arrives. */
+    private var localReadAtByThread: Map<Long, Long> = sessionStore.loadLocalReadAt()
 
     val needsPermissionGate: Boolean
         get() = !canAccessSystemSms && !skippedPermissions
@@ -111,10 +124,38 @@ class MessagingState(
     val canAccessSystemSms: Boolean
         get() = repository.canAccessSystemSms
 
+    /** Saved-contact conversations for the chats pivot. */
+    val chatThreads: List<ConversationThread>
+        get() = MessagingLogic.chatThreads(threads)
+
+    init {
+        repository.refreshPermissions(appContext)
+        syncAccessFlags()
+        repository.seedContactNames(sessionStore.loadContactNames())
+        val snapshot = sessionStore.loadThreadSnapshot()
+        if (snapshot.isNotEmpty()) {
+            threads = applyReadState(snapshot)
+        }
+        sessionStore.lastOpenedThreadId()?.let { threadId ->
+            val cachedMessages = sessionStore.loadMessagesSnapshot(threadId)
+            if (cachedMessages.isNotEmpty()) {
+                putMessageCache(threadId, cachedMessages)
+            }
+        }
+    }
+
     fun clear() {
         threadsLoadJob?.cancel()
         conversationLoadJob?.cancel()
         scope.cancel()
+    }
+
+    fun selectPivotPage(page: Int) {
+        val clamped = page.coerceIn(0, 1)
+        if (pivotPage == clamped) return
+        pivotPage = clamped
+        sessionStore.savePivotPage(clamped)
+        notifyChanged()
     }
 
     fun refreshPermissions(context: Context = appContext) {
@@ -129,7 +170,6 @@ class MessagingState(
         syncAccessFlags()
         if (canAccessSystemSms) {
             skippedPermissions = false
-            reloadThreads()
         }
         notifyChanged()
     }
@@ -139,14 +179,14 @@ class MessagingState(
         syncAccessFlags()
         skippedPermissions = false
         reloadContactsIfNeeded()
-        reloadThreads()
+        reloadThreads(force = true)
         notifyChanged()
     }
 
     fun continueWithDemo() {
         skippedPermissions = true
         usingDemoData = !canAccessSystemSms
-        reloadThreads()
+        reloadThreads(force = true)
         notifyChanged()
     }
 
@@ -155,23 +195,27 @@ class MessagingState(
         usingDemoData = !repository.canAccessSystemSms
     }
 
-    fun reloadThreads() {
+    fun reloadThreads(force: Boolean = false) {
+        if (!force && threadsLoadJob?.isActive == true) return
         val generation = ++threadsLoadGeneration
-        val openThreadId = (route as? MessagingRoute.Conversation)?.threadId ?: -1L
         threadsLoadJob?.cancel()
-        // Only block the threads UI when there is nothing to show yet — silent refresh
-        // when the list already has rows.
+        // Never block the UI when a snapshot (or prior load) already painted rows.
         if (threads.isEmpty()) {
             isLoadingThreads = true
             notifyChanged()
         }
         threadsLoadJob = scope.launch {
             try {
-                val loaded = withContext(Dispatchers.IO) {
-                    MessagingLogic.markThreadRead(repository.loadThreads(), openThreadId)
-                }
+                repository.seedContactNames(sessionStore.loadContactNames())
+                val fast = withContext(Dispatchers.IO) { repository.loadThreadsFast() }
                 if (generation != threadsLoadGeneration) return@launch
-                threads = loaded
+                publishThreads(fast)
+                isLoadingThreads = false
+
+                val enriched = withContext(Dispatchers.IO) { repository.enrichThreads(fast) }
+                if (generation != threadsLoadGeneration) return@launch
+                publishThreads(enriched)
+                sessionStore.saveContactNames(repository.knownContactNames())
                 MessagingTileRefresh.request(appContext)
             } finally {
                 if (generation == threadsLoadGeneration) {
@@ -182,17 +226,86 @@ class MessagingState(
         }
     }
 
-    fun openThread(thread: ConversationThread) {
-        route = MessagingRoute.Conversation(thread.id)
+    /** Applies local + currently-open read state, then publishes and snapshots. */
+    private fun publishThreads(loaded: List<ConversationThread>) {
+        val next = applyReadState(loaded)
+        if (next == threads) return
+        threads = next
+        sessionStore.saveThreadSnapshot(next)
+        notifyChanged()
+    }
+
+    private fun applyReadState(loaded: List<ConversationThread>): List<ConversationThread> {
+        val openThreadId = (route as? MessagingRoute.Conversation)?.threadId ?: -1L
+        return MessagingLogic.markThreadRead(
+            MessagingLogic.applyLocalReads(loaded, localReadAtByThread),
+            openThreadId,
+        )
+    }
+
+    private fun rememberThreadRead(thread: ConversationThread) {
+        val readAt = maxOf(thread.timestamp, System.currentTimeMillis())
+        localReadAtByThread = localReadAtByThread + (thread.id to readAt)
+        sessionStore.saveLocalReadAt(thread.id, readAt)
         threads = MessagingLogic.markThreadRead(threads, thread.id)
-        messages = emptyList()
+        sessionStore.saveThreadSnapshot(threads)
+    }
+
+    /**
+     * Re-opens the last conversation immediately on cold start (unless a deep link wins).
+     * Safe to call before the thread list finishes loading.
+     */
+    fun restoreSessionIfNeeded() {
+        if (sessionRestored || deepLinkHandled) return
+        sessionRestored = true
+        val threadId = sessionStore.lastOpenedThreadId() ?: return
+        if (route !is MessagingRoute.Threads) return
+        val thread = threads.firstOrNull { it.id == threadId }
+            ?: ConversationThread(
+                id = threadId,
+                address = threadId.toString(),
+                displayName = null,
+                preview = "",
+                timestamp = 0L,
+                unreadCount = 0,
+            )
+        openThread(thread, persist = false)
+    }
+
+    /** Prevents session restore when an sms:/smsto: intent is about to navigate. */
+    fun suppressSessionRestore() {
+        deepLinkHandled = true
+        sessionRestored = true
+    }
+
+    fun openThread(thread: ConversationThread, persist: Boolean = true) {
+        route = MessagingRoute.Conversation(thread.id)
+        rememberThreadRead(thread)
+        if (persist) {
+            sessionStore.saveLastOpenedThreadId(thread.id)
+        }
+        val cached = messageCache[thread.id]
+            ?: sessionStore.loadMessagesSnapshot(thread.id).also { disk ->
+                if (disk.isNotEmpty()) putMessageCache(thread.id, disk)
+            }.takeIf { it.isNotEmpty() }
+        if (cached != null) {
+            messages = cached
+            isLoadingMessages = false
+        } else {
+            messages = emptyList()
+        }
         composerText = ""
         notifyChanged()
         MessagingTileRefresh.request(appContext)
-        loadConversation(thread.id)
+        scope.launch(Dispatchers.IO) {
+            repository.markThreadRead(thread.id)
+        }
+        loadConversation(thread.id, preferCache = cached != null)
     }
 
     fun openAddress(address: String) {
+        deepLinkHandled = true
+        sessionRestored = true
         scope.launch {
             val thread = withContext(Dispatchers.IO) { repository.threadForAddress(address) }
             val existing = threads.firstOrNull {
@@ -215,6 +328,7 @@ class MessagingState(
         contactSuggestions = emptyList()
         reloadContactsIfNeeded()
         route = MessagingRoute.NewMessage
+        sessionStore.saveLastOpenedThreadId(null)
         notifyChanged()
     }
 
@@ -263,6 +377,9 @@ class MessagingState(
                 contactSuggestions = emptyList()
                 route = MessagingRoute.Conversation(thread.id)
                 messages = conversationMessages
+                putMessageCache(thread.id, conversationMessages)
+                sessionStore.saveLastOpenedThreadId(thread.id)
+                sessionStore.saveMessagesSnapshot(thread.id, conversationMessages)
                 notifyChanged()
                 reloadThreads()
                 if (sent.sendState == SendState.Failed) {
@@ -271,6 +388,22 @@ class MessagingState(
             } finally {
                 newSendInFlight = false
             }
+        }
+    }
+
+    fun openImage(threadId: Long, uri: String) {
+        route = MessagingRoute.ImageViewer(threadId = threadId, uri = uri)
+        notifyChanged()
+    }
+
+    /** Pops image viewer → conversation, or conversation/new → threads. */
+    fun goBack() {
+        when (val current = route) {
+            is MessagingRoute.ImageViewer -> {
+                route = MessagingRoute.Conversation(current.threadId)
+                notifyChanged()
+            }
+            else -> backToThreads()
         }
     }
 
@@ -283,8 +416,10 @@ class MessagingState(
         messages = emptyList()
         conversationLoadJob?.cancel()
         isLoadingMessages = false
+        sessionStore.saveLastOpenedThreadId(null)
         notifyChanged()
-        reloadThreads()
+        // Do not reloadThreads() here — a two-phase Telephony refresh was rewriting the list
+        // on every back and flickering rows. Resume / send paths still refresh.
     }
 
     private fun reloadContactsIfNeeded() {
@@ -305,11 +440,14 @@ class MessagingState(
         }
     }
 
-    fun loadConversation(threadId: Long) {
+    fun loadConversation(threadId: Long, preferCache: Boolean = false) {
         val generation = ++conversationLoadGeneration
         conversationLoadJob?.cancel()
-        isLoadingMessages = true
-        notifyChanged()
+        // Keep showing cached messages while a silent refresh runs — never flash the loader.
+        if (!preferCache && messages.isEmpty()) {
+            isLoadingMessages = true
+            notifyChanged()
+        }
         conversationLoadJob = scope.launch {
             try {
                 val (loadedMessages, draft) = withContext(Dispatchers.IO) {
@@ -319,6 +457,8 @@ class MessagingState(
                 if (generation != conversationLoadGeneration) return@launch
                 if ((route as? MessagingRoute.Conversation)?.threadId != threadId) return@launch
                 messages = loadedMessages
+                putMessageCache(threadId, loadedMessages)
+                sessionStore.saveMessagesSnapshot(threadId, loadedMessages)
                 composerText = draft
             } finally {
                 if (generation == conversationLoadGeneration) {
@@ -358,6 +498,8 @@ class MessagingState(
                 }
                 if ((route as? MessagingRoute.Conversation)?.threadId == threadId) {
                     messages = conversationMessages
+                    putMessageCache(threadId, conversationMessages)
+                    sessionStore.saveMessagesSnapshot(threadId, conversationMessages)
                     notifyChanged()
                 }
                 reloadThreads()
@@ -375,7 +517,19 @@ class MessagingState(
         notifyChanged()
     }
 
+    private fun putMessageCache(threadId: Long, messages: List<MessageItem>) {
+        messageCache[threadId] = messages
+        while (messageCache.size > MESSAGE_CACHE_LIMIT) {
+            val eldestKey = messageCache.keys.firstOrNull() ?: break
+            messageCache.remove(eldestKey)
+        }
+    }
+
     private fun notifyChanged() {
         generation++
+    }
+
+    companion object {
+        private const val MESSAGE_CACHE_LIMIT = 8
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metro.messaging.R
 import com.metro.messaging.data.ConversationThread
@@ -34,10 +35,11 @@ fun ThreadListScreen(
     onOpenThread: (ConversationThread) -> Unit,
     onDeleteThread: (ConversationThread) -> Unit,
     modifier: Modifier = Modifier,
+    emptyMessage: String = stringResource(R.string.threads_empty),
 ) {
     if (threads.isEmpty()) {
         EmptyPane(
-            message = stringResource(R.string.threads_empty),
+            message = emptyMessage,
             modifier = modifier,
         )
         return
@@ -105,11 +107,17 @@ private fun ThreadRow(
                 text = MessagingLogic.displayLabel(thread),
                 style = MetroTextStyle.ListItemTitle,
                 color = titleColor,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
             )
             MetroText(
                 text = subtitle,
                 style = MetroTextStyle.ListItemSubtitle,
                 color = MetroTheme.colors.secondaryText,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
             )
         }
         if (thread.unreadCount > 0) {

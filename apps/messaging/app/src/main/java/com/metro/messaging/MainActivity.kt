@@ -28,7 +28,6 @@ import com.metro.messaging.ui.PermissionScreen
 import com.metro.ui.MetroActivities
 import com.metro.ui.MetroSplash
 import com.metro.ui.MetroAppPivotShell
-import com.metro.ui.MetroLoadingScreen
 import com.metro.ui.MetroSystemTheme
 
 class MainActivity : ComponentActivity() {
@@ -83,21 +82,26 @@ class MainActivity : ComponentActivity() {
                 state.refreshPermissions(context)
                 state.refreshDefaultStatus()
                 if (state.canAccessSystemSms || state.skippedPermissions) {
+                    // Single reload path — refreshDefaultStatus no longer triggers its own load.
                     state.reloadThreads()
                 }
                 MessagingTileRefresh.request(context)
                 onDispose { }
             }
 
-            LaunchedEffect(pendingNavigation) {
+            LaunchedEffect(pendingNavigation, state.permissionsChecked, state.needsPermissionGate) {
                 if (pendingNavigation == 0) return@LaunchedEffect
+                if (!state.permissionsChecked || state.needsPermissionGate) return@LaunchedEffect
                 val messagingIntent = intent
-                if (messagingIntent?.data?.scheme == "smsto" ||
+                val isSmsDeepLink = messagingIntent?.data?.scheme == "smsto" ||
                     messagingIntent?.data?.scheme == "sms"
-                ) {
+                if (isSmsDeepLink) {
+                    state.suppressSessionRestore()
                     state.continueWithDemo()
+                    handleMessagingIntent(state, messagingIntent)
+                } else {
+                    state.restoreSessionIfNeeded()
                 }
-                handleMessagingIntent(state, messagingIntent)
             }
 
             MetroSystemTheme {
@@ -106,9 +110,6 @@ class MainActivity : ComponentActivity() {
                     onExit = { MetroActivities.finishWithExitTransition(this@MainActivity) },
                 ) {
                     when {
-                        !state.permissionsChecked -> {
-                            MetroLoadingScreen(modifier = Modifier.fillMaxSize())
-                        }
                         state.needsPermissionGate -> {
                             PermissionScreen(
                                 onRequestPermissions = {
@@ -140,12 +141,14 @@ class MainActivity : ComponentActivity() {
                                         ).show()
                                         state.refreshPermissions(context)
                                         state.refreshDefaultStatus()
+                                        state.reloadThreads(force = true)
                                     } else {
                                         defaultAppResult = {
                                             // Role grant also unlocks Telephony provider access — refresh
                                             // permissions and switch off demo data immediately.
                                             state.refreshPermissions(context)
                                             state.refreshDefaultStatus()
+                                            state.reloadThreads(force = true)
                                         }
                                         requestDefaultSmsApp.launch(roleIntent)
                                     }

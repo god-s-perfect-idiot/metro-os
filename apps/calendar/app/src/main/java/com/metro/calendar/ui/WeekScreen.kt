@@ -1,8 +1,6 @@
 package com.metro.calendar.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -35,7 +34,10 @@ import com.metro.ui.MetroTheme
 fun WeekScreen(
     buckets: List<DayBucket>,
     usingDemoData: Boolean,
+    contextMenuEvent: CalendarEvent?,
+    contextMenuFocusFraction: Float,
     onEventClick: (CalendarEvent) -> Unit,
+    onEventLongPress: (CalendarEvent, Rect) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (buckets.isEmpty()) {
@@ -93,7 +95,13 @@ fun WeekScreen(
                 }
             } else {
                 items(bucket.events, key = { "${bucket.epochDay}-${it.id}-${it.startMillis}" }) { event ->
-                    WeekEventRow(event = event, onClick = { onEventClick(event) })
+                    WeekEventRow(
+                        event = event,
+                        isContextTarget = event.matchesContextTarget(contextMenuEvent),
+                        contextMenuFocusFraction = contextMenuFocusFraction,
+                        onClick = { onEventClick(event) },
+                        onLongPress = { bounds -> onEventLongPress(event, bounds) },
+                    )
                 }
             }
         }
@@ -104,17 +112,23 @@ fun WeekScreen(
 @Composable
 private fun WeekEventRow(
     event: CalendarEvent,
+    isContextTarget: Boolean,
+    contextMenuFocusFraction: Float,
     onClick: () -> Unit,
+    onLongPress: (Rect) -> Unit,
 ) {
     val eventColor = MetroTheme.colors.accent
+    val boundsRef = remember(event.id, event.startMillis) { EventBoundsRef() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 76.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
+            .calendarEventInteraction(
+                isContextTarget = isContextTarget,
+                contextMenuFocusFraction = contextMenuFocusFraction,
+                boundsRef = boundsRef,
                 onClick = onClick,
+                onLongPress = onLongPress,
             )
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

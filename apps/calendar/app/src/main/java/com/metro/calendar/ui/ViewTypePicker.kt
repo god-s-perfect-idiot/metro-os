@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.sp
 import com.metro.calendar.R
 import com.metro.calendar.data.CalendarViewType
 import com.metro.ui.MetroAppBarDefaults
-import com.metro.ui.MetroFontFamily
 import com.metro.ui.MetroTheme
 import com.metro.ui.MetroTransitions
 
@@ -44,27 +43,23 @@ fun ViewTypePicker(
     modifier: Modifier = Modifier,
 ) {
     val visibleState = remember { MutableTransitionState(false) }
-    visibleState.targetState = visible
+    if (visibleState.targetState != visible) {
+        visibleState.targetState = visible
+    }
     val showing = visibleState.currentState || visibleState.targetState
+    if (!showing) return
 
-    Box(
-        modifier = modifier.then(if (showing) Modifier.fillMaxSize() else Modifier),
-    ) {
-        AnimatedVisibility(
-            visibleState = visibleState,
-            enter = fadeIn(animationSpec = tween(MetroTransitions.AppBarSlideMs)),
-            exit = fadeOut(animationSpec = tween(MetroTransitions.AppBarSlideMs)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onDismiss,
-                    ),
-            )
-        }
+    Box(modifier = modifier.fillMaxSize()) {
+        // Scrim — dismiss on outside tap. Drawn first so the panel stays on top.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss,
+                ),
+        )
 
         AnimatedVisibility(
             visibleState = visibleState,
