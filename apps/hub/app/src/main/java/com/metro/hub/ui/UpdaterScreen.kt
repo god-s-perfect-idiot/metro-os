@@ -145,7 +145,7 @@ fun UpdaterScreen(
 
             val batchTotal = state.suiteBatchTotal
             val batchCompleted = state.suiteBatchCompleted
-            val showBatchProgress = batchTotal > 0 && (busy || batchCompleted > 0)
+            val showBatchProgress = state.suiteBatchUpdating && batchTotal > 0
             if (showBatchProgress) {
                 Spacer(modifier = Modifier.height(16.dp))
                 UpdaterBatchProgressBar(

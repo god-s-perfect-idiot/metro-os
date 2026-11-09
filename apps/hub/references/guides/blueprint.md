@@ -111,7 +111,7 @@ Agents implement pages, layout, and interactions exactly as described here. Scre
 - **Section:** `Update status` (`SectionHeader`) + body copy naming the latest metro-os release tag and whether every first-party suite APK is installed at that release’s versions (missing or older count).
 - **Link:** Underlined `Learn more.` → GitHub release page for that tag (or `/releases/latest` if unknown).
 - **Action:** Bordered `update all` (`MetroBorderButton`) — enabled when any suite app is missing or outdated; **greyed** when all are installed and current. Downloads and installs every missing/outdated APK (one package-installer confirmation at a time; silent when Shizuku install is on).
-- **Progress:** During / after an update-all run, a determinate rectangular accent progress bar + `N of M apps updated` sit below the button (and above the per-app downloading line).
+- **Progress:** While update-all is running, a determinate rectangular accent progress bar + `N of M apps updated` sit below the button (and above the per-app downloading line). Hide both when the queue finishes.
 - **Omit:** Notification checkboxes and preferred install time (out of scope).
 - **App bar:** None.
 - **Back:** Returns to panorama hub.
